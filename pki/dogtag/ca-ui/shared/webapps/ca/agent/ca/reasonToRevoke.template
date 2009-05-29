@@ -210,8 +210,7 @@ function renderReason()
                            "Affiliation changed",
                            "Certificate superseded",
                            "Cessation of operation",
-                           "Certificate is on hold",
-                           "Privilege Withdrawn");
+                           "Certificate is on hold");
     document.write("<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\">\n");
     for (var i = 0; i < reason.length; i++) {
         document.write("<tr><td width=\"1%\">\n");
@@ -220,11 +219,7 @@ function renderReason()
             (i == 0 && result.header.reason == null)) {
             document.write(" checked");
         }
-        if (i > 6) {  // value 7 is not used
-            document.write(" name=\"revocationReason\" value=\""+(i+2)+"\">\n");
-        } else {
-            document.write(" name=\"revocationReason\" value=\""+i+"\">\n");
-        }
+        document.write(" name=\"revocationReason\" value=\""+i+"\">\n");
         document.write("</td><td width=\"99%\">\n");
         document.write("<font size=\"-1\" face=\"PrimaSans BT, Verdana, sans-serif\">\n");
         document.write(reason[i]+"</font></td></tr>\n");

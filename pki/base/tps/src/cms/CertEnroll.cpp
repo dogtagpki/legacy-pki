@@ -94,16 +94,11 @@ TOKENDB_PUBLIC int CertEnroll::RevokeCertificate(const char *reason, const char 
     if (num != 0) {
         char *q = strstr(p, "error=");
         q = q+6;
-        o_status = PL_strdup(q);
+        o_status = q;
         RA::Debug("CertEnroll::RevokeCertificate", "status string=%s", q);
     }
     if (resp != NULL) {
-        if (content != NULL) {
-            resp->freeContent();
-            content = NULL;
-        }    
-        delete resp;
-        resp = NULL;
+      delete resp;
     }
     return num;
 }
@@ -128,16 +123,8 @@ TOKENDB_PUBLIC int CertEnroll::UnrevokeCertificate(const char *serialno, const c
     if (num != 0) {
         char *q = strstr(p, "error=");
         q = q+6;
-        o_status = PL_strdup(q);
+        o_status = q;
         RA::Debug("CertEnroll::UnrevokeCertificate", "status string=%s", q);
-    }
-    if (resp != NULL) {
-        if (content != NULL) {
-            resp->freeContent();
-            content = NULL;
-        }    
-        delete resp;
-        resp = NULL;
     }
     return num;
 }

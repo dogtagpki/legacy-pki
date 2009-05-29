@@ -40,7 +40,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(14);
     $self->{"getName"} = &PKI::TPS::Common::r("Administrator");
     $self->{"vmfile"} = "adminpanel.vm";
@@ -97,12 +97,12 @@ sub update
     my $cainfo = $::config->get("preop.ca.url");
     &PKI::TPS::Wizard::debug_log("AdminPanel: preop.ca.url=$cainfo");
     if ($cainfo eq "" || $cainfo =~ /:$/) {
-      $cainfo = $::config->get("config.sdomainEEURL");
-      &PKI::TPS::Wizard::debug_log("AdminPanel: config.sdomainEEURL=$cainfo");
+      $cainfo = $::config->get("config.sdomainURL");
+      &PKI::TPS::Wizard::debug_log("AdminPanel: config.sdomainURL=$cainfo");
     }
     &PKI::TPS::Wizard::debug_log("AdminPanel: Connecting to CA: $cainfo");
     my $cainfo_url = new URI::URL($cainfo);
-    my $sdom = $::config->get("config.sdomainEEURL");
+    my $sdom = $::config->get("config.sdomainURL");
     my $sdom_url = new URI::URL($sdom);
 
     my $machineName = $::config->get("service.machineName");
@@ -130,15 +130,15 @@ sub update
                   "auth_hostname=" . $sdom_url->host . "&" .
                   "auth_port=" . $sdom_url->port;
 
-    my $ca_host = $cainfo_url->host;
-    my $https_ee_port = $cainfo_url->port;
+    my $host = $cainfo_url->host;
+    my $port = $cainfo_url->port;
     my $content = "";
     my $tmpfile = "/tmp/admin-$$";
     if (($tokenname eq "") || ($tokenname eq "NSS Certificate DB")) {
-        system("/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$nickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_host:$https_ee_port > $tmpfile");
+        system("/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$nickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$port > $tmpfile");
         $content = `cat $tmpfile`;
     } else {
-        system("/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$nickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_host:$https_ee_port > $tmpfile");
+        system("/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$nickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$port > $tmpfile");
         $content = `cat $tmpfile`;
     }
     system("rm $tmpfile");
@@ -156,8 +156,8 @@ sub update
     my $admincert = $response->{Requests}->{Request}->{b64};
     &PKI::TPS::Wizard::debug_log("AdminPanel: admincert " . $admincert);
 
-    my $ldap_host = $::config->get("preop.database.host");
-    my $ldap_port = $::config->get("preop.database.port");
+    $host = $::config->get("preop.database.host");
+    $port = $::config->get("preop.database.port");
     my $basedn = $::config->get("preop.database.basedn");
     my $binddn = $::config->get("preop.database.binddn");
 #    my $bindpwd = $::config->get("tokendb.bindPass");
@@ -183,7 +183,7 @@ sub update
               "-e 's/\$TOKENDB_AGENT_PWD/$password/' " .
               "-e 's/\$TOKENDB_AGENT_CERT/$admincert/' " .
               "/usr/share/$flavor/tps/scripts/addAgents.ldif > $tmp");
-    system("$mozldap_path/ldapmodify -h '$ldap_host' -p '$ldap_port' -D '$binddn' " .
+    system("$mozldap_path/ldapmodify -h '$host' -p '$port' -D '$binddn' " .
               "-w '$bindpwd' -a " .
               "-f '$tmp'");
     system("rm $tmp");
@@ -192,7 +192,6 @@ sub update
     $::config->put("preop.admincert.requestId.0", $reqid);
     my $sn = $response->{Requests}->{Request}->{serialno};
     $::config->put("preop.admincert.serialno.0", $sn);
-    $::config->put("preop.adminpanel.done", "true");
     $::config->commit();
 
     return 1;
@@ -213,11 +212,5 @@ sub display
 
     return 1;
 }
-
-sub is_panel_done
-{
-   return $::config->get("preop.adminpanel.done");
-}
-
 
 1;

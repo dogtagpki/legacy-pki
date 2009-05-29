@@ -111,8 +111,7 @@ public class CAEnrollProfile extends EnrollProfile {
         // to DRM
         byte optionsData[] = request.getExtDataInByteArray(REQUEST_ARCHIVE_OPTIONS);
 
-        // do not archive keys for renewal requests
-        if ((optionsData != null) && (!request.getRequestType().equals(IRequest.RENEWAL_REQUEST))) {
+        if (optionsData != null) {
             PKIArchiveOptions options = (PKIArchiveOptions)
                 toPKIArchiveOptions(optionsData);
 

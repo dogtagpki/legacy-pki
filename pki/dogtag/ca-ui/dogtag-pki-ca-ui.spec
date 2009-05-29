@@ -34,7 +34,7 @@
 ## Package Header Definitions
 %define base_name         %{base_ui_prefix}-%{base_prefix}-%{base_component}
 %define base_version      1.1.0
-%define base_release      8
+%define base_release      2
 %define base_group        System Environment/Base
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -222,23 +222,6 @@ rm -rf ${RPM_BUILD_ROOT}
 ###############################################################################
 
 %changelog
-* Wed May 20 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-8
-- Bugzilla Bug #491185 - added new revocation reasons to comply with RFC 5280
-* Wed May 13 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-7
-- Bugzilla Bug #490551 - Use profile key constraints to control enrollment key sizes on IE
-* Wed May 13 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-6
-- Bugzilla Bug #500498 -  CA installation wizard doesn't install
-  administrator cert into browser on Firefox 3
-* Tue May 12 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-5
-- Bugzilla Bug #500489 -  CA installation wizard doesn't prompt to
-  download/install CA chain on Firefox 3
-* Sun May 10 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-4
-- Bugzilla Bug #490551 - Use profile key constraints to control enrollment key sizes
-* Tue May 5 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-3
-- Bugzilla Bug #492735 -  Configuration wizard stores certain incorrect
-  port values within TPS "CS.cfg" . . .
-- Bugzilla Bug #495597 -  Unable to access Agent page using a configured
-  CA/KRA containing an HSM
 * Fri Apr 10 2009 Ade Lee <alee@redhat.com> 1.1.0-2
 - Bugzilla Bug #223353 - Values entered through web ui are not checked/escaped
 * Sat Apr 4 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-1

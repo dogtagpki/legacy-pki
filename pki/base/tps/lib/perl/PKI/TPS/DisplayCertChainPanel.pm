@@ -40,7 +40,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(2);
     $self->{"getName"} = &PKI::TPS::Common::r("Display Certificate Chain");
     $self->{"vmfile"} = "displaycertchainpanel.vm";
@@ -101,28 +101,26 @@ sub update
     $tmp = `rm $instanceDir/conf/caCert.der`;
     $tmp = `rm $instanceDir/conf/caCert_pp.txt`;
 
-    # complete the SecurityDomain task
-    my $sdomainAdminURL =  $::config->get("config.sdomainAdminURL");
-    if ($sdomainAdminURL eq "") {
+    # complete the SeucrityDomain task
+    my $sdomainURL =  $::config->get("config.sdomainURL");
+    if ($sdomainURL eq "") {
         return 2;
       }
 
     my $machineName = $::config->get("service.machineName");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
+    my $securePort = $::config->get("service.securePort");
     my $unsecurePort = $::config->get("service.unsecurePort");
 
     # check if url is accessible
     # redirect to the security domain authentication
     if ($ENV{'SERVER_PORT'} eq $unsecurePort) {
-       $::symbol{redirect} = $sdomainAdminURL . "/ca/admin/ca/securityDomainLogin?url=http%3A%2F%2F" . $machineName . "%3A" . $unsecurePort . "%2Ftps%2Fadmin%2Fconsole%2Fconfig%2Fwizard%3Fp%3D3%26subsystem%3DTPS";
+       $::symbol{redirect} = $sdomainURL . "/ca/ee/ca/securityDomainLogin?url=http%3A%2F%2F" . $machineName . "%3A" . $unsecurePort . "%2Ftps%2Fadmin%2Fconsole%2Fconfig%2Fwizard%3Fp%3D3%26subsystem%3DTPS";
     } else {
-       $::symbol{redirect} = $sdomainAdminURL . "/ca/admin/ca/securityDomainLogin?url=https%3A%2F%2F" . $machineName . "%3A" . $non_clientauth_securePort . "%2Ftps%2Fadmin%2Fconsole%2Fconfig%2Fwizard%3Fp%3D3%26subsystem%3DTPS";
+       $::symbol{redirect} = $sdomainURL . "/ca/ee/ca/securityDomainLogin?url=https%3A%2F%2F" . $machineName . "%3A" . $securePort . "%2Ftps%2Fadmin%2Fconsole%2Fconfig%2Fwizard%3Fp%3D3%26subsystem%3DTPS";
     }
 
-    get_domain_xml($sdomainAdminURL);
+    get_domain_xml($sdomainURL);
 
-    $::config->put("preop.displaycertchain.done", "true");
-    $::config->commit();
 
     return 3;
 }
@@ -136,27 +134,27 @@ sub display
     &PKI::TPS::Wizard::debug_log("DisplayCertChainPanel: update connecting to CA and retrieve cert chain");
     my $instanceID = $::config->get("service.instanceID");
     my $instanceDir = $::config->get("service.instanceDir");
-    my $sdomainAdminURL =  $::config->get("config.sdomainAdminURL");
-    if ($sdomainAdminURL eq "") {
+    my $sdomainURL =  $::config->get("config.sdomainURL");
+    if ($sdomainURL eq "") {
         return 2;
       }
 
     my $db_password = `grep \"internal:\" \"$instanceDir/conf/password.conf\" | cut -c10-`;
     $db_password =~ s/\n$//g;
 
-    my $url_info = new URI::URL($sdomainAdminURL);
-    my $sd_host = $url_info->host;
-    my $sd_admin_port = $url_info->port;
+    my $url_info = new URI::URL($sdomainURL);
+    my $host = $url_info->host;
+    my $port = $url_info->port;
     my $nickname = $::config->get("preop.cert.sslserver.nickname");
-    my $cmd = `/usr/bin/sslget -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$nickname\" -r \"/ca/admin/ca/getCertChain\" $sd_host:$sd_admin_port`;
+    my $cmd = `/usr/bin/sslget -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$nickname\" -r \"/ca/ee/ca/getCertChain\" $host:$port`;
 
-    my $caCert = "";
+    my $caCert;
     if ($cmd =~ /\<ChainBase64\>(.*)\<\/ChainBase64\>/) {
         $caCert =  $1;
         &PKI::TPS::Wizard::debug_log("DisplayCertChainPanel: ca= $caCert");
     }
 
-    my $certpp = "";
+    my $certpp;
     if ($caCert ne "") {
         open(F, ">$instanceDir/conf/caCert.txt");
         print F $caCert;
@@ -200,14 +198,13 @@ sub display
 
     return 1;
 }
-
 sub get_domain_xml
 {
-    my ($sdomainAdminURL) = @_;
+    my ($sdomainURL) = @_;
 
-    my $sdom_info = new URI::URL($sdomainAdminURL);
+    my $sdom_info = new URI::URL($sdomainURL);
     # get the domain xml
-    # e. g. - https://water.sfbay.redhat.com:9445/ca/admin/ca/getDomainXML
+    # e. g. - https://water.sfbay.redhat.com:9444/ca/ee/ca/getDomainXML
 
     my $nickname = $::config->get("preop.cert.sslserver.nickname");
     my $instanceID = $::config->get("service.instanceID");
@@ -215,9 +212,9 @@ sub get_domain_xml
     my $db_password = `grep \"internal:\" \"$instanceDir/conf/password.conf\" | cut -c10-`;
     $db_password =~ s/\n$//g;
 
-    my $sd_host = $sdom_info->host;
-    my $sd_admin_port = $sdom_info->port;
-    my $content = `/usr/bin/sslget -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$nickname\" -r \"/ca/admin/ca/getDomainXML\" $sd_host:$sd_admin_port`;
+    my $host = $sdom_info->host;
+    my $port = $sdom_info->port;
+    my $content = `/usr/bin/sslget -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$nickname\" -r \"/ca/ee/ca/getDomainXML\" $host:$port`;
 
     $content =~ /(\<XMLResponse\>.*\<\/XMLResponse\>)/;
     $content = $1;
@@ -243,48 +240,8 @@ sub get_domain_xml
                         $c->{'SubsystemName'}[0]);
         $::config->put("preop.securitydomain.ca" . $count . ".secureport", 
                         $c->{'SecurePort'}[0]);
-        $::config->put("preop.securitydomain.ca" . $count . ".secureagentport", 
-                        $c->{'SecureAgentPort'}[0]);
-        $::config->put("preop.securitydomain.ca" . $count . ".secureadminport", 
-                        $c->{'SecureAdminPort'}[0]);
-        $::config->put("preop.securitydomain.ca" . $count . ".unsecureport", 
-                        $c->{'UnSecurePort'}[0]);
         $::config->put("preop.securitydomain.ca" . $count . ".host", 
                         $c->{'Host'}[0]);
-
-        # The user previously specified the CA Security Domain's
-        # SSL Admin URL in the "Security Domain Panel";
-        # now retrieve this specified CA Security Domain's
-        # non-SSL EE, SSL Agent, and SSL EE URLs:
-        if( $sd_admin_port eq $c->{'SecureAdminPort'}[0] ) {
-            # Build the URLs
-            my $http_ee_port = "https://"
-                             . $c->{'Host'}[0]
-                             . ":"
-                             . $c->{'UnSecurePort'}[0];
-            my $https_agent_port = "https://"
-                                 . $c->{'Host'}[0]
-                                 . ":"
-                                 . $c->{'SecureAgentPort'}[0];
-            my $https_ee_port = "https://"
-                              . $c->{'Host'}[0]
-                              . ":"
-                              . $c->{'SecurePort'}[0];
-
-            # Store the URLs
-            $::config->put( "config.sdomainHttpURL", $http_ee_port );
-            $::config->put( "config.sdomainAgentURL", $https_agent_port );
-            $::config->put( "config.sdomainEEURL", $https_ee_port );
-
-            # Store additional values necessary for 'pkiremove' . . .
-            $::config->put( "securitydomain.httpport",
-                            $c->{'UnSecurePort'}[0] );
-            $::config->put( "securitydomain.httpsagentport",
-                            $c->{'SecureAgentPort'}[0] );
-            $::config->put( "securitydomain.httpseeport",
-                            $c->{'SecurePort'}[0] );
-        }
-
         $count++;
     }
 
@@ -296,12 +253,6 @@ sub get_domain_xml
                         $c->{'SubsystemName'}[0]);
         $::config->put("preop.securitydomain.tks" . $count . ".secureport", 
                         $c->{'SecurePort'}[0]);
-        $::config->put("preop.securitydomain.tks" . $count . ".secureagentport", 
-                        $c->{'SecureAgentPort'}[0]);
-        $::config->put("preop.securitydomain.tks" . $count . ".secureadminport", 
-                        $c->{'SecureAdminPort'}[0]);
-        $::config->put("preop.securitydomain.tks" . $count . ".unsecureport", 
-                        $c->{'UnSecurePort'}[0]);
         $::config->put("preop.securitydomain.tks" . $count . ".host", 
                         $c->{'Host'}[0]);
         $count++;
@@ -315,12 +266,6 @@ sub get_domain_xml
                         $c->{'SubsystemName'}[0]);
         $::config->put("preop.securitydomain.kra" . $count . ".secureport", 
                         $c->{'SecurePort'}[0]);
-        $::config->put("preop.securitydomain.kra" . $count . ".secureagentport", 
-                        $c->{'SecureAgentPort'}[0]);
-        $::config->put("preop.securitydomain.kra" . $count . ".secureadminport", 
-                        $c->{'SecureAdminPort'}[0]);
-        $::config->put("preop.securitydomain.kra" . $count . ".unsecureport", 
-                        $c->{'UnSecurePort'}[0]);
         $::config->put("preop.securitydomain.kra" . $count . ".host", 
                         $c->{'Host'}[0]);
         $count++;
@@ -333,22 +278,12 @@ sub get_domain_xml
         $::config->put("preop.securitydomain.tps" . $count . ".subsystemname", 
                         $c->{'SubsystemName'}[0]);
         $::config->put("preop.securitydomain.tps" . $count . ".secureport", 
-                        $c->{'SecureAgentPort'}[0]);
-        $::config->put("preop.securitydomain.tps" . $count . ".non_clientauth_secure_port", 
                         $c->{'SecurePort'}[0]);
-        $::config->put("preop.securitydomain.tps" . $count . ".unsecureport", 
-                        $c->{'UnSecurePort'}[0]);
         $::config->put("preop.securitydomain.tps" . $count . ".host", 
                         $c->{'Host'}[0]);
         $count++;
     }
     $::config->commit();
 }
-
-sub is_panel_done
-{
-    return $::config->get("preop.displaycertchain.done");
-}
-
 
 1;

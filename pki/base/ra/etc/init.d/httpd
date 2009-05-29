@@ -333,10 +333,6 @@ start()
 		fi
 	fi
 
-        # restore context for ncipher hsm
-        [ -x /sbin/restorecon ] && [ -d /dev/nfast ] && /sbin/restorecon -R /dev/nfast
-
-
 	if [ -x /etc/init.d/functions ]; then
 		/usr/sbin/selinuxenabled
 		RETVAL=$?
@@ -366,10 +362,9 @@ start()
 		count=0;
 
 		let swait=$STARTUP_WAIT
-		until	[ -s ${pidfile} ] ||
+		until	[ ! -s ${pidfile} ] ||
 				[ $count -gt $swait ]
 		do
-			echo -n "."
 			sleep 1
 			let count=$count+1;
 		done
@@ -388,11 +383,9 @@ start()
 
 		# Set permissions of log files
 		pki_logs_directory=`dirname ${pidfile}`
-		for file in ${pki_logs_directory}/*; do
+		for file in ${pki_logs_directory}; do
 			if [ "${file}" != "${pidfile}" ]; then
-				chmod 00660 ${file}
-				chgrp [GROUPID] ${file}
-				chown [USERID] ${file}
+				chmod -R 00660 ${file}
 			fi
 		done
 	else
@@ -405,7 +398,7 @@ start()
 	fi
 
 	if [ ${OS} = "Linux" ] ; then
-		sleep 10
+		sleep 5
 	elif [ ${OS} = "SunOS" ] ; then
 		sleep 20
 	fi
@@ -433,7 +426,6 @@ stop()
 				until	[ `ps -p $kpid | grep -c $kpid` = '0' ] ||
 						[ $count -gt $kwait ]
 				do
-					echo -n "."
 					sleep 1
 					let count=$count+1;
 				done

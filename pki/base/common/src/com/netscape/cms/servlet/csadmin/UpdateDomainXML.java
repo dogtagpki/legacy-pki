@@ -244,9 +244,6 @@ public class UpdateDomainXML extends CMSServlet {
         String host = httpReq.getParameter("host");
         String name = httpReq.getParameter("name");
         String sport = httpReq.getParameter("sport");
-        String agentsport = httpReq.getParameter("agentsport");
-        String adminsport = httpReq.getParameter("adminsport");
-        String httpport = httpReq.getParameter("httpport");
         String domainmgr = httpReq.getParameter("dm");
         String clone = httpReq.getParameter("clone");
         String operation = httpReq.getParameter("operation");
@@ -271,7 +268,7 @@ public class UpdateDomainXML extends CMSServlet {
             ILdapConnFactory connFactory = null;
             LDAPConnection conn = null;
             String listName = type + "List";
-            String cn = host + ":" + adminsport;
+            String cn = host + ":" + sport;
             String dn = "cn=" + cn + ",cn=" + listName + ",ou=Security Domain," + basedn;
             CMS.debug("UpdateDomainXML: updating LDAP entry: " + dn);
 
@@ -282,9 +279,6 @@ public class UpdateDomainXML extends CMSServlet {
             attrs.add(new LDAPAttribute("cn", cn));
             attrs.add(new LDAPAttribute("Host", host));
             attrs.add(new LDAPAttribute("SecurePort", sport));
-            attrs.add(new LDAPAttribute("SecureAgentPort", agentsport));
-            attrs.add(new LDAPAttribute("SecureAdminPort", adminsport));
-            attrs.add(new LDAPAttribute("UnSecurePort", httpport));
             attrs.add(new LDAPAttribute("DomainManager", domainmgr));
             attrs.add(new LDAPAttribute("clone", clone));
             attrs.add(new LDAPAttribute("SubsystemName", name));
@@ -292,7 +286,7 @@ public class UpdateDomainXML extends CMSServlet {
  
             if ((operation !=  null) && (operation.equals("remove"))) {
                     status = remove_from_ldap(dn);
-                    String adminUserDN = "uid=" + type + "-" + host + "-" + adminsport + ",ou=People," + basedn;
+                    String adminUserDN = "uid=" + type + "-" + host + "-" + sport + ",ou=People," + basedn;
                     if (status.equals(SUCCESS)) {
                         // remove the client cert for this subsystem's admin
                         status = remove_from_ldap(adminUserDN);
@@ -333,9 +327,9 @@ public class UpdateDomainXML extends CMSServlet {
                         Node nn = (Node) nodeList.item(i);
                         Vector v_name = parser.getValuesFromContainer(nn, "SubsystemName");
                         Vector v_host = parser.getValuesFromContainer(nn, "Host");
-                        Vector v_adminport = parser.getValuesFromContainer(nn, "SecureAdminPort");
+                        Vector v_port = parser.getValuesFromContainer(nn, "SecurePort");
                         if ((v_name.elementAt(0).equals(name)) && (v_host.elementAt(0).equals(host))
-                            && (v_adminport.elementAt(0).equals(adminsport))) {
+                            && (v_port.elementAt(0).equals(sport))) {
                                 Node parent = nn.getParentNode();
                                 Node remNode = parent.removeChild(nn);
                                 count --;
@@ -348,9 +342,6 @@ public class UpdateDomainXML extends CMSServlet {
                     parser.addItemToContainer(parent, "SubsystemName", name);
                     parser.addItemToContainer(parent, "Host", host);
                     parser.addItemToContainer(parent, "SecurePort", sport);
-                    parser.addItemToContainer(parent, "SecureAgentPort", agentsport);
-                    parser.addItemToContainer(parent, "SecureAdminPort", adminsport);
-                    parser.addItemToContainer(parent, "UnSecurePort", httpport);
                     parser.addItemToContainer(parent, "DomainManager", domainmgr);
                     parser.addItemToContainer(parent, "Clone", clone);
                     count ++;
