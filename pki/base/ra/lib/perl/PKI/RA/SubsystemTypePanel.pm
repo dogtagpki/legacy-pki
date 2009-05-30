@@ -76,9 +76,7 @@ sub update
     $::symbol{subsystemName} = "Registration Authority";
     $::symbol{fullsystemname} = "Registration Authority";
     $::symbol{machineName} = "localhost";
-    $::symbol{http_port} = "12888";
-    $::symbol{https_port} = "12889";
-    $::symbol{non_clientauth_https_port} = "12890";
+    $::symbol{https_port} = "7889";
     $::symbol{check_clonesubsystem} = " ";
     $::symbol{check_newsubsystem} = " ";
     $::symbol{disableClone} = 1;
@@ -99,15 +97,12 @@ sub display
     $::symbol{fullsystemname} = "Registration Authority ";
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
+    my $unsecurePort = $::config->get("service.unsecurePort");
 
 
     $::symbol{machineName} = $machineName;
-    $::symbol{http_port} = $unsecurePort;
     $::symbol{https_port} = $securePort;
-    $::symbol{non_clientauth_https_port} = $non_clientauth_securePort;
     $::symbol{check_clonesubsystem} = "";
     $::symbol{check_newsubsystem} = "checked ";
 
@@ -122,7 +117,7 @@ sub display
       if ($host eq "") {
         goto DONE;
       }
-      my $port = $::config->get("preop.securitydomain.ra$count.non_clientauth_secure_port");
+      my $port = $::config->get("preop.securitydomain.ra$count.secureport");
       my $name = $::config->get("preop.securitydomain.ra$count.subsystemname");
       unshift(@{$::symbol{urls}}, "https://" . $host . ":" . $port);
       $count++;

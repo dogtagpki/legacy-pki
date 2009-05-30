@@ -39,7 +39,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(6);
     $self->{"getName"} = &PKI::TPS::Common::r("DRM Information");
     $self->{"vmfile"} = "drminfopanel.vm";
@@ -80,24 +80,24 @@ sub update
       my $count = $q->param('urls');
       my $instanceID = $::config->get("service.instanceID");
       my $host = "";
-      my $https_agent_port = "";
+      my $port = "";
       if ($count =~ /http/) {
         my $info = new URI::URL($count);
         $host = $info->host;
-        $https_agent_port = $info->port;
+        $port = $info->port;
       } else {
         $host = $::config->get("preop.securitydomain.kra$count.host");
-        $https_agent_port = $::config->get("preop.securitydomain.kra$count.secureagentport");
+        $port = $::config->get("preop.securitydomain.kra$count.secureport");
       }
-      if (($host eq "") || ($https_agent_port eq "")) {
+      if (($host eq "") || ($port eq "")) {
         $::symbol{errorString} = "no DRM found.  CA, TKS and DRM must be installed prior to TPS installation";
         return 0;
       }
 
-      $::config->put("preop.krainfo.select", "https://$host:$https_agent_port");
+      $::config->put("preop.krainfo.select", "https://$host:$port");
       my $subsystemCertNickName = $::config->get("preop.cert.subsystem.nickname");
       $::config->put("conn.drm1.clientNickname", $subsystemCertNickName);
-      $::config->put("conn.drm1.hostport", $host . ":" . $https_agent_port); 
+      $::config->put("conn.drm1.hostport", $host . ":" . $port); 
       $::config->put("conn.tks1.serverKeygen", "true");
       $::config->put("op.enroll.userKey.keyGen.encryption.serverKeygen.enable", "true");
       $::config->put("op.enroll.userKeyTemporary.keyGen.encryption.serverKeygen.enable", "true");
@@ -117,7 +117,6 @@ sub update
       $::config->put("op.enroll.soKey.keyGen.encryption.recovery.destroyed.scheme", "GenerateNewKey");
       $::config->put("op.enroll.soKeyTemporary.keyGen.encryption.recovery.onHold.scheme", "GenerateNewKey");
     }
-    $::config->put("preop.drminfo.done", "true");
     $::config->commit();
 
     return 1;
@@ -135,20 +134,14 @@ sub display
       if ($host eq "") {
         goto DONE;
       }
-      my $https_agent_port = $::config->get("preop.securitydomain.kra$count.secureagentport");
+      my $port = $::config->get("preop.securitydomain.kra$count.secureport");
       my $name = $::config->get("preop.securitydomain.kra$count.subsystemname");
-      $::symbol{urls}[$count++] = $name . " - https://" . $host . ":" . $https_agent_port;
+      $::symbol{urls}[$count++] = $name . " - https://" . $host . ":" . $port;
     }
 DONE:
     $::symbol{urls_size}   = $count;
 
     return 1;
 }
-
-sub is_panel_done
-{
-   return $::config->get("preop.drminfo.done");
-}
-
 
 1;

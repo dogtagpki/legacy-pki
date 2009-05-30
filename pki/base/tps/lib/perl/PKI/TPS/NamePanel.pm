@@ -46,7 +46,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(12);
     $self->{"getName"} = &PKI::TPS::Common::r("Subject Names");
     $self->{"vmfile"} = "namepanel.vm";
@@ -86,25 +86,25 @@ sub update
     &PKI::TPS::Wizard::debug_log("NamePanel: update - selected ca= $count");
 
     my $host = "";
-    my $https_ee_port = "";
+    my $port = "";
 
     my $useExternalCA = "off";
     if ($count =~ /http/) {
       my $info = new URI::URL($count);
       $host = $info->host;
-      $https_ee_port = $info->port;
+      $port = $info->port;
     } else {
       $host = $::config->get("preop.securitydomain.ca$count.host");
       if ($host eq "") {
           $useExternalCA = "on";
       } else {
-          $https_ee_port = $::config->get("preop.securitydomain.ca$count.secureport");
-          &PKI::TPS::Wizard::debug_log("NamePanel: update - host= $host, https_ee_port= $https_ee_port");
+          $port = $::config->get("preop.securitydomain.ca$count.secureport");
+          &PKI::TPS::Wizard::debug_log("NamePanel: update - host= $host, port= $port");
       }
     }
     $::config->put("preop.certenroll.useExternalCA", $useExternalCA);
 
-    $::config->put("preop.ca.url", "https://" . $host . ":" . $https_ee_port);
+    $::config->put("preop.ca.url", "https://" . $host . ":" . $port);
 
     my $tokenname = $::config->get("preop.module.token");
     &PKI::TPS::Wizard::debug_log("NamePanel: update got token name = $tokenname");
@@ -240,7 +240,7 @@ GEN_CERT:
 #   see if there is an existing cert
 
         my $cert = $::config->get("preop.cert.$certtag.cert");
-        my $sdom = $::config->get("config.sdomainEEURL");
+        my $sdom = $::config->get("config.sdomainURL");
         my $sdom_url = new URI::URL($sdom);
 
         if (($useExternalCA eq "on") && ($certtag ne "subsystem")) {
@@ -291,14 +291,14 @@ GEN_CERT:
 
                 if ($certtag eq "subsystem") {
                     $host = $sdom_url->host;
-                    $https_ee_port = $sdom_url->port;
+                    $port = $sdom_url->port;
                 }
                 if ($changed eq "true") {
-$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
-$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
+$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$port";
+$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$port";
                 } else {
-$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
-$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
+$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$port";
+$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$port";
                 }
 
                 &PKI::TPS::Wizard::debug_log("debug_req = " . $debug_req);
@@ -402,9 +402,6 @@ $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sen
     }
 
 DONE:
-    $::config->put("preop.namepanel.done", "true");
-    $::config->commit();
-
     &PKI::TPS::Wizard::debug_log("NamePanel: removing pwfile");
     my $tmp = `rm $instanceDir/conf/.pwfile`;
     return 1;
@@ -482,9 +479,9 @@ sub display
       if ($host eq "") {
         goto DONE;
       }
-      my $https_ee_port = $::config->get("preop.securitydomain.ca$count.secureport");
+      my $port = $::config->get("preop.securitydomain.ca$count.secureport");
       my $name = $::config->get("preop.securitydomain.ca$count.subsystemname");
-      my $item = $name . " - https://" . $host . ":" . $https_ee_port;
+      my $item = $name . " - https://" . $host . ":" . $port;
       $::symbol{urls}[$count++] = $item;
 
     }
@@ -564,11 +561,6 @@ sub extract_cert_req_from_file_sans_header_and_footer
     $fd->close();
 
     return $cert_request;
-}
-
-sub is_panel_done
-{
-   return $::config->get("preop.namepanel.done");
 }
 
 1;

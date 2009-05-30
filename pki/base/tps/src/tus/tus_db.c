@@ -3286,11 +3286,10 @@ char **get_attribute_values(LDAPMessage *entry, const char *attribute)
        ret = (char **) malloc ((sizeof (char *) * c) + 1);
        c = 0;
        for (i = 0; bvals[i] != NULL; i++ ) {
-         char *tmp = BTOA_DataToAscii((unsigned char *)bvals[i]->bv_val,
-                        (int)bvals[i]->bv_len);
-         sprintf(buffer, "%s", tmp); 
-         PORT_Free(tmp);
-
+         cert = CERT_DecodeCertFromPackage((char *) bvals[i]->bv_val, (int) 
+			( bvals[i]->bv_len ) );
+         sprintf(buffer, "%s", BTOA_DataToAscii((unsigned char *)bvals[i]->bv_val, 
+                   (int)bvals[i]->bv_len));
          /* remove \r\n that javascript does not like */
          for (j = 0; j < strlen(buffer); j++) {
             if (buffer[j] == '\r') {
@@ -3304,8 +3303,7 @@ char **get_attribute_values(LDAPMessage *entry, const char *attribute)
 	 c++;
        }  
        if (bvals != NULL) {
-           ldap_value_free_len(bvals);
-           bvals = NULL;
+           free_values(bvals, 1);
        }
        ret[c] = NULL;
        return ret;

@@ -38,7 +38,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(3);
     $self->{"getName"} = &PKI::TPS::Common::r("Subsystem Type");
     $self->{"vmfile"} = "createsubsystempanel.vm";
@@ -75,16 +75,13 @@ sub update
     $::symbol{subsystemName} = "Token Processing System";
     $::symbol{fullsystemname} = "Token Processing System ";
     $::symbol{machineName} = "localhost";
-    $::symbol{http_port} = "7888";
     $::symbol{https_port} = "7889";
-    $::symbol{non_clientauth_https_port} = "7890";
     $::symbol{check_clonesubsystem} = " ";
     $::symbol{check_newsubsystem} = " ";
     $::symbol{disableClone} = 1;
 
     my $subsystemName = $q->param('subsystemName');
     $::config->put("preop.subsystem.name", $subsystemName);
-    $::config->put("preop.subsystemtype.done", "true");
     $::config->commit();
 
     return 1;
@@ -99,15 +96,12 @@ sub display
     $::symbol{fullsystemname} = "Token Processing System ";
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
+    my $unsecurePort = $::config->get("service.unsecurePort");
 
 
     $::symbol{machineName} = $machineName;
-    $::symbol{http_port} = $unsecurePort;
     $::symbol{https_port} = $securePort;
-    $::symbol{non_clientauth_https_port} = $non_clientauth_securePort;
     $::symbol{check_clonesubsystem} = "";
     $::symbol{check_newsubsystem} = "checked ";
 
@@ -122,7 +116,7 @@ sub display
       if ($host eq "") {
         goto DONE;
       }
-      my $port = $::config->get("preop.securitydomain.tps$count.non_clientauth_secure_port");
+      my $port = $::config->get("preop.securitydomain.tps$count.secureport");
       my $name = $::config->get("preop.securitydomain.tps$count.subsystemname");
       unshift(@{$::symbol{urls}}, "https://" . $host . ":" . $port);
       $count++;
@@ -136,11 +130,6 @@ DONE:
 
     # XXX - how to deal with urls
     return 1;
-}
-
-sub is_panel_done
-{
-   return $::config->get("preop.subsystemtype.done");
 }
 
 

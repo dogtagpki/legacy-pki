@@ -660,16 +660,6 @@ public class CertificateAuthority implements ICertificateAuthority, ICertAuthori
             c.putString("updateSchema", "1");
 
             // crl extensions
-            // AuthorityInformationAccess
-            c.putString("extension.AuthorityInformationAccess.enable", "false");
-            c.putString("extension.AuthorityInformationAccess.critical", "false");
-            c.putString("extension.AuthorityInformationAccess.type", "CRLExtension");
-            c.putString("extension.AuthorityInformationAccess.class",
-                "com.netscape.cms.crl.CMSAuthInfoAccessExtension");
-            c.putString("extension.AuthorityInformationAccess.numberOfAccessDescriptions", "1");
-            c.putString("extension.AuthorityInformationAccess.accessMethod0", "caIssuers");
-            c.putString("extension.AuthorityInformationAccess.accessLocationType0", "URI");
-            c.putString("extension.AuthorityInformationAccess.accessLocation0", "");
             // AuthorityKeyIdentifier
             c.putString("extension.AuthorityKeyIdentifier.enable", "false");
             c.putString("extension.AuthorityKeyIdentifier.critical", "false");
@@ -716,13 +706,13 @@ public class CertificateAuthority implements ICertificateAuthority, ICertAuthori
             c.putString("extension.CRLReason.type", "CRLEntryExtension");
             c.putString("extension.CRLReason.class",
                 "com.netscape.cms.crl.CMSCRLReasonExtension");
-            // HoldInstruction - removed by RFC 5280
-            // c.putString("extension.HoldInstruction.enable", "false");
-            // c.putString("extension.HoldInstruction.critical", "false");
-            // c.putString("extension.HoldInstruction.type", "CRLEntryExtension");
-            // c.putString("extension.HoldInstruction.class",
-            //     "com.netscape.cms.crl.CMSHoldInstructionExtension");
-            // c.putString("extension.HoldInstruction.instruction", "none");
+            // HoldInstruction
+            c.putString("extension.HoldInstruction.enable", "false");
+            c.putString("extension.HoldInstruction.critical", "false");
+            c.putString("extension.HoldInstruction.type", "CRLEntryExtension");
+            c.putString("extension.HoldInstruction.class",
+                "com.netscape.cms.crl.CMSHoldInstructionExtension");
+            c.putString("extension.HoldInstruction.instruction", "none");
             // InvalidityDate
             c.putString("extension.InvalidityDate.enable", "true");
             c.putString("extension.InvalidityDate.critical", "false");

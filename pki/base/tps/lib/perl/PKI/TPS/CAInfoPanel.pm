@@ -42,7 +42,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(4);
     $self->{"getName"} = &PKI::TPS::Common::r("CA Information");
     $self->{"vmfile"} = "cainfopanel.vm";
@@ -83,39 +83,29 @@ sub update
     
     my $instanceID = $::config->get("service.instanceID");
     my $host = "";
-    my $https_ee_port = "";
-    my $https_admin_port = "";
+    my $port = "";
 
     if ($count =~ /http/) {
       my $info = new URI::URL($count);
       $host = $info->host;
-      $https_ee_port = $info->port;
-      $https_admin_port = get_secure_admin_port_from_domain_xml($host,
-                                                                $https_ee_port);
-      if( $https_admin_port eq "" ) {
-          $::symbol{errorString} = "missing secure CA admin port.  CA, TKS and optionally DRM must be installed prior to TPS installation";
-          return 0;
-      }
+      $port = $info->port;
     } else {
       $host = $::config->get("preop.securitydomain.ca$count.host");
-      $https_ee_port = $::config->get("preop.securitydomain.ca$count.secureport");
-      $https_admin_port = $::config->get("preop.securitydomain.ca$count.secureadminport");
+      $port = $::config->get("preop.securitydomain.ca$count.secureport");
     }
-
-    if (($host eq "") || ($https_ee_port eq "") || ($https_admin_port eq "")) {
+    if (($host eq "") || ($port eq "")) {
       $::symbol{errorString} = "no CA found.  CA, TKS and optionally DRM must be installed prior to TPS installation";
       return 0;
     }
 
-    &PKI::TPS::Wizard::debug_log("CAInfoPanel: update - host= $host, https_ee_port= $https_ee_port");
+    &PKI::TPS::Wizard::debug_log("CAInfoPanel: update - host= $host, port= $port");
 
-    $::config->put("preop.cainfo.select", "https://$host:$https_ee_port");
+    $::config->put("preop.cainfo.select", "https://$host:$port");
     my $serverCertNickName = $::config->get("preop.cert.sslserver.nickname");
 
     my $subsystemCertNickName = $::config->get("preop.cert.subsystem.nickname");
     $::config->put("conn.ca1.clientNickname", $subsystemCertNickName);
-    $::config->put("conn.ca1.hostport", $host . ":" . $https_ee_port);
-    $::config->put("conn.ca1.hostadminport", $host . ":" . $https_admin_port);
+    $::config->put("conn.ca1.hostport", $host . ":" . $port);
 
     $::config->commit();
 
@@ -125,7 +115,7 @@ sub update
     my $db_password = `grep \"internal:\" \"$instanceDir/conf/password.conf\" | cut -c10-`;
     $db_password =~ s/\n$//g;
     my $tmpfile = "/tmp/ca-$$";
-    system("/usr/bin/sslget -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$serverCertNickName\" -r \"/ca/ee/ca/getCertChain\" $host:$https_ee_port > $tmpfile");
+    system("/usr/bin/sslget -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$serverCertNickName\" -r \"/ca/ee/ca/getCertChain\" $host:$port > $tmpfile");
     my $cmd = `cat $tmpfile`;
     system("rm $tmpfile");
     my $caCert;
@@ -156,9 +146,6 @@ sub update
         }
     }
 
-    $::config->put("preop.cainfo.done", "true");
-    $::config->commit();
-
     return 1;
 }
 
@@ -177,10 +164,10 @@ sub display
       if ($host eq "") {
         goto DONE;
       }
-      my $https_ee_port = $::config->get("preop.securitydomain.ca$count.secureport");
+      my $port = $::config->get("preop.securitydomain.ca$count.secureport");
       my $name = $::config->get("preop.securitydomain.ca$count.subsystemname");
-      my $item = $name . " - https://" . $host . ":" . $https_ee_port;
-#      my $item = "https://" . $host . ":" . $https_ee_port;
+      my $item = $name . " - https://" . $host . ":" . $port;
+#      my $item = "https://" . $host . ":" . $port;
 #      unshift(@{$::symbol{urls}}, $item);
       $::symbol{urls}[$count++] = $item;
       if ($first eq 1) {
@@ -201,52 +188,5 @@ DONE:
     }
     return 1;
 }
-
-sub get_secure_admin_port_from_domain_xml
-{
-    my $host = $1;
-    my $https_ee_port = $2;
-
-    # get the domain xml
-    # e. g. - https://water.sfbay.redhat.com:9445/ca/admin/ca/getDomainXML
-
-    my $nickname = $::config->get("preop.cert.sslserver.nickname");
-    my $instanceID = $::config->get("service.instanceID");
-    my $instanceDir = $::config->get("service.instanceDir");
-    my $db_password = `grep \"internal:\" \"$instanceDir/conf/password.conf\" | cut -c10-`;
-    $db_password =~ s/\n$//g;
-
-    my $sd_host = $::config->get("securitydomain.host");
-    my $sd_admin_port = $::config->get("securitydomain.httpsadminport");
-    my $content = `/usr/bin/sslget -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$nickname\" -r \"/ca/admin/ca/getDomainXML\" $sd_host:$sd_admin_port`;
-
-    $content =~ /(\<XMLResponse\>.*\<\/XMLResponse\>)/;
-    $content = $1;
-
-    # Retrieve the secure admin port corresponding
-    # to the selected host and secure ee port.
-    my $parser = XML::Simple->new();
-    my $response = $parser->XMLin($content);
-    my $xml = $parser->XMLin( $response->{'DomainInfo'},
-                              ForceArray => 1 );
-    my $https_admin_port = "";
-    my $count = 0;
-    foreach my $c (@{$xml->{'CAList'}[0]->{'CA'}}) {
-      if( ( $host eq $c->{'Host'}[0] ) &&
-          ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
-          $https_admin_port = https_$c->{'SecureAdminPort'}[0];
-      }
-
-      $count++;
-    }
-
-    return $https_admin_port;
-}
-
-sub is_panel_done
-{
-   return $::config->get("preop.cainfo.done");
-}
-
 
 1;

@@ -63,7 +63,6 @@ public class CreateSubsystemPanel extends WizardPanelBase {
     public void cleanUp() throws IOException {
         IConfigStore cs = CMS.getConfigStore();
         cs.putString("preop.subsystem.select", "");
-        cs.putString("subsystem.select", "");
     }
 
     public boolean isPanelDone() {
@@ -140,15 +139,12 @@ public class CreateSubsystemPanel extends WizardPanelBase {
             context.put("systemname", config.getString("preop.system.name"));
             context.put("fullsystemname", config.getString("preop.system.fullname"));
             context.put("machineName", config.getString("machineName"));
+            context.put("https_port", CMS.getEESSLPort());
             context.put("http_port", CMS.getEENonSSLPort());
-            context.put("https_agent_port", CMS.getAgentPort());
-            context.put("https_ee_port", CMS.getEESSLPort());
-            context.put("https_admin_port", CMS.getAdminPort());
         } catch (EBaseException e) {
         }
 
-        Vector v = getMasterUrlListFromSecurityDomain( config, cstype,
-                                                       "SecurePort" );
+        Vector v = getMasterUrlListFromSecurityDomain(config, cstype);
         StringBuffer list = new StringBuffer();
         int size = v.size();
         for (int i = 0; i < size; i++) {
@@ -200,10 +196,9 @@ public class CreateSubsystemPanel extends WizardPanelBase {
 
         config.putString("preop.subsystem.name", 
               HttpInput.getName(request, "subsystemName"));
-        if (select.equals("newsubsystem")) {
+        if (select.equals("newsubsystem"))
             config.putString("preop.subsystem.select", "new");
-            config.putString("subsystem.select", "New");
-        } else if (select.equals("clonesubsystem")) {
+        else if (select.equals("clonesubsystem")) {
             String cstype = "";
             try {
                 cstype = config.getString("cs.type", "");
@@ -213,7 +208,6 @@ public class CreateSubsystemPanel extends WizardPanelBase {
             cstype = toLowerCaseSubsystemType(cstype);
       
             config.putString("preop.subsystem.select", "clone");
-            config.putString("subsystem.select", "Clone");
 
             String lists = "";
             try {
@@ -253,18 +247,18 @@ public class CreateSubsystemPanel extends WizardPanelBase {
 
             URL u = new URL(url);
             String host = u.getHost();
-            int https_ee_port = u.getPort();
+            int port = u.getPort();
 
             config.putString("preop.master.hostname", host);
-            config.putInteger("preop.master.httpsport", https_ee_port);
+            config.putInteger("preop.master.httpsport", port);
 
             ConfigCertApprovalCallback certApprovalCallback = new ConfigCertApprovalCallback();
             if (cstype.equals("ca")) {
-                updateCertChain( config, "clone", host, https_ee_port,
-                                 true, context, certApprovalCallback );
+                updateCertChain(config, "clone", host, port, true, context,
+                  certApprovalCallback);
             }
 
-            getTokenInfo(config, cstype, host, https_ee_port, true, context, 
+            getTokenInfo(config, cstype, host, port, true, context, 
               certApprovalCallback);
         } else {
             CMS.debug("CreateSubsystemPanel: invalid choice " + select);

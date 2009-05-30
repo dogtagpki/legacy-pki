@@ -209,10 +209,7 @@ sub update_domain()
     my $conf_file = $pki_instance_path . "/conf/CS.cfg";
     my $sport;
     my $ncsport;
-    my $httpport;
-    my $seceeport;
-    my $secagentport;
-    my $secadminport;
+    my $secport;
     my $secselect;
     my $typeval;
     my $machinename;
@@ -223,27 +220,18 @@ sub update_domain()
     foreach my $line (@conf_data) {
         chomp($line);
         (my $varname, my $valname) = split(/=/, $line);
-
-        if ($varname eq "cs.type") { $typeval = $valname; }
-        if ($varname eq "service.machineName") { $machinename = $valname; }
         if ($varname eq "service.securityDomainPort") { $sport = $valname; }
         if ($varname eq "service.non_clientauth_securePort") { $ncsport = $valname; }
         if ($varname eq "securitydomain.host") { $sechost = $valname; }
-        if ($varname eq "securitydomain.httpport") { $httpport = $valname; }
-        if ($varname eq "securitydomain.httpseeport") { $seceeport = $valname; }
-        if ($varname eq "securitydomain.httpsagentport") { $secagentport = $valname; }
-        if ($varname eq "securitydomain.httpsadminport") { $secadminport = $valname; }
+        if ($varname eq "securitydomain.httpsport") { $secport = $valname; }
         if ($varname eq "securitydomain.select") { $secselect = $valname; }
-        if ($varname eq "pkiremove.cert.subsystem.nickname") { $subsystemnick = $valname; }
+        if ($varname eq "cs.type") { $typeval = $valname; }
+        if ($varname eq "machineName") { $machinename = $valname; }
+        if ($varname =~ /[a-z]*.subsystem.nickname/) { $subsystemnick = $valname; }
     }
     close(DAT);
 
-    # NOTE:  Don't check for the existence of "$httpport", as this will
-    #        be undefined for a Security Domain that has been migrated!
-    if ((!defined($sechost))      ||
-        (!defined($seceeport))    ||
-        (!defined($secagentport)) ||
-        (!defined($secadminport))) {
+    if ((!defined($sechost)) || (!defined($secport))) {
         print (STDOUT "No security domain defined.\nIf this is an unconfigured instance, then that is OK.\n" .
             "Otherwise, manually delete the entry from the security domain master.\n" ); 
         return;
@@ -253,12 +241,10 @@ sub update_domain()
         # This is not a domain master, so we need to update the master
         print (STDOUT "Contacting the security domain master to update the security domain\n");
         my $listval = $typeval . "List";
-        my $urlheader = "https://" . $sechost . ":" . $seceeport; 
-        my $urlagentheader = "https://" . $sechost . ":" . $secagentport; 
-        my $urladminheader = "https://" . $sechost . ":" . $secadminport; 
+        my $urlheader = "https://" . $sechost . ":" . $secport; 
         my $updateURL = "/ca/agent/ca/updateDomainXML";   
-        my $loginURL = "/ca/admin/ca/securityDomainLogin";
-        my $cookieURL = "/ca/admin/ca/getCookie";
+        my $loginURL = "/ca/ee/ca/securityDomainLogin";
+        my $cookieURL = "/ca/ee/ca/getCookie";
 
         # Login to security domain
         use LWP;
@@ -271,16 +257,8 @@ sub update_domain()
         my @pw_data=<DAT>;
         foreach my $line (@pw_data) {
             chomp($line);
-            if (($typeval eq "CA")   ||
-                ($typeval eq "KRA")  ||
-                ($typeval eq "OCSP") ||
-                ($typeval eq "TKS")) {
-                (my $varname, my $valname) = split(/=/, $line);
-                if ($varname eq "internal") { $intpw = $valname; }
-            } else {  # TPS, RA
-                (my $varname, my $valname) = split(/:/, $line);
-                if ($varname eq "internal") { $intpw = $valname; }
-            }
+            (my $varname, my $valname) = split(/=/, $line);
+            if ($varname eq "internal") { $intpw = $valname; }
         }
         close($pwfile);
 
@@ -299,7 +277,7 @@ sub update_domain()
 
         #update domainXML
 
-        $url = $urlagentheader . $updateURL;
+        $url = $urlheader . $updateURL;
         #$ENV{HTTPS_DEBUG} = 1; 
         $ENV{HTTPS_PKCS12_FILE}     = $tempfile;
         $ENV{HTTPS_PKCS12_PASSWORD} = $p12pw;

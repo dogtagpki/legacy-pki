@@ -553,8 +553,8 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
         RA::Debug("DoEnrollment", msg);
     }
     free(cert_string);
-    ktypes[index] = PL_strdup(keyType);
-    origins[index] = PL_strdup(cuid);
+    ktypes[index] = strdup(keyType);
+    origins[index] = strdup(cuid);
 
     if (serverKeygen) {
       //do PKCS#8
@@ -868,14 +868,7 @@ loser:
         PR_Free( (char *) pretty_cuid );
         pretty_cuid = NULL;
     }
-    if (pk_p != NULL) {
-        if (serverKeygen) {
-            SECKEY_DestroyPublicKey(pk_p);
-        } else {
-            free(pk_p);
-        }
-        pk_p = NULL;
-    }
+
     return status;
 }
 
@@ -1284,28 +1277,6 @@ bool RA_Enroll_Processor::RequestUserId(
                    char *description = PL_strdup(entry->GetAuthentication()->GetDescription(locale));
                    RA::Debug("RA_Enroll_Processor::RequestUserId", "description=%s", description);
 		   o_login = RequestExtendedLogin(a_session, 0 /* invalid_pw */, 0 /* blocked */, params, n, title, description);
-
-                   if (params != NULL) {
-                       for (int nn=0; nn < n; nn++) {
-                           if (params[nn] != NULL) {
-                               PL_strfree(params[nn]);
-                               params[nn] = NULL;
-                           }
-                       }
-                       free(params);
-                       params = NULL;
-                   }
-
-                   if (title != NULL) {
-                       PL_strfree(title);
-                       title = NULL;
-                   }
-
-                   if (description != NULL) {
-                       PL_strfree(description);
-                       description = NULL;
-                   }
-
 		  if (o_login == NULL) {
 			RA::Error("RA_Enroll_Processor::Process", 
 					"login not provided");
@@ -2292,11 +2263,6 @@ op.enroll.certificates.caCert.label=caCert Label
             RA::Debug("RA_Enroll_Processor", "Set Issuer Info %s", issuer_val);
             Buffer *info = new Buffer((BYTE*)issuer, 224);
             rc = channel->SetIssuerInfo(info);
-      
-            if (info != NULL) {
-                delete info;
-                info = NULL;
-            }
         }
     }
     /* write lifecycle bit */
@@ -2364,7 +2330,6 @@ loser:
             tokenTypes[nn] = NULL;
         }
         free(tokenTypes);
-        tokenTypes = NULL;
     }
     if (certificates != NULL) {
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "before CERT_DestroyCertificate");
@@ -2383,23 +2348,7 @@ loser:
     }
 
     if (ktypes != NULL) {
-       for (int nn=0; nn < o_certNums; nn++) {
-           if (ktypes[nn] != NULL)
-               PL_strfree(ktypes[nn]);
-           ktypes[nn] = NULL;
-       } 
        free(ktypes);
-       ktypes = NULL;
-    }
-
-    if (origins != NULL) {
-       for (int nn=0; nn < o_certNums; nn++) {
-           if (origins[nn] != NULL)
-               PL_strfree(origins[nn]);
-           origins[nn] = NULL;
-       }
-       free(origins);
-       origins = NULL;
     }
 
     if( CardManagerAID != NULL ) {
@@ -2438,12 +2387,12 @@ loser:
         delete token_status;
         token_status = NULL;
     }
-    
+    /*
     if( final_applet_version != NULL ) {
         PR_Free( (char *) final_applet_version );
         final_applet_version = NULL;
     }
- 
+    */
     if( appletVersion != NULL ) {
         PR_Free( (char *) appletVersion );
         appletVersion = NULL;
@@ -3663,12 +3612,12 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
 				  " keyid, modulus and exponent are retrieved");
 
-                        ktypes[i] = PL_strdup(keyTypeValue);
+                        ktypes[i] = strdup(keyTypeValue);
                         // We now store the token id of the original token
                         // that generates this certificate so we can
                         // tell if the certificate should be operated
                         // on or not during formation operation
-                        origins[i] = PL_strdup(lostTokenCUID);
+                        origins[i] = strdup(lostTokenCUID);
                         certificates[i] = certs[0];
 
 
