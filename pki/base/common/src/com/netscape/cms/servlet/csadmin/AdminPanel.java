@@ -140,10 +140,9 @@ public class AdminPanel extends WizardPanelBase {
         String info = "";
         context.put("import", "true");
 
-        String subsystemtype = "";
         try {
             type = cs.getString("preop.ca.type", "");
-            subsystemtype = cs.getString("cs.type", "");
+            String subsystemtype = cs.getString("cs.type", "");
         } catch (Exception e) {}
 
         if (isPanelDone()) {
@@ -177,7 +176,7 @@ public class AdminPanel extends WizardPanelBase {
 
         String domainname = "";
         try {
-            domainname = cs.getString("securitydomain.name", "");
+            domainname = cs.getString("preop.securitydomain.name", "");
         } catch (EBaseException e1) {}
         context.put("securityDomain", domainname);
         context.put("title", "Administrator");
@@ -234,14 +233,9 @@ public class AdminPanel extends WizardPanelBase {
         context.put("import", "true");
 
         String type = "";
-        String subsystemtype = "";
-        String security_domain_type = "";
-        String selected_hierarchy = "";
         try {
             type = config.getString(PRE_CA_TYPE, "");
-            subsystemtype = config.getString("cs.type", "");
-            security_domain_type = config.getString("securitydomain.select","");
-            selected_hierarchy = config.getString("preop.hierarchy.select", "");
+            String subsystemtype = config.getString("cs.type", "");
         } catch (Exception e) {}
 
         ISubsystem ca = (ISubsystem) CMS.getSubsystem("ca");
@@ -269,17 +263,8 @@ public class AdminPanel extends WizardPanelBase {
             throw e;
         }
 
-        // REMINDER:  This panel is NOT used by "clones"
-        if( ( ca != null ) && ( security_domain_type.equals( "new" ) ) ) {
-            if( selected_hierarchy.equals( "root" ) ) {
-                CMS.debug( "AdminPanel update:  "
-                         + "Root CA subsystem - "
-                         + "(new Security Domain)" );
-            } else {
-                CMS.debug( "AdminPanel update:  "
-                         + "Subordinate CA subsystem - "
-                         + "(new Security Domain)" );
-            }
+        if (ca != null) { 
+            CMS.debug("AdminPanel update: this is CA subsystem");
 
             try {
                 createAdminCertificate(request, response, context);
@@ -293,23 +278,6 @@ public class AdminPanel extends WizardPanelBase {
             String ca_hostname = null;
             int ca_port = -1;
 
-            // REMINDER:  This panel is NOT used by "clones"
-            if( subsystemtype.equals( "CA" ) ) {
-                if( selected_hierarchy.equals( "root" ) ) {
-                    CMS.debug( "AdminPanel update:  "
-                             + "Root CA subsystem - "
-                             + "(existing Security Domain)" );
-                } else {
-                    CMS.debug( "AdminPanel update:  "
-                             + "Subordinate CA subsystem - "
-                             + "(existing Security Domain)" );
-                }
-            } else {
-                CMS.debug( "AdminPanel update:  "
-                         + subsystemtype
-                         + " subsystem" );
-            }
-
             if (type.equals("sdca")) {
                 try {
                     ca_hostname = config.getString("preop.ca.hostname");
@@ -318,8 +286,8 @@ public class AdminPanel extends WizardPanelBase {
                 }
             } else {
                 try {
-                    ca_hostname = config.getString("securitydomain.host", "");
-                    ca_port = config.getInteger("securitydomain.httpseeport");
+                    ca_hostname = config.getString("preop.securitydomain.host", "");
+                    ca_port = config.getInteger("preop.securitydomain.httpsport");
                 } catch (Exception e) {
                 }
             }
@@ -394,7 +362,7 @@ public class AdminPanel extends WizardPanelBase {
                 system.modifyGroup(group);
             }
 
-            String select = config.getString("securitydomain.select", "");
+            String select = config.getString("preop.securitydomain.select", "");
             if (select.equals("new")) {
                 group = system.getGroupFromName("Security Domain Administrators");
                 if (!group.isMember(uid)) {
@@ -451,8 +419,8 @@ public class AdminPanel extends WizardPanelBase {
         int sd_port = -1;
 
         try {
-            sd_hostname = config.getString("securitydomain.host", "");
-            sd_port = config.getInteger("securitydomain.httpseeport");
+            sd_hostname = config.getString("preop.securitydomain.host", "");
+            sd_port = config.getInteger("preop.securitydomain.httpsport");
         } catch (Exception e) {}
 
         String profileId = HttpInput.getID(request, "profileId");

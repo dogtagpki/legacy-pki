@@ -96,14 +96,12 @@ public class SecurityDomainPanel extends WizardPanelBase {
         context.put("title", "Security Domain");
         IConfigStore config = CMS.getConfigStore();
         String errorString = "";
-        String default_admin_url = "";
+        String url = "";
         String name = "";
-        String cstype = "";
 
         try {
-            default_admin_url = config.getString("preop.securitydomain.admin_url", "");
+            url = config.getString("preop.securitydomain.url", "");
             name = config.getString("preop.securitydomain.name", "");
-            cstype = config.getString("cs.type", "");
         } catch (Exception e) {
             CMS.debug(e.toString());
         }
@@ -132,92 +130,70 @@ public class SecurityDomainPanel extends WizardPanelBase {
             context.put("panelname", "Security Domain Configuration");
             context.put("systemname", config.getString("preop.system.name"));
             context.put("machineName", config.getString("machineName"));
-            context.put("http_ee_port", CMS.getEENonSSLPort());
-            context.put("https_agent_port", CMS.getAgentPort());
-            context.put("https_ee_port", CMS.getEESSLPort());
-            context.put("https_admin_port", CMS.getAdminPort());
-            context.put("sdomainAdminURL", default_admin_url);
+            context.put("https_port", CMS.getEESSLPort());
+            context.put("http_port", CMS.getEENonSSLPort());
         } catch (EBaseException e) {}
 
         context.put("panel", "admin/console/config/securitydomainpanel.vm");
         context.put("errorString", errorString);
 
-        // from default_admin_url, find hostname, if fully qualified, get
-        // network domain name and generate default security domain name
-        if (name.equals("") && (default_admin_url != null)) {
-            try {
-                URL u = new URL(default_admin_url);
-
-                String hostname = u.getHost();
-                StringTokenizer st = new StringTokenizer(hostname, ".");
-                boolean first = true;
-                int numTokens = st.countTokens();
-                int count = 0;
-                String defaultDomain = "";
-                StringBuffer sb = new StringBuffer();
-                while (st.hasMoreTokens()) {
-                    count++;
-                    String n = st.nextToken();
-                    if (first) { //skip the hostname
-                        first = false;
-                        continue;
-                    }
-                    if (count == numTokens) // skip the last element (e.g. com)
-                        continue;
-                    sb.append((defaultDomain.length()==0)? "":" ");
-                    sb.append(capitalize(n));
-                }
-                defaultDomain = sb.toString() + " "+ "Domain";
-                name = defaultDomain;
-                CMS.debug("SecurityDomainPanel: defaultDomain generated:"+ name);
-            } catch (MalformedURLException e) {
-                errorString = "Malformed URL";
-                // not being able to come up with default domain name is ok
-            }
-        }
-        context.put("sdomainName", name);
-
-        if( default_admin_url != null ) {
+	if (url != null) {
             String r = null;
 
             try {
-                // check to see if "default" security domain exists
-                // on local machine
-                URL u = new URL( default_admin_url );
+                URL u = new URL(url);
 
                 String hostname = u.getHost();
                 int port = u.getPort();
-                ConfigCertApprovalCallback
-                certApprovalCallback = new ConfigCertApprovalCallback();
-                r = pingCS( hostname, port, true, certApprovalCallback );
-            } catch (Exception e) {
-                CMS.debug( "SecurityDomainPanel: exception caught: "
-                         + e.toString() );
-            }
- 
-            if( r != null ) {
-                // "default" security domain exists on local machine;
-                // fill "sdomainURL" in with "default" security domain
-                // as an initial "guess"
-                CMS.debug( "SecurityDomainPanel: pingCS returns: "+r );
-                context.put( "sdomainURL", default_admin_url );
-            } else {
-                // "default" security domain does NOT exist on local machine;
-                // leave "sdomainURL" blank
-                CMS.debug( "SecurityDomainPanel: pingCS no successful response" );
-                context.put( "sdomainURL", "" );
-            }
-        }
+                ConfigCertApprovalCallback certApprovalCallback = new ConfigCertApprovalCallback();
+                r = pingCS(hostname, port, true, certApprovalCallback);
+	    } catch (Exception e) {
+		CMS.debug("SecurityDomainPanel: exception caught: "+e.toString());
+	    }
 
-        // Information for "existing" Security Domain CAs
-        String instanceId = "&lt;security_domain_instance_name&gt;";
-        String os = System.getProperty( "os.name" );
-        if( os.equalsIgnoreCase( "Linux" ) ) {
-            context.put( "initCommand", "/sbin/service " + instanceId );
-        } else {
-            /* default case:  e. g. - ( os.equalsIgnoreCase( "SunOS" ) */
-            context.put( "initCommand", "/etc/init.d/" + instanceId );
+	    if (r != null) {
+		CMS.debug("SecurityDomainPanel: pingCS returns: "+r);
+		context.put("sdomainURL", url);
+	    } else {
+		CMS.debug("SecurityDomainPanel: pingCS no successful response");
+		context.put("sdomainURL", "");
+	    }
+	}
+
+        // from url, find hostname, if fully qualified, get network
+        // domain name and generate default security domain name
+        if (name.equals("") && (url != null)) {
+            try {
+                URL u = new URL(url);
+
+                String hostname = u.getHost();
+                StringTokenizer st = new StringTokenizer(hostname, ".");
+		boolean first = true;
+		int numTokens = st.countTokens();
+		int count = 0;
+        String defaultDomain = "";
+        StringBuffer sb = new StringBuffer();
+        while (st.hasMoreTokens()) {
+		    count++;
+		    String n = st.nextToken();
+		    if (first) { //skip the hostname
+			first = false;
+			continue;
+                    }
+		    if (count == numTokens) // skip the last element (e.g. com)
+			continue;
+            sb.append((defaultDomain.length()==0)? "":" ");
+            sb.append(capitalize(n));
+		}
+		defaultDomain = sb.toString() + " "+ "Domain";
+		name = defaultDomain;
+		CMS.debug("SecurityDomainPanel: defaultDomain generated:"+ name);
+            } catch (MalformedURLException e) {
+                errorString = "Malformed URL";
+		// not being able to come up with default domain name is ok
+            }
         }
+        context.put("sdomainName", name);
     }
 
     public static String capitalize(String s) {
@@ -243,41 +219,10 @@ public class SecurityDomainPanel extends WizardPanelBase {
                 throw new IOException("Missing name value for the security domain");
             }
         } else if (select.equals("existingdomain")) {
-            CMS.debug( "SecurityDomainPanel: validating "
-                     + "SSL Admin HTTPS . . ." );
-            String admin_url = HttpInput.getURL( request, "sdomainURL" );
-            if( admin_url == null || admin_url.equals("") ) {
-                initParams( request, context );
-                throw new IOException( "Missing SSL Admin HTTPS url value "
-                                     + "for the security domain" );
-            } else {
-                String r = null;
-
-                try {
-                    URL u = new URL( admin_url );
-
-                    String hostname = u.getHost();
-                    int admin_port = u.getPort();
-                    ConfigCertApprovalCallback
-                    certApprovalCallback = new ConfigCertApprovalCallback();
-                    r = pingCS( hostname, admin_port, true,
-                                certApprovalCallback );
-                } catch( Exception e ) {
-                    CMS.debug( "SecurityDomainPanel: exception caught: "
-                             + e.toString() );
-                    throw new IOException( "Illegal SSL Admin HTTPS url value "
-                                         + "for the security domain" );
-                }
-
-                if (r != null) {
-                    CMS.debug("SecurityDomainPanel: pingAdminCS returns: "
-                             + r );
-                    context.put( "sdomainURL", admin_url );
-                } else {
-                    CMS.debug( "SecurityDomainPanel: pingAdminCS "
-                             + "no successful response for SSL Admin HTTPS" );
-                    context.put( "sdomainURL", "" );
-                }
+            String url = HttpInput.getURL(request, "sdomainURL");
+            if (url == null || url.equals("")) {
+                initParams(request, context);
+                throw new IOException("Missing url value for the security domain");
             }
         }
     }
@@ -305,10 +250,10 @@ public class SecurityDomainPanel extends WizardPanelBase {
             name = "";
         context.put("sdomainName", name);
 
-        String admin_url = request.getParameter("sdomainURL");
-        if (admin_url == null)
-            admin_url = "";
-        context.put("sdomainURL", admin_url);
+        String url = request.getParameter("sdomainURL");
+        if (url == null)
+            url = "";
+        context.put("sdomainURL", url);
     }
 
     /**
@@ -329,20 +274,22 @@ public class SecurityDomainPanel extends WizardPanelBase {
         if (select.equals("newdomain")) {
             config.putString("preop.securitydomain.select", "new");
             config.putString("securitydomain.select", "new");
+            config.putString("preop.securitydomain.host", 
+              CMS.getEENonSSLHost());
+            config.putString("securitydomain.host", 
+              CMS.getEENonSSLHost());
+            config.putString("preop.securitydomain.httpport", 
+              CMS.getEENonSSLPort());
+            config.putString("securitydomain.httpport", 
+              CMS.getEENonSSLPort());
+            config.putString("preop.securitydomain.httpsport", 
+              CMS.getEESSLPort());
+            config.putString("securitydomain.httpsport", 
+              CMS.getEESSLPort());
             config.putString("preop.securitydomain.name", 
               HttpInput.getDomainName(request, "sdomainName"));
             config.putString("securitydomain.name", 
               HttpInput.getDomainName(request, "sdomainName"));
-            config.putString("securitydomain.host", 
-              CMS.getEENonSSLHost());
-            config.putString("securitydomain.httpport", 
-              CMS.getEENonSSLPort());
-            config.putString("securitydomain.httpsagentport", 
-              CMS.getAgentPort());
-            config.putString("securitydomain.httpseeport", 
-              CMS.getEESSLPort());
-            config.putString("securitydomain.httpsadminport", 
-              CMS.getAdminPort());
 
             // make sure the subsystem certificate is issued by the security  
             // domain
@@ -368,25 +315,29 @@ public class SecurityDomainPanel extends WizardPanelBase {
             config.putString("preop.cert.subsystem.type", "remote");
             config.putString("preop.cert.subsystem.profile", "caInternalAuthSubsystemCert");
 
-            String admin_url = HttpInput.getURL(request, "sdomainURL");
+            String url = HttpInput.getURL(request, "sdomainURL");
             String hostname = "";
-            int admin_port = -1;
+            int port = -1;
 
-            if( admin_url != null ) {
+            if (url != null) {
                 try {
-                    URL admin_u = new URL( admin_url );
+                    URL u = new URL(url);
 
-                    hostname = admin_u.getHost();
-                    admin_port = admin_u.getPort();
-                } catch( MalformedURLException e ) {
-                    errorString = "Malformed SSL Admin HTTPS URL";
-                    throw new IOException( errorString );
+                    hostname = u.getHost();
+                    port = u.getPort();
+                } catch (MalformedURLException e) {
+                    errorString = "Malformed URL";
+                    throw new IOException(errorString);            
                 }
-
-                context.put( "sdomainURL", admin_url );
-                config.putString( "securitydomain.host", hostname );
-                config.putInteger( "securitydomain.httpsadminport",
-                                   admin_port );
+                
+                context.put("sdomainURL", url);
+                config.putString("preop.securitydomain.url", url);
+                config.putString("preop.securitydomain.host", hostname);
+                config.putString("securitydomain.host", hostname);
+                config.putInteger("preop.securitydomain.httpsport", port);
+                config.putInteger("securitydomain.httpsport", port);
+            } else {
+                config.putString("preop.securitydomain.url", "");
             }
 
             try {
@@ -394,8 +345,8 @@ public class SecurityDomainPanel extends WizardPanelBase {
             } catch (EBaseException e) {}
 
             ConfigCertApprovalCallback certApprovalCallback = new ConfigCertApprovalCallback();
-            updateCertChain( config, "securitydomain", hostname, admin_port,
-                             true, context, certApprovalCallback );
+            updateCertChain(config, "securitydomain", hostname, port, true, 
+              context, certApprovalCallback);
         } else {
             CMS.debug("SecurityDomainPanel: invalid choice " + select);
             errorString = "Invalid choice";
@@ -418,69 +369,21 @@ public class SecurityDomainPanel extends WizardPanelBase {
     }
 
     /**
-     * If validate() returns false, this method will be called.
+     * If validiate() returns false, this method will be called.
      */
     public void displayError(HttpServletRequest request,
             HttpServletResponse response,
             Context context) {
         IConfigStore config = CMS.getConfigStore();
-        String default_admin_url = "";
         try {
             initParams(request, context);
         } catch (IOException e) {
         }
-
-        try {
-            default_admin_url = config.getString("preop.securitydomain.admin_url", "");
-        } catch (Exception e) {}
-
-        if( default_admin_url != null ) {
-            String r = null;
-
-            try {
-                // check to see if "default" security domain exists
-                // on local machine
-                URL u = new URL( default_admin_url );
-
-                String hostname = u.getHost();
-                int port = u.getPort();
-                ConfigCertApprovalCallback
-                certApprovalCallback = new ConfigCertApprovalCallback();
-                r = pingCS( hostname, port, true, certApprovalCallback );
-            } catch (Exception e) {}
- 
-            if( r != null ) {
-                // "default" security domain exists on local machine;
-                // refill "sdomainURL" in with "default" security domain
-                // as an initial "guess"
-                context.put( "sdomainURL", default_admin_url );
-            } else {
-                // "default" security domain does NOT exist on local machine;
-                // leave "sdomainURL" blank
-                context.put( "sdomainURL", "" );
-            }
-        }
-
         try {
             context.put("machineName", config.getString("machineName"));
-            context.put("http_ee_port", CMS.getEENonSSLPort());
-            context.put("https_agent_port", CMS.getAgentPort());
-            context.put("https_ee_port", CMS.getEESSLPort());
-            context.put("https_admin_port", CMS.getAdminPort());
-            context.put("sdomainAdminURL",
-                        config.getString("preop.securitydomain.admin_url"));
+            context.put("https_port", CMS.getEESSLPort());
+            context.put("http_port", CMS.getEENonSSLPort());
         } catch (EBaseException e) {}
-
-        // Information for "existing" Security Domain CAs
-        String instanceId = "&lt;security_domain_instance_name&gt;";
-        String os = System.getProperty( "os.name" );
-        if( os.equalsIgnoreCase( "Linux" ) ) {
-            context.put( "initCommand", "/sbin/service " + instanceId );
-        } else {
-            /* default case:  e. g. - ( os.equalsIgnoreCase( "SunOS" ) */
-            context.put( "initCommand", "/etc/init.d/" + instanceId );
-        }
-
         context.put("title", "Security Domain");
         context.put("panel", "admin/console/config/securitydomainpanel.vm");
     }

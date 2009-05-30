@@ -1156,6 +1156,8 @@ LDAPMod **getModifications( char *query )
         return NULL;
     }
 
+    mods = allocate_modifications( n );
+
     if( ( v = create_modification_date_change() ) == NULL ) {
         if( mods != NULL ) {
             free_modifications( mods, 0 );
@@ -2567,7 +2569,7 @@ mod_tokendb_handler( request_rec *rq )
     char tokenType[512];
     apr_table_t *post = NULL; /* used for POST data */
   
-    char *statusString = NULL;
+    char *statusString;
     char *s1, *s2;
     char *end;
     char **attr_values;
@@ -2676,6 +2678,10 @@ mod_tokendb_handler( request_rec *rq )
     is_admin = tus_authorize(TOKENDB_ADMINISTRATORS_IDENTIFIER, userid);
     is_agent = tus_authorize(TOKENDB_AGENTS_IDENTIFIER, userid);
     is_operator = tus_authorize(TOKENDB_OPERATORS_IDENTIFIER, userid);
+    auth_filter = get_authorized_profiles(userid, is_admin);
+
+    tokendbDebug("auth_filter");
+    tokendbDebug(auth_filter);
 
     if( rq->uri != NULL ) {
         uri = PL_strdup( rq->uri );
@@ -2833,11 +2839,6 @@ mod_tokendb_handler( request_rec *rq )
             }
         }
 
-        if( result != NULL ) {
-            ldap_msgfree( result );
-        }
-
-
         /* Is this token physically damaged */
         if( q == 1 ) {
 
@@ -2921,7 +2922,6 @@ mod_tokendb_handler( request_rec *rq )
                             PL_strfree( attr_cn );
                             attr_cn = NULL;
                         }
-                        do_free(statusString);
                     }
 
                     if( attr_status != NULL ) {
@@ -2948,12 +2948,6 @@ mod_tokendb_handler( request_rec *rq )
                 if( result != NULL ) {
                     ldap_msgfree( result );
                 }
-
-                if( certEnroll != NULL ) {
-                    delete certEnroll;
-                    certEnroll = NULL;
-                }
-
             }
 
             /* change the tokenStatus to lost (reason: destroyed). */
@@ -3098,7 +3092,6 @@ mod_tokendb_handler( request_rec *rq )
                             PL_strfree( attr_cn );
                             attr_cn = NULL;
                         }
-                        do_free(statusString);
                     }
 
                     if( attr_status != NULL ) {
@@ -3124,11 +3117,6 @@ mod_tokendb_handler( request_rec *rq )
 
                 if( result != NULL ) {
                     ldap_msgfree( result );
-                }
-
-                if( certEnroll != NULL ) {
-                    delete certEnroll;
-                    certEnroll = NULL;
                 }
             }
 
@@ -3274,8 +3262,6 @@ mod_tokendb_handler( request_rec *rq )
                             RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
                             update_cert_status( attr_cn, "revoked" );
                         }
-
-                        do_free(statusString);
                     }
 
                     if( attr_status != NULL ) {
@@ -3302,12 +3288,6 @@ mod_tokendb_handler( request_rec *rq )
                 if (result != NULL) {
                     ldap_msgfree( result );
                 }
-
-                if( certEnroll != NULL ) {
-                    delete certEnroll;
-                    certEnroll = NULL;
-                }
-
             }
 
             rc = update_token_status_reason( cuidUserId, cuid,
@@ -3432,8 +3412,6 @@ mod_tokendb_handler( request_rec *rq )
                             PL_strfree( attr_cn );
                             attr_cn = NULL;
                         }
-
-                        do_free(statusString);
                     }
 
                     if( attr_serial != NULL ) {
@@ -3564,7 +3542,6 @@ mod_tokendb_handler( request_rec *rq )
                                         UnrevokeCertificate( serial,
                                                              connid,
                                                              statusString );
-                            do_free(statusString);
                         }
 
                         if( statusNum == 0 ) {
@@ -3573,7 +3550,6 @@ mod_tokendb_handler( request_rec *rq )
                                                            serial,
                                                            connid, 
                                                            statusString );
-                            do_free(statusString);
                         }
 
                         if( strcmp( revokeReason, "6" ) == 0 ) {
@@ -3905,12 +3881,6 @@ mod_tokendb_handler( request_rec *rq )
         } else {
             getFilter( filter, query );
         }
-
-        auth_filter = get_authorized_profiles(userid, is_admin);
-
-        tokendbDebug("auth_filter");
-        tokendbDebug(auth_filter);
-
         char *complete_filter = add_profile_filter(filter, auth_filter);
         do_free(auth_filter);
 
@@ -4146,7 +4116,7 @@ mod_tokendb_handler( request_rec *rq )
                     one_time =0;
                 }
                 // skip values not within the page range
-                if (entryNum == end_entry_val) {
+                if (entryNum == (end_entry_val + 1)) {
                     PL_strcat( injection, "var has_more_entries = 1;\n"); 
                 } 
                 continue;
@@ -4569,9 +4539,7 @@ mod_tokendb_handler( request_rec *rq )
         do_free(opAdmin);
 
         // save profile details
-        char *nProfileStr = get_post_field(post, "nProfiles", SHORT_LEN);
-        int nProfiles = atoi (nProfileStr);
-        do_free(nProfileStr);
+        int nProfiles = atoi (get_post_field(post, "nProfiles", SHORT_LEN));
 
         for (int i=0; i< nProfiles; i++) {
             char p_name[256];
@@ -5148,7 +5116,7 @@ mod_tokendb_handler( request_rec *rq )
 
         do_free(buf);
     }
-    do_free(userid);
+
     do_free(uri);
     do_free(query);
 

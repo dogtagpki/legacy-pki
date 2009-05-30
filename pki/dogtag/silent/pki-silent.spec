@@ -33,7 +33,7 @@
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
 %define base_version      1.1.0
-%define base_release      6
+%define base_release      2
 %define base_group        System Environment/Shells
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -234,21 +234,6 @@ rm -rf ${RPM_BUILD_ROOT}
 ###############################################################################
 
 %changelog
-* Fri May 29 2009 Ade Lee <alee@redhat.com> 1.1.0-6
-- Bugzilla Bug #502947 - pkisilent using wrong parameter name for clone CA PKCS#12 file
-* Wed May 20 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-5
-- Bugzilla Bug #491517 -  pkisilent Configure RA and TPS fail
-* Sat May 16 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-4
-- Bugzilla Bug #491517 -  pkisilent Configure RA and TPS fail
-  (port separation changes only)
-- Bugzilla Bug #495676 -  pkisilent ConfigureCA failure on AdminCertImportPanel
-- Bugzilla Bug #500748 -  pki-silent : issues due to port separation changes
-  (only addressed CA, KRA, OCSP, and TKS)
-* Tue May 5 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-3
-- Bugzilla Bug #492735 -  Configuration wizard stores certain incorrect
-  port values within TPS "CS.cfg" . . .
-- Bugzilla Bug #495597 -  Unable to access Agent page using a configured
-  CA/KRA containing an HSM
 * Tue Apr 28 2009 Ade Lee <alee@redhat.com> 1.1.0-2
 - Bugzilla Bug #493418 silent install -save_p12 option creates file mode 644
 * Sat Apr 4 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-1

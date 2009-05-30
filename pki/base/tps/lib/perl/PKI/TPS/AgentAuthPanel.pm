@@ -38,7 +38,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(7);
     $self->{"getName"} = &PKI::TPS::Common::r("Agent Authentication");
     $self->{"vmfile"} = "agentauthenticatepanel.vm";
@@ -71,8 +71,6 @@ sub update
 {
     my ($q) = @_;
     &PKI::TPS::Wizard::debug_log("AgentAuthPanel: update");
-    $::config->put("preop.agentauth.done", "true");
-    $::config->commit();
     return 1;
 }
 
@@ -83,9 +81,5 @@ sub display
     return 1;
 }
 
-sub is_panel_done
-{
-   return $::config->get("preop.agentauth.done");
-}
 
 1;

@@ -38,7 +38,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(0);
     $self->{"getName"} = &PKI::TPS::Common::r("Welcome");
     $self->{"vmfile"} = "login.vm";
@@ -71,9 +71,6 @@ sub update
 {
     my ($q) = @_;
     &PKI::TPS::Wizard::debug_log("WelcomePanel: update");
-    $::config->put("preop.loginpanel.done", "true");
-    $::config->commit();
-
     return 1;
 }
 
@@ -88,11 +85,6 @@ sub display
     $::symbol{fullsystemname}  = "Token Processing System";
 
     return 1;
-}
-
-sub is_panel_done
-{
-   return $::config->get("preop.loginpanel.done");
 }
 
 1;

@@ -67,8 +67,7 @@ public class CMSIssuingDistributionPointExtension
             "affiliationChanged",
             "superseded",
             "cessationOfOperation",
-            "certificateHold",
-            "privilegeWithdrawn"};
+            "certificateHold"};
 
     private ILogger mLogger = CMS.getLogger();
 

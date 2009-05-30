@@ -91,15 +91,13 @@ sub register_ra
     &PKI::RA::Wizard::debug_log("DonePanel: Connecting to Security Domain");
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
     my $session_id = $::config->get("preop.sessionID");
 
     &PKI::RA::Wizard::debug_log("DonePanel: Security Domain Info " . $url);
 
-    # add service.securityDomainPort to the config file in case pkiremove
-    # needs to remove system reference from the security domain
+    # add service.securityDomainPort to the config file in case pkiremove needs to
+    # remove system reference from the security domain
     $::config->put("service.securityDomainPort", $securePort);
     $::config->commit();
 
@@ -185,9 +183,7 @@ sub get_kra_transport_cert
     my $krainfo_url = new URI::URL($krainfo);
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
     my $session_id = $::config->get("preop.sessionID");
 
     my $nickname = $::config->get("preop.cert.sslserver.nickname");
@@ -238,9 +234,7 @@ sub send_kra_transport_cert
     my $tksinfo_url = new URI::URL($tksinfo);
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
     my $session_id = $::config->get("preop.sessionID");
 
     my $nickname = $::config->get("preop.cert.sslserver.nickname");
@@ -302,7 +296,7 @@ sub display
     }
 
     # Add this RA's server certificate to the subsystems
-    my $sdom = $::config->get("config.sdomainEEURL");
+    my $sdom = $::config->get("config.sdomainURL");
     my $cainfo = $::config->get("preop.cainfo.select");
     $cainfo =~ s/.* - //g;
     &register_ra($sdom, $cainfo, $::config->get("conn.ca1.servlet.addagent"), "CA");
@@ -374,9 +368,8 @@ sub display
     &PKI::RA::Wizard::debug_log("DonePanel: Connecting to Security Domain");
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
+    my $unsecurePort = $::config->get("service.unsecurePort");
     my $instanceID = $::config->get("service.instanceID");
 
     my $initCommand = "";
@@ -388,9 +381,8 @@ sub display
     }
 
     $::symbol{host}  = $machineName;
-    $::symbol{unsecurePort}  = $unsecurePort;
     $::symbol{port}  = $securePort;
-    $::symbol{non_clientauth_port}  = $non_clientauth_securePort;
+    $::symbol{unsecurePort}  = $unsecurePort;
     $::symbol{initCommand}  = $initCommand;
 
     $::config->deleteSubstore("preop.");

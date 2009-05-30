@@ -39,7 +39,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(11);
     $self->{"getName"} = &PKI::TPS::Common::r("Key Pairs");
     $self->{"vmfile"} = "sizepanel.vm";
@@ -124,7 +124,6 @@ sub update
     }
 #XXX should have better error checking to work better
     $done = $::config->put("preop.SizePanel.done", "true");
-
     $::config->commit();
 
     return 1;
@@ -211,11 +210,11 @@ sub display
 
     #for "common key settings"
     my $select = $::config->get("preop.keysize.select");
-    if (($select eq "") || ($select eq "default")) {
-        $::symbol{select} = "default";
-    } else {
+    if ($select ne "") {
         &PKI::TPS::Wizard::debug_log("SizePanel: display keysize select= $select");
         $::symbol{select} = $select;
+    } else {
+        $::symbol{select} = "default";
     }
     my $default_size = $::config->get("preop.keysize.size");
     if ($default_size eq "") {
@@ -239,11 +238,6 @@ sub display
 
 
     return 1;
-}
-
-sub is_panel_done
-{
-   return $::config->get("preop.SizePanel.done");
 }
 
 1;

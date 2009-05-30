@@ -40,7 +40,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(16);
     $self->{"getName"} = &PKI::TPS::Common::r("Done");
     $self->{"vmfile"} = "donepanel.vm";
@@ -90,15 +90,13 @@ sub register_tps
     &PKI::TPS::Wizard::debug_log("DonePanel: Connecting to Security Domain");
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
     my $session_id = $::config->get("preop.sessionID");
 
     &PKI::TPS::Wizard::debug_log("DonePanel: Security Domain Info " . $url);
 
-    # add service.securityDomainPort to the config file in case pkiremove
-    # needs to remove system reference from the security domain
+    # add service.securityDomainPort to the config file in case pkiremove needs to
+    # remove system reference from the security domain
     $::config->put("service.securityDomainPort", $securePort);
     $::config->commit();
 
@@ -184,9 +182,7 @@ sub get_kra_transport_cert
     my $krainfo_url = new URI::URL($krainfo);
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
     my $session_id = $::config->get("preop.sessionID");
 
     my $nickname = $::config->get("preop.cert.sslserver.nickname");
@@ -237,9 +233,7 @@ sub send_kra_transport_cert
     my $tksinfo_url = new URI::URL($tksinfo);
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
     my $session_id = $::config->get("preop.sessionID");
 
     my $nickname = $::config->get("preop.cert.sslserver.nickname");
@@ -301,7 +295,7 @@ sub display
     }
 
     # Add this TPS's server certificate to the subsystems
-    my $sdom = $::config->get("config.sdomainEEURL");
+    my $sdom = $::config->get("config.sdomainURL");
     my $cainfo = $::config->get("preop.cainfo.select");
     $cainfo =~ s/.* - //g;
     &register_tps($sdom, $cainfo, "/ca/admin/ca/registerUser", "CA");
@@ -387,9 +381,8 @@ sub display
     &PKI::TPS::Wizard::debug_log("DonePanel: Connecting to Security Domain");
 
     my $machineName = $::config->get("service.machineName");
-    my $unsecurePort = $::config->get("service.unsecurePort");
     my $securePort = $::config->get("service.securePort");
-    my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
+    my $unsecurePort = $::config->get("service.unsecurePort");
     my $instanceID = $::config->get("service.instanceID");
 
     my $initCommand = "";
@@ -401,9 +394,8 @@ sub display
     }
 
     $::symbol{host}  = $machineName;
-    $::symbol{unsecurePort}  = $unsecurePort;
     $::symbol{port}  = $securePort;
-    $::symbol{non_clientauth_port}  = $non_clientauth_securePort;
+    $::symbol{unsecurePort}  = $unsecurePort;
     $::symbol{initCommand}  = $initCommand;
 
     $::config->deleteSubstore("preop.");
@@ -417,11 +409,6 @@ sub display
     system( "chmod 00660 $restart_server" );
 
     return 1;
-}
-
-sub is_panel_done
-{
-   return $::config->get("preop.donepanel.done");
 }
 
 1;

@@ -34,7 +34,7 @@
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
 %define base_version      1.1.0
-%define base_release      13
+%define base_release      7
 %define base_group        System Environment/Daemons
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -266,25 +266,6 @@ fi
 ###############################################################################
 
 %changelog
-* Tue May 26 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-13
-- Bugzilla Bug #502398 -  Restore Configuration Logging Capabilities to
-  RA and TPS
-* Mon May 25 2009 Ade Lee <alee@redhat.com> 1.1.0-12
-- Bugzilla Bug #495157 -  SELinux prevents CA from using nethsm pkcs11 module
-* Thu May 14 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-11
-- Bugzilla Bug #500498 -  CA installation wizard doesn't install
-  administrator cert into browser on Firefox 3
-* Mon May 11 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-10
-- Bugzilla Bug #499025 -  pki-tps and pki-ra startup script needs to loop
-  on pid file availability
-* Fri May 8 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-9
-- Bugzilla Bug #492735 -  Configuration wizard stores certain incorrect
-  port values within TPS "CS.cfg" . . .
-* Tue May 5 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-8
-- Bugzilla Bug #492735 -  Configuration wizard stores certain incorrect
-  port values within TPS "CS.cfg" . . .
-- Bugzilla Bug #495597 -  Unable to access Agent page using a configured
-  CA/KRA containing an HSM
 * Thu Apr 30 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-7
 - Bugzilla Bug #498528 -  Disable mod_revocator on RHEL since it will no
   longer work with the updated mod_nss which is required for HSMs

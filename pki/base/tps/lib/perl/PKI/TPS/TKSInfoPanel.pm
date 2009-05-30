@@ -39,7 +39,7 @@ sub new {
 
     $self->{"isSubPanel"} = \&is_sub_panel;
     $self->{"hasSubPanel"} = \&has_sub_panel;
-    $self->{"isPanelDone"} = \&is_panel_done;
+    $self->{"isPanelDone"} = \&PKI::TPS::Common::no;
     $self->{"getPanelNo"} = &PKI::TPS::Common::r(5);
     $self->{"getName"} = &PKI::TPS::Common::r("TKS Information");
     $self->{"vmfile"} = "tksinfopanel.vm";
@@ -78,29 +78,28 @@ sub update
     my $instanceID = $::config->get("service.instanceID");
 
     my $host = "";
-    my $https_agent_port = "";
+    my $port = "";
     if ($count =~ /http/) {
       my $info = new URI::URL($count);
       $host = $info->host;
-      $https_agent_port = $info->port;
-      if (($host eq "") || ($https_agent_port eq "")) {
+      $port = $info->port;
+      if (($host eq "") || ($port eq "")) {
         $::symbol{errorString} = "no TKS found.  CA, TKS and optionally DRM must be installed prior to TPS installation";
         return 0;
       }
       $::config->put("preop.tksinfo.select", $count);
     } else {
       $host = $::config->get("preop.securitydomain.tks$count.host");
-      $https_agent_port = $::config->get("preop.securitydomain.tks$count.secureagentport");
-      if (($host eq "") || ($https_agent_port eq "")) {
+      $port = $::config->get("preop.securitydomain.tks$count.secureport");
+      if (($host eq "") || ($port eq "")) {
         $::symbol{errorString} = "no TKS found.  CA, TKS and optionally DRM must be installed prior to TPS installation";
         return 0;
       }
-      $::config->put("preop.tksinfo.select", "https://$host:$https_agent_port");
+      $::config->put("preop.tksinfo.select", "https://$host:$port");
     }
     my $subsystemCertNickName = $::config->get("preop.cert.subsystem.nickname");
     $::config->put("conn.tks1.clientNickname", $subsystemCertNickName);
-    $::config->put("conn.tks1.hostport", $host . ":" . $https_agent_port); 
-    $::config->put("preop.tksinfo.done", "true");
+    $::config->put("conn.tks1.hostport", $host . ":" . $port); 
     $::config->commit();
 
     return 1;
@@ -117,9 +116,9 @@ sub display
       if ($host eq "") {
         goto DONE;
       }
-      my $https_agent_port = $::config->get("preop.securitydomain.tks$count.secureagentport");
+      my $port = $::config->get("preop.securitydomain.tks$count.secureport");
       my $name = $::config->get("preop.securitydomain.tks$count.subsystemname");
-      $::symbol{urls}[$count++] = $name . " - https://" . $host . ":" . $https_agent_port;
+      $::symbol{urls}[$count++] = $name . " - https://" . $host . ":" . $port;
     }
 DONE:
     $::symbol{urls_size}   = $count;
@@ -130,11 +129,5 @@ DONE:
 
     return 1;
 }
-
-sub is_panel_done
-{
-   return $::config->get("preop.tksinfo.done");
-}
-
 
 1;

@@ -344,9 +344,6 @@ start()
 		fi
 	fi
 
-        # restore context for ncipher hsm
-        [ -x /sbin/restorecon ] && [ -d /dev/nfast ] && /sbin/restorecon -R /dev/nfast
-
 	if [ -x /etc/init.d/functions ]; then
 		/usr/sbin/selinuxenabled
 		RETVAL=$?
@@ -376,10 +373,9 @@ start()
 		count=0;
 
 		let swait=$STARTUP_WAIT
-		until	[ -s ${pidfile} ] ||
+		until	[ ! -s ${pidfile} ] ||
 				[ $count -gt $swait ]
 		do
-			echo -n "."
 			sleep 1
 			let count=$count+1;
 		done
@@ -398,25 +394,11 @@ start()
 
 		# Set permissions of log files
 		pki_logs_directory=`dirname ${pidfile}`
-		pki_signedAudit="${pki_logs_directory}/signedAudit"
-		for file in ${pki_logs_directory}/*; do
-			if	[ "${file}" != "${pidfile}" ] &&
-				[ "${file}" != "${pki_signedAudit}" ]; then
-				chmod 00660 ${file}
-				chgrp [GROUPID] ${file}
-				chown [USERID] ${file}
+		for file in ${pki_logs_directory}; do
+			if [ "${file}" != "${pidfile}" ]; then
+				chmod -R 00660 ${file}
 			fi
 		done
-
-		# Set permissions of signedAudit log files
-		pki_signedAudit_files=`ls -1A ${pki_signedAudit} | wc -l`
-		if	[ ${pki_signedAudit_files} -gt 0 ]; then
-			for file in ${pki_signedAudit}/*; do
-				chmod 00660 ${file}
-				chgrp [GROUPID] ${file}
-				chown [USERID] ${file}
-			done
-		fi
 	else
 		if [ -x /etc/init.d/functions ]; then
 			echo_failure
@@ -455,7 +437,6 @@ stop()
 				until	[ `ps -p $kpid | grep -c $kpid` = '0' ] ||
 						[ $count -gt $kwait ]
 				do
-					echo -n "."
 					sleep 1
 					let count=$count+1;
 				done

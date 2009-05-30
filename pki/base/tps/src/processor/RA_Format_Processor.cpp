@@ -253,10 +253,6 @@ TPS_PUBLIC RA_Status RA_Format_Processor::Process(RA_Session *session, NameValue
 		  "%x.%x.%s", app_major_version, app_minor_version,
 		  buildid);
       appletVersion = strdup(version);
-      if (buildid != NULL) {
-          PR_Free(buildid);
-          buildid=NULL;
-      }
     }
 
     final_applet_version = strdup(appletVersion);
@@ -332,29 +328,7 @@ locale),
                    char *description = PL_strdup(entry->GetAuthentication()->GetDescription(locale));
                    RA::Debug("RA_Enroll_Processor::RequestUserId", "description=%s", description);
            login = RequestExtendedLogin(session, 0 /* invalid_pw */, 0 /* blocked */, params, n, title, description);
-
-                   if (params != NULL) {
-                       for (int nn=0; nn < n; nn++) {
-                           if (params[nn] != NULL) {
-                               PL_strfree(params[nn]);
-                               params[nn] = NULL;
-                           }
-                       }
-                       free(params);
-                       params = NULL;
-                   }
-
-                   if (title != NULL) {
-                       PL_strfree(title);
-                       title = NULL;
-                   }
-          
-                   if (description != NULL) {
-                       PL_strfree(description);
-                       description = NULL;
-                   }
-
-
+                             
                    RA::Debug("RA_Enroll_Processor::RequestUserId",
     "Extended Login Request detected calling RequestExtendedLogin() login=%x", login);
         } else {
@@ -513,12 +487,6 @@ locale),
     RA::Audit(EV_UPGRADE, 
       "op='applet_upgrade' app_ver='%s' new_app_ver='%s'", 
       appletVersion, expected_version);
-
-    if( final_applet_version != NULL ) {
-        PR_Free( (char *) final_applet_version );
-        final_applet_version = NULL;
-    }
-
     final_applet_version = expected_version;
 
     if (extensions != NULL && 
@@ -549,11 +517,6 @@ locale),
             RA::Debug("RA_Format_Processor", "Set Issuer Info %s", issuer_val);
             Buffer *info = new Buffer((BYTE*)issuer, 224);
             rc = channel->SetIssuerInfo(info);
-             
-            if (info != NULL) {
-                delete info;
-                info = NULL;
-            }
         }
     }
 
@@ -782,10 +745,6 @@ locale),
                         PL_strfree(attr_cn);
                         attr_cn = NULL;
                     }
-                    if (statusString != NULL) {
-                        PR_Free(statusString);
-                        statusString = NULL;
-                    }
                 }
             }
             if (result != NULL)
@@ -879,10 +838,12 @@ loser:
         PR_Free( (char *) appletVersion );
         appletVersion = NULL;
     }
+    /*
     if( final_applet_version != NULL ) {
         PR_Free( (char *) final_applet_version );
         final_applet_version = NULL;
     }
+    */
     if( userid != NULL ) {
         PR_Free( (char *) userid );
         userid = NULL;
@@ -898,10 +859,6 @@ loser:
     if( authParams != NULL ) {
         delete authParams;
         authParams = NULL;
-    }
-    if( login != NULL ) {
-        delete login;
-        login = NULL;
     }
 
 #ifdef   MEM_PROFILING     

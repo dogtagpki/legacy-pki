@@ -75,7 +75,7 @@ sub update
     &PKI::RA::Wizard::debug_log("ImportAdminCertPanel: update");
 
     # register to Security Domain
-    my $sdom = $::config->get("config.sdomainAgentURL");
+    my $sdom = $::config->get("config.sdomainURL");
     my $sdom_url = new URI::URL($sdom);
 
     #
@@ -102,18 +102,6 @@ sub update
 
     my $cmd = `/usr/bin/sslget -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$subCertNickName\" -r \"/ca/agent/ca/updateDomainXML?$params\" $sdom_url->host:$sdom_url->port`;
 
-    # Fetch the "updated" security domain and display it
-    &PKI::RA::Wizard::debug_log("ImportAdminCertPanel:  Dump contents of updated Security Domain . . .");
-    my $sdomainAdminURL = $::config->get("config.sdomainAdminURL");
-    my $sdom_info = new URI::URL($sdomainAdminURL);
-    my $nickname = $::config->get("preop.cert.sslserver.nickname");
-    my $sd_host = $sdom_info->host;
-    my $sd_admin_port = $sdom_info->port;
-    my $content = `/usr/bin/sslget -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$nickname\" -r \"/ca/admin/ca/getDomainXML\" $sd_host:$sd_admin_port`;
-    $content =~ /(\<XMLResponse\>.*\<\/XMLResponse\>)/;
-    $content = $1; 
-    &PKI::RA::Wizard::debug_log($content);
-
     return 1;
 }
 
@@ -123,7 +111,7 @@ sub display
     &PKI::RA::Wizard::debug_log("ImportAdminCertPanel: display");
 
 #    my $cainfo = $::config->get("preop.cainfo.select");
-    my $cainfo = "https://".$::config->get("conn.ca1.hostadminport");
+    my $cainfo = "https://".$::config->get("conn.ca1.hostport");
 
     my $cainfo_url = new URI::URL($cainfo);
     my $serialNumber = $::config->get("preop.admincert.serialno.0");

@@ -92,9 +92,6 @@ public class ProfileServlet extends CMSServlet {
     public final static String ARG_DEF_DESC = "defDesc";
     public final static String ARG_DEF_LIST = "defList";
     public final static String ARG_CON_DESC = "conDesc";
-    public final static String ARG_CON_LIST = "constraint";
-    public final static String ARG_CON_NAME = "name";
-    public final static String ARG_CON_VALUE = "value";
     public final static String ARG_PROFILE_SET_ID = "profileSetId";
     public final static String ARG_POLICY_SET_ID = "setId";
     public final static String ARG_POLICY = "policy";
@@ -323,7 +320,7 @@ public class ProfileServlet extends CMSServlet {
     protected String escapeJavaScriptString(String v) {
         int l = v.length();
         char in[] = new char[l];
-        char out[] = new char[l * 4];
+        char out[] = new char[l * 2];
         int j = 0;
 
         v.getChars(0, l, in, 0);
@@ -334,16 +331,6 @@ public class ProfileServlet extends CMSServlet {
             /* presumably this gives better performance */
             if ((c > 0x23) && (c != 0x5c)) {
                 out[j++] = c;
-                continue;
-            }
-
-            /* some inputs are coming in as '\' and 'n' */
-            /* see BZ 500736 for details */
-            if ((c == 0x5c) && ((i+1)<l) && (in[i+1] == 'n' ||
-                 in[i+1] == 'n' || in[i+1] == 'f' || in[i+1] == 't')) {
-                out[j++] = '\\';
-                out[j++] = in[i+1];
-                i++;
                 continue;
             }
 
@@ -371,25 +358,6 @@ public class ProfileServlet extends CMSServlet {
             case '\f':
                 out[j++] = '\\';
                 out[j++] = 'f';
-                break;
-
-            case '\t':
-                out[j++] = '\\';
-                out[j++] = 't';
-                break;
-
-            case '<':
-                out[j++] = '\\';
-                out[j++] = 'x';
-                out[j++] = '3';
-                out[j++] = 'c';
-                break;
-
-            case '>':
-                out[j++] = '\\';
-                out[j++] = 'x';
-                out[j++] = '3';
-                out[j++] = 'e';
                 break;
 
             default:

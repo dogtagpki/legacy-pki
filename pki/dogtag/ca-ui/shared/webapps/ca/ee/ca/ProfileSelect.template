@@ -37,74 +37,6 @@ width="100%">
 
 var dual = 'false';
 
-var keyList = new Array();
-var key = new Object();
-key.type = "RSA";
-key.size = [512, 1024, 2048, 3072, 4096, 5120, 6144, 7168, 8192];
-keyList[0] = key;
-var key = new Object();
-key.type = "DSA";
-key.size = new Array();
-keyList[1] = key;
-var key = new Object();
-key.type = "EC";
-key.size = new Array();
-keyList[2] = key;
-
-function keyOptions (keyPurpose)
-{
-  var maxKeyLen = 8192;
-  var minKeyLen = 512;
-  var keyType = "RSA";
-  var options = "";
-
-  for (var i = 0; i < policySetListSet.length; i++) {
-    for (var j = 0; j < policySetListSet[i].policySet.length; j++) {
-      if (typeof(policySetListSet[i].policySet[j].constraintSet) != "undefined") {
-        for (var k = 0; k < policySetListSet[i].policySet[j].constraintSet.length; k++) {
-          if (policySetListSet[i].policySet[j].constraintSet[k].name == "keyMinLength") {
-            if (keyPurpose.length == 0 || (keyPurpose.length > 0 && policySetListSet[i].setId.indexOf(keyPurpose) > -1)) {
-              minKeyLen = parseInt(policySetListSet[i].policySet[j].constraintSet[k].value);
-            }
-          }
-          if (policySetListSet[i].policySet[j].constraintSet[k].name == "keyMaxLength") {
-            if (keyPurpose.length == 0 || (keyPurpose.length > 0 && policySetListSet[i].setId.indexOf(keyPurpose) > -1)) {
-              maxKeyLen = parseInt(policySetListSet[i].policySet[j].constraintSet[k].value);
-            }
-          }
-          if (policySetListSet[i].policySet[j].constraintSet[k].name == "keyType") {
-            if (policySetListSet[i].policySet[j].constraintSet[k].value != "-") {
-              if (keyPurpose.length == 0 || (keyPurpose.length > 0 && policySetListSet[i].setId.indexOf(keyPurpose) > -1)) {
-                keyType = policySetListSet[i].policySet[j].constraintSet[k].value;
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  for (var i = 0; i < keyList.length; i++) {
-    if (keyList[i].type == keyType) {
-      var k = 0;
-      for (var j = 0; j < keyList[i].size.length; j++) {
-        if (keyList[i].size[j] <= maxKeyLen && keyList[i].size[j] >= minKeyLen) {
-          options += '<OPTION VALUE="'+keyList[i].size[j]+'"';
-          if (k == 0) {
-            options += ' SELECTED';
-          }
-          options += '>'+keyList[i].size[j];
-          k++;
-        }
-      }
-    }
-  }
-  if (options.length == 0) {
-    options = "<OPTION VALUE=1024 SELECTED>1024";
-  }
-
-  return options;
-}
-
 function validate()
 {
    if (keygen_request == 'false')
@@ -144,7 +76,7 @@ function validate()
         //              512, null, keyGenAlg);
         /////////////////////////////////////////////////////////////////
         var keyTransportCert = null;
-        if (typeof(transportCert) != "undefined" && transportCert != "") {
+        if (transportCert != "") {
           // from CS7.2, transport certificate will be 
           // inserted automatically
           keyTransportCert = transportCert;
@@ -237,12 +169,7 @@ Sub Send_OnClick
   Dim options
   Dim osVersion
   Dim result
-  Dim keyLen
-  Dim keyIndex
   Set TheForm = Document.ReqForm
-
-  keyIndex = TheForm.all.keyLength.options.selectedIndex
-  keyLen = CInt (TheForm.all.keyLength.options(keyIndex).value)
 
   osVersion = GetOSVersion()
 
@@ -266,8 +193,7 @@ Sub Send_OnClick
    ' asking what level of protection you would like to give
    ' the key - this varies from 'none' to 'confirm password
    ' every time the key is used'
-   ' Enroll.GenKeyFlags = 1        ' key PKCS12-exportable
-  Enroll.GenKeyFlags = (65536 * (CLng(keyLen))) + 1
+  Enroll.GenKeyFlags = 1        ' key PKCS12-exportable
   szCertReq = Enroll.createPKCS10(szName, "1.3.6.1.5.5.7.3.2")
   theError = Err.Number
   On Error Goto 0
@@ -337,9 +263,8 @@ Sub Send_OnClick
   ' Pick the provider that is selected
     set options = TheForm.all.cryptprovider.options
     index = options.selectedIndex
-    privateKey.ProviderType = index
+    privateKey.ProviderType=  index
     privateKey.ProviderName = options(index).text
-    privateKey.Length = keyLen
 
     szName = "0.9.2342.19200300.100.1.1=" & TheForm.uid.Value & ",E=" & TheForm.email.Value & ",CN=" & TheForm.cn.Value
 
@@ -470,8 +395,8 @@ for (var j = 0; j < inputPluginListSet.length; j++) {
       if (navigator.appName == "Microsoft Internet Explorer") { 
         document.writeln('<input type=hidden name=' + inputListSet[i].inputId + '>');
       } else if (typeof(crypto.version) != "undefined") {
-        document.write('<SELECT NAME="encKeyLength">'+keyOptions("encryption")+'</SELECT> (Encryption),&nbsp;&nbsp;');
-        document.write('<SELECT NAME="signKeyLength">'+keyOptions("signing")+'</SELECT> (Signing)');
+        document.write('<SELECT NAME="encKeyLength"><OPTION VALUE=1024 SELECTED>1024<OPTION VALUE=2048>2048<OPTION VALUE=4096>4096</SELECT> (Encryption),'); 
+        document.write('<SELECT NAME="signKeyLength"><OPTION VALUE=1024 SELECTED>1024<OPTION VALUE=2048>2048<OPTION VALUE=4096>4096</SELECT> (Signing)');
         document.writeln('<input type=hidden name=cert_request value="">');
         dual = 'true';
       } else {
@@ -480,9 +405,9 @@ for (var j = 0; j < inputPluginListSet.length; j++) {
     } else if (inputListSet[i].inputSyntax == 'keygen_request') {
       if (navigator.appName == "Microsoft Internet Explorer") { 
         document.writeln('<input type=hidden name=' + inputListSet[i].inputId + '>');
-        document.writeln('<SELECT NAME="keyLength">'+keyOptions("")+'</SELECT>&nbsp;&nbsp;<SELECT NAME=\"cryptprovider\"></SELECT>');
+        document.writeln('<SELECT NAME=\"cryptprovider\"></SELECT>');
       } else if (typeof(crypto.version) != "undefined") {
-        document.write('<SELECT NAME="keyLength">'+keyOptions("")+'</SELECT> (Encryption and Signing)');
+        document.write('<SELECT NAME="keyLength"><OPTION VALUE=1024 SELECTED>1024<OPTION VALUE=2048>2048<OPTION VALUE=4096>4096</SELECT> (Encryption and Signing)');
         document.writeln('<input type=hidden name=cert_request value="">');
       } else {
         document.writeln('<KEYGEN name=' + inputListSet[i].inputId + '>');
@@ -592,11 +517,11 @@ Function FindProviders
 	  TheForm.cryptprovider.add(el)
 	  If firstE > 0  Then
 	    TheForm.cryptprovider.selectedIndex = firstE
-	  ElseIf firstS > 0  Then
+      ElseIf firstS > 0  Then
 	    TheForm.cryptprovider.selectedIndex = firstS
-	  ElseIf first > 0  Then
+      ElseIf first > 0  Then
 	    TheForm.cryptprovider.selectedIndex = first
-	  Else
+      Else
 	    first = 1
 	    TheForm.cryptprovider.selectedIndex = 0
 	  End If

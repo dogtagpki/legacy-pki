@@ -41,10 +41,6 @@ TPS_PUBLIC RA_Extended_Login_Response_Msg::RA_Extended_Login_Response_Msg (AuthP
  */
 TPS_PUBLIC RA_Extended_Login_Response_Msg::~RA_Extended_Login_Response_Msg ()
 {
-    if( m_params != NULL ) {
-        delete m_params;
-        m_params = NULL;
-    }
 }
 
 /**

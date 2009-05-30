@@ -34,7 +34,7 @@
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
 %define base_version      1.1.0
-%define base_release      23
+%define base_release      12
 %define base_group        System Environment/Daemons
 %define base_vendor       Red Hat, Inc.
 %define base_license      LGPLv2 with exceptions
@@ -313,36 +313,6 @@ fi
 ###############################################################################
 
 %changelog
-* Wed May 27 2009 Ade Lee <alee@redhat.com> 1.1.0-23
-- Bugzilla Bug #499493 - run tps under valgrind
-* Tue May 26 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-22
-- Bugzilla Bug #502398 -  Restore Configuration Logging Capabilities to
-  RA and TPS
-* Mon May 25 2009 Ade Lee <alee@redhat.com> 1.1.0-21
-- Bugzilla Bug #499439 -  Show certificates in the tps agent page does not show all the certs
-* Mon May 25 2009 Ade Lee <alee@redhat.com> 1.1.0-20
-- Bugzilla Bug #495157 -  SELinux prevents CA from using nethsm pkcs11 module
-* Sun May 24 2009 Ade Lee <alee@redhat.com> 1.1.0-19
-- Bugzilla Bug #502105 - Restart tps server or check for the status is not showing the tps ports
-* Wed May 20 2009 Ade Lee <alee@redhat.com> 1.1.0-18
-- Bugzilla Bug #497583 -  web wizard tps - menu highlight and label typo
-* Sat May 16 2009 Jack Magne <jmagne@redhat.com> 1.1.0-17
-- Bugzilla Bug #491019 - Security Officer token can get formatted with
-  user format page.
-* Thu May 14 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-16
-- Bugzilla Bug #500498 -  CA installation wizard doesn't install
-  administrator cert into browser on Firefox 3
-* Mon May 11 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-15
-- Bugzilla Bug #499025 -  pki-tps and pki-ra startup script needs to loop
-  on pid file availability
-* Fri May 8 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-14
-- Bugzilla Bug #492735 -  Configuration wizard stores certain incorrect
-  port values within TPS "CS.cfg" . . .
-* Tue May 5 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-13
-- Bugzilla Bug #492735 -  Configuration wizard stores certain incorrect
-  port values within TPS "CS.cfg" . . .
-- Bugzilla Bug #495597 -  Unable to access Agent page using a configured
-  CA/KRA containing an HSM
 * Fri May 1  2009 Jack Magne <jmagne@redhat.com> 1.1.0-12
 - Bugzilla Bug #494983 - Can't re-enroll if policy is set to no.
 * Thu Apr 30 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-11
