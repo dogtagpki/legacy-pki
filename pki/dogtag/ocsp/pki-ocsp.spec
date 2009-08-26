@@ -300,8 +300,9 @@ fi
 * Tue Aug 25 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-3
 - Bugzilla Bug #519259 -  Change "[ -x /etc/init.d/functions]" to
   "[ -f /etc/init.d/functions]" . . .  
-* DOGTAG 1.2.0 DOES NOT CONTAIN Tue Aug 25 2009 Christina Fu <cfu@redhat.com> 1.2.0-2
-- DOGTAG 1.2.0 DOES NOT CONTAIN Bugzilla Bug #465507 - Enhancement: Support SHA2 + EC signature algorithms
+* Tue Aug 25 2009 Christina Fu <cfu@redhat.com> 1.2.0-2
+- DOGTAG 1.2.0 DOES NOT CONTAIN
+  Bugzilla Bug #465507 - Enhancement: Support SHA2 + EC signature algorithms
 * Tue Jul 28 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-1
 - Version update to Dogtag 1.2.0.
 * Fri Jun 19 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-12
