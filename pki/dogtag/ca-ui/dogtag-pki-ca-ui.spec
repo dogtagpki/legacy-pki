@@ -33,8 +33,8 @@
 
 ## Package Header Definitions
 %define base_name         %{base_ui_prefix}-%{base_prefix}-%{base_component}
-%define base_version      1.2.0
-%define base_release      3
+%define base_version      1.1.0
+%define base_release      17
 %define base_group        System Environment/Base
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -222,12 +222,10 @@ rm -rf ${RPM_BUILD_ROOT}
 ###############################################################################
 
 %changelog
-* Tue Aug 4 2009 Andrew Wnuk <awnuk@redhat.com> 1.2.0-3
+* Thu Aug 6 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-17
 - Bugzilla Bug #514093 - UI ignores higher revocation reasons
-* Thu Jul 30 2009 Andrew Wnuk <awnuk@redhat.com> 1.2.0-2
+* Thu Jul 30 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-16
 - Bugzilla Bug #514094 - enable ECC enrollment for FF through key constraints
-* Tue Jul 28 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-1
-- Version update to Dogtag 1.2.0.
 * Wed Jul 8 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-15
 - Bugzilla Bug #510165 - request search displays 'undefined' page size
 * Mon Jul 6 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-14

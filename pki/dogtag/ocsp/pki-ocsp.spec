@@ -33,8 +33,8 @@
 
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
-%define base_version      1.2.0
-%define base_release      3
+%define base_version      1.1.0
+%define base_release      13
 %define base_group        System Environment/Daemons
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -297,13 +297,8 @@ fi
 ###############################################################################
 
 %changelog
-* Tue Aug 25 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-3
-- Bugzilla Bug #519259 -  Change "[ -x /etc/init.d/functions]" to
-  "[ -f /etc/init.d/functions]" . . .  
-* Tue Aug 25 2009 Christina Fu <cfu@redhat.com> 1.2.0-2
+* Tue Aug 25 2009 Christina Fu <cfu@redhat.com> 1.1.0-13
 - Bugzilla Bug #465507 - Enhancement: Support SHA2 + EC signature algorithms
-* Tue Jul 28 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-1
-- Version update to Dogtag 1.2.0.
 * Fri Jun 19 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-12
 - Bugzilla Bug #506867 -  Provide custom error page for HTTP STATUS 500
 * Mon Jun 15 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-11

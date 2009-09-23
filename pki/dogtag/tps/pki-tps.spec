@@ -33,8 +33,8 @@
 
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
-%define base_version      1.2.0
-%define base_release      3
+%define base_version      1.1.0
+%define base_release      43
 %define base_group        System Environment/Daemons
 %define base_vendor       Red Hat, Inc.
 %define base_license      LGPLv2 with exceptions
@@ -75,7 +75,7 @@
 ##===================##
 %ifos Linux
 ## 32-bit Definitions
-%ifarch i386 i486 i586 i686
+%ifarch i386
 %define architecture      intel
 %define configure_cmd     ../configure
 %endif
@@ -314,13 +314,6 @@ fi
 ###############################################################################
 
 %changelog
-* Tue Aug 25 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-3
-- Bugzilla Bug #519259 -  Change "[ -x /etc/init.d/functions]" to
-  "[ -f /etc/init.d/functions]" . . .  
-* Fri Aug 21 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-2
-- Bugzilla Bug #518736 -  Port Dogtag 1.2.0 to 32-bit and 64-bit Fedora 11 . . .
-* Tue Jul 28 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-1
-- Version update to Dogtag 1.2.0.
 * Thu Jul 16 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-43
 - Bugzilla Bug #512134 -  strip symbols from libraries, modules,
   and executables

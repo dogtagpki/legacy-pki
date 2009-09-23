@@ -32,8 +32,8 @@
 
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
-%define base_version      1.2.0
-%define base_release      3
+%define base_version      1.1.0
+%define base_release      9
 %define base_group        System Environment/Base
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -270,12 +270,10 @@ rm -rf ${RPM_BUILD_ROOT}
 ###############################################################################
 
 %changelog
-* Thu Sep 3 2009 Andrew Wnuk <awnuk@redhat.com> 1.2.0-3
+* Thu Sep 3 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-9
 - Bugzilla Bug #514270 - improved skipping sequence for quick CRL parsing
-* Tue Aug 25 2009 Christina Fu <cfu@redhat.com> 1.2.0-2
+* Tue Aug 25 2009 Christina Fu <cfu@redhat.com> 1.1.0-8
 - Bugzilla Bug #465507 - Enhancement: Support SHA2 + EC signature algorithms
-* Tue Jul 28 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-1
-- Version update to Dogtag 1.2.0.
 * Wed Jul 8 2009 Christina Fu <cfu@redhat.com> 1.1.0-7
 - Bugzilla Bug #467200 -  (ECC Certicom) added mapping of SHA1withEC
 * Fri Jun 5 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-6

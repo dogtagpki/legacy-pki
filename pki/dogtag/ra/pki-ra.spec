@@ -33,8 +33,8 @@
 
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
-%define base_version      1.2.0
-%define base_release      2
+%define base_version      1.1.0
+%define base_release      27
 %define base_group        System Environment/Daemons
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -266,11 +266,6 @@ fi
 ###############################################################################
 
 %changelog
-* Tue Aug 25 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-2
-- Bugzilla Bug #519259 -  Change "[ -x /etc/init.d/functions]" to
-  "[ -f /etc/init.d/functions]" . . .  
-* Tue Jul 28 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-1
-- Version update to Dogtag 1.2.0.
 * Tue Jul 14 2009 Ade Lee <alee@redhat.com> 1.1.0-27
 - Bugzilla Bug #511337 - sscep getca fails with define CA identifier 
 * Mon Jul 6 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-26

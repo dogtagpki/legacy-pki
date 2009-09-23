@@ -33,8 +33,8 @@
 
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
-%define base_version      1.2.0
-%define base_release      7
+%define base_version      1.1.0
+%define base_release      47
 %define base_group        System Environment/Base
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -122,10 +122,10 @@ BuildRoot:      %{_builddir}/%{base_name}-root
 ##        Technically, "ant" should not need to be in "BuildRequires" since
 ##        it is the Java equivalent of "make" (and/or "Autotools").
 ##
-BuildRequires:  ant >= 1.6.2, %{base_prefix}-util >= 1.0.0, %{base_flavor}-%{base_name}-ui >= 1.0.0, %{pki_jdk}, jpackage-utils >= 1.6.0, jss >= 4.2.6-5, ldapjdk >= 4.17, osutil >= 1.0.0, symkey >= 1.0.0, velocity >= 1.4, xalan-j2, xerces-j2
+BuildRequires:  ant >= 1.6.2, %{base_prefix}-util >= 1.0.0, %{base_flavor}-%{base_name}-ui >= 1.0.0, %{pki_jdk}, jpackage-utils >= 1.6.0, jss >= 4.2.6, ldapjdk >= 4.17, osutil >= 1.0.0, symkey >= 1.0.0, velocity >= 1.4, xalan-j2, xerces-j2
 
 ## Without Requires something, rpmbuild will abort!
-Requires:       %{base_name}-ui, %{base_prefix}-java-tools >= 1.0.0, %{base_prefix}-setup >= 1.0.0, %{pki_jre}, osutil >= 1.0.0, rhgb >= 0.14.1, symkey >= 1.0.0, tomcatjss >= 1.1.0, velocity >= 1.4, jss >= 4.2.6-5
+Requires:       %{base_name}-ui, %{base_prefix}-java-tools >= 1.0.0, %{base_prefix}-setup >= 1.0.0, %{pki_jre}, osutil >= 1.0.0, rhgb >= 0.14.1, symkey >= 1.0.0, tomcatjss >= 1.1.0, velocity >= 1.4
 
 
 ## This package conflicts with the following packages!
@@ -285,21 +285,16 @@ chmod 00755 %{_datadir}/%{base_prefix}/setup/postinstall
 ###############################################################################
 
 %changelog
-* Tue Aug 25 2009 Christina Fu <cfu@redhat.com> 1.2.0-7
+* Tue Aug 25 2009 Christina Fu <cfu@redhat.com> 1.1.0-47
 - Bugzilla Bug #465507 - Enhancement: Support SHA2 + EC signature algorithms
-* Thu Aug 20 2009 Andrew Wnuk <awnuk@redhat.com> 1.2.0-6
+* Thu Aug 20 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-46
 - Bugzilla Bug #518431 - CA chain import
-* Mon Aug 17 2009 Andrew Wnuk <awnuk@redhat.com> 1.2.0-5
+* Mon Aug 17 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-45
 - Bugzilla Bug #517609 - improved validation for validity constraints
-* Wed Aug 12 2009 Andrew Wnuk <awnuk@redhat.com> 1.2.0-4
+* Wed Aug 12 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-44
 - Bugzilla Bug #513450 - adding configuration for AIA CRL extension
-* Fri Aug 7 2009 Andrew Wnuk <awnuk@redhat.com> 1.2.0-3
+* Fri Aug 7 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-43
 - Bugzilla Bug #514270 - OCSM should not accept delta CRLs as full CRLs.
-* Tue Aug 4 2009 Ade Lee <alee@redhat.com> 1.2.0-2
-- Bugzilla Bug #224688 - Support ECC POP on the server    
-
-* Tue Jul 28 2009 Matthew Harmsen <mharmsen@redhat.com> 1.2.0-1
-- Version update to Dogtag 1.2.0.
 * Fri Jul 10 2009 Ade Lee <alee@redhat.com> 1.1.0-42
 - Bugzilla Bug #510163 -  KRA clone throws null pointer exception when searching for requests
 * Tue Jul 7 2009 Ade lee <alee@redhat.com> 1.1.0-41
