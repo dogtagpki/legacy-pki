@@ -582,7 +582,7 @@ public class ConfigureCA {
                     + URLEncoder.encode(ca_ocsp_cert_subject_name) + "&signing="
                     + URLEncoder.encode(ca_sign_cert_subject_name) + "&sslserver="
                     + URLEncoder.encode(ca_server_cert_subject_name) + "&audit_signing=" 
-                    + URLEncoder.encode(ca_audit_signing_cert_name) + "&urls=0"
+                    + URLEncoder.encode(ca_audit_signing_cert_subject_name) + "&urls=0"
                     + "";
             } else {
                 query_string = "p=11" + "&op=next" + "&xml=true" + "&sslserver="
