@@ -33,7 +33,7 @@
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
 %define base_version      1.1.0
-%define base_release      9
+%define base_release      10
 %define base_group        System Environment/Base
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -270,6 +270,8 @@ rm -rf ${RPM_BUILD_ROOT}
 ###############################################################################
 
 %changelog
+* Mon Nov 16 2009 Christina Fu <cfu@redhat.com> 1.1.0-10
+- Bugzilla Bug #527593 - more robust signature digest alg, like SHA256 instead of SHA1 for ECC and RSA
 * Thu Sep 3 2009 Andrew Wnuk <awnuk@redhat.com> 1.1.0-9
 - Bugzilla Bug #514270 - improved skipping sequence for quick CRL parsing
 * Tue Aug 25 2009 Christina Fu <cfu@redhat.com> 1.1.0-8
