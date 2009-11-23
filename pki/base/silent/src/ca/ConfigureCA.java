@@ -1558,7 +1558,11 @@ public class ConfigureCA {
 
         key_size = x_key_size.value;
         key_type = x_key_type.value;
-        key_algorithm = x_key_algorithm.value;
+        if ((x_key_algorithm.value == null) || (x_key_algorithm.equals(""))) {
+            key_algorithm = "SHA256withRSA";
+        } else {
+            key_algorithm = x_key_algorithm.value;
+        }
         token_name = x_token_name.value;
         token_pwd = x_token_pwd.value;
         save_p12 = x_save_p12.value;
