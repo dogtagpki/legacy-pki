@@ -604,7 +604,7 @@ public class DoRevoke extends CMSServlet {
 
                 audit(auditMessage);
 
-                throw new ECMSGWException(CMS.getLogMessage("CMSGW_REVOCATION_ERROR_CERT_NOT_FOUND"));
+                throw new ECMSGWException(CMS.getLogMessage("CMSGW_ERROR_MARKING_CERT_REVOKED"));
             }
 
             header.addIntegerValue("totalRecordCount", count);

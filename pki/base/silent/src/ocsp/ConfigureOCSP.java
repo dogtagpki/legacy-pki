@@ -481,7 +481,7 @@ public class ConfigureOCSP
 				"&sslserver=" + 
 				URLEncoder.encode(ocsp_server_cert_subject_name) + 
                                 "&audit_signing=" +
-                                URLEncoder.encode(ocsp_audit_signing_cert_name) +
+                                URLEncoder.encode(ocsp_audit_signing_cert_subject_name) +
 				"&urls=" + 
 				URLEncoder.encode(domain_url) + 
 				""; 
