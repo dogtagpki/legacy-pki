@@ -278,6 +278,26 @@ public class ConfigHSMLoginPanel extends WizardPanelBase {
                 pw.putPassword("hardware-"+uTokName, uPasswd);
                 pw.commit();
 
+                // also store reference in CS.cfg in case we want to remove password.conf
+                String tokenList = cs.getString("cms.tokenPasswordList", "");
+                String [] tokens = tokenList.split(",");
+                boolean foundToken = false;
+                for (int i=0; i< tokens.length; i++) {
+                    if (tokens[i].equals(uTokName)) {
+                       foundToken = true;
+                       break;
+                    }
+                }
+                if (! foundToken) {
+                    if (tokenList.equals("")) {
+                        tokenList = uTokName;
+                    } else {
+                        tokenList = tokenList + "," + uTokName;
+                    }
+                    cs.putString("cms.tokenPasswordList", tokenList);
+                    cs.commit(true);
+                    CMS.debug("ConfigHSMLoginPanel: update(): Added " + uTokName + "to cms.tokenPasswordList");
+                }
             } catch (FileNotFoundException e) {
                 CMS.debug(
                         "ConfigHSMLoginPanel: update(): Exception caught: "

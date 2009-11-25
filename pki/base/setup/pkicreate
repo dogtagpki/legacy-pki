@@ -156,6 +156,7 @@ if( ! -e "$common_path/pkicommon" ) {
 
 eval( "use lib '" . $common_path . "'" );
 require( 'pkicommon' );
+use File::Basename;
 
 # make -w happy by suppressing warnings of Global variables used only once
 my $suppress = "";
@@ -2477,11 +2478,18 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
               return 0;
           }
 
-          $result = process_file_template( $cgi_sow_subsystem_file_path,
-                                           $cgi_sow_instance_file_path,
-                                           \%slot_hash );
-          if( !$result ) {
-              return 0;
+          # process all security officer files 
+          # needed as these files now run under ModPerl::PerlRun and need
+          # full paths 
+
+          my @cgifiles = <$cgibin_subsystem_path/sow/*.cgi $cgibin_subsystem_path/sow/*.pl>;
+          foreach my $cgifile (@cgifiles) { 
+              $result = process_file_template( $cgifile,
+                                               $cgibin_instance_path . "/sow/" . basename($cgifile),
+                                               \%slot_hash );
+              if( !$result ) {
+                  return 0;
+              }
           }
 
           # process "addAgents.ldif" template

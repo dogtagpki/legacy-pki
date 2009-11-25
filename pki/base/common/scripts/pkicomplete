@@ -115,6 +115,7 @@ require( 'pkicommon' );
 # Links created for initial "tomcat" installation that MUST exist!!!
 my $jss4_common_symlink   = "/var/lib/tomcat5/common/lib/jss4.jar";
 my $osutil_common_symlink = "/var/lib/tomcat5/common/lib/osutil.jar";
+my $pkidog_common_symlink = "/var/lib/tomcat5/common/lib/pkidog.jar";
 my $symkey_common_symlink = "/var/lib/tomcat5/common/lib/symkey.jar";
 my $jss4_server_symlink   = "/var/lib/tomcat5/server/lib/jss4.jar";
 
@@ -142,6 +143,7 @@ if (! file_exists($jss4_jar_file)) {
 }
 my $osutil_jar_file = "$default_system_jni_java_path/osutil.jar";
 my $symkey_jar_file = "$default_system_jni_java_path/symkey.jar";
+my $pkidog_jar_file = "$default_system_jni_java_path/pkidog.jar";
 
 
 ##############################################################
@@ -214,6 +216,21 @@ sub main()
         }
 
         $result = give_symbolic_link_to( $symkey_common_symlink,
+                                         $root_user,
+                                         $root_group );
+        if( !$result ) {
+            exit 255;
+        }
+    }
+
+    if( !symbolic_link_exists( $pkidog_common_symlink ) ) {
+        $result = create_symbolic_link( $pkidog_common_symlink,
+                                        $pkidog_jar_file );
+        if( !$result ) {
+            exit 255;
+        }
+
+        $result = give_symbolic_link_to( $pkidog_common_symlink,
                                          $root_user,
                                          $root_group );
         if( !$result ) {

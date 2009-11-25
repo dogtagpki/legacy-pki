@@ -70,15 +70,19 @@ template(`pki_ca_template',`
 	#
 
 	# Execstack/execmem caused by java app.
-	allow $1_t self:process { execstack execmem getsched setsched signal};
+	allow $1_t self:process { execstack execmem getsched setsched signal ptrace};
 
 	## internal communication is often done using fifo and unix sockets.
 	allow $1_t self:fifo_file rw_file_perms;
 	allow $1_t self:unix_stream_socket create_stream_socket_perms;
+        allow $1_t self:unix_stream_socket connectto;
 	allow $1_t self:tcp_socket create_stream_socket_perms;
 	allow $1_t self:process signull;
 
 	allow $1_t $1_port_t:tcp_socket {name_bind name_connect};
+
+        # talk to the watchdog
+        allow $1_t $1_log_t:sock_file { write create unlink };
 
 	corenet_all_recvfrom_unlabeled($1_t)
 	corenet_tcp_sendrecv_all_if($1_t)
@@ -442,6 +446,9 @@ template(`pki_tps_template',`
 	allow $1_t self:fifo_file rw_file_perms;
 	allow $1_t self:unix_stream_socket create_stream_socket_perms;
 
+        ## talk to watchdog
+        allow $1_t initrc_t:unix_stream_socket { read write };
+
 	# Init script handling
 	domain_use_interactive_fds($1_t)
 
@@ -482,7 +489,9 @@ template(`pki_tps_template',`
         allow pki_tps_t httpd_config_t:file { read getattr execute };
         allow pki_tps_t httpd_exec_t:file entrypoint;
         allow pki_tps_t httpd_modules_t:lnk_file read;
-        allow pki_tps_t httpd_suexec_exec_t:file getattr;
+	allow pki_tps_t httpd_suexec_exec_t:file { getattr read execute };
+
+        allow pki_tps_t pki_tps_log_t:sock_file write;
 
         # apache permissions
         apache_exec_modules(pki_tps_t)
@@ -511,7 +520,7 @@ template(`pki_tps_template',`
         corecmd_search_sbin(pki_tps_t)
 
         corenet_sendrecv_unlabeled_packets(pki_tps_t)
-        corenet_tcp_bind_inaddr_any_node(pki_tps_t)
+        corenet_tcp_bind_all_nodes(pki_tps_t)
         corenet_tcp_bind_pki_tps_port(pki_tps_t)
         corenet_tcp_connect_generic_port(pki_tps_t)
 
@@ -547,12 +556,13 @@ template(`pki_tps_template',`
         sysnet_read_config(pki_tps_t)
 
         allow httpd_t pki_tps_etc_rw_t:dir search;
-        allow httpd_t pki_tps_etc_rw_t:file { read getattr };
-        allow httpd_t pki_tps_log_t:dir search;
-        allow httpd_t pki_tps_log_t:file read;
+        allow httpd_t pki_tps_etc_rw_t:file rw_file_perms;
+        allow httpd_t pki_tps_log_t:dir rw_dir_perms;
+        allow httpd_t pki_tps_log_t:file manage_file_perms;
         allow httpd_t pki_tps_t:process { signal signull };
         allow httpd_t pki_tps_var_lib_t:dir { getattr search };
         allow httpd_t pki_tps_var_lib_t:lnk_file read;
+        allow httpd_t pki_tps_var_lib_t:file read_file_perms;
 
         # why do I need to add this?
         allow httpd_t httpd_config_t:file execute;
@@ -652,7 +662,7 @@ template(`pki_ra_template',`
         allow pki_ra_t httpd_config_t:file { read getattr execute };
         allow pki_ra_t httpd_exec_t:file entrypoint;
         allow pki_ra_t httpd_modules_t:lnk_file read;
-        allow pki_ra_t httpd_suexec_exec_t:file getattr;
+        allow pki_ra_t httpd_suexec_exec_t:file { getattr read execute };
 
         #apache permissions
         apache_read_config(pki_ra_t)
@@ -681,7 +691,7 @@ template(`pki_ra_template',`
         corecmd_search_sbin(pki_ra_t)
 
         corenet_sendrecv_unlabeled_packets(pki_ra_t)
-        corenet_tcp_bind_inaddr_any_node(pki_ra_t)
+        corenet_tcp_bind_all_nodes(pki_ra_t)
         corenet_tcp_bind_pki_ra_port(pki_ra_t)
 
         corenet_tcp_sendrecv_all_if(pki_ra_t)
@@ -719,12 +729,13 @@ template(`pki_ra_template',`
         sysnet_read_config(pki_ra_t)
 
         allow httpd_t pki_ra_etc_rw_t:dir search;
-        allow httpd_t pki_ra_etc_rw_t:file { read getattr };
-        allow httpd_t pki_ra_log_t:dir search;
-        allow httpd_t pki_ra_log_t:file read;
+        allow httpd_t pki_ra_etc_rw_t:file rw_file_perms;
+        allow httpd_t pki_ra_log_t:dir rw_dir_perms;
+        allow httpd_t pki_ra_log_t:file manage_file_perms;
         allow httpd_t pki_ra_t:process { signal signull };
         allow httpd_t pki_ra_var_lib_t:dir { getattr search };
         allow httpd_t pki_ra_var_lib_t:lnk_file read;
+        allow httpd_t pki_ra_var_lib_t:file read_file_perms;
 
         # talk to the hsm
         allow pki_ra_t pki_common_dev_t:sock_file write;

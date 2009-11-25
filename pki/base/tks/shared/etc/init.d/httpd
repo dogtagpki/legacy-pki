@@ -26,6 +26,7 @@
 # processname:  [PKI_INSTANCE_ID]
 # pidfile:      /var/run/[PKI_INSTANCE_ID].pid
 # config:       [PKI_INSTANCE_PATH]/conf/tomcat5.conf
+# wdpidfile:    [PKI_INSTANCE_PATH]/logs/wd-[PKI_INSTANCE_ID].pid
 #
 # Gomez Henri <hgomez@users.sourceforge.net>
 # Keith Irwin <keith_irwin@non.hp.com>
@@ -207,6 +208,7 @@ fi
 # file instead ; it will be read by the $tomcat script
 
 pidfile=${PIDFILE:-/var/run/[PKI_INSTANCE_ID].pid}
+wdpidfile=${PKIDOG_PIDFILE:-[PKI_INSTANCE_PATH]/logs/wd-[PKI_INSTANCE_ID].pid}
 lockfile=${LOCKFILE:-/var/lock/subsys/[PKI_INSTANCE_ID]}
 pki_instance_configuration_file=[PKI_INSTANCE_PATH]/conf/CS.cfg
 RESTART_SERVER=[PKI_INSTANCE_PATH]/conf/restart_server_after_configuration
@@ -567,6 +569,9 @@ start()
 	touch $CATALINA_PID
 	chown $TOMCAT_USER:$TOMCAT_GROUP $CATALINA_PID
   	[ -x /sbin/restorecon ] && /sbin/restorecon  $CATALINA_PID
+
+        PKIDOG_PID=${wdpidfile}
+        export PKIDOG_PID
 
         # restore context for ncipher hsm
         [ -x /sbin/restorecon ] && [ -d /dev/nfast ] && /sbin/restorecon -R /dev/nfast
@@ -1059,7 +1064,7 @@ start()
 	if [ ${OS} = "SunOS" ] ; then
 		su  $TOMCAT_USER -c "$TOMCAT_SCRIPT start" > /dev/null
         else
-		runuser -s /bin/bash $TOMCAT_USER -c "$TOMCAT_SCRIPT start" > /dev/null
+		runuser -s /bin/bash $TOMCAT_USER -c "$TOMCAT_SCRIPT start" 
 	fi
 
 	RETVAL=$?
