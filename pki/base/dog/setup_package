@@ -1,0 +1,254 @@
+#!/bin/bash
+
+###############################################################################
+##  (1)  Check command line arguments to see how many were passed in.        ##
+###############################################################################
+
+if [ $# -eq 5 ]
+then
+	PKIDOGCLIENT_BUILD_PREFIX=$1
+	VERSION=$2
+	RELEASE=$3
+	ARCHITECTURE=$4
+	PKIDOGCLIENT_STAGING_PATH=$5
+else
+	echo
+	echo "Usage:  $0 PKIDOGCLIENT_build_prefix version release architecture"
+	echo "        PKIDOGCLIENT_staging_path"
+	echo
+
+	exit 255
+fi
+
+
+###############################################################################
+##  (2)  Specify variables used by this script.                              ##
+###############################################################################
+
+# specify generic helper functions
+usage() {
+	if [ $# -gt 0 ] ; then
+		echo
+		echo "$1"
+	fi
+	echo
+	echo "Usage:  $0 PKIDOGCLIENT_build_prefix version release architecture"
+	echo "        PKIDOGCLIENT_staging_path"
+	echo
+	echo "        where architecture MUST be 'intel',"
+	echo "                                   'sparc', or"
+	echo "                                   'sparcv9'."
+	echo
+	echo "        NOTE:  For 'intel' architectures, only the 'i386' and"
+	echo "               the 'x86_64' architectures are currently supported."
+	echo
+}
+
+# specify generic helper variables
+if  [ ${ARCHITECTURE} = "intel" ] ; then
+	# Since "rpmbuild" fails to process "%ifarch" macros inside the
+	# "%install" section of a spec file, the actual hardware
+	# architecture will be determined at this point in time.
+	ARCHITECTURE=`uname -i`
+    DLL_SUFFIX="so"
+	if   [ ${ARCHITECTURE} = "i386" ] ; then
+		LIB_DIR="lib"
+                BIN_DIR="bin"
+	elif [ ${ARCHITECTURE} = "x86_64" ] ; then
+		LIB_DIR="lib64"
+                BIN_DIR="bin"
+	else
+		usage "ERROR:  Unsupported intel architecture '${ARCHITECTURE}'!"
+		exit 255
+	fi
+elif [ ${ARCHITECTURE} = "sparc" ] ; then
+	# Note that "pkgbuild" successfully processes "%ifarch" macros
+	# inside the "%install" section of a spec file.
+	LIB_DIR="lib"
+        BIN_DIR="bin"
+    DLL_SUFFIX="so"
+elif [ ${ARCHITECTURE} = "sparcv9" ] ; then
+	# Note that "pkgbuild" successfully processes "%ifarch" macros
+	# inside the "%install" section of a spec file.
+	LIB_DIR="lib/sparcv9"
+        BIN_DIR="bin"
+    DLL_SUFFIX="so"
+else
+	usage "ERROR:  Unsupported architecture '${ARCHITECTURE}'!"
+	exit 255
+fi
+
+# break the VERSION number into its various components
+MAJOR_VERSION=`echo ${VERSION} | awk -F. '{ print $1 }'`
+MINOR_VERSION=`echo ${VERSION} | awk -F. '{ print $2 }'`
+PATCH_VERSION=`echo ${VERSION} | awk -F. '{ print $3 }'`
+
+PRODUCT_VERSION=${MAJOR_VERSION}.${MINOR_VERSION}
+
+
+# comply with standard FHS 2.3 binary locations (executables)
+PKIDOGCLIENT_BIN_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/${BIN_DIR}
+
+# comply with standard FHS 2.3 library locations
+PKIDOGCLIENT_LIB_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/${LIB_DIR}
+PKIDOGCLIENT_LOCAL_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr
+
+# comply with standard JPackage 1.6.0 jar locations
+PKIDOGCLIENT_JAR_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/lib/java
+
+# comply with standard FHS 2.3 binary locations (wrappers)
+
+# comply with standard FHS 2.3 shared data locations (templates)
+
+# comply with standard FHS 2.3 start/stop script locations
+
+# comply with standard FHS 2.3 configuration file locations
+
+# comply with standard FHS 2.3 documentation locations
+PKIDOGCLIENT_DOCUMENTATION=${PKIDOGCLIENT_BUILD_PREFIX}/usr/share/doc/pkidog-${VERSION}
+
+# comply with standard FHS 2.3 log file locations
+
+# comply with default FHS 2.3 instance locations
+
+#include files for devel package
+PKIDOGCLIENT_INCLUDE_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/include/pkidog
+
+###############################################################################
+##  (3)  Create the appropriate subdirectories.                              ##
+###############################################################################
+
+##
+## System:
+##
+
+mkdir -p ${PKIDOGCLIENT_DOCUMENTATION}
+mkdir -p ${PKIDOGCLIENT_LIB_DIR}
+mkdir -p ${PKIDOGCLIENT_BIN_DIR}
+mkdir -p ${PKIDOGCLIENT_JAR_DIR}
+mkdir -p ${PKIDOGCLIENT_INCLUDE_DIR}
+mkdir -p ${PKIDOGCLIENT_LOCAL_DIR}/share/man/man3/
+mkdir -p ${PKIDOGCLIENT_LIB_DIR}/perl5
+
+##
+## Product
+##
+
+
+##
+## Subsystem
+##
+
+
+##
+## Initial Instance
+##
+
+
+###############################################################################
+##  (4)  Unpack the package contents to the appropriate subdirectories.      ##
+###############################################################################
+
+##
+## Executables
+##
+cp -p  ${PKIDOGCLIENT_STAGING_PATH}/bin/pkidog ${PKIDOGCLIENT_BIN_DIR}
+
+##
+## Libraries
+##
+
+cp -p ${PKIDOGCLIENT_STAGING_PATH}/${LIB_DIR}/libpkidog.${DLL_SUFFIX}  ${PKIDOGCLIENT_LIB_DIR}
+cp -rp ${PKIDOGCLIENT_STAGING_PATH}/local/${LIB_DIR}/perl5/site_perl/* ${PKIDOGCLIENT_LIB_DIR}/perl5
+ 
+
+##
+## Jars
+##
+
+cp -p ${PKIDOGCLIENT_STAGING_PATH}/jars/pkidog.jar ${PKIDOGCLIENT_JAR_DIR}
+
+
+##
+## Wrappers
+##
+
+
+##
+## Shared Data
+##
+
+cp -rp ${PKIDOGCLIENT_STAGING_PATH}/doc/LICENSE         ${PKIDOGCLIENT_DOCUMENTATION}
+cp -p ${PKIDOGCLIENT_STAGING_PATH}/local/share/man/man3/* ${PKIDOGCLIENT_LOCAL_DIR}/share/man/man3
+ 
+## 
+## header files
+## 
+cp -rp  ${PKIDOGCLIENT_STAGING_PATH}/include/pkidog-1.0/pkidog/*.h    ${PKIDOGCLIENT_INCLUDE_DIR}
+
+###############################################################################
+##  (5)  Unpack the package contents to the initial instance directories.    ##
+###############################################################################
+
+##
+## Start/Stop Script
+##
+
+
+##
+## Configuration
+##
+
+
+##
+## Logs
+##
+
+
+##
+## Default Instance
+##
+
+
+###############################################################################
+##  (6)  Rename the extracted contents following appropriate naming rules.   ##
+###############################################################################
+
+# comply with standard Linux/UNIX shared library naming conventions
+cd ${PKIDOGCLIENT_LIB_DIR} ; mv libpkidog.${DLL_SUFFIX} libpkidog.${DLL_SUFFIX}.${VERSION}
+
+# comply with standard JPackage 1.6.0 jar naming conventions
+cd ${PKIDOGCLIENT_JAR_DIR} ; mv pkidog.jar pkidog-${VERSION}.jar
+
+# strip symbolic information from libraries
+cd ${PKIDOGCLIENT_LIB_DIR} ; strip libpkidog.${DLL_SUFFIX}.${VERSION}
+
+
+###############################################################################
+##  (7)  Create a command wrapper for each specified command.                ##
+###############################################################################
+
+
+
+###############################################################################
+##  (8)  Create useful symbolic links as appropriate.                        ##
+###############################################################################
+
+# create shared library sans version "linker-name" to protect this namespace
+cd ${PKIDOGCLIENT_LIB_DIR}                                                ;
+ln -s libpkidog.${DLL_SUFFIX}.${VERSION} libpkidog.${DLL_SUFFIX}.${PRODUCT_VERSION}       ;
+ln -s libpkidog.${DLL_SUFFIX}.${PRODUCT_VERSION} libpkidog.${DLL_SUFFIX}.${MAJOR_VERSION} ;
+ln -s libpkidog.${DLL_SUFFIX}.${MAJOR_VERSION} libpkidog.${DLL_SUFFIX}
+
+# create jar sans version to be used by classpath
+cd ${PKIDOGCLIENT_JAR_DIR} ; ln -s pkidog-${VERSION}.jar pkidog.jar
+
+# create assorted symbolic links to various file dependencies (Tomcat)
+
+
+###############################################################################
+##  (9)  Successfully exit from this setup script.                           ##
+###############################################################################
+
+exit 0
+
