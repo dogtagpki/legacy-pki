@@ -1820,7 +1820,7 @@ loser:
             if (audit_sig_msg)
                 PR_Free(audit_sig_msg);
             if (&signedResult)
-                SECITEM_FreeItem(&signedResult, PR_TRUE);
+                SECITEM_FreeItem(&signedResult, PR_FALSE);
         }
 
 	PR_Unlock(m_audit_log_lock);
