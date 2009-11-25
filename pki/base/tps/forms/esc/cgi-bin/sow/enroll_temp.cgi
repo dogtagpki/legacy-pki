@@ -32,16 +32,10 @@
 #    
 ########################################################################
 
-require "./cfg.pl";
+no warnings qw(redefine);
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 use CGI;
-
-my $ldapHost = get_ldap_host();
-my $ldapPort = get_ldap_port();
-my $basedn = get_base_dn();
-my $port = get_port();
-my $host = get_host();
-my $secure_port = get_secure_port();
 
 $gQuery = new CGI;
 
@@ -188,8 +182,14 @@ sub GetNextAction
 sub GenerateEnrollmentPage
 {
   my ($l);
+  my $ldapHost = get_ldap_host();
+  my $ldapPort = get_ldap_port();
+  my $basedn = get_base_dn();
+  my $port = get_port();
+  my $host = get_host();
+  my $secure_port = get_secure_port();
 
-  ExitError("Failed to load enrollment page!") if (!open(ENROLL_FILE, "< enroll_temp.html"));
+  ExitError("Failed to load enrollment page!") if (!open(ENROLL_FILE, "< [SERVER_ROOT]/cgi-bin/sow/enroll_temp.html"));
 
   print $gQuery->header();
 

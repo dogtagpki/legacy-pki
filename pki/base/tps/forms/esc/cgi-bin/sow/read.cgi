@@ -23,13 +23,9 @@
 
 use CGI;
 
-require "./cfg.pl";
+no warnings qw(redefine);
 
-
-my $ldapHost = get_ldap_host();
-my $ldapPort = get_ldap_port();
-my $basedn = get_base_dn();
-my $ldapsearch = get_ldapsearch();
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 sub authorize
 {
@@ -46,6 +42,10 @@ sub authorize
 sub DoPage
 {
   my $q = new CGI;
+  my $ldapHost = get_ldap_host();
+  my $ldapPort = get_ldap_port();
+  my $basedn = get_base_dn();
+  my $ldapsearch = get_ldapsearch();
 
   if (!&authorize()) {
     print $q->redirect("/cgi-bin/sow/noaccess.cgi");
@@ -127,7 +127,7 @@ sub DoPage
     return;
   }
 
-  open(FILE, "< read.html");
+  open(FILE, "< [SERVER_ROOT]/cgi-bin/sow/read.html");
 
   print $q->header();
 

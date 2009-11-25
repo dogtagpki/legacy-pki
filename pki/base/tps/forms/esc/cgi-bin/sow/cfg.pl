@@ -20,6 +20,9 @@
 # --- END COPYRIGHT BLOCK ---
 #
 
+use lib "/usr/share/pki/tps/lib/perl";
+require PKI::TPS::Startup;
+
 #
 # Establish platform-dependent variables:
 #
@@ -51,7 +54,7 @@ my $port = "7888";
 my $secure_port = "7889";
 my $host = "localhost";
 
-my $cfg = "/var/lib/pki-tps/conf/CS.cfg";
+my $cfg = "[SERVER_ROOT]/conf/CS.cfg";
 
 sub get_ldapsearch()
 {
@@ -118,9 +121,7 @@ sub is_agent()
   chomp($x_basedn);
   my $x_binddn = `grep -e "^tokendb.bindDN" $cfg | cut -c16-`;
   chomp($x_binddn);
-  my $x_bindpwdpath = `grep -e "^tokendb.bindPassPath" $cfg | cut -c22-`;
-  chomp($x_bindpwdpath);
-  my $x_bindpwd = `grep -e "^tokendbBindPass" $x_bindpwdpath | cut -c17-`;
+  my $x_bindpwd = PKI::TPS::Startup::global_bindpwd();
   chomp($x_bindpwd);
 
    my $cmd = $ldapsearch . " " .
@@ -157,9 +158,7 @@ sub is_user()
   chomp($x_basedn);
   my $x_binddn = `grep -e "^tokendb.bindDN" $cfg | cut -c16-`;
   chomp($x_binddn);
-  my $x_bindpwdpath = `grep -e "^tokendb.bindPassPath" $cfg | cut -c22-`;
-  chomp($x_bindpwdpath);
-  my $x_bindpwd = `grep -e "^tokendbBindPass" $x_bindpwdpath | cut -c17-`;
+  my $x_bindpwd = PKI::TPS::Startup::global_bindpwd();
   chomp($x_bindpwd);
 
    my $cmd = $ldapsearch . " " .

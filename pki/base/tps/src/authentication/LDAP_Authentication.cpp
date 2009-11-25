@@ -30,6 +30,7 @@
 #include "authentication/Authentication.h"
 #include "main/Memory.h"
 #include "main/Util.h"
+#include "pkidog/WatchdogClient.h"
 
 /**
  * Constructs a base processor.
@@ -75,10 +76,36 @@ static char *get_pwd_from_conf(char *filepath, char *name)
     char line[1024];
     int removed_return;
     char *val= NULL;
+    char prompt[128];
+    PRStatus status;
+    char *wd_pipe = NULL;
 
+    if (strlen(filepath) == 0) {
+        return NULL;
+    }
     fd= PR_Open(filepath, PR_RDONLY, 400);
     if (fd == NULL) {
-        return NULL;
+        // password file is not readable.
+        // if started by the watchdog, ask the watchdog instead.
+        wd_pipe = PR_GetEnv("WD_PIPE_NAME");
+        if ((wd_pipe != NULL) && (strlen(wd_pipe) > 0)) {
+            status = call_WatchdogClient_init(); 
+            if (status != PR_SUCCESS) {
+                /* PR_fprintf(debug_fd, "get_pwd_from_conf unable to initialize connection to Watchdog"); */
+                return NULL;
+            }
+            sprintf(line, "Please enter the password for %s:", name);
+            val = call_WatchdogClient_getPassword(line, 0); 
+            if (val == NULL) {
+                /*PR_fprintf(debug_fd, "get_pwd_from_conf failed to get password from watchdog");*/
+                return NULL;
+            }
+            return val;
+        } else {
+            // not started by watchdog. Even if this is pre-fork, getting the password 
+            // directly from stdin is problematic here. 
+            return NULL;
+        }
     }
 
     while (1) {
