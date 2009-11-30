@@ -223,7 +223,7 @@ fi
 
 if [ ${OS} = "Linux" ] ; then
 	CLASSPATH="$CLASSPATH":"$CATALINA_HOME"/bin/bootstrap.jar:"$CATALINA_HOME"/bin/commons-logging-api.jar:`/usr/bin/build-classpath mx4j/mx4j-impl`:`/usr/bin/build-classpath mx4j/mx4j-jmx`
-        CLASSPATH="$CLASSPATH":"$CATALINA_HOME"/common/lib/osutil.jar:"$CATALINA_HOME"/common/lib/pkidog.jar
+        CLASSPATH="$CLASSPATH":"$CATALINA_HOME"/common/lib/pkidog.jar
 elif [ ${OS} = "SunOS" ] ; then
 	# The following definitions are provided for Solaris
 	# platforms since they are unable to execute the
