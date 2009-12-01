@@ -93,7 +93,7 @@ import com.netscape.cmscore.usrgrp.UGSubsystem;
 import com.netscape.cmscore.request.RequestSubsystem;
 import com.netscape.cmscore.jobs.JobsScheduler;
 import com.netscape.osutil.*;
-import com.redhat.pkidog.*;
+import com.redhat.nuxwdog.*;
 
 import com.netscape.cmscore.cert.OidLoaderSubsystem;
 import com.netscape.cmscore.cert.X500NameSubsystem;
@@ -280,7 +280,7 @@ public class CMSEngine implements ICMSEngine {
         String pwdPath = config.getString("passwordFile");
         String pwdClass = config.getString("passwordClass");
 
-        // check if started by the pkidog
+        // check if started by the nuxwdog
         String wdPipeName = OSUtil.getenv("WD_PIPE_NAME");
         if ((wdPipeName != null) && (! wdPipeName.equals(""))) {
             WatchdogClient.init();
@@ -295,10 +295,10 @@ public class CMSEngine implements ICMSEngine {
                 } catch (IOException io) {
                     // Error in reading file at pwdPath 
                     // This might be because the file has been removed for security reasons.
-                    // Prompt for the passwords instead if started by the pkidog watchdog
+                    // Prompt for the passwords instead if started by the nuxwdog watchdog
                     if (! startedByWD) {
-                        CMS.debug("CMSEngine: init(): Cannot prompt for passwords as server has not been started by pkidog");
-                        throw new IOException("Not started by pkidog");
+                        CMS.debug("CMSEngine: init(): Cannot prompt for passwords as server has not been started by nuxwdog");
+                        throw new IOException("Not started by nuxwdog");
                     }
                     String tags[] = passwordList.split(",");
                     for (int i=0; i < tags.length; i++) {

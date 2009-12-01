@@ -208,7 +208,7 @@ fi
 # file instead ; it will be read by the $tomcat script
 
 pidfile=${PIDFILE:-/var/run/[PKI_INSTANCE_ID].pid}
-wdpidfile=${PKIDOG_PIDFILE:-[PKI_INSTANCE_PATH]/logs/wd-[PKI_INSTANCE_ID].pid}
+wdpidfile=${NUXWDOG_PIDFILE:-[PKI_INSTANCE_PATH]/logs/wd-[PKI_INSTANCE_ID].pid}
 lockfile=${LOCKFILE:-/var/lock/subsys/[PKI_INSTANCE_ID]}
 pki_instance_configuration_file=[PKI_INSTANCE_PATH]/conf/CS.cfg
 RESTART_SERVER=[PKI_INSTANCE_PATH]/conf/restart_server_after_configuration
@@ -570,8 +570,8 @@ start()
 	chown $TOMCAT_USER:$TOMCAT_GROUP $CATALINA_PID
   	[ -x /sbin/restorecon ] && /sbin/restorecon  $CATALINA_PID
 
-        PKIDOG_PID=${wdpidfile}
-        export PKIDOG_PID
+        NUXWDOG_PID=${wdpidfile}
+        export NUXWDOG_PID
 
         # restore context for ncipher hsm
         [ -x /sbin/restorecon ] && [ -d /dev/nfast ] && /sbin/restorecon -R /dev/nfast

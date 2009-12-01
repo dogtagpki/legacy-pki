@@ -20,13 +20,13 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.59)
-AC_INIT([pkidog], [1.0.0], [http://bugzilla.redhat.com/])
+AC_INIT([nuxwdog], [1.0.0], [http://bugzilla.redhat.com/])
 # AC_CONFIG_HEADER must be called right after AC_INIT.
 AC_CONFIG_HEADERS([config.h])
 
-#AC_CONFIG_SUBDIRS([lib/perl/Pkidogclient])
+#AC_CONFIG_SUBDIRS([lib/perl/Nuxwdogclient])
 #added by alee for versioning?
-GENERIC_LIBRARY_NAME=pkidog
+GENERIC_LIBRARY_NAME=nuxwdog
 GENERIC_MAJOR_VERSION=1
 GENERIC_MINOR_VERSION=0
 GENERIC_MICRO_VERSION=0
@@ -137,9 +137,9 @@ dnl as opposed to the default $prefix/var
 
 # relative to prefix
 licensedir=/doc
-pkidog_jardir=/jars
+nuxwdog_jardir=/jars
 AC_SUBST(licensedir)
-AC_SUBST(pkidog_jardir)
+AC_SUBST(nuxwdog_jardir)
 
 # WINNT should be true if building on Windows system not using
 # cygnus, mingw, or the like and using cmd.exe as the shell
@@ -156,7 +156,7 @@ case $host in
     AC_DEFINE([LINUX2_2], [], [Linux 2.6])
     AC_DEFINE([LINUX2_4], [], [Linux 2.6])
     AC_DEFINE([LINUX2_6], [], [Linux 2.6])
-    # For historical reasons, establish various "DEFINES" for PKIDOG . . .
+    # For historical reasons, establish various "DEFINES" for nuxwdog . . .
     AC_DEFINE([_BSD_SOURCE], [1], [_BSD_SOURCE])
     AC_DEFINE([_POSIX_SOURCE], [1], [_POSIX_SOURCE])
     AC_DEFINE([_POSIX_C_SOURCE], [199506L], [_POSIX_C_SOURCE])
@@ -199,7 +199,7 @@ case $host in
     AC_DEFINE([OS_hpux], [1], [OS HP-UX])
     AC_DEFINE([_POSIX_C_SOURCE], [199506L], [POSIX revision])
     AC_DEFINE([_HPUX_SOURCE], [], [_HPUX_SOURCE])
-    # For historical reasons, establish various "DEFINES" for PKIDOG . . .
+    # For historical reasons, establish various "DEFINES" for nuxwdog . . .
     AC_DEFINE([HPUX_SOURCE], [], [HPUX_SOURCE])
     AC_DEFINE([HAVE_STRERROR], [], [HAVE_STRERROR])
     AC_DEFINE([NET_SSL], [], [NET_SSL])
@@ -230,7 +230,7 @@ dnl Cstd and Crun are required to link any C++ related code
     AC_SUBST([LIBCSTD], [$LIBCSTD])
     LIBCRUN=-lCrun
     AC_SUBST([LIBCRUN], [$LIBCRUN])
-    # For historical reasons, establish various "DEFINES" for PKIDOG . . .
+    # For historical reasons, establish various "DEFINES" for nuxwdog . . .
     AC_DEFINE([_PR_NTHREAD], [], [_PR_NTHREAD])
     AC_DEFINE([HAVE_WEAK_IO_SYMBOLS], [], [HAVE_WEAK_IO_SYMBOLS])
     AC_DEFINE([NET_SSL], [], [NET_SSL])
@@ -251,13 +251,13 @@ AM_CONDITIONAL(HPUX,test "$platform" = "hpux")
 AM_CONDITIONAL(SOLARIS,test "$platform" = "solaris")
 
 # Check for library dependencies
-m4_include(m4/pkidog.m4)
+m4_include(m4/nuxwdog.m4)
 m4_include(m4/nspr.m4)
 
 # write out paths for binary components
 AC_SUBST(jni_inc)
-AC_SUBST(pkidog_inc)
-AC_SUBST(pkidog_jars)
+AC_SUBST(nuxwdog_inc)
+AC_SUBST(nuxwdog_jars)
 AC_SUBST(nspr_inc)
 AC_SUBST(nspr_lib)
 AC_SUBST(nspr_libdir)
@@ -283,6 +283,6 @@ if test "$GCC" != yes ; then
    rm -f libtool.tmp
 fi
 
-AC_CONFIG_FILES([Makefile lib/perl/Pkidogclient/Makefile])
+AC_CONFIG_FILES([Makefile lib/perl/Nuxwdogclient/Makefile])
 
 AC_OUTPUT

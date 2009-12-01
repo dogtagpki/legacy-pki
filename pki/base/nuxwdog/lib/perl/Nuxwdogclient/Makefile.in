@@ -54,10 +54,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = lib/perl/Pkidogclient
+subdir = lib/perl/Nuxwdogclient
 DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/pkidog.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/m4/nuxwdog.m4 \
 	$(top_srcdir)/m4/nspr.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -190,10 +190,10 @@ mkdir_p = @mkdir_p@
 nspr_inc = @nspr_inc@
 nspr_lib = @nspr_lib@
 nspr_libdir = @nspr_libdir@
+nuxwdog_inc = @nuxwdog_inc@
+nuxwdog_jardir = @nuxwdog_jardir@
+nuxwdog_jars = @nuxwdog_jars@
 oldincludedir = @oldincludedir@
-pkidog_inc = @pkidog_inc@
-pkidog_jardir = @pkidog_jardir@
-pkidog_jars = @pkidog_jars@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 sbindir = @sbindir@
@@ -202,10 +202,10 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 
 # Distribute files from here.
-EXTRA_DIST = Pkidogclient.xs fallback/const-xs.inc \
+EXTRA_DIST = Nuxwdogclient.xs fallback/const-xs.inc \
 	fallback/const-c.inc const-xs.inc \
-	typemap t/Pkidogclient.t \
-	README  Changes lib/Pkidogclient.pm \
+	typemap t/Nuxwdogclient.t \
+	README  Changes lib/Nuxwdogclient.pm \
 	MANIFEST ppport.h Makefile.PL \
 	const-c.inc
 
@@ -221,9 +221,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  lib/perl/Pkidogclient/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  lib/perl/Nuxwdogclient/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  lib/perl/Pkidogclient/Makefile
+	  $(AUTOMAKE) --foreign  lib/perl/Nuxwdogclient/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

@@ -24,7 +24,7 @@
     <property name="jss.jar" value="${jss.home}/jss4.jar"/>
     <property name="osutil.jar" value="${jni-jar.home}/osutil.jar"/>
     <property name="symkey.jar" value="${jni-jar.home}/symkey.jar"/>
-    <property name="pkidog.jar" value="${jni-jar.home}/pkidog.jar"/>
+    <property name="nuxwdog.jar" value="${jni-jar.home}/nuxwdog.jar"/>
     <property name="ldapjdk.jar" value="${jar.home}/ldapjdk.jar"/>
     <property name="servlet.jar" value="${jar.home}/servlet.jar"/>
     <property name="velocity.jar" value="${jar.home}/velocity.jar"/>
@@ -40,7 +40,7 @@
         <pathelement location="${nsutil.jar}"/>
         <pathelement location="${cmsutil.jar}"/>
         <pathelement location="${osutil.jar}"/>
-        <pathelement location="${pkidog.jar}"/>
+        <pathelement location="${nuxwdog.jar}"/>
         <pathelement location="${symkey.jar}"/>
         <pathelement location="${velocity.jar}"/>
     </path>

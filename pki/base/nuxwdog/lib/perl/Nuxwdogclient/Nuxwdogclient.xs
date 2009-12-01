@@ -5,11 +5,11 @@
 
 #include "ppport.h"
 
-#include "../../../src/com/redhat/pkidog/WatchdogClient.h"
+#include "../../../src/com/redhat/nuxwdog/WatchdogClient.h"
 
 #include "const-c.inc"
 
-MODULE = Pkidogclient		PACKAGE = Pkidogclient		
+MODULE = Nuxwdogclient		PACKAGE = Nuxwdogclient		
 
 INCLUDE: const-xs.inc
 

@@ -51,7 +51,7 @@ extern "C"
 #include "prenv.h"
 
 #include "tus/tus_db.h"
-#include "pkidog/WatchdogClient.h"
+#include "nuxwdog/WatchdogClient.h"
 
 static char *tokenActivityAttributes[] = { TOKEN_ID,
                                            TOKEN_CUID,

@@ -313,7 +313,7 @@ _watchdog_exec(int server_starts, char *server_exe, char *args[],
     int rc = _watchdog_logpid(pidfile);
     if (rc < 0) {
         if (rc == -2) {
-            sprintf(errmsgstr, "could not log PID to pid file  %s, pkidog already running", pidfile);
+            sprintf(errmsgstr, "could not log PID to pid file  %s, nuxwdog already running", pidfile);
         } else {
             sprintf(errmsgstr, "could not log PID to pid file %s", pidfile);
         }

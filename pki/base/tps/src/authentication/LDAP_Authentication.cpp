@@ -30,7 +30,7 @@
 #include "authentication/Authentication.h"
 #include "main/Memory.h"
 #include "main/Util.h"
-#include "pkidog/WatchdogClient.h"
+#include "nuxwdog/WatchdogClient.h"
 
 /**
  * Constructs a base processor.

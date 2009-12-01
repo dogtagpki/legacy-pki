@@ -22,19 +22,19 @@
 #include "WatchdogClientJNI.h"
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_redhat_pkidog_WatchdogClient_init
+Java_com_redhat_nuxwdog_WatchdogClient_init
 (JNIEnv *env, jclass this2) {
     return WatchdogClient::init();
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_redhat_pkidog_WatchdogClient_sendEndInit
+Java_com_redhat_nuxwdog_WatchdogClient_sendEndInit
 (JNIEnv *env, jclass this2, jint numProcs) {
     return WatchdogClient::sendEndInit(numProcs);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_redhat_pkidog_WatchdogClient_getPassword
+Java_com_redhat_nuxwdog_WatchdogClient_getPassword
 (JNIEnv *env, jclass this2, jstring prompt, jint serial) {
     char *password = NULL;
     const char *_prompt = env->GetStringUTFChars(prompt, 0);

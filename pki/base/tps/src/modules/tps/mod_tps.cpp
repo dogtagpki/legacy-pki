@@ -63,7 +63,7 @@ extern "C"
 #include "processor/RA_Renew_Processor.h"
 #include "processor/RA_Unblock_Processor.h"
 #include "ssl.h"
-#include "pkidog/WatchdogClient.h"
+#include "nuxwdog/WatchdogClient.h"
 
 #define MOD_TPS_KEY_NAME "mod_tps"
 

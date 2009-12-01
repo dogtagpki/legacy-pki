@@ -1,10 +1,10 @@
 Changes
 Makefile.PL
 MANIFEST
-Pkidogclient.xs
+Nuxwdogclient.xs
 ppport.h
 README
-t/Pkidogclient.t
+t/Nuxwdogclient.t
 fallback/const-c.inc
 fallback/const-xs.inc
-lib/Pkidogclient.pm
+lib/Nuxwdogclient.pm

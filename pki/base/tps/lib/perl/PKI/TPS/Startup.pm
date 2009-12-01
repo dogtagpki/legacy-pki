@@ -28,7 +28,7 @@ use warnings;
 
 use PKI::TPS::Config;
 use Apache2::Const -compile => 'OK';
-use Pkidogclient;
+use Nuxwdogclient;
 
 package PKI::TPS::Startup;
 $PKI::TPS::Startup::VERSION = '1.00';
@@ -72,12 +72,12 @@ sub handler {
   &debug_log("startup::post_config: bindpwd not found. Prompting for it");
 
   #initialize client socket connection - TODO: check status
-  my $status = Pkidogclient::call_WatchdogClient_init();
+  my $status = Nuxwdogclient::call_WatchdogClient_init();
   &debug_log("startup::post_config: watchdog client initialized.");
 
   #get password
   my $prompt = "Please enter the password for tokendbBindPass:";
-  $x_global_bindpwd = Pkidogclient::call_WatchdogClient_getPassword($prompt, 0);
+  $x_global_bindpwd = Nuxwdogclient::call_WatchdogClient_getPassword($prompt, 0);
 
   return Apache2::Const::OK;
 }

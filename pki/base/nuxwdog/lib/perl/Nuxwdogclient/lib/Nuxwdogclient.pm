@@ -1,4 +1,4 @@
-package Pkidogclient;
+package Nuxwdogclient;
 
 use strict;
 use warnings;
@@ -13,7 +13,7 @@ our @ISA = qw(Exporter);
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
 
-# This allows declaration	use Pkidogclient ':all';
+# This allows declaration	use Nuxwdogclient ':all';
 # If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
 # will save memory.
 our %EXPORT_TAGS = ( 'all' => [ qw(
@@ -35,7 +35,7 @@ sub AUTOLOAD {
     my $constname;
     our $AUTOLOAD;
     ($constname = $AUTOLOAD) =~ s/.*:://;
-    croak "&Pkidogclient::constant not defined" if $constname eq 'constant';
+    croak "&Nuxwdogclient::constant not defined" if $constname eq 'constant';
     my ($error, $val) = constant($constname);
     if ($error) { croak $error; }
     {
@@ -52,7 +52,7 @@ sub AUTOLOAD {
 }
 
 require XSLoader;
-XSLoader::load('Pkidogclient', $VERSION);
+XSLoader::load('Nuxwdogclient', $VERSION);
 
 # Preloaded methods go here.
 
@@ -64,16 +64,16 @@ __END__
 
 =head1 NAME
 
-Pkidogclient - Perl extension for calling pkidog client code from libpkidog
+Nuxwdogclient - Perl extension for calling nuxwdog client code from libnuxwdog
 
 =head1 SYNOPSIS
 
-  use Pkidogclient;
-  Use this code to call pkidog client code from libpkidog
+  use Nuxwdogclient;
+  Use this code to call nuxwdog client code from libnuxwdog
 
 =head1 DESCRIPTION
 
-Perl extension for calling pkidog client code from libpkidog.
+Perl extension for calling nuxwdog client code from libnuxwdog.
 
 =head2 EXPORT
 

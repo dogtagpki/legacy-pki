@@ -32,10 +32,10 @@ uninstall-local:
 	$(MAKE) -f Makefile.real uninstall
      
 # Distribute files from here.
-EXTRA_DIST = Pkidogclient.xs fallback/const-xs.inc \
+EXTRA_DIST = Nuxwdogclient.xs fallback/const-xs.inc \
 	fallback/const-c.inc const-xs.inc \
-	typemap t/Pkidogclient.t \
-	README  Changes lib/Pkidogclient.pm \
+	typemap t/Nuxwdogclient.t \
+	README  Changes lib/Nuxwdogclient.pm \
 	MANIFEST ppport.h Makefile.PL \
 	const-c.inc
 

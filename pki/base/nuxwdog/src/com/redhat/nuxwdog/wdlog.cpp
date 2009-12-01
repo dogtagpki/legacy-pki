@@ -27,7 +27,7 @@
 void
 watchdog_openlog(void)
 {
-  openlog("pkidog", LOG_PID|LOG_CONS|LOG_NOWAIT, LOG_DAEMON);
+  openlog("nuxwdog", LOG_PID|LOG_CONS|LOG_NOWAIT, LOG_DAEMON);
   setlogmask(LOG_UPTO(LOG_ERR));
   watchdog_log(LOG_INFO,
 	       "logging initialized info");

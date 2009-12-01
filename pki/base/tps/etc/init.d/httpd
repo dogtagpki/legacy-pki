@@ -30,7 +30,7 @@
 # config:       [HTTPD_CONF]
 # pidfile:      [SERVER_ROOT]/logs/[INSTANCE_ID].pid
 # wdpidfile:    [SERVER_ROOT]/logs/wd-[INSTANCE_ID].pid
-# wdconfig:     [SERVER_ROOT]/conf/pkidog-start.conf
+# wdconfig:     [SERVER_ROOT]/conf/nuxwdog-start.conf
 # wdtempdir:    [SERVER_ROOT]/logs/pids
 
 # Disallow 'others' the ability to 'write' to new files
@@ -169,7 +169,7 @@ pidfile=${PIDFILE:-[SERVER_ROOT]/logs/[INSTANCE_ID].pid}
 lockfile=${LOCKFILE:-/var/lock/subsys/[INSTANCE_ID]}
 wdpidfile=${WDPIDFILE:-[SERVER_ROOT]/logs/wd-[INSTANCE_ID].pid}
 wdtempdir=${WDTEMPDIR:-[SERVER_ROOT]/logs/pids}
-wdconfig=${WDCONFIG:-[SERVER_ROOT]/conf/pkidog-start.conf}
+wdconfig=${WDCONFIG:-[SERVER_ROOT]/conf/nuxwdog-start.conf}
 RESTART_SERVER=[SERVER_ROOT]/conf/restart_server_after_configuration
 RETVAL=0
 
@@ -567,7 +567,7 @@ start()
             if [ $RETVAL = 0 ] ; then
                 echo "ExeContext pki_tps_t" >> $wdconfig
             fi
-            LANG=$HTTPD_LANG WDOG_NO_WATCH_SIGCHLD=1 /usr/bin/pkidog -f $wdconfig
+            LANG=$HTTPD_LANG WDOG_NO_WATCH_SIGCHLD=1 /usr/bin/nuxwdog -f $wdconfig
             echo -n $"Starting $prog:"
         else
             LANG=$HTTPD_LANG $httpd $OPTIONS -k start
@@ -650,7 +650,7 @@ stop()
             read kpid < ${wdpidfile}
             kill -9 $kpid
             rm -f ${wdpidfile}
-            rm -f ${wdtempdir}/pkidog.${kpid}
+            rm -f ${wdtempdir}/nuxwdog.${kpid}
         fi
 
 	if [ -f ${lockfile} ] ; then

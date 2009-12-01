@@ -46,7 +46,7 @@ typedef enum {
 
 #define WDMSGBUFFSIZE	2048
 
-#define WDSOCKETNAME	"pkidog."
+#define WDSOCKETNAME	"nuxwdog."
 
 extern int ConnectToWDMessaging	(char * UDS_Name);
 

@@ -6,15 +6,15 @@
 
 if [ $# -eq 5 ]
 then
-	PKIDOGCLIENT_BUILD_PREFIX=$1
+	NUXWDOGCLIENT_BUILD_PREFIX=$1
 	VERSION=$2
 	RELEASE=$3
 	ARCHITECTURE=$4
-	PKIDOGCLIENT_STAGING_PATH=$5
+	NUXWDOGCLIENT_STAGING_PATH=$5
 else
 	echo
-	echo "Usage:  $0 PKIDOGCLIENT_build_prefix version release architecture"
-	echo "        PKIDOGCLIENT_staging_path"
+	echo "Usage:  $0 NUXWDOGCLIENT_build_prefix version release architecture"
+	echo "        NUXWDOGCLIENT_staging_path"
 	echo
 
 	exit 255
@@ -32,8 +32,8 @@ usage() {
 		echo "$1"
 	fi
 	echo
-	echo "Usage:  $0 PKIDOGCLIENT_build_prefix version release architecture"
-	echo "        PKIDOGCLIENT_staging_path"
+	echo "Usage:  $0 NUXWDOGCLIENT_build_prefix version release architecture"
+	echo "        NUXWDOGCLIENT_staging_path"
 	echo
 	echo "        where architecture MUST be 'intel',"
 	echo "                                   'sparc', or"
@@ -87,14 +87,14 @@ PRODUCT_VERSION=${MAJOR_VERSION}.${MINOR_VERSION}
 
 
 # comply with standard FHS 2.3 binary locations (executables)
-PKIDOGCLIENT_BIN_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/${BIN_DIR}
+NUXWDOGCLIENT_BIN_DIR=${NUXWDOGCLIENT_BUILD_PREFIX}/usr/${BIN_DIR}
 
 # comply with standard FHS 2.3 library locations
-PKIDOGCLIENT_LIB_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/${LIB_DIR}
-PKIDOGCLIENT_LOCAL_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr
+NUXWDOGCLIENT_LIB_DIR=${NUXWDOGCLIENT_BUILD_PREFIX}/usr/${LIB_DIR}
+NUXWDOGCLIENT_LOCAL_DIR=${NUXWDOGCLIENT_BUILD_PREFIX}/usr
 
 # comply with standard JPackage 1.6.0 jar locations
-PKIDOGCLIENT_JAR_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/lib/java
+NUXWDOGCLIENT_JAR_DIR=${NUXWDOGCLIENT_BUILD_PREFIX}/usr/lib/java
 
 # comply with standard FHS 2.3 binary locations (wrappers)
 
@@ -105,14 +105,14 @@ PKIDOGCLIENT_JAR_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/lib/java
 # comply with standard FHS 2.3 configuration file locations
 
 # comply with standard FHS 2.3 documentation locations
-PKIDOGCLIENT_DOCUMENTATION=${PKIDOGCLIENT_BUILD_PREFIX}/usr/share/doc/pkidog-${VERSION}
+NUXWDOGCLIENT_DOCUMENTATION=${NUXWDOGCLIENT_BUILD_PREFIX}/usr/share/doc/nuxwdog-${VERSION}
 
 # comply with standard FHS 2.3 log file locations
 
 # comply with default FHS 2.3 instance locations
 
 #include files for devel package
-PKIDOGCLIENT_INCLUDE_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/include/pkidog
+NUXWDOGCLIENT_INCLUDE_DIR=${NUXWDOGCLIENT_BUILD_PREFIX}/usr/include/nuxwdog
 
 ###############################################################################
 ##  (3)  Create the appropriate subdirectories.                              ##
@@ -122,13 +122,13 @@ PKIDOGCLIENT_INCLUDE_DIR=${PKIDOGCLIENT_BUILD_PREFIX}/usr/include/pkidog
 ## System:
 ##
 
-mkdir -p ${PKIDOGCLIENT_DOCUMENTATION}
-mkdir -p ${PKIDOGCLIENT_LIB_DIR}
-mkdir -p ${PKIDOGCLIENT_BIN_DIR}
-mkdir -p ${PKIDOGCLIENT_JAR_DIR}
-mkdir -p ${PKIDOGCLIENT_INCLUDE_DIR}
-mkdir -p ${PKIDOGCLIENT_LOCAL_DIR}/share/man/man3/
-mkdir -p ${PKIDOGCLIENT_LIB_DIR}/perl5
+mkdir -p ${NUXWDOGCLIENT_DOCUMENTATION}
+mkdir -p ${NUXWDOGCLIENT_LIB_DIR}
+mkdir -p ${NUXWDOGCLIENT_BIN_DIR}
+mkdir -p ${NUXWDOGCLIENT_JAR_DIR}
+mkdir -p ${NUXWDOGCLIENT_INCLUDE_DIR}
+mkdir -p ${NUXWDOGCLIENT_LOCAL_DIR}/share/man/man3/
+mkdir -p ${NUXWDOGCLIENT_LIB_DIR}/perl5
 
 ##
 ## Product
@@ -152,21 +152,21 @@ mkdir -p ${PKIDOGCLIENT_LIB_DIR}/perl5
 ##
 ## Executables
 ##
-cp -p  ${PKIDOGCLIENT_STAGING_PATH}/bin/pkidog ${PKIDOGCLIENT_BIN_DIR}
+cp -p  ${NUXWDOGCLIENT_STAGING_PATH}/bin/nuxwdog ${NUXWDOGCLIENT_BIN_DIR}
 
 ##
 ## Libraries
 ##
 
-cp -p ${PKIDOGCLIENT_STAGING_PATH}/${LIB_DIR}/libpkidog.${DLL_SUFFIX}  ${PKIDOGCLIENT_LIB_DIR}
-cp -rp ${PKIDOGCLIENT_STAGING_PATH}/local/${LIB_DIR}/perl5/site_perl/* ${PKIDOGCLIENT_LIB_DIR}/perl5
+cp -p ${NUXWDOGCLIENT_STAGING_PATH}/${LIB_DIR}/libnuxwdog.${DLL_SUFFIX}  ${NUXWDOGCLIENT_LIB_DIR}
+cp -rp ${NUXWDOGCLIENT_STAGING_PATH}/local/${LIB_DIR}/perl5/site_perl/* ${NUXWDOGCLIENT_LIB_DIR}/perl5
  
 
 ##
 ## Jars
 ##
 
-cp -p ${PKIDOGCLIENT_STAGING_PATH}/jars/pkidog.jar ${PKIDOGCLIENT_JAR_DIR}
+cp -p ${NUXWDOGCLIENT_STAGING_PATH}/jars/nuxwdog.jar ${NUXWDOGCLIENT_JAR_DIR}
 
 
 ##
@@ -178,13 +178,13 @@ cp -p ${PKIDOGCLIENT_STAGING_PATH}/jars/pkidog.jar ${PKIDOGCLIENT_JAR_DIR}
 ## Shared Data
 ##
 
-cp -rp ${PKIDOGCLIENT_STAGING_PATH}/doc/LICENSE         ${PKIDOGCLIENT_DOCUMENTATION}
-cp -p ${PKIDOGCLIENT_STAGING_PATH}/local/share/man/man3/* ${PKIDOGCLIENT_LOCAL_DIR}/share/man/man3
+cp -rp ${NUXWDOGCLIENT_STAGING_PATH}/doc/LICENSE         ${NUXWDOGCLIENT_DOCUMENTATION}
+cp -p ${NUXWDOGCLIENT_STAGING_PATH}/local/share/man/man3/* ${NUXWDOGCLIENT_LOCAL_DIR}/share/man/man3
  
 ## 
 ## header files
 ## 
-cp -rp  ${PKIDOGCLIENT_STAGING_PATH}/include/pkidog-1.0/pkidog/*.h    ${PKIDOGCLIENT_INCLUDE_DIR}
+cp -rp  ${NUXWDOGCLIENT_STAGING_PATH}/include/nuxwdog-1.0/nuxwdog/*.h    ${NUXWDOGCLIENT_INCLUDE_DIR}
 
 ###############################################################################
 ##  (5)  Unpack the package contents to the initial instance directories.    ##
@@ -215,13 +215,13 @@ cp -rp  ${PKIDOGCLIENT_STAGING_PATH}/include/pkidog-1.0/pkidog/*.h    ${PKIDOGCL
 ###############################################################################
 
 # comply with standard Linux/UNIX shared library naming conventions
-cd ${PKIDOGCLIENT_LIB_DIR} ; mv libpkidog.${DLL_SUFFIX} libpkidog.${DLL_SUFFIX}.${VERSION}
+cd ${NUXWDOGCLIENT_LIB_DIR} ; mv libnuxwdog.${DLL_SUFFIX} libnuxwdog.${DLL_SUFFIX}.${VERSION}
 
 # comply with standard JPackage 1.6.0 jar naming conventions
-cd ${PKIDOGCLIENT_JAR_DIR} ; mv pkidog.jar pkidog-${VERSION}.jar
+cd ${NUXWDOGCLIENT_JAR_DIR} ; mv nuxwdog.jar nuxwdog-${VERSION}.jar
 
 # strip symbolic information from libraries
-cd ${PKIDOGCLIENT_LIB_DIR} ; strip libpkidog.${DLL_SUFFIX}.${VERSION}
+cd ${NUXWDOGCLIENT_LIB_DIR} ; strip libnuxwdog.${DLL_SUFFIX}.${VERSION}
 
 
 ###############################################################################
@@ -235,13 +235,13 @@ cd ${PKIDOGCLIENT_LIB_DIR} ; strip libpkidog.${DLL_SUFFIX}.${VERSION}
 ###############################################################################
 
 # create shared library sans version "linker-name" to protect this namespace
-cd ${PKIDOGCLIENT_LIB_DIR}                                                ;
-ln -s libpkidog.${DLL_SUFFIX}.${VERSION} libpkidog.${DLL_SUFFIX}.${PRODUCT_VERSION}       ;
-ln -s libpkidog.${DLL_SUFFIX}.${PRODUCT_VERSION} libpkidog.${DLL_SUFFIX}.${MAJOR_VERSION} ;
-ln -s libpkidog.${DLL_SUFFIX}.${MAJOR_VERSION} libpkidog.${DLL_SUFFIX}
+cd ${NUXWDOGCLIENT_LIB_DIR}                                                ;
+ln -s libnuxwdog.${DLL_SUFFIX}.${VERSION} libnuxwdog.${DLL_SUFFIX}.${PRODUCT_VERSION}       ;
+ln -s libnuxwdog.${DLL_SUFFIX}.${PRODUCT_VERSION} libnuxwdog.${DLL_SUFFIX}.${MAJOR_VERSION} ;
+ln -s libnuxwdog.${DLL_SUFFIX}.${MAJOR_VERSION} libnuxwdog.${DLL_SUFFIX}
 
 # create jar sans version to be used by classpath
-cd ${PKIDOGCLIENT_JAR_DIR} ; ln -s pkidog-${VERSION}.jar pkidog.jar
+cd ${NUXWDOGCLIENT_JAR_DIR} ; ln -s nuxwdog-${VERSION}.jar nuxwdog.jar
 
 # create assorted symbolic links to various file dependencies (Tomcat)
 

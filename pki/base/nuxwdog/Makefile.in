@@ -59,14 +59,14 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = pkidog$(EXEEXT)
+bin_PROGRAMS = nuxwdog$(EXEEXT)
 DIST_COMMON = $(am__configure_deps) $(library_include_HEADERS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/config.h.in $(top_srcdir)/configure compile \
 	config.guess config.sub depcomp install-sh ltmain.sh missing
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/pkidog.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/m4/nuxwdog.m4 \
 	$(top_srcdir)/m4/nspr.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -82,40 +82,41 @@ am__vpath_adj = case $$p in \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(pkidog_jardir)" "$(DESTDIR)$(licensedir)" \
+	"$(DESTDIR)$(nuxwdog_jardir)" "$(DESTDIR)$(licensedir)" \
 	"$(DESTDIR)$(library_includedir)"
 libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
-libpkidog_jni_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+libnuxwdog_jni_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1)
 am__dirstamp = $(am__leading_dot)dirstamp
-am_libpkidog_jni_la_OBJECTS =  \
-	src/com/redhat/pkidog/libpkidog_jni_la-WatchdogClientJNI.lo
-libpkidog_jni_la_OBJECTS = $(am_libpkidog_jni_la_OBJECTS)
-libpkidog_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+am_libnuxwdog_jni_la_OBJECTS =  \
+	src/com/redhat/nuxwdog/libnuxwdog_jni_la-WatchdogClientJNI.lo
+libnuxwdog_jni_la_OBJECTS = $(am_libnuxwdog_jni_la_OBJECTS)
+libnuxwdog_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
-am_libpkidog_la_OBJECTS =  \
-	src/com/redhat/pkidog/libpkidog_la-WatchdogClient.lo \
-	src/com/redhat/pkidog/libpkidog_la-wdservermessage.lo \
-	src/com/redhat/pkidog/libpkidog_la-wdutils.lo \
-	src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.lo
-libpkidog_la_OBJECTS = $(am_libpkidog_la_OBJECTS)
+am_libnuxwdog_la_OBJECTS =  \
+	src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClient.lo \
+	src/com/redhat/nuxwdog/libnuxwdog_la-wdservermessage.lo \
+	src/com/redhat/nuxwdog/libnuxwdog_la-wdutils.lo \
+	src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClientCFunc.lo
+libnuxwdog_la_OBJECTS = $(am_libnuxwdog_la_OBJECTS)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_pkidog_OBJECTS = src/com/redhat/pkidog/pkidog-watchdog.$(OBJEXT) \
-	src/com/redhat/pkidog/pkidog-wdconf.$(OBJEXT) \
-	src/com/redhat/pkidog/pkidog-wdsignals.$(OBJEXT) \
-	src/com/redhat/pkidog/pkidog-wdpwd.$(OBJEXT) \
-	src/com/redhat/pkidog/pkidog-wdlog.$(OBJEXT) \
-	src/com/redhat/pkidog/pkidog-wdservermessage.$(OBJEXT) \
-	src/com/redhat/pkidog/pkidog-wdlsmgr.$(OBJEXT) \
-	src/com/redhat/pkidog/pkidog-wdutils.$(OBJEXT)
-pkidog_OBJECTS = $(am_pkidog_OBJECTS)
-pkidog_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+am_nuxwdog_OBJECTS =  \
+	src/com/redhat/nuxwdog/nuxwdog-watchdog.$(OBJEXT) \
+	src/com/redhat/nuxwdog/nuxwdog-wdconf.$(OBJEXT) \
+	src/com/redhat/nuxwdog/nuxwdog-wdsignals.$(OBJEXT) \
+	src/com/redhat/nuxwdog/nuxwdog-wdpwd.$(OBJEXT) \
+	src/com/redhat/nuxwdog/nuxwdog-wdlog.$(OBJEXT) \
+	src/com/redhat/nuxwdog/nuxwdog-wdservermessage.$(OBJEXT) \
+	src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.$(OBJEXT) \
+	src/com/redhat/nuxwdog/nuxwdog-wdutils.$(OBJEXT)
+nuxwdog_OBJECTS = $(am_nuxwdog_OBJECTS)
+nuxwdog_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
-pkidog_jarSCRIPT_INSTALL = $(INSTALL_SCRIPT)
-SCRIPTS = $(pkidog_jar_SCRIPTS)
+nuxwdog_jarSCRIPT_INSTALL = $(INSTALL_SCRIPT)
+SCRIPTS = $(nuxwdog_jar_SCRIPTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I.
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -135,10 +136,10 @@ LTCXXCOMPILE = $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) \
 CXXLD = $(CXX)
 CXXLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(libpkidog_jni_la_SOURCES) $(libpkidog_la_SOURCES) \
-	$(pkidog_SOURCES)
-DIST_SOURCES = $(libpkidog_jni_la_SOURCES) $(libpkidog_la_SOURCES) \
-	$(pkidog_SOURCES)
+SOURCES = $(libnuxwdog_jni_la_SOURCES) $(libnuxwdog_la_SOURCES) \
+	$(nuxwdog_SOURCES)
+DIST_SOURCES = $(libnuxwdog_jni_la_SOURCES) $(libnuxwdog_la_SOURCES) \
+	$(nuxwdog_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-exec-recursive install-info-recursive \
@@ -290,10 +291,10 @@ mkdir_p = @mkdir_p@
 nspr_inc = @nspr_inc@
 nspr_lib = @nspr_lib@
 nspr_libdir = @nspr_libdir@
+nuxwdog_inc = @nuxwdog_inc@
+nuxwdog_jardir = $(prefix)@nuxwdog_jardir@
+nuxwdog_jars = @nuxwdog_jars@
 oldincludedir = @oldincludedir@
-pkidog_inc = @pkidog_inc@
-pkidog_jardir = $(prefix)@pkidog_jardir@
-pkidog_jars = @pkidog_jars@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 sbindir = @sbindir@
@@ -304,12 +305,12 @@ target_alias = @target_alias@
 # look for included m4 files in the ./m4/ directory
 ACLOCAL_AMFLAGS = -I m4
 AUTOMAKE_OPTIONS = foreign
-SUBDIRS = . lib/perl/Pkidogclient
+SUBDIRS = . lib/perl/Nuxwdogclient
 #------------------------
 # Compiler Flags
 #------------------------
 DEBUG_DEFINES = @debug_defs@
-PKIDOG_INCLUDES = @jni_inc@ -I$(srcdir)/build/include
+NUXWDOG_INCLUDES = @jni_inc@ -I$(srcdir)/build/include
 # These paths are dependent on the settings of prefix and exec_prefix
 # which may be specified at make time.  So we cannot use AC_DEFINE in
 # the configure.ac because that would set the values prior to their
@@ -324,7 +325,7 @@ PATH_DEFINES = -DLOCALSTATEDIR="\"$(localstatedir)\"" \
 	-DBINDIR="\"$(bindir)\"" -DDATADIR="\"$(datadir)\"" \
 	-DDOCDIR="\"$(docdir)\"" -DLIBEXECDIR="\"$(libexecdir)\""
 
-AM_CPPFLAGS = $(DEBUG_DEFINES) $(PKIDOG_INCLUDES) $(PATH_DEFINES)
+AM_CPPFLAGS = $(DEBUG_DEFINES) $(NUXWDOG_INCLUDES) $(PATH_DEFINES)
 # We need to make sure that libpthread is linked before libc on HP-UX.
 @HPUX_TRUE@AM_LDFLAGS = -lpthread
 
@@ -337,13 +338,13 @@ SELINUX_LINK = -lselinux
 #------------------------
 # Build Products
 #------------------------
-lib_LTLIBRARIES = libpkidog.la libpkidog-jni.la
+lib_LTLIBRARIES = libnuxwdog.la libnuxwdog-jni.la
 
 #------------------------
 # Installed Files
 #------------------------
 license_DATA = $(srcdir)/LICENSE
-pkidog_jar_SCRIPTS = $(srcdir)/build/jars/pkidog.jar
+nuxwdog_jar_SCRIPTS = $(srcdir)/build/jars/nuxwdog.jar
 
 #////////////////////////////////////////////////////////////////
 #
@@ -352,47 +353,47 @@ pkidog_jar_SCRIPTS = $(srcdir)/build/jars/pkidog.jar
 #////////////////////////////////////////////////////////////////
 
 #------------------------
-# libpkidog
+# libnuxwdog
 #------------------------
-library_includedir = $(includedir)/pkidog
-library_include_HEADERS = $(srcdir)/src/com/redhat/pkidog/WatchdogClient.h $(srcdir)/src/com/redhat/pkidog/wdservermessage.h \
-			$(srcdir)/src/com/redhat/pkidog/WatchdogClientJNI.h
+library_includedir = $(includedir)/nuxwdog
+library_include_HEADERS = $(srcdir)/src/com/redhat/nuxwdog/WatchdogClient.h $(srcdir)/src/com/redhat/nuxwdog/wdservermessage.h \
+			$(srcdir)/src/com/redhat/nuxwdog/WatchdogClientJNI.h
 
-libpkidog_la_SOURCES = src/com/redhat/pkidog/WatchdogClient.cpp          \
-			src/com/redhat/pkidog/wdservermessage.cpp         \
-			src/com/redhat/pkidog/wdutils.cpp                 \
-                        src/com/redhat/pkidog/WatchdogClientCFunc.c
+libnuxwdog_la_SOURCES = src/com/redhat/nuxwdog/WatchdogClient.cpp          \
+			src/com/redhat/nuxwdog/wdservermessage.cpp         \
+			src/com/redhat/nuxwdog/wdutils.cpp                 \
+                        src/com/redhat/nuxwdog/WatchdogClientCFunc.c
 
-libpkidog_la_CPPFLAGS = $(AM_CPPFLAGS) @nspr_inc@
-libpkidog_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(GENERIC_LIBRARY_VERSION) --release $(VERSION)
-libpkidog_la_LIBADD = $(NSPR_LINK) \
+libnuxwdog_la_CPPFLAGS = $(AM_CPPFLAGS) @nspr_inc@
+libnuxwdog_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(GENERIC_LIBRARY_VERSION) --release $(VERSION)
+libnuxwdog_la_LIBADD = $(NSPR_LINK) \
 	$(LIBCSTD) $(LIBCRUN)
 
 
 #--------------------------
-# libpkidog-jni 
+# libnuxwdog-jni 
 #--------------------------
-libpkidog_jni_la_SOURCES = src/com/redhat/pkidog/WatchdogClientJNI.cpp          
-libpkidog_jni_la_CPPFLAGS = $(AM_CPPFLAGS) 
-libpkidog_jni_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpkidog_jni_la_LIBADD = -lpkidog $(LIBCSTD) $(LIBCRUN)
+libnuxwdog_jni_la_SOURCES = src/com/redhat/nuxwdog/WatchdogClientJNI.cpp          
+libnuxwdog_jni_la_CPPFLAGS = $(AM_CPPFLAGS) 
+libnuxwdog_jni_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
+libnuxwdog_jni_la_LIBADD = -lnuxwdog $(LIBCSTD) $(LIBCRUN)
 
 #////////////////////////////////////////////////////////////////
 #
 #   Programs
 #
 #////////////////////////////////////////////////////////////////
-pkidog_SOURCES = src/com/redhat/pkidog/watchdog.cpp \
-			src/com/redhat/pkidog/wdconf.cpp \
-			src/com/redhat/pkidog/wdsignals.cpp \
-			src/com/redhat/pkidog/wdpwd.cpp \
-			src/com/redhat/pkidog/wdlog.cpp \
-			src/com/redhat/pkidog/wdservermessage.cpp \
-			src/com/redhat/pkidog/wdlsmgr.cpp \
-			src/com/redhat/pkidog/wdutils.cpp 
+nuxwdog_SOURCES = src/com/redhat/nuxwdog/watchdog.cpp \
+			src/com/redhat/nuxwdog/wdconf.cpp \
+			src/com/redhat/nuxwdog/wdsignals.cpp \
+			src/com/redhat/nuxwdog/wdpwd.cpp \
+			src/com/redhat/nuxwdog/wdlog.cpp \
+			src/com/redhat/nuxwdog/wdservermessage.cpp \
+			src/com/redhat/nuxwdog/wdlsmgr.cpp \
+			src/com/redhat/nuxwdog/wdutils.cpp 
 
-pkidog_CPPFLAGS = $(AM_CPPFLAGS) @nspr_inc@
-pkidog_LDADD = $(NSPR_LINK) $(LIBCSTD) $(LIBCRUN) $(SELINUX_LINK)
+nuxwdog_CPPFLAGS = $(AM_CPPFLAGS) @nspr_inc@
+nuxwdog_LDADD = $(NSPR_LINK) $(LIBCSTD) $(LIBCRUN) $(SELINUX_LINK)
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -475,31 +476,31 @@ clean-libLTLIBRARIES:
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
-src/com/redhat/pkidog/$(am__dirstamp):
-	@$(mkdir_p) src/com/redhat/pkidog
-	@: > src/com/redhat/pkidog/$(am__dirstamp)
-src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp):
-	@$(mkdir_p) src/com/redhat/pkidog/$(DEPDIR)
-	@: > src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/libpkidog_jni_la-WatchdogClientJNI.lo:  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-libpkidog-jni.la: $(libpkidog_jni_la_OBJECTS) $(libpkidog_jni_la_DEPENDENCIES) 
-	$(CXXLINK) -rpath $(libdir) $(libpkidog_jni_la_LDFLAGS) $(libpkidog_jni_la_OBJECTS) $(libpkidog_jni_la_LIBADD) $(LIBS)
-src/com/redhat/pkidog/libpkidog_la-WatchdogClient.lo:  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/libpkidog_la-wdservermessage.lo:  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/libpkidog_la-wdutils.lo:  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.lo:  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-libpkidog.la: $(libpkidog_la_OBJECTS) $(libpkidog_la_DEPENDENCIES) 
-	$(CXXLINK) -rpath $(libdir) $(libpkidog_la_LDFLAGS) $(libpkidog_la_OBJECTS) $(libpkidog_la_LIBADD) $(LIBS)
+src/com/redhat/nuxwdog/$(am__dirstamp):
+	@$(mkdir_p) src/com/redhat/nuxwdog
+	@: > src/com/redhat/nuxwdog/$(am__dirstamp)
+src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) src/com/redhat/nuxwdog/$(DEPDIR)
+	@: > src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/libnuxwdog_jni_la-WatchdogClientJNI.lo:  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+libnuxwdog-jni.la: $(libnuxwdog_jni_la_OBJECTS) $(libnuxwdog_jni_la_DEPENDENCIES) 
+	$(CXXLINK) -rpath $(libdir) $(libnuxwdog_jni_la_LDFLAGS) $(libnuxwdog_jni_la_OBJECTS) $(libnuxwdog_jni_la_LIBADD) $(LIBS)
+src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClient.lo:  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/libnuxwdog_la-wdservermessage.lo:  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/libnuxwdog_la-wdutils.lo:  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClientCFunc.lo:  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+libnuxwdog.la: $(libnuxwdog_la_OBJECTS) $(libnuxwdog_la_DEPENDENCIES) 
+	$(CXXLINK) -rpath $(libdir) $(libnuxwdog_la_LDFLAGS) $(libnuxwdog_la_OBJECTS) $(libnuxwdog_la_LIBADD) $(LIBS)
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
@@ -528,90 +529,90 @@ clean-binPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
-src/com/redhat/pkidog/pkidog-watchdog.$(OBJEXT):  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/pkidog-wdconf.$(OBJEXT):  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/pkidog-wdsignals.$(OBJEXT):  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/pkidog-wdpwd.$(OBJEXT):  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/pkidog-wdlog.$(OBJEXT):  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/pkidog-wdservermessage.$(OBJEXT):  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/pkidog-wdlsmgr.$(OBJEXT):  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-src/com/redhat/pkidog/pkidog-wdutils.$(OBJEXT):  \
-	src/com/redhat/pkidog/$(am__dirstamp) \
-	src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-pkidog$(EXEEXT): $(pkidog_OBJECTS) $(pkidog_DEPENDENCIES) 
-	@rm -f pkidog$(EXEEXT)
-	$(CXXLINK) $(pkidog_LDFLAGS) $(pkidog_OBJECTS) $(pkidog_LDADD) $(LIBS)
-install-pkidog_jarSCRIPTS: $(pkidog_jar_SCRIPTS)
+src/com/redhat/nuxwdog/nuxwdog-watchdog.$(OBJEXT):  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/nuxwdog-wdconf.$(OBJEXT):  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/nuxwdog-wdsignals.$(OBJEXT):  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/nuxwdog-wdpwd.$(OBJEXT):  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/nuxwdog-wdlog.$(OBJEXT):  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/nuxwdog-wdservermessage.$(OBJEXT):  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.$(OBJEXT):  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+src/com/redhat/nuxwdog/nuxwdog-wdutils.$(OBJEXT):  \
+	src/com/redhat/nuxwdog/$(am__dirstamp) \
+	src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+nuxwdog$(EXEEXT): $(nuxwdog_OBJECTS) $(nuxwdog_DEPENDENCIES) 
+	@rm -f nuxwdog$(EXEEXT)
+	$(CXXLINK) $(nuxwdog_LDFLAGS) $(nuxwdog_OBJECTS) $(nuxwdog_LDADD) $(LIBS)
+install-nuxwdog_jarSCRIPTS: $(nuxwdog_jar_SCRIPTS)
 	@$(NORMAL_INSTALL)
-	test -z "$(pkidog_jardir)" || $(mkdir_p) "$(DESTDIR)$(pkidog_jardir)"
-	@list='$(pkidog_jar_SCRIPTS)'; for p in $$list; do \
+	test -z "$(nuxwdog_jardir)" || $(mkdir_p) "$(DESTDIR)$(nuxwdog_jardir)"
+	@list='$(nuxwdog_jar_SCRIPTS)'; for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  if test -f $$d$$p; then \
 	    f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	    echo " $(pkidog_jarSCRIPT_INSTALL) '$$d$$p' '$(DESTDIR)$(pkidog_jardir)/$$f'"; \
-	    $(pkidog_jarSCRIPT_INSTALL) "$$d$$p" "$(DESTDIR)$(pkidog_jardir)/$$f"; \
+	    echo " $(nuxwdog_jarSCRIPT_INSTALL) '$$d$$p' '$(DESTDIR)$(nuxwdog_jardir)/$$f'"; \
+	    $(nuxwdog_jarSCRIPT_INSTALL) "$$d$$p" "$(DESTDIR)$(nuxwdog_jardir)/$$f"; \
 	  else :; fi; \
 	done
 
-uninstall-pkidog_jarSCRIPTS:
+uninstall-nuxwdog_jarSCRIPTS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(pkidog_jar_SCRIPTS)'; for p in $$list; do \
+	@list='$(nuxwdog_jar_SCRIPTS)'; for p in $$list; do \
 	  f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	  echo " rm -f '$(DESTDIR)$(pkidog_jardir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(pkidog_jardir)/$$f"; \
+	  echo " rm -f '$(DESTDIR)$(nuxwdog_jardir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(nuxwdog_jardir)/$$f"; \
 	done
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/libpkidog_jni_la-WatchdogClientJNI.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/libpkidog_jni_la-WatchdogClientJNI.lo
-	-rm -f src/com/redhat/pkidog/libpkidog_la-WatchdogClient.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/libpkidog_la-WatchdogClient.lo
-	-rm -f src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.lo
-	-rm -f src/com/redhat/pkidog/libpkidog_la-wdservermessage.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/libpkidog_la-wdservermessage.lo
-	-rm -f src/com/redhat/pkidog/libpkidog_la-wdutils.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/libpkidog_la-wdutils.lo
-	-rm -f src/com/redhat/pkidog/pkidog-watchdog.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/pkidog-wdconf.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/pkidog-wdlog.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/pkidog-wdlsmgr.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/pkidog-wdpwd.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/pkidog-wdservermessage.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/pkidog-wdsignals.$(OBJEXT)
-	-rm -f src/com/redhat/pkidog/pkidog-wdutils.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_jni_la-WatchdogClientJNI.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_jni_la-WatchdogClientJNI.lo
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClient.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClient.lo
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClientCFunc.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClientCFunc.lo
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_la-wdservermessage.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_la-wdservermessage.lo
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_la-wdutils.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/libnuxwdog_la-wdutils.lo
+	-rm -f src/com/redhat/nuxwdog/nuxwdog-watchdog.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/nuxwdog-wdconf.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/nuxwdog-wdlog.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/nuxwdog-wdpwd.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/nuxwdog-wdservermessage.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/nuxwdog-wdsignals.$(OBJEXT)
+	-rm -f src/com/redhat/nuxwdog/nuxwdog-wdutils.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/libpkidog_jni_la-WatchdogClientJNI.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClient.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClientCFunc.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdservermessage.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdutils.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/pkidog-watchdog.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdconf.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlog.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlsmgr.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdpwd.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdservermessage.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdsignals.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdutils.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_jni_la-WatchdogClientJNI.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClient.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClientCFunc.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdservermessage.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdutils.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-watchdog.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdconf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlog.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlsmgr.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdpwd.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdservermessage.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdsignals.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdutils.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`; \
@@ -637,12 +638,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
 
-src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.lo: src/com/redhat/pkidog/WatchdogClientCFunc.c
-@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.lo -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClientCFunc.Tpo" -c -o src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.lo `test -f 'src/com/redhat/pkidog/WatchdogClientCFunc.c' || echo '$(srcdir)/'`src/com/redhat/pkidog/WatchdogClientCFunc.c; \
-@am__fastdepCC_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClientCFunc.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClientCFunc.Plo"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClientCFunc.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/com/redhat/pkidog/WatchdogClientCFunc.c' object='src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.lo' libtool=yes @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClientCFunc.lo: src/com/redhat/nuxwdog/WatchdogClientCFunc.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClientCFunc.lo -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClientCFunc.Tpo" -c -o src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClientCFunc.lo `test -f 'src/com/redhat/nuxwdog/WatchdogClientCFunc.c' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/WatchdogClientCFunc.c; \
+@am__fastdepCC_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClientCFunc.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClientCFunc.Plo"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClientCFunc.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='src/com/redhat/nuxwdog/WatchdogClientCFunc.c' object='src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClientCFunc.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.lo `test -f 'src/com/redhat/pkidog/WatchdogClientCFunc.c' || echo '$(srcdir)/'`src/com/redhat/pkidog/WatchdogClientCFunc.c
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClientCFunc.lo `test -f 'src/com/redhat/nuxwdog/WatchdogClientCFunc.c' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/WatchdogClientCFunc.c
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`; \
@@ -668,152 +669,152 @@ src/com/redhat/pkidog/libpkidog_la-WatchdogClientCFunc.lo: src/com/redhat/pkidog
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(LTCXXCOMPILE) -c -o $@ $<
 
-src/com/redhat/pkidog/libpkidog_jni_la-WatchdogClientJNI.lo: src/com/redhat/pkidog/WatchdogClientJNI.cpp
-@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_jni_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/libpkidog_jni_la-WatchdogClientJNI.lo -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_jni_la-WatchdogClientJNI.Tpo" -c -o src/com/redhat/pkidog/libpkidog_jni_la-WatchdogClientJNI.lo `test -f 'src/com/redhat/pkidog/WatchdogClientJNI.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/WatchdogClientJNI.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_jni_la-WatchdogClientJNI.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_jni_la-WatchdogClientJNI.Plo"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_jni_la-WatchdogClientJNI.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/WatchdogClientJNI.cpp' object='src/com/redhat/pkidog/libpkidog_jni_la-WatchdogClientJNI.lo' libtool=yes @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/libnuxwdog_jni_la-WatchdogClientJNI.lo: src/com/redhat/nuxwdog/WatchdogClientJNI.cpp
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_jni_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/libnuxwdog_jni_la-WatchdogClientJNI.lo -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_jni_la-WatchdogClientJNI.Tpo" -c -o src/com/redhat/nuxwdog/libnuxwdog_jni_la-WatchdogClientJNI.lo `test -f 'src/com/redhat/nuxwdog/WatchdogClientJNI.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/WatchdogClientJNI.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_jni_la-WatchdogClientJNI.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_jni_la-WatchdogClientJNI.Plo"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_jni_la-WatchdogClientJNI.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/WatchdogClientJNI.cpp' object='src/com/redhat/nuxwdog/libnuxwdog_jni_la-WatchdogClientJNI.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_jni_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/libpkidog_jni_la-WatchdogClientJNI.lo `test -f 'src/com/redhat/pkidog/WatchdogClientJNI.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/WatchdogClientJNI.cpp
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_jni_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/libnuxwdog_jni_la-WatchdogClientJNI.lo `test -f 'src/com/redhat/nuxwdog/WatchdogClientJNI.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/WatchdogClientJNI.cpp
 
-src/com/redhat/pkidog/libpkidog_la-WatchdogClient.lo: src/com/redhat/pkidog/WatchdogClient.cpp
-@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/libpkidog_la-WatchdogClient.lo -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClient.Tpo" -c -o src/com/redhat/pkidog/libpkidog_la-WatchdogClient.lo `test -f 'src/com/redhat/pkidog/WatchdogClient.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/WatchdogClient.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClient.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClient.Plo"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-WatchdogClient.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/WatchdogClient.cpp' object='src/com/redhat/pkidog/libpkidog_la-WatchdogClient.lo' libtool=yes @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClient.lo: src/com/redhat/nuxwdog/WatchdogClient.cpp
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClient.lo -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClient.Tpo" -c -o src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClient.lo `test -f 'src/com/redhat/nuxwdog/WatchdogClient.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/WatchdogClient.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClient.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClient.Plo"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-WatchdogClient.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/WatchdogClient.cpp' object='src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClient.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/libpkidog_la-WatchdogClient.lo `test -f 'src/com/redhat/pkidog/WatchdogClient.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/WatchdogClient.cpp
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/libnuxwdog_la-WatchdogClient.lo `test -f 'src/com/redhat/nuxwdog/WatchdogClient.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/WatchdogClient.cpp
 
-src/com/redhat/pkidog/libpkidog_la-wdservermessage.lo: src/com/redhat/pkidog/wdservermessage.cpp
-@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/libpkidog_la-wdservermessage.lo -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdservermessage.Tpo" -c -o src/com/redhat/pkidog/libpkidog_la-wdservermessage.lo `test -f 'src/com/redhat/pkidog/wdservermessage.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdservermessage.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdservermessage.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdservermessage.Plo"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdservermessage.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdservermessage.cpp' object='src/com/redhat/pkidog/libpkidog_la-wdservermessage.lo' libtool=yes @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/libnuxwdog_la-wdservermessage.lo: src/com/redhat/nuxwdog/wdservermessage.cpp
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/libnuxwdog_la-wdservermessage.lo -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdservermessage.Tpo" -c -o src/com/redhat/nuxwdog/libnuxwdog_la-wdservermessage.lo `test -f 'src/com/redhat/nuxwdog/wdservermessage.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdservermessage.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdservermessage.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdservermessage.Plo"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdservermessage.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdservermessage.cpp' object='src/com/redhat/nuxwdog/libnuxwdog_la-wdservermessage.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/libpkidog_la-wdservermessage.lo `test -f 'src/com/redhat/pkidog/wdservermessage.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdservermessage.cpp
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/libnuxwdog_la-wdservermessage.lo `test -f 'src/com/redhat/nuxwdog/wdservermessage.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdservermessage.cpp
 
-src/com/redhat/pkidog/libpkidog_la-wdutils.lo: src/com/redhat/pkidog/wdutils.cpp
-@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/libpkidog_la-wdutils.lo -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdutils.Tpo" -c -o src/com/redhat/pkidog/libpkidog_la-wdutils.lo `test -f 'src/com/redhat/pkidog/wdutils.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdutils.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdutils.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdutils.Plo"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/libpkidog_la-wdutils.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdutils.cpp' object='src/com/redhat/pkidog/libpkidog_la-wdutils.lo' libtool=yes @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/libnuxwdog_la-wdutils.lo: src/com/redhat/nuxwdog/wdutils.cpp
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/libnuxwdog_la-wdutils.lo -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdutils.Tpo" -c -o src/com/redhat/nuxwdog/libnuxwdog_la-wdutils.lo `test -f 'src/com/redhat/nuxwdog/wdutils.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdutils.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdutils.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdutils.Plo"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/libnuxwdog_la-wdutils.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdutils.cpp' object='src/com/redhat/nuxwdog/libnuxwdog_la-wdutils.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libpkidog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/libpkidog_la-wdutils.lo `test -f 'src/com/redhat/pkidog/wdutils.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdutils.cpp
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libnuxwdog_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/libnuxwdog_la-wdutils.lo `test -f 'src/com/redhat/nuxwdog/wdutils.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdutils.cpp
 
-src/com/redhat/pkidog/pkidog-watchdog.o: src/com/redhat/pkidog/watchdog.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-watchdog.o -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-watchdog.Tpo" -c -o src/com/redhat/pkidog/pkidog-watchdog.o `test -f 'src/com/redhat/pkidog/watchdog.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/watchdog.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-watchdog.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-watchdog.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-watchdog.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/watchdog.cpp' object='src/com/redhat/pkidog/pkidog-watchdog.o' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-watchdog.o: src/com/redhat/nuxwdog/watchdog.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-watchdog.o -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-watchdog.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-watchdog.o `test -f 'src/com/redhat/nuxwdog/watchdog.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/watchdog.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-watchdog.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-watchdog.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-watchdog.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/watchdog.cpp' object='src/com/redhat/nuxwdog/nuxwdog-watchdog.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-watchdog.o `test -f 'src/com/redhat/pkidog/watchdog.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/watchdog.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-watchdog.o `test -f 'src/com/redhat/nuxwdog/watchdog.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/watchdog.cpp
 
-src/com/redhat/pkidog/pkidog-watchdog.obj: src/com/redhat/pkidog/watchdog.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-watchdog.obj -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-watchdog.Tpo" -c -o src/com/redhat/pkidog/pkidog-watchdog.obj `if test -f 'src/com/redhat/pkidog/watchdog.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/watchdog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/watchdog.cpp'; fi`; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-watchdog.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-watchdog.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-watchdog.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/watchdog.cpp' object='src/com/redhat/pkidog/pkidog-watchdog.obj' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-watchdog.obj: src/com/redhat/nuxwdog/watchdog.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-watchdog.obj -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-watchdog.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-watchdog.obj `if test -f 'src/com/redhat/nuxwdog/watchdog.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/watchdog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/watchdog.cpp'; fi`; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-watchdog.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-watchdog.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-watchdog.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/watchdog.cpp' object='src/com/redhat/nuxwdog/nuxwdog-watchdog.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-watchdog.obj `if test -f 'src/com/redhat/pkidog/watchdog.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/watchdog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/watchdog.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-watchdog.obj `if test -f 'src/com/redhat/nuxwdog/watchdog.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/watchdog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/watchdog.cpp'; fi`
 
-src/com/redhat/pkidog/pkidog-wdconf.o: src/com/redhat/pkidog/wdconf.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdconf.o -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdconf.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdconf.o `test -f 'src/com/redhat/pkidog/wdconf.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdconf.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdconf.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdconf.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdconf.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdconf.cpp' object='src/com/redhat/pkidog/pkidog-wdconf.o' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdconf.o: src/com/redhat/nuxwdog/wdconf.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdconf.o -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdconf.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdconf.o `test -f 'src/com/redhat/nuxwdog/wdconf.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdconf.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdconf.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdconf.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdconf.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdconf.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdconf.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdconf.o `test -f 'src/com/redhat/pkidog/wdconf.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdconf.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdconf.o `test -f 'src/com/redhat/nuxwdog/wdconf.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdconf.cpp
 
-src/com/redhat/pkidog/pkidog-wdconf.obj: src/com/redhat/pkidog/wdconf.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdconf.obj -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdconf.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdconf.obj `if test -f 'src/com/redhat/pkidog/wdconf.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdconf.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdconf.cpp'; fi`; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdconf.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdconf.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdconf.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdconf.cpp' object='src/com/redhat/pkidog/pkidog-wdconf.obj' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdconf.obj: src/com/redhat/nuxwdog/wdconf.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdconf.obj -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdconf.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdconf.obj `if test -f 'src/com/redhat/nuxwdog/wdconf.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdconf.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdconf.cpp'; fi`; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdconf.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdconf.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdconf.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdconf.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdconf.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdconf.obj `if test -f 'src/com/redhat/pkidog/wdconf.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdconf.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdconf.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdconf.obj `if test -f 'src/com/redhat/nuxwdog/wdconf.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdconf.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdconf.cpp'; fi`
 
-src/com/redhat/pkidog/pkidog-wdsignals.o: src/com/redhat/pkidog/wdsignals.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdsignals.o -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdsignals.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdsignals.o `test -f 'src/com/redhat/pkidog/wdsignals.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdsignals.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdsignals.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdsignals.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdsignals.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdsignals.cpp' object='src/com/redhat/pkidog/pkidog-wdsignals.o' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdsignals.o: src/com/redhat/nuxwdog/wdsignals.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdsignals.o -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdsignals.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdsignals.o `test -f 'src/com/redhat/nuxwdog/wdsignals.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdsignals.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdsignals.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdsignals.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdsignals.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdsignals.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdsignals.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdsignals.o `test -f 'src/com/redhat/pkidog/wdsignals.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdsignals.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdsignals.o `test -f 'src/com/redhat/nuxwdog/wdsignals.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdsignals.cpp
 
-src/com/redhat/pkidog/pkidog-wdsignals.obj: src/com/redhat/pkidog/wdsignals.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdsignals.obj -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdsignals.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdsignals.obj `if test -f 'src/com/redhat/pkidog/wdsignals.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdsignals.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdsignals.cpp'; fi`; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdsignals.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdsignals.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdsignals.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdsignals.cpp' object='src/com/redhat/pkidog/pkidog-wdsignals.obj' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdsignals.obj: src/com/redhat/nuxwdog/wdsignals.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdsignals.obj -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdsignals.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdsignals.obj `if test -f 'src/com/redhat/nuxwdog/wdsignals.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdsignals.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdsignals.cpp'; fi`; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdsignals.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdsignals.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdsignals.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdsignals.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdsignals.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdsignals.obj `if test -f 'src/com/redhat/pkidog/wdsignals.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdsignals.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdsignals.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdsignals.obj `if test -f 'src/com/redhat/nuxwdog/wdsignals.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdsignals.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdsignals.cpp'; fi`
 
-src/com/redhat/pkidog/pkidog-wdpwd.o: src/com/redhat/pkidog/wdpwd.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdpwd.o -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdpwd.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdpwd.o `test -f 'src/com/redhat/pkidog/wdpwd.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdpwd.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdpwd.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdpwd.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdpwd.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdpwd.cpp' object='src/com/redhat/pkidog/pkidog-wdpwd.o' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdpwd.o: src/com/redhat/nuxwdog/wdpwd.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdpwd.o -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdpwd.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdpwd.o `test -f 'src/com/redhat/nuxwdog/wdpwd.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdpwd.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdpwd.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdpwd.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdpwd.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdpwd.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdpwd.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdpwd.o `test -f 'src/com/redhat/pkidog/wdpwd.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdpwd.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdpwd.o `test -f 'src/com/redhat/nuxwdog/wdpwd.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdpwd.cpp
 
-src/com/redhat/pkidog/pkidog-wdpwd.obj: src/com/redhat/pkidog/wdpwd.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdpwd.obj -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdpwd.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdpwd.obj `if test -f 'src/com/redhat/pkidog/wdpwd.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdpwd.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdpwd.cpp'; fi`; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdpwd.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdpwd.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdpwd.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdpwd.cpp' object='src/com/redhat/pkidog/pkidog-wdpwd.obj' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdpwd.obj: src/com/redhat/nuxwdog/wdpwd.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdpwd.obj -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdpwd.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdpwd.obj `if test -f 'src/com/redhat/nuxwdog/wdpwd.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdpwd.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdpwd.cpp'; fi`; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdpwd.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdpwd.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdpwd.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdpwd.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdpwd.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdpwd.obj `if test -f 'src/com/redhat/pkidog/wdpwd.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdpwd.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdpwd.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdpwd.obj `if test -f 'src/com/redhat/nuxwdog/wdpwd.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdpwd.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdpwd.cpp'; fi`
 
-src/com/redhat/pkidog/pkidog-wdlog.o: src/com/redhat/pkidog/wdlog.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdlog.o -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlog.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdlog.o `test -f 'src/com/redhat/pkidog/wdlog.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdlog.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlog.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlog.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlog.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdlog.cpp' object='src/com/redhat/pkidog/pkidog-wdlog.o' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdlog.o: src/com/redhat/nuxwdog/wdlog.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdlog.o -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlog.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdlog.o `test -f 'src/com/redhat/nuxwdog/wdlog.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdlog.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlog.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlog.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlog.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdlog.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdlog.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdlog.o `test -f 'src/com/redhat/pkidog/wdlog.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdlog.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdlog.o `test -f 'src/com/redhat/nuxwdog/wdlog.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdlog.cpp
 
-src/com/redhat/pkidog/pkidog-wdlog.obj: src/com/redhat/pkidog/wdlog.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdlog.obj -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlog.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdlog.obj `if test -f 'src/com/redhat/pkidog/wdlog.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdlog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdlog.cpp'; fi`; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlog.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlog.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlog.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdlog.cpp' object='src/com/redhat/pkidog/pkidog-wdlog.obj' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdlog.obj: src/com/redhat/nuxwdog/wdlog.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdlog.obj -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlog.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdlog.obj `if test -f 'src/com/redhat/nuxwdog/wdlog.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdlog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdlog.cpp'; fi`; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlog.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlog.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlog.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdlog.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdlog.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdlog.obj `if test -f 'src/com/redhat/pkidog/wdlog.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdlog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdlog.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdlog.obj `if test -f 'src/com/redhat/nuxwdog/wdlog.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdlog.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdlog.cpp'; fi`
 
-src/com/redhat/pkidog/pkidog-wdservermessage.o: src/com/redhat/pkidog/wdservermessage.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdservermessage.o -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdservermessage.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdservermessage.o `test -f 'src/com/redhat/pkidog/wdservermessage.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdservermessage.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdservermessage.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdservermessage.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdservermessage.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdservermessage.cpp' object='src/com/redhat/pkidog/pkidog-wdservermessage.o' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdservermessage.o: src/com/redhat/nuxwdog/wdservermessage.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdservermessage.o -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdservermessage.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdservermessage.o `test -f 'src/com/redhat/nuxwdog/wdservermessage.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdservermessage.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdservermessage.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdservermessage.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdservermessage.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdservermessage.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdservermessage.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdservermessage.o `test -f 'src/com/redhat/pkidog/wdservermessage.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdservermessage.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdservermessage.o `test -f 'src/com/redhat/nuxwdog/wdservermessage.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdservermessage.cpp
 
-src/com/redhat/pkidog/pkidog-wdservermessage.obj: src/com/redhat/pkidog/wdservermessage.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdservermessage.obj -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdservermessage.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdservermessage.obj `if test -f 'src/com/redhat/pkidog/wdservermessage.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdservermessage.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdservermessage.cpp'; fi`; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdservermessage.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdservermessage.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdservermessage.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdservermessage.cpp' object='src/com/redhat/pkidog/pkidog-wdservermessage.obj' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdservermessage.obj: src/com/redhat/nuxwdog/wdservermessage.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdservermessage.obj -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdservermessage.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdservermessage.obj `if test -f 'src/com/redhat/nuxwdog/wdservermessage.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdservermessage.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdservermessage.cpp'; fi`; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdservermessage.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdservermessage.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdservermessage.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdservermessage.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdservermessage.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdservermessage.obj `if test -f 'src/com/redhat/pkidog/wdservermessage.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdservermessage.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdservermessage.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdservermessage.obj `if test -f 'src/com/redhat/nuxwdog/wdservermessage.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdservermessage.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdservermessage.cpp'; fi`
 
-src/com/redhat/pkidog/pkidog-wdlsmgr.o: src/com/redhat/pkidog/wdlsmgr.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdlsmgr.o -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlsmgr.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdlsmgr.o `test -f 'src/com/redhat/pkidog/wdlsmgr.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdlsmgr.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlsmgr.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlsmgr.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlsmgr.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdlsmgr.cpp' object='src/com/redhat/pkidog/pkidog-wdlsmgr.o' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.o: src/com/redhat/nuxwdog/wdlsmgr.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.o -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlsmgr.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.o `test -f 'src/com/redhat/nuxwdog/wdlsmgr.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdlsmgr.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlsmgr.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlsmgr.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlsmgr.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdlsmgr.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdlsmgr.o `test -f 'src/com/redhat/pkidog/wdlsmgr.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdlsmgr.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.o `test -f 'src/com/redhat/nuxwdog/wdlsmgr.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdlsmgr.cpp
 
-src/com/redhat/pkidog/pkidog-wdlsmgr.obj: src/com/redhat/pkidog/wdlsmgr.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdlsmgr.obj -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlsmgr.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdlsmgr.obj `if test -f 'src/com/redhat/pkidog/wdlsmgr.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdlsmgr.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdlsmgr.cpp'; fi`; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlsmgr.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlsmgr.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdlsmgr.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdlsmgr.cpp' object='src/com/redhat/pkidog/pkidog-wdlsmgr.obj' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.obj: src/com/redhat/nuxwdog/wdlsmgr.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.obj -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlsmgr.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.obj `if test -f 'src/com/redhat/nuxwdog/wdlsmgr.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdlsmgr.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdlsmgr.cpp'; fi`; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlsmgr.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlsmgr.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdlsmgr.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdlsmgr.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdlsmgr.obj `if test -f 'src/com/redhat/pkidog/wdlsmgr.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdlsmgr.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdlsmgr.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdlsmgr.obj `if test -f 'src/com/redhat/nuxwdog/wdlsmgr.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdlsmgr.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdlsmgr.cpp'; fi`
 
-src/com/redhat/pkidog/pkidog-wdutils.o: src/com/redhat/pkidog/wdutils.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdutils.o -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdutils.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdutils.o `test -f 'src/com/redhat/pkidog/wdutils.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdutils.cpp; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdutils.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdutils.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdutils.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdutils.cpp' object='src/com/redhat/pkidog/pkidog-wdutils.o' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdutils.o: src/com/redhat/nuxwdog/wdutils.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdutils.o -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdutils.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdutils.o `test -f 'src/com/redhat/nuxwdog/wdutils.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdutils.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdutils.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdutils.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdutils.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdutils.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdutils.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdutils.o `test -f 'src/com/redhat/pkidog/wdutils.cpp' || echo '$(srcdir)/'`src/com/redhat/pkidog/wdutils.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdutils.o `test -f 'src/com/redhat/nuxwdog/wdutils.cpp' || echo '$(srcdir)/'`src/com/redhat/nuxwdog/wdutils.cpp
 
-src/com/redhat/pkidog/pkidog-wdutils.obj: src/com/redhat/pkidog/wdutils.cpp
-@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/pkidog/pkidog-wdutils.obj -MD -MP -MF "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdutils.Tpo" -c -o src/com/redhat/pkidog/pkidog-wdutils.obj `if test -f 'src/com/redhat/pkidog/wdutils.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdutils.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdutils.cpp'; fi`; \
-@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdutils.Tpo" "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdutils.Po"; else rm -f "src/com/redhat/pkidog/$(DEPDIR)/pkidog-wdutils.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/pkidog/wdutils.cpp' object='src/com/redhat/pkidog/pkidog-wdutils.obj' libtool=no @AMDEPBACKSLASH@
+src/com/redhat/nuxwdog/nuxwdog-wdutils.obj: src/com/redhat/nuxwdog/wdutils.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/redhat/nuxwdog/nuxwdog-wdutils.obj -MD -MP -MF "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdutils.Tpo" -c -o src/com/redhat/nuxwdog/nuxwdog-wdutils.obj `if test -f 'src/com/redhat/nuxwdog/wdutils.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdutils.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdutils.cpp'; fi`; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdutils.Tpo" "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdutils.Po"; else rm -f "src/com/redhat/nuxwdog/$(DEPDIR)/nuxwdog-wdutils.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/redhat/nuxwdog/wdutils.cpp' object='src/com/redhat/nuxwdog/nuxwdog-wdutils.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(pkidog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/pkidog/pkidog-wdutils.obj `if test -f 'src/com/redhat/pkidog/wdutils.cpp'; then $(CYGPATH_W) 'src/com/redhat/pkidog/wdutils.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/pkidog/wdutils.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nuxwdog_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/redhat/nuxwdog/nuxwdog-wdutils.obj `if test -f 'src/com/redhat/nuxwdog/wdutils.cpp'; then $(CYGPATH_W) 'src/com/redhat/nuxwdog/wdutils.cpp'; else $(CYGPATH_W) '$(srcdir)/src/com/redhat/nuxwdog/wdutils.cpp'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
 
 clean-libtool:
 	-rm -rf .libs _libs
-	-rm -rf src/com/redhat/pkidog/.libs src/com/redhat/pkidog/_libs
+	-rm -rf src/com/redhat/nuxwdog/.libs src/com/redhat/nuxwdog/_libs
 
 distclean-libtool:
 	-rm -f libtool
@@ -988,7 +989,7 @@ distclean-tags:
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
-	$(mkdir_p) $(distdir)/m4 $(distdir)/src/com/redhat/pkidog
+	$(mkdir_p) $(distdir)/m4 $(distdir)/src/com/redhat/nuxwdog
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
@@ -1135,7 +1136,7 @@ install-binPROGRAMS: install-libLTLIBRARIES
 
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(pkidog_jardir)" "$(DESTDIR)$(licensedir)" "$(DESTDIR)$(library_includedir)"; do \
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(nuxwdog_jardir)" "$(DESTDIR)$(licensedir)" "$(DESTDIR)$(library_includedir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-recursive
@@ -1158,8 +1159,8 @@ clean-generic:
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
-	-rm -f src/com/redhat/pkidog/$(DEPDIR)/$(am__dirstamp)
-	-rm -f src/com/redhat/pkidog/$(am__dirstamp)
+	-rm -f src/com/redhat/nuxwdog/$(DEPDIR)/$(am__dirstamp)
+	-rm -f src/com/redhat/nuxwdog/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -1171,7 +1172,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-libLTLIBRARIES \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf src/com/redhat/pkidog/$(DEPDIR)
+	-rm -rf src/com/redhat/nuxwdog/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-hdr distclean-libtool distclean-tags
@@ -1187,7 +1188,7 @@ info: info-recursive
 info-am:
 
 install-data-am: install-library_includeHEADERS install-licenseDATA \
-	install-pkidog_jarSCRIPTS
+	install-nuxwdog_jarSCRIPTS
 
 install-exec-am: install-binPROGRAMS install-libLTLIBRARIES
 
@@ -1200,7 +1201,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf src/com/redhat/pkidog/$(DEPDIR)
+	-rm -rf src/com/redhat/nuxwdog/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -1219,7 +1220,7 @@ ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-info-am \
 	uninstall-libLTLIBRARIES uninstall-library_includeHEADERS \
-	uninstall-licenseDATA uninstall-pkidog_jarSCRIPTS
+	uninstall-licenseDATA uninstall-nuxwdog_jarSCRIPTS
 
 uninstall-info: uninstall-info-recursive
 
@@ -1235,7 +1236,7 @@ uninstall-info: uninstall-info-recursive
 	install-data-am install-exec install-exec-am install-info \
 	install-info-am install-libLTLIBRARIES \
 	install-library_includeHEADERS install-licenseDATA install-man \
-	install-pkidog_jarSCRIPTS install-strip installcheck \
+	install-nuxwdog_jarSCRIPTS install-strip installcheck \
 	installcheck-am installdirs installdirs-am maintainer-clean \
 	maintainer-clean-generic maintainer-clean-recursive \
 	mostlyclean mostlyclean-compile mostlyclean-generic \
@@ -1243,7 +1244,7 @@ uninstall-info: uninstall-info-recursive
 	tags tags-recursive uninstall uninstall-am \
 	uninstall-binPROGRAMS uninstall-info-am \
 	uninstall-libLTLIBRARIES uninstall-library_includeHEADERS \
-	uninstall-licenseDATA uninstall-pkidog_jarSCRIPTS
+	uninstall-licenseDATA uninstall-nuxwdog_jarSCRIPTS
 
 
 #////////////////////////////////////////////////////////////////

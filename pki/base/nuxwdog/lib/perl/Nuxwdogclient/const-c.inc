@@ -40,11 +40,11 @@ my $types = {map {($_, 1)} qw()};
 my @names = (qw());
 
 print constant_types(); # macro defs
-foreach (C_constant ("Pkidogclient", 'constant', 'IV', $types, undef, 3, @names) ) {
+foreach (C_constant ("Nuxwdogclient", 'constant', 'IV', $types, undef, 3, @names) ) {
     print $_, "\n"; # C constant subs
 }
 print "#### XS Section:\n";
-print XS_constant ("Pkidogclient", $types);
+print XS_constant ("Nuxwdogclient", $types);
 __END__
    */
 

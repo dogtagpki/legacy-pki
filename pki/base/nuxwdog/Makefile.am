@@ -21,12 +21,12 @@
 ACLOCAL_AMFLAGS = -I m4
 
 AUTOMAKE_OPTIONS = foreign
-SUBDIRS =  . lib/perl/Pkidogclient
+SUBDIRS =  . lib/perl/Nuxwdogclient
 #------------------------
 # Compiler Flags
 #------------------------
 DEBUG_DEFINES = @debug_defs@
-PKIDOG_INCLUDES = @jni_inc@ -I$(srcdir)/build/include
+NUXWDOG_INCLUDES = @jni_inc@ -I$(srcdir)/build/include
 # These paths are dependent on the settings of prefix and exec_prefix
 # which may be specified at make time.  So we cannot use AC_DEFINE in
 # the configure.ac because that would set the values prior to their
@@ -40,7 +40,7 @@ PATH_DEFINES = -DLOCALSTATEDIR="\"$(localstatedir)\"" \
 	-DSYSCONFDIR="\"$(sysconfdir)\"" -DLIBDIR="\"$(libdir)\"" \
 	-DBINDIR="\"$(bindir)\"" -DDATADIR="\"$(datadir)\"" \
 	-DDOCDIR="\"$(docdir)\"" -DLIBEXECDIR="\"$(libexecdir)\""
-AM_CPPFLAGS = $(DEBUG_DEFINES) $(PKIDOG_INCLUDES) $(PATH_DEFINES)
+AM_CPPFLAGS = $(DEBUG_DEFINES) $(NUXWDOG_INCLUDES) $(PATH_DEFINES)
 # We need to make sure that libpthread is linked before libc on HP-UX.
 if HPUX
 AM_LDFLAGS = -lpthread
@@ -61,21 +61,21 @@ LIBCRUN=@LIBCRUN@
 # Install Paths
 #------------------------
 licensedir = $(prefix)@licensedir@
-pkidog_jardir = $(prefix)@pkidog_jardir@
+nuxwdog_jardir = $(prefix)@nuxwdog_jardir@
 
 
 #------------------------
 # Build Products
 #------------------------
-lib_LTLIBRARIES =	libpkidog.la libpkidog-jni.la
-bin_PROGRAMS = pkidog
+lib_LTLIBRARIES =	libnuxwdog.la libnuxwdog-jni.la
+bin_PROGRAMS = nuxwdog
 
 #------------------------
 # Installed Files
 #------------------------
 license_DATA =  $(srcdir)/LICENSE
 
-pkidog_jar_SCRIPTS = $(srcdir)/build/jars/pkidog.jar
+nuxwdog_jar_SCRIPTS = $(srcdir)/build/jars/nuxwdog.jar
 
 
 #////////////////////////////////////////////////////////////////
@@ -85,45 +85,45 @@ pkidog_jar_SCRIPTS = $(srcdir)/build/jars/pkidog.jar
 #////////////////////////////////////////////////////////////////
 
 #------------------------
-# libpkidog
+# libnuxwdog
 #------------------------
-library_includedir=$(includedir)/pkidog
-library_include_HEADERS = $(srcdir)/src/com/redhat/pkidog/WatchdogClient.h $(srcdir)/src/com/redhat/pkidog/wdservermessage.h \
-			$(srcdir)/src/com/redhat/pkidog/WatchdogClientJNI.h
-libpkidog_la_SOURCES =	src/com/redhat/pkidog/WatchdogClient.cpp          \
-			src/com/redhat/pkidog/wdservermessage.cpp         \
-			src/com/redhat/pkidog/wdutils.cpp                 \
-                        src/com/redhat/pkidog/WatchdogClientCFunc.c
+library_includedir=$(includedir)/nuxwdog
+library_include_HEADERS = $(srcdir)/src/com/redhat/nuxwdog/WatchdogClient.h $(srcdir)/src/com/redhat/nuxwdog/wdservermessage.h \
+			$(srcdir)/src/com/redhat/nuxwdog/WatchdogClientJNI.h
+libnuxwdog_la_SOURCES =	src/com/redhat/nuxwdog/WatchdogClient.cpp          \
+			src/com/redhat/nuxwdog/wdservermessage.cpp         \
+			src/com/redhat/nuxwdog/wdutils.cpp                 \
+                        src/com/redhat/nuxwdog/WatchdogClientCFunc.c
 
-libpkidog_la_CPPFLAGS = $(AM_CPPFLAGS) @nspr_inc@
-libpkidog_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(GENERIC_LIBRARY_VERSION) --release $(VERSION)
-libpkidog_la_LIBADD = $(NSPR_LINK) \
+libnuxwdog_la_CPPFLAGS = $(AM_CPPFLAGS) @nspr_inc@
+libnuxwdog_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(GENERIC_LIBRARY_VERSION) --release $(VERSION)
+libnuxwdog_la_LIBADD = $(NSPR_LINK) \
 	$(LIBCSTD) $(LIBCRUN)
 
 #--------------------------
-# libpkidog-jni 
+# libnuxwdog-jni 
 #--------------------------
-libpkidog_jni_la_SOURCES =  src/com/redhat/pkidog/WatchdogClientJNI.cpp          
+libnuxwdog_jni_la_SOURCES =  src/com/redhat/nuxwdog/WatchdogClientJNI.cpp          
 
-libpkidog_jni_la_CPPFLAGS = $(AM_CPPFLAGS) 
-libpkidog_jni_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
-libpkidog_jni_la_LIBADD = -lpkidog $(LIBCSTD) $(LIBCRUN)
+libnuxwdog_jni_la_CPPFLAGS = $(AM_CPPFLAGS) 
+libnuxwdog_jni_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
+libnuxwdog_jni_la_LIBADD = -lnuxwdog $(LIBCSTD) $(LIBCRUN)
 
 #////////////////////////////////////////////////////////////////
 #
 #   Programs
 #
 #////////////////////////////////////////////////////////////////
-pkidog_SOURCES = src/com/redhat/pkidog/watchdog.cpp \
-			src/com/redhat/pkidog/wdconf.cpp \
-			src/com/redhat/pkidog/wdsignals.cpp \
-			src/com/redhat/pkidog/wdpwd.cpp \
-			src/com/redhat/pkidog/wdlog.cpp \
-			src/com/redhat/pkidog/wdservermessage.cpp \
-			src/com/redhat/pkidog/wdlsmgr.cpp \
-			src/com/redhat/pkidog/wdutils.cpp 
-pkidog_CPPFLAGS = $(AM_CPPFLAGS) @nspr_inc@
-pkidog_LDADD = $(NSPR_LINK) $(LIBCSTD) $(LIBCRUN) $(SELINUX_LINK)
+nuxwdog_SOURCES = src/com/redhat/nuxwdog/watchdog.cpp \
+			src/com/redhat/nuxwdog/wdconf.cpp \
+			src/com/redhat/nuxwdog/wdsignals.cpp \
+			src/com/redhat/nuxwdog/wdpwd.cpp \
+			src/com/redhat/nuxwdog/wdlog.cpp \
+			src/com/redhat/nuxwdog/wdservermessage.cpp \
+			src/com/redhat/nuxwdog/wdlsmgr.cpp \
+			src/com/redhat/nuxwdog/wdutils.cpp 
+nuxwdog_CPPFLAGS = $(AM_CPPFLAGS) @nspr_inc@
+nuxwdog_LDADD = $(NSPR_LINK) $(LIBCSTD) $(LIBCRUN) $(SELINUX_LINK)
 
 
 

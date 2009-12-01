@@ -17,18 +17,18 @@ dnl Copyright (C) 2007 Red Hat, Inc.
 dnl All rights reserved.
 dnl END COPYRIGHT BLOCK
 
-AC_CHECKING(for pre-built Ant PKIDOG JNI Headers and Jars)
+AC_CHECKING(for pre-built Ant NUXWDOG JNI Headers and Jars)
 
-# check for --with-pkidog
-AC_MSG_CHECKING(for --with-pkidog)
-AC_ARG_WITH(pkidog, [  --with-pkidog=PATH        PKIDOG directory],
+# check for --with-nuxwdog
+AC_MSG_CHECKING(for --with-nuxwdog)
+AC_ARG_WITH(nuxwdog, [  --with-nuxwdog=PATH        NUXWDOG directory],
 [
-  if test -f "$withval"/include/com_redhat_pkidog_WatchdogClient.h -a -f "$withval"/jars/pkidog.jar
+  if test -f "$withval"/include/com_redhat_nuxwdog_WatchdogClient.h -a -f "$withval"/jars/nuxwdog.jar
   then
     AC_MSG_RESULT([using $withval])
-    PKIDOGDIR=$withval
-    pkidog_inc="-I$PKIDOGDIR/include"
-    pkidog_jars="$PKIDOGDIR/jars/pkidog.jar"
+    NUXWDOGDIR=$withval
+    nuxwdog_inc="-I$NUXWDOGDIR/include"
+    nuxwdog_jars="$NUXWDOGDIR/jars/nuxwdog.jar"
   else
     echo
     AC_MSG_ERROR([$withval not found])
@@ -36,14 +36,14 @@ AC_ARG_WITH(pkidog, [  --with-pkidog=PATH        PKIDOG directory],
 ],
 AC_MSG_RESULT(no))
 
-# check for --with-pkidog-inc
-AC_MSG_CHECKING(for --with-pkidog-inc)
-AC_ARG_WITH(pkidog-inc, [  --with-pkidog-inc=PATH        PKIDOG (Generated JNI Headers) include file directory],
+# check for --with-nuxwdog-inc
+AC_MSG_CHECKING(for --with-nuxwdog-inc)
+AC_ARG_WITH(nuxwdog-inc, [  --with-nuxwdog-inc=PATH        NUXWDOG (Generated JNI Headers) include file directory],
 [
-  if test -f "$withval"/com_redhat_pkidog_WatchdogClient.h
+  if test -f "$withval"/com_redhat_nuxwdog_WatchdogClient.h
   then
     AC_MSG_RESULT([using $withval])
-    pkidog_inc="-I$withval"
+    nuxwdog_inc="-I$withval"
   else
     echo
     AC_MSG_ERROR([$withval not found])
@@ -51,14 +51,14 @@ AC_ARG_WITH(pkidog-inc, [  --with-pkidog-inc=PATH        PKIDOG (Generated JNI H
 ],
 AC_MSG_RESULT(no))
 
-# check for --with-pkidog-jars
-AC_MSG_CHECKING(for --with-pkidog-jars)
-AC_ARG_WITH(pkidog-jars, [  --with-pkidog-jars=PATH        PKIDOG (Jars) jars directory],
+# check for --with-nuxwdog-jars
+AC_MSG_CHECKING(for --with-nuxwdog-jars)
+AC_ARG_WITH(nuxwdog-jars, [  --with-nuxwdog-jars=PATH        NUXWDOG (Jars) jars directory],
 [
-  if test -f "$withval"/pkidog.jar
+  if test -f "$withval"/nuxwdog.jar
   then
     AC_MSG_RESULT([using $withval])
-    pkidog_jars="$withval/pkidog.jar"
+    nuxwdog_jars="$withval/nuxwdog.jar"
   else
     echo
     AC_MSG_ERROR([$withval not found])
@@ -68,7 +68,7 @@ AC_MSG_RESULT(no))
 
 # check for --with-jni-inc (insure use of appropriate jni.h)
 AC_MSG_CHECKING(for --with-jni-inc)
-AC_ARG_WITH(jni-inc, [  --with-jni-inc=PATH        PKIDOG jni.h header path],
+AC_ARG_WITH(jni-inc, [  --with-jni-inc=PATH        NUXWDOG jni.h header path],
 [
   if test -f "$withval"/jni.h
   then
@@ -108,27 +108,27 @@ AC_ARG_WITH(jni-inc, [  --with-jni-inc=PATH        PKIDOG jni.h header path],
     ;;
 esac])
 
-# check for PKIDOG generated headers and jar file in well-known locations
-AC_MSG_CHECKING(for pkidog JNI headers and jars in well-known locations)
-if test -z "$pkidog_inc" -o -z "$pkidog_jars"
+# check for NUXWDOG generated headers and jar file in well-known locations
+AC_MSG_CHECKING(for nuxwdog JNI headers and jars in well-known locations)
+if test -z "$nuxwdog_inc" -o -z "$nuxwdog_jars"
 then
-  if test -f $srcdir/build/include/com_redhat_pkidog_WatchdogClient.h
+  if test -f $srcdir/build/include/com_redhat_nuxwdog_WatchdogClient.h
   then
-    pkidog_inc="-I$srcdir/build/include"
+    nuxwdog_inc="-I$srcdir/build/include"
   else
     echo
-    AC_MSG_ERROR([use Ant to create $srcdir/build/include/com_redhat_pkidog_WatchdogClient.h first])
+    AC_MSG_ERROR([use Ant to create $srcdir/build/include/com_redhat_nuxwdog_WatchdogClient.h first])
   fi
-  if test -f $srcdir/build/jars/pkidog.jar
+  if test -f $srcdir/build/jars/nuxwdog.jar
   then
-    pkidog_jars="$srcdir/build/jars/pkidog.jar"
+    nuxwdog_jars="$srcdir/build/jars/nuxwdog.jar"
   else
     echo
-    AC_MSG_ERROR([use Ant to create $srcdir/build/jars/pkidog.jar first])
+    AC_MSG_ERROR([use Ant to create $srcdir/build/jars/nuxwdog.jar first])
   fi
-  if test -d $srcdir/build/include -a -f $pkidog_jars
+  if test -d $srcdir/build/include -a -f $nuxwdog_jars
   then
-    AC_MSG_RESULT([using pre-built Ant pkidog JNI generated headers and Jar file])
+    AC_MSG_RESULT([using pre-built Ant nuxwdog JNI generated headers and Jar file])
   else
     AC_MSG_RESULT(no)
   fi
@@ -136,14 +136,14 @@ else
   AC_MSG_RESULT(no)
 fi
 
-# if pkidog Java portions have not been found, print an error and exit
-if test -z "$pkidog_inc"
+# if nuxwdog Java portions have not been found, print an error and exit
+if test -z "$nuxwdog_inc"
 then
   echo
-  AC_MSG_ERROR([PKIDOG generated JNI headers include file directory not found, specify with --with-pkidog.])
+  AC_MSG_ERROR([NUXWDOG generated JNI headers include file directory not found, specify with --with-nuxwdog.])
 fi
-if test -z "$pkidog_jars"
+if test -z "$nuxwdog_jars"
 then
   echo
-  AC_MSG_ERROR([PKIDOG jars directory not found, specify with --with-pkidog.])
+  AC_MSG_ERROR([NUXWDOG jars directory not found, specify with --with-nuxwdog.])
 fi

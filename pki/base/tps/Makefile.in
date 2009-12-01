@@ -588,7 +588,7 @@ SVRCORE_LINK = @svrcore_lib@ -lsvrcore
 SASL_LINK = @sasl_lib@ -lsasl2
 NSS_LINK = @nss_lib@ -lnss3 -lssl3 -lsmime3 -lsoftokn3
 NSPR_LINK = @nspr_lib@ -lplc4 -lplds4 -lnspr4
-WDOG_LINK = -lpkidog
+WDOG_LINK = -lnuxwdog
 
 #------------------------
 # Build Products
