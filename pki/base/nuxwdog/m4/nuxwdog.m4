@@ -13,7 +13,7 @@ dnl License along with this library; if not, write to the Free Software
 dnl Foundation, Inc., 51 Franklin Street, Fifth Floor,
 dnl Boston, MA  02110-1301  USA 
 dnl 
-dnl Copyright (C) 2007 Red Hat, Inc.
+dnl Copyright (C) 2009 Red Hat, Inc.
 dnl All rights reserved.
 dnl END COPYRIGHT BLOCK
 
