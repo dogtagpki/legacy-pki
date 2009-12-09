@@ -22,18 +22,19 @@
 #
 
 use CGI;
+no warnings qw(redefine);
 
-require "./cfg.pl";
-
-my $ldapHost = get_ldap_host();
-my $ldapPort = get_ldap_port();
-my $basedn = get_base_dn();
-my $ldapsearch = get_ldapsearch();
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 sub main()
 {
 
   my $q = new CGI;
+
+  my $ldapHost = get_ldap_host();
+  my $ldapPort = get_ldap_port();
+  my $basedn = get_base_dn();
+  my $ldapsearch = get_ldapsearch();
 
   my $letters = $q->param('letters');
   if ($letters eq "") {

@@ -1042,15 +1042,15 @@ public class ConfigureTKS
 		parser.addOption ("-backup_pwd %s #PKCS12 password",
 							x_backup_pwd); 
 
-                parser.addOption("-backup_fname %s #Backup File for p12, (optional, default /root/tmp-tks.p12", 
-                                                        x_backup_fname);
-
 		parser.addOption (
 		"-tks_subsystem_cert_subject_name %s #TKS subsystem cert subject name",
 							x_tks_subsystem_cert_subject_name); 
 		parser.addOption (
 		"-tks_server_cert_subject_name %s #TKS server cert subject name",
 							x_tks_server_cert_subject_name); 
+
+                parser.addOption("-backup_fname %s #Backup File for p12, (optional, default /root/tmp-tks.p12", 
+                                                        x_backup_fname);
 
 		parser.addOption (
 		"-subsystem_name %s #CA subsystem name",
@@ -1115,9 +1115,9 @@ public class ConfigureTKS
 
 		backup_pwd = x_backup_pwd.value;
                 if ((x_backup_fname.value == null) || (x_backup_fname.equals(""))) {
-                     backup_fname = "/root/tmp-tks.p12";
+                    backup_fname = "/root/tmp-tks.p12";
                 } else {
-                     backup_fname = x_backup_fname.value;
+                    backup_fname = x_backup_fname.value;
                 }
 		
 		tks_subsystem_cert_subject_name = 

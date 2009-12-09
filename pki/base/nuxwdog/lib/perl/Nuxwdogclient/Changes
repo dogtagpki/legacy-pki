@@ -1,0 +1,6 @@
+Revision history for Perl extension Nuxwdogclient.
+
+0.01  Wed Oct 21 16:06:45 2009
+	- original version; created by h2xs 1.23 with options
+		-n Nuxwdogclient /usr/include/nuxwdog/WatchdogClient.h
+

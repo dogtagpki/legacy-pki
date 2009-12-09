@@ -1068,9 +1068,6 @@ public class ConfigureOCSP
 		parser.addOption ("-backup_pwd %s #PKCS12 password",
 							x_backup_pwd); 
 
-                parser.addOption("-backup_fname %s #Backup File for p12, (optional, default /root/tmp-ocsp.p12", 
-                                                        x_backup_fname);
-
 		parser.addOption (
 		"-ocsp_sign_cert_subject_name %s #OCSP cert subject name",
 							x_ocsp_sign_cert_subject_name);
@@ -1080,6 +1077,9 @@ public class ConfigureOCSP
 		parser.addOption (
 		"-ocsp_server_cert_subject_name %s #OCSP server cert subject name",
 							x_ocsp_server_cert_subject_name); 
+
+                parser.addOption("-backup_fname %s #Backup File for p12, (optional, default /root/tmp-ocsp.p12", 
+                                                        x_backup_fname);
 
 		parser.addOption (
 		"-subsystem_name %s #OCSP subsystem name",
@@ -1146,8 +1146,9 @@ public class ConfigureOCSP
                 if ((x_backup_fname.value == null) || (x_backup_fname.equals(""))) {
                     backup_fname = "/root/tmp-ocsp.p12";
                 } else {
-                    backup_fname = x_backup_fname.value;
+                   backup_fname = x_backup_fname.value;
                 }
+
 		
 		ocsp_sign_cert_subject_name = x_ocsp_sign_cert_subject_name.value ;
 		ocsp_subsystem_cert_subject_name = 

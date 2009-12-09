@@ -48,8 +48,10 @@ extern "C"
 #include "prmem.h"
 #include "prprf.h"
 #include "prtime.h"
+#include "prenv.h"
 
 #include "tus/tus_db.h"
+#include "nuxwdog/WatchdogClient.h"
 
 static char *tokenActivityAttributes[] = { TOKEN_ID,
                                            TOKEN_CUID,
@@ -4173,13 +4175,39 @@ char *get_pwd_from_conf(char *filepath, char *name)
     PRFileDesc *fd;
     char line[MAX_CFG_LINE_LEN];
     int removed_return;
+    PRStatus status;
     char *val= NULL;
+    char prompt[128]; 
+    char *wd_pipe = NULL;
 
+    if (strlen(filepath) == 0) {
+        return NULL;
+    }
     if (debug_fd)
 	    PR_fprintf(debug_fd, "get_pwd_from_conf looking for %s\n", name);
     fd= PR_Open(filepath, PR_RDONLY, 400);
     if (fd == NULL) {
-        return NULL;
+        // password file is not readable.
+        // if started by the watchdog, ask the watchdog instead.
+        wd_pipe = PR_GetEnv("WD_PIPE_NAME");
+        if ((wd_pipe != NULL) && (strlen(wd_pipe) > 0)) {
+            status = call_WatchdogClient_init(); 
+            if (status != PR_SUCCESS) {
+                PR_fprintf(debug_fd, "get_pwd_from_conf unable to initialize connection to Watchdog");
+                return NULL;
+            } 
+            sprintf(line, "Please enter the password for %s:", name);
+            val = call_WatchdogClient_getPassword(line, 0); 
+            if (val == NULL) {
+                PR_fprintf(debug_fd, "get_pwd_from_conf failed to get password from watchdog");
+                return NULL;
+            } 
+            return val;
+        } else {
+            // not started by watchdog 
+            // Even if this is pre-fork, getting password from stdin is problematic.
+            return NULL; 
+        }
     }
     if (debug_fd)
 	    PR_fprintf(debug_fd, "get_pwd_from_conf opened %s\n", filepath);

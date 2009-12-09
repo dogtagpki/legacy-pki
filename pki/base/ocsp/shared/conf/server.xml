@@ -106,6 +106,7 @@ Tomcat Port       = [TOMCAT_SERVER_PORT] (for shutdown)
         SSLImplementation="org.apache.tomcat.util.net.jss.JSSImplementation"
         serverCertNickFile="[PKI_INSTANCE_PATH]/conf/serverCertNick.conf"
         passwordFile="[PKI_INSTANCE_PATH]/conf/password.conf"
+        configFile="[PKI_INSTANCE_PATH]/conf/CS.cfg"
         passwordClass="org.apache.tomcat.util.net.jss.PlainPasswordFile"
         certdbDir="[PKI_INSTANCE_PATH]/alias"/>
 <!-- DO NOT REMOVE - End define PKI secure port -->
@@ -123,6 +124,7 @@ Tomcat Port       = [TOMCAT_SERVER_PORT] (for shutdown)
         SSLImplementation="org.apache.tomcat.util.net.jss.JSSImplementation"
         serverCertNickFile="[PKI_INSTANCE_PATH]/conf/serverCertNick.conf"
         passwordFile="[PKI_INSTANCE_PATH]/conf/password.conf"
+        configFile="[PKI_INSTANCE_PATH]/conf/CS.cfg"
         passwordClass="org.apache.tomcat.util.net.jss.PlainPasswordFile"
         certdbDir="[PKI_INSTANCE_PATH]/alias"/>
 [PKI_CLOSE_SEPARATE_PORTS_SERVER_COMMENT]
@@ -140,6 +142,7 @@ Tomcat Port       = [TOMCAT_SERVER_PORT] (for shutdown)
         SSLImplementation="org.apache.tomcat.util.net.jss.JSSImplementation"
         serverCertNickFile="[PKI_INSTANCE_PATH]/conf/serverCertNick.conf"
         passwordFile="[PKI_INSTANCE_PATH]/conf/password.conf"
+        configFile="[PKI_INSTANCE_PATH]/conf/CS.cfg"
         passwordClass="org.apache.tomcat.util.net.jss.PlainPasswordFile"
         certdbDir="[PKI_INSTANCE_PATH]/alias"/>
 [PKI_CLOSE_SEPARATE_PORTS_SERVER_COMMENT]

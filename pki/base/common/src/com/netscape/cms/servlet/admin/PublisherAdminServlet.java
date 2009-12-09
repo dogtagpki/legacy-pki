@@ -454,6 +454,7 @@ public class PublisherAdminServlet extends AdminServlet {
         NameValuePairs params = new NameValuePairs();
 
         //Save New Settings to the config file
+        IConfigStore mconfig = CMS.getConfigStore();
         IConfigStore config = mAuth.getConfigStore();
         IConfigStore publishcfg = config.getSubStore(IPublisherProcessor.PROP_PUBLISH_SUBSTORE);
         IConfigStore ldapcfg = publishcfg.getSubStore(IPublisherProcessor.PROP_LDAP_PUBLISH_SUBSTORE);
@@ -512,8 +513,34 @@ public class PublisherAdminServlet extends AdminServlet {
         IPasswordStore pwdStore = CMS.getPasswordStore();
         CMS.debug("PublisherAdminServlet: setLDAPDest(): saving password for "+            prompt + " to password file");
         pwdStore.putPassword(prompt, pwd);
-        pwdStore.commit();
-        CMS.debug("PublisherAdminServlet: setLDAPDest(): password saved");
+
+        /* store the password name in cms.passwordlist for prompting on future startup just in case*/
+        
+        String passwordList = mconfig.getString("cms.passwordlist", "internaldb,replicationdb");
+        String tags[] = passwordList.split(",");
+        boolean foundPWD = false;
+        for (int i=0; i < tags.length; i++) {
+            if (prompt.equals(tags[i])) foundPWD = true;
+        }
+        if (!foundPWD) {
+            passwordList = passwordList + "," + prompt;
+            mconfig.putString("cms.passwordlist", passwordList);
+            mconfig.commit(true);
+        }
+
+        String pwdPath = mconfig.getString("passwordFile");
+        File pwFile = new File(pwdPath);
+        if (pwFile.exists()) { 
+            // do not create a new password file, as the file may have been removed for security reasons. 
+            try { 
+                pwdStore.commit();
+                CMS.debug("PublisherAdminServlet: setLDAPDest(): password saved");
+            } catch (Exception ex) {
+                CMS.debug("PublisherAdminServlet: setLDAPDest(): unable to store password for " + prompt + 
+                    " to the password file.");
+            }
+        } 
+ 
 
 /* we'll shut down and restart the PublisherProcessor instead
         // what a hack to  do this without require restart server
@@ -553,6 +580,7 @@ public class PublisherAdminServlet extends AdminServlet {
 
         CMS.debug("PublisherAdmineServlet: in testSetLDAPDest");
         //Save New Settings to the config file
+        IConfigStore mconfig = CMS.getConfigStore();
         IConfigStore config = mAuth.getConfigStore();
         IConfigStore publishcfg = config.getSubStore(IPublisherProcessor.PROP_PUBLISH_SUBSTORE);
         IConfigStore ldapcfg = publishcfg.getSubStore(IPublisherProcessor.PROP_LDAP_PUBLISH_SUBSTORE);
@@ -799,8 +827,33 @@ public class PublisherAdminServlet extends AdminServlet {
             CMS.debug("PublisherAdminServlet: testSetLDAPDest(): saving password for "+
                 prompt + " to password file");
             pwdStore.putPassword(prompt, pwd);
-            pwdStore.commit();
-            CMS.debug("PublisherAdminServlet: testSetLDAPDest(): password saved");
+
+            /* store the password name in cms.passwordlist for prompting on future startup just in case*/
+            String passwordList = mconfig.getString("cms.passwordlist", "internaldb,replicationdb");
+            String tags[] = passwordList.split(",");
+            boolean foundPWD = false;
+            for (int i=0; i < tags.length; i++) {
+                if (prompt.equals(tags[i])) foundPWD = true;
+            }
+            if (!foundPWD) {
+                passwordList = passwordList + "," + prompt;
+                mconfig.putString("cms.passwordlist", passwordList);
+                mconfig.commit(true);
+            }
+
+            String pwdPath = mconfig.getString("passwordFile");
+            File pwFile = new File(pwdPath);
+            if (pwFile.exists()) {    
+                // do not create a new password file, as the file may have been removed for security reasons.
+                try {
+                    pwdStore.commit();
+                    CMS.debug("PublisherAdminServlet: setLDAPDest(): password saved");
+                } catch (Exception ex) {
+                    CMS.debug("PublisherAdminServlet: setLDAPDest(): unable to store password for " + prompt +
+                        " to the password file.");
+                }
+            } 
+
 /* we'll shut down and restart the PublisherProcessor instead
              // what a hack to  do this without require restart server
 //        ILdapAuthInfo authInfo = CMS.getLdapAuthInfo();

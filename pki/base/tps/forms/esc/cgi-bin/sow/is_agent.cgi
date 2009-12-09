@@ -22,13 +22,8 @@
 #
 
 use CGI;
-
-require "./cfg.pl";
-
-
-my $ldapHost = get_ldap_host();
-my $ldapPort = get_ldap_port();
-my $basedn = get_base_dn();
+no warnings qw(redefine);
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 my $q = new CGI;
 

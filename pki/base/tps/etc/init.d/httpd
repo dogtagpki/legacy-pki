@@ -29,6 +29,9 @@
 # processname:  [INSTANCE_ID]
 # config:       [HTTPD_CONF]
 # pidfile:      [SERVER_ROOT]/logs/[INSTANCE_ID].pid
+# wdpidfile:    [SERVER_ROOT]/logs/wd-[INSTANCE_ID].pid
+# wdconfig:     [SERVER_ROOT]/conf/nuxwdog-start.conf
+# wdtempdir:    [SERVER_ROOT]/logs/pids
 
 # Disallow 'others' the ability to 'write' to new files
 umask 00002
@@ -41,17 +44,26 @@ if [ $? -ne 0 ] ; then
 	exit 255
 fi
 
+# Check to insure that at least one PKI subsystem
+# currently resides on this system.
+if	[ ! -x /usr/bin/pkiarch   ] ||
+	[ ! -x /usr/bin/pkiflavor ] ||
+	[ ! -x /usr/bin/pkiname   ]; then
+	echo "This machine is missing all PKI subsystems!"
+	exit 255
+fi
+
 # Check to insure that this script's associated PKI
 # subsystem currently resides on this system.
 SUBSYSTEM_TYPE=[SUBSYSTEM_TYPE]
-if [ ! -d /usr/share/pki/${SUBSYSTEM_TYPE} ] ; then
+if [ ! -d /usr/share/`pkiflavor`/${SUBSYSTEM_TYPE} ] ; then
 	echo "This machine is missing the '${SUBSYSTEM_TYPE}' subsystem!"
 	exit 255
 fi
 
 # Obtain the operating system upon which this script is being executed
-OS=`uname -s`
-ARCHITECTURE=""
+OS=`pkiname`
+ARCHITECTURE=`pkiarch`
 
 # Time to wait in seconds, before killing process
 #
@@ -67,16 +79,10 @@ if [ ${OS} = "Linux" ] ; then
 		echo "Must be 'root' to execute '$0'!"
 		exit 1
 	fi
-	ARCHITECTURE=`uname -i`
 elif [ ${OS} = "SunOS" ] ; then
 	if [ `/usr/xpg4/bin/id -u` -ne 0 ] ; then
 		echo "Must be 'root' to execute '$0'!"
 		exit 1
-	fi
-	ARCHITECTURE=`uname -p`
-	if	[ "${ARCHITECTURE}" = "sparc" ] &&
-		[ -d "/usr/lib/sparcv9/" ] ; then
-		ARCHITECTURE="sparcv9"
 	fi
 else
 	echo "Unsupported OS '${OS}'!"
@@ -161,6 +167,9 @@ prog=[INSTANCE_ID]
 pki_instance_configuration_file=[SERVER_ROOT]/conf/CS.cfg
 pidfile=${PIDFILE:-[SERVER_ROOT]/logs/[INSTANCE_ID].pid}
 lockfile=${LOCKFILE:-/var/lock/subsys/[INSTANCE_ID]}
+wdpidfile=${WDPIDFILE:-[SERVER_ROOT]/logs/wd-[INSTANCE_ID].pid}
+wdtempdir=${WDTEMPDIR:-[SERVER_ROOT]/logs/pids}
+wdconfig=${WDCONFIG:-[SERVER_ROOT]/conf/nuxwdog-start.conf}
 RESTART_SERVER=[SERVER_ROOT]/conf/restart_server_after_configuration
 RETVAL=0
 
@@ -512,6 +521,15 @@ start()
 		rm -f ${RESTART_SERVER}
 	fi
 
+        if [ -f ${wdpidfile} ]; then
+            read kpid < ${wdpidfile}
+            if checkpid $kpid 2>&1; then
+                echo
+                echo "Watchdog process already running. If the server is not operational, please use restart to stop and start the server."
+                return 255
+            fi
+        fi
+
 	if [ -f ${lockfile} ] ; then
 		if [ -f ${pidfile} ]; then
 			read kpid < ${pidfile}
@@ -532,27 +550,29 @@ start()
         # restore context for ncipher hsm
         [ -x /sbin/restorecon ] && [ -d /dev/nfast ] && /sbin/restorecon -R /dev/nfast
 
-	if [ -f /etc/init.d/functions ]; then
-		/usr/sbin/selinuxenabled
-		RETVAL=$?
-		if [ $RETVAL = 0 ] ; then	
-			if [ ${ARCHITECTURE} = "i386" ] ; then
-				LANG=$HTTPD_LANG daemon runcon -t pki_tps_t -- $httpd $OPTIONS
-				# overwrite output from "daemon"
-				echo -n $"Starting $prog:                                        "
-			elif [ ${ARCHITECTURE} = "x86_64" ] ; then
-				# NOTE:  "daemon" is incompatible with "httpd"
-				#        on 64-bit architectures
-				LANG=$HTTPD_LANG runcon -t pki_tps_t -- $httpd $OPTIONS
-			fi
-		else
-			LANG=$HTTPD_LANG daemon $httpd $OPTIONS
-			# overwrite output from "daemon"
-			echo -n $"Starting $prog:                                        "
-		fi
-	else
-		LANG=$HTTPD_LANG $httpd $OPTIONS -k start
-	fi
+        # re-create config file
+        if [ -f $wdconfig ]; then
+            rm -f $wdconfig
+        fi
+ 
+        echo "ExeFile $httpd" > $wdconfig
+        echo "ExeArgs $httpd $OPTIONS" >> $wdconfig
+        echo "TmpDir $wdtempdir" >> $wdconfig
+        echo "PidFile $wdpidfile" >> $wdconfig
+        chown pkiuser: $wdconfig
+ 
+        if [ -f /etc/init.d/functions ]; then
+            /usr/sbin/selinuxenabled
+            RETVAL=$?
+            if [ $RETVAL = 0 ] ; then
+                echo "ExeContext pki_tps_t" >> $wdconfig
+            fi
+            LANG=$HTTPD_LANG WDOG_NO_WATCH_SIGCHLD=1 /usr/bin/nuxwdog -f $wdconfig
+            echo -n $"Starting $prog:"
+        else
+            LANG=$HTTPD_LANG $httpd $OPTIONS -k start
+            echo -n $"Starting $prog:"
+        fi
 
 	RETVAL=$?
 	[ $RETVAL = 0 ] && touch ${lockfile}
@@ -624,6 +644,14 @@ start()
 stop()
 {
 	echo -n "Stopping $prog: "
+
+        #stop the watchdog daemon
+        if [ -f ${wdpidfile} ]; then
+            read kpid < ${wdpidfile}
+            kill -9 $kpid
+            rm -f ${wdpidfile}
+            rm -f ${wdtempdir}/nuxwdog.${kpid}
+        fi
 
 	if [ -f ${lockfile} ] ; then
 		$httpd $OPTIONS -k stop

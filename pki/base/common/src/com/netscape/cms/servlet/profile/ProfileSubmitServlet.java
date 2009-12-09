@@ -424,16 +424,10 @@ public class ProfileSubmitServlet extends ProfileServlet {
         HttpServletResponse response = cmsReq.getHttpResp();
         boolean xmlOutput = false;
 
-        String v = request.getParameter("xml");
+        String v = request.getParameter("xmlOutput");
         if ((v != null) && (v.equalsIgnoreCase("true"))) {
-            xmlOutput = true;
-        }
-        v = request.getParameter("xmlOutput");
-        if ((v != null) && (v.equalsIgnoreCase("true"))) {
-            xmlOutput = true;
-        }
-        if (xmlOutput) {
             CMS.debug("xmlOutput true");
+            xmlOutput = true;
         } else {
             CMS.debug("xmlOutput false");
         }

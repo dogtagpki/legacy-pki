@@ -25,7 +25,7 @@ ACLOCAL_AMFLAGS = -I m4
 # Compiler Flags
 #------------------------
 DEBUG_DEFINES = @debug_defs@
-TPS_INCLUDES = -I$(srcdir)/src/include
+TPS_INCLUDES = -I$(srcdir)/src/include 
 # These paths are dependent on the settings of prefix and exec_prefix
 # which may be specified at make time.  So we cannot use AC_DEFINE in
 # the configure.ac because that would set the values prior to their
@@ -60,6 +60,7 @@ SVRCORE_LINK = @svrcore_lib@ -lsvrcore
 SASL_LINK = @sasl_lib@ -lsasl2
 NSS_LINK = @nss_lib@ -lnss3 -lssl3 -lsmime3 -lsoftokn3
 NSPR_LINK = @nspr_lib@ -lplc4 -lplds4 -lnspr4
+WDOG_LINK = -lnuxwdog
 
 LIBSOCKET=@LIBSOCKET@
 LIBNSL=@LIBNSL@
@@ -226,7 +227,8 @@ perl_modules_SCRIPTS =	$(srcdir)/lib/perl/PKI/TPS/AdminAuthPanel.pm         \
 						$(srcdir)/lib/perl/PKI/TPS/SubsystemTypePanel.pm     \
 						$(srcdir)/lib/perl/PKI/TPS/TKSInfoPanel.pm           \
 						$(srcdir)/lib/perl/PKI/TPS/WelcomePanel.pm           \
-						$(srcdir)/lib/perl/PKI/TPS/wizard.pm
+						$(srcdir)/lib/perl/PKI/TPS/wizard.pm                 \
+						$(srcdir)/lib/perl/PKI/TPS/Startup.pm
 
 perl_service_SCRIPTS =	$(srcdir)/lib/perl/PKI/Service/Op.pm
 
@@ -272,7 +274,7 @@ libtokendb_la_CPPFLAGS = $(AM_CPPFLAGS) @ldapsdk_inc@ @svrcore_inc@ \
 libtokendb_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
 libtokendb_la_LIBADD = $(LDAPSDK_LINK) $(SVRCORE_LINK)                    \
 	$(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) $(LIBNSL) $(LIBSOCKET) $(LIBDL) \
-	$(LIBCSTD) $(LIBCRUN)
+	$(LIBCSTD) $(LIBCRUN) $(WDOG_LINK)
 
 
 #------------------------
@@ -365,7 +367,7 @@ libtps_la_CPPFLAGS = $(AM_CPPFLAGS) @ldapsdk_inc@ @svrcore_inc@ \
 libtps_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
 libtps_la_LIBADD = ${top_builddir}/libtokendb.la $(LDAPSDK_LINK)       \
 	$(SVRCORE_LINK) $(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) $(LIBNSL)    \
-	$(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN)
+	$(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN) 
 
 
 #------------------------
@@ -378,7 +380,7 @@ libldapauth_la_CPPFLAGS = $(AM_CPPFLAGS) @ldapsdk_inc@ @svrcore_inc@ \
 libldapauth_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
 libldapauth_la_LIBADD = ${top_builddir}/libtps.la $(LDAPSDK_LINK)       \
 	$(SVRCORE_LINK) $(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) $(LIBNSL)     \
-	$(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN)
+	$(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN) $(WDOG_LINK)
 
 
 #------------------------
@@ -393,7 +395,7 @@ mod_tps_la_CPPFLAGS = $(AM_CPPFLAGS) @apr_inc@ \
 mod_tps_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version -module
 mod_tps_la_LIBADD = ${top_builddir}/libtps.la $(APR_LINK)                 \
 	$(LDAPSDK_LINK) $(SVRCORE_LINK) $(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) \
-	$(LIBNSL) $(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN)
+	$(LIBNSL) $(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN) 
 
 
 #------------------------
@@ -406,7 +408,7 @@ mod_tokendb_la_CPPFLAGS = $(AM_CPPFLAGS) @apr_inc@ \
 mod_tokendb_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version -module
 mod_tokendb_la_LIBADD = ${top_builddir}/libtokendb.la $(APR_LINK)         \
 	$(LDAPSDK_LINK) $(SVRCORE_LINK) $(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) \
-	$(LIBNSL) $(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN)
+	$(LIBNSL) $(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN) 
 
 
 #////////////////////////////////////////////////////////////////

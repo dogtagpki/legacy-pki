@@ -93,6 +93,7 @@ import com.netscape.cmscore.usrgrp.UGSubsystem;
 import com.netscape.cmscore.request.RequestSubsystem;
 import com.netscape.cmscore.jobs.JobsScheduler;
 import com.netscape.osutil.*;
+import com.redhat.nuxwdog.*;
 
 import com.netscape.cmscore.cert.OidLoaderSubsystem;
 import com.netscape.cmscore.cert.X500NameSubsystem;
@@ -121,6 +122,7 @@ public class CMSEngine implements ICMSEngine {
     private ISubsystem mOwner = null; 
     private long mStartupTime = 0;
     private boolean isStarted = false;
+    private boolean startedByWD = false;
     private StringBuffer mWarning = new StringBuffer();
     private ITimeSource mTimeSource = null;
     private IPasswordStore mPasswordStore = null;
@@ -221,6 +223,8 @@ public class CMSEngine implements ICMSEngine {
           if (pwdClass != null) {
             try {
                 mPasswordStore = (IPasswordStore)Class.forName(pwdClass).newInstance();
+                mPasswordStore.init(pwdPath); 
+                CMS.debug("CMSEngine: getPasswordStore(): password store initialized.");
             } catch (Exception e) {
                 CMS.debug("CMSEngine: getPasswordStore(): password store initialization failure:" + e.toString());
             }
@@ -229,9 +233,15 @@ public class CMSEngine implements ICMSEngine {
           CMS.debug("CMSEngine: getPasswordStore(): password store initialized before.");
         }
 
-        // have to initialize it because other places don't always
-        mPasswordStore.init(pwdPath); 
-        CMS.debug("CMSEngine: getPasswordStore(): password store initialized.");
+        // the password store may need to be re-initialized during configuration to capture 
+        // passwords added to the DatabasePanel (for instance).  We always expect the password
+        // file to be present during configuration.
+
+        File pFile = new File(pwdPath);
+        if (pFile.canRead()) {
+            mPasswordStore.init(pwdPath); 
+            CMS.debug("CMSEngine: getPasswordStore(): password store initialized from file:" + pwdPath);
+        }
       } catch (Exception e) {
         CMS.debug("CMSEngine: getPasswordStore(): failure:" + e.toString());
       }
@@ -263,17 +273,45 @@ public class CMSEngine implements ICMSEngine {
             mSDTimer.cancel();
         }
 
+        // get the list of passwords 
+        String passwordList = config.getString("cms.passwordlist", "internaldb,replicationdb");
+
         // initialize the PasswordReader and PasswordWriter
         String pwdPath = config.getString("passwordFile");
         String pwdClass = config.getString("passwordClass");
 
+        // check if started by the nuxwdog
+        String wdPipeName = OSUtil.getenv("WD_PIPE_NAME");
+        if ((wdPipeName != null) && (! wdPipeName.equals(""))) {
+            WatchdogClient.init();
+            startedByWD = true;
+        }
+
         if (pwdClass != null) {
             try {
                 mPasswordStore = (IPasswordStore)Class.forName(pwdClass).newInstance();
-                mPasswordStore.init(pwdPath); 
+                try {
+                    mPasswordStore.init(pwdPath);
+                } catch (IOException io) {
+                    // Error in reading file at pwdPath 
+                    // This might be because the file has been removed for security reasons.
+                    // Prompt for the passwords instead if started by the nuxwdog watchdog
+                    if (! startedByWD) {
+                        CMS.debug("CMSEngine: init(): Cannot prompt for passwords as server has not been started by nuxwdog");
+                        throw new IOException("Not started by nuxwdog");
+                    }
+                    String tags[] = passwordList.split(",");
+                    for (int i=0; i < tags.length; i++) {
+                        CMS.debug("CMSEngine: init(): prompting for password for " + tags[i]);
+                        mPasswordStore.putPassword(tags[i], 
+                            WatchdogClient.getPassword("Please provide password for " + tags[i] + ": ", 0));
+                    }
+                } 
+ 
                 CMS.debug("CMSEngine: init(): password store initialized for "+
                        pwdClass);
             } catch (Exception e) {
+                CMS.debug("CMSEngine: init(): Error initializing password store for " + pwdClass);
             }
         }
 
@@ -324,6 +362,10 @@ public class CMSEngine implements ICMSEngine {
             }
         }
         parseServerXML();
+
+        if (startedByWD) {
+            WatchdogClient.sendEndInit(0);
+        }
     }
 
     /**

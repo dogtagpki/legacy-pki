@@ -70,15 +70,19 @@ template(`pki_ca_template',`
 	#
 
 	# Execstack/execmem caused by java app.
-	allow $1_t self:process { execstack execmem getsched setsched signal};
+	allow $1_t self:process { execstack execmem getsched setsched signal ptrace};
 
 	## internal communication is often done using fifo and unix sockets.
 	allow $1_t self:fifo_file rw_file_perms;
 	allow $1_t self:unix_stream_socket create_stream_socket_perms;
+        allow $1_t self:unix_stream_socket connectto;
 	allow $1_t self:tcp_socket create_stream_socket_perms;
 	allow $1_t self:process signull;
 
 	allow $1_t $1_port_t:tcp_socket {name_bind name_connect};
+
+        # talk to the watchdog
+        allow $1_t $1_log_t:sock_file { write create unlink };
 
 	corenet_all_recvfrom_unlabeled($1_t)
 	corenet_tcp_sendrecv_all_if($1_t)
@@ -442,6 +446,9 @@ template(`pki_tps_template',`
 	allow $1_t self:fifo_file rw_file_perms;
 	allow $1_t self:unix_stream_socket create_stream_socket_perms;
 
+        ## talk to watchdog
+        allow $1_t initrc_t:unix_stream_socket { read write };
+
 	# Init script handling
 	domain_use_interactive_fds($1_t)
 
@@ -483,6 +490,8 @@ template(`pki_tps_template',`
         allow pki_tps_t httpd_exec_t:file entrypoint;
         allow pki_tps_t httpd_modules_t:lnk_file read;
 	allow pki_tps_t httpd_suexec_exec_t:file { getattr read execute };
+
+        allow pki_tps_t pki_tps_log_t:sock_file write;
 
         # apache permissions
         apache_exec_modules(pki_tps_t)

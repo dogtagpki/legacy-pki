@@ -1099,7 +1099,7 @@ public class ConfigureDRM
 		parser.addOption ("-backup_pwd %s #PKCS12 password",
 							x_backup_pwd); 
 
-                parser.addOption("-backup_fname %s #Backup File for p12, (optional, default /root/tmp-kra.p12)", 
+                parser.addOption("-backup_fname %s #Backup File for p12, (optional, default /root/tmp-kra.p12", 
                                                         x_backup_fname);
 
 		parser.addOption (
@@ -1182,7 +1182,7 @@ public class ConfigureDRM
                 } else {
                     backup_fname = x_backup_fname.value;
                 }
-		
+
 		drm_transport_cert_subject_name = 
 			x_drm_transport_cert_subject_name.value ;
 		drm_subsystem_cert_subject_name = 
