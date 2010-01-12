@@ -33,7 +33,7 @@
 ## Package Header Definitions
 %define base_name         %{base_prefix}-%{base_component}
 %define base_version      1.1.0
-%define base_release      13
+%define base_release      14
 %define base_group        System Environment/Shells
 %define base_vendor       Red Hat, Inc.
 %define base_license      GPLv2 with exceptions
@@ -219,6 +219,10 @@ rm -rf ${RPM_BUILD_ROOT}
 ###############################################################################
 
 %changelog
+* Thu Jan 7 2010 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-14
+- Bugzilla Bug #475895 - Disallow creation of an initial login shell
+- Bugzilla Bug #512234 - Move pkiuser:pkiuser check from spec file into
+  pkicreate . . .
 * Mon Dec 7 2009 Matthew Harmsen <mharmsen@redhat.com> 1.1.0-13
 - Bugzilla Bug #528556 -  policycoreutils-python (semanage) prerequisite
   missing from rpm
