@@ -1220,6 +1220,16 @@ sub parse_arguments()
     }
 
 
+    # At this point in time, ALWAYS check that "$pki_user" exists!
+    if( !user_exists( $pki_user ) ) {
+        usage();
+        emit( "Please contact your system administrator "
+            . "to create '$pki_user'!\n",
+              "error" );
+        return 0;
+    }
+
+
     ## Optional "-group=<groupname>" option
     if( $groupname ne "" ) {
         if( $username eq "" ) {
@@ -1238,6 +1248,25 @@ sub parse_arguments()
 
         # Overwrite default value of $pki_group with user-specified $groupname
         $pki_group = $groupname;
+    }
+
+
+    # At this point in time, ALWAYS check that "$pki_group" exists!
+    if( !group_exists( $pki_group ) ) {
+        usage();
+        emit( "Please contact your system administrator "
+            . "to create '$pki_group'!\n",
+              "error" );
+        return 0;
+    }
+
+
+    # At this point in time, ALWAYS check that shell access for "$pki_user" is
+    # disallowed; for now, simply notify the user performing the installation
+    # and continue
+    if( !user_disallows_shell( $pki_user ) ) {
+        emit( "Please contact your system administrator "
+            . "to disallow shell access for '$pki_user'!\n" );
     }
 
 
