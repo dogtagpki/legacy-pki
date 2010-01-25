@@ -71,7 +71,7 @@ PRLock *RA::m_verify_lock = NULL;
 PRLock *RA::m_auth_lock = NULL;
 PRLock *RA::m_debug_log_lock = NULL;
 PRLock *RA::m_error_log_lock = NULL;
-PRLock *RA::m_audit_log_lock = NULL;
+PRMonitor *RA::m_audit_log_monitor = NULL;
 bool RA::m_audit_enabled = false;
 bool RA::m_audit_signed = false;
 static int m_sa_count = 0;
@@ -83,6 +83,11 @@ char *RA::m_signedAuditSelectedEvents = NULL;
 char *RA::m_signedAuditSelectableEvents = NULL;
 char *RA::m_signedAuditNonSelectableEvents = NULL;
 
+char *RA::m_audit_log_buffer = NULL;
+PRThread *RA::m_flush_thread = (PRThread *) NULL;
+size_t RA::m_bytes_unflushed =0;
+size_t RA::m_buffer_size = 512;
+int RA::m_flush_interval = 5;
 
 int RA::m_audit_log_level = (int) LL_PER_SERVER;
 int RA::m_debug_log_level = (int) LL_PER_SERVER;
@@ -137,6 +142,8 @@ const char *RA::CFG_APPLET_DELETE_NETKEY_OLD = "applet.delete_old";
 const char *RA::CFG_AUDIT_SELECTED_EVENTS="logging.audit.selected.events";
 const char *RA::CFG_AUDIT_NONSELECTABLE_EVENTS="logging.audit.nonselectable.events";
 const char *RA::CFG_AUDIT_SELECTABLE_EVENTS="logging.audit.selectable.events";
+const char *RA::CFG_AUDIT_BUFFER_SIZE = "logging.audit.buffer.size";
+const char *RA::CFG_AUDIT_FLUSH_INTERVAL = "logging.audit.flush.interval";
 
 const char *RA::CFG_AUTHS_ENABLE="auth.enable";
 
@@ -260,6 +267,15 @@ int RA::InitializeSignedAudit()
         }
     } // if (m_audit_signed == true)
 
+    // Initialize audit flush thread
+    if (IsTpsConfigured() && (m_flush_thread == NULL)) {
+        m_flush_thread = PR_CreateThread( PR_USER_THREAD, RunFlushThread, (void *) NULL,
+                                 PR_PRIORITY_NORMAL,      /* Priority */
+                                 PR_GLOBAL_THREAD,   /* Scope */
+                                 PR_JOINABLE_THREAD, /* State */
+                                 0   /* Stack Size */);
+    }
+
     RA::Audit(EV_AUDIT_LOG_STARTUP, AUDIT_MSG_FORMAT, "System", "Success",
             "audit function startup");
     return 0;
@@ -269,6 +285,16 @@ loser:
 //do something
 }
 
+void RA::RunFlushThread(void *arg) {
+    RA::Debug("RA::FlushThread", "Starting audit flush thread");
+    while (m_flush_interval >0) {
+        PR_Sleep(PR_SecondsToInterval(m_flush_interval));
+        if (m_flush_interval ==0)
+            break;
+        if (m_bytes_unflushed > 0)
+            FlushAuditLogBuffer();
+    }
+}
 
 /*
  * read off the last sig record of the audit file for computing MAC
@@ -278,8 +304,8 @@ void RA::getLastSignature() {
     char *sig = NULL;
 
     RA::Debug("RA:: getLastSignature", "starts");
-    if ((m_fd_audit != NULL) && (m_audit_log_lock != NULL)) {
-        PR_Lock(m_audit_log_lock);
+    if ((m_fd_audit != NULL) && (m_audit_log_monitor != NULL)) {
+        PR_EnterMonitor(m_audit_log_monitor);
         int count =0;
         int removed_return;
         while (1) {
@@ -297,7 +323,7 @@ void RA::getLastSignature() {
           }
         } 
         RA::Debug("RA:: getLastSignature", "ends");
-        PR_Unlock(m_audit_log_lock);
+        PR_ExitMonitor(m_audit_log_monitor);
     }
 
     if (m_last_audit_signature != NULL) {
@@ -321,7 +347,7 @@ TPS_PUBLIC int RA::Initialize(char *cfg_path, RA_Context *ctx)
 
 	m_verify_lock = PR_NewLock();
 	m_debug_log_lock = PR_NewLock();
-	m_audit_log_lock = PR_NewLock();
+	m_audit_log_monitor = PR_NewMonitor();
 	m_error_log_lock = PR_NewLock();
 	m_cfg = ConfigStore::CreateFromConfigFile(cfg_path);
     if( m_cfg == NULL ) {
@@ -348,6 +374,8 @@ TPS_PUBLIC int RA::Initialize(char *cfg_path, RA_Context *ctx)
         m_signedAuditSelectableEvents = PL_strdup(m_cfg->GetConfigAsString(CFG_AUDIT_SELECTABLE_EVENTS, ""));
         m_signedAuditNonSelectableEvents= PL_strdup(m_cfg->GetConfigAsString(CFG_AUDIT_NONSELECTABLE_EVENTS, ""));
         m_audit_enabled = m_cfg->GetConfigAsBool(CFG_AUDIT_ENABLE, false);
+        m_buffer_size = m_cfg->GetConfigAsInt(CFG_AUDIT_BUFFER_SIZE, 512);
+        m_flush_interval = m_cfg->GetConfigAsInt(CFG_AUDIT_FLUSH_INTERVAL, 5);
 
 	if (m_audit_enabled) {
                 // is audit logSigning on?
@@ -363,6 +391,13 @@ TPS_PUBLIC int RA::Initialize(char *cfg_path, RA_Context *ctx)
 			440 | 220);
 		if (m_fd_audit == NULL)
 			goto loser;
+                m_audit_log_buffer = (char *) PR_Malloc(m_buffer_size);
+                if (m_audit_log_buffer == NULL) {
+                    RA::Debug("RA:: Initialize", "Unable to allocate memory for audit log buffer ..");
+                    goto loser;
+                }
+                PR_snprintf((char *) m_audit_log_buffer, m_buffer_size, "");
+                m_bytes_unflushed = 0;
 	}
 
 	if (m_cfg->GetConfigAsBool(CFG_ERROR_ENABLE, 0)) {
@@ -639,16 +674,33 @@ TPS_PUBLIC int RA::Shutdown()
         }
     }
 
-
 	/* close audit file if opened */
+    PR_EnterMonitor(m_audit_log_monitor);
     if( m_fd_audit != NULL ) {
+        if (m_audit_log_buffer != NULL) {
+            m_flush_interval = 0;  // terminate flush thread 
+            PR_Interrupt(m_flush_thread);
+            if (m_flush_thread != NULL) {
+                PR_JoinThread(m_flush_thread);
+            }
+        }
         if ((m_audit_signed) && (m_audit_signing_key != NULL)) {
             RA::Audit(EV_AUDIT_LOG_SHUTDOWN, AUDIT_MSG_FORMAT, "System", "Success",
                 "audit function shutdown");
         }
+    
+        if (m_bytes_unflushed > 0) {
+                FlushAuditLogBuffer();
+        }
 
         PR_Close( m_fd_audit );
         m_fd_audit = NULL;
+    }
+    PR_ExitMonitor(m_audit_log_monitor);
+
+    if (m_audit_log_buffer) {
+        PR_Free(m_audit_log_buffer);
+        m_audit_log_buffer = NULL;
     }
 
 	/* close debug file if opened */
@@ -673,9 +725,9 @@ TPS_PUBLIC int RA::Shutdown()
         m_debug_log_lock = NULL;
     }
 
-    if( m_audit_log_lock != NULL ) {
-        PR_DestroyLock( m_audit_log_lock );
-        m_audit_log_lock = NULL;
+    if( m_audit_log_monitor != NULL ) {
+        PR_DestroyMonitor( m_audit_log_monitor );
+        m_audit_log_monitor = NULL;
     }
 
     if( m_error_log_lock != NULL ) {
@@ -1688,13 +1740,14 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
         SECStatus rv;
         char *message_p1 = NULL;
         char *message_p2 = NULL;
+        int nbytes;
 
  	if (m_fd_audit == NULL) 
 		return;
 	if ((int) level >= m_audit_log_level)
 		return;
 
-	PR_Lock(m_audit_log_lock);
+	PR_EnterMonitor(m_audit_log_monitor);
 	now = PR_Now();
         PR_ExplodeTime(now, PR_LocalTimeParameters, &time);
 	PR_FormatTimeUSEnglish(datetime, 1024, time_fmt, &time);
@@ -1704,36 +1757,80 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
 	message_p2 = PR_vsmprintf(fmt, ap); 
 
         /* write out the message first */
-        NSSUTF8 *audit_msg = PR_smprintf("%s%s", message_p1, message_p2);
-        PR_fprintf(m_fd_audit, "%s\n", audit_msg);
+        NSSUTF8 *audit_msg = PR_smprintf("%s%s\n", message_p1, message_p2);
+        nbytes = (unsigned) PL_strlen((const char*) audit_msg);
+        if ((m_bytes_unflushed + nbytes) >= m_buffer_size) {
+            FlushAuditLogBuffer();
+            PR_fprintf(m_fd_audit, "%s", audit_msg); 
+
+            if (m_audit_signed) SignAuditLog(audit_msg);
+        } else {
+            PL_strcat(m_audit_log_buffer, audit_msg);
+            m_bytes_unflushed += nbytes; 
+        }
 
         PR_Free(message_p1);
         PR_Free(message_p2);
 
-        /* for signed audit
-         * cfu - could make this tunable interval later to improve
-         *       performance. But for now, just sign it every time
-         */
+loser:
+        if (audit_msg)
+            PR_Free(audit_msg);
+
+        PR_ExitMonitor(m_audit_log_monitor);
+
+}
+
+TPS_PUBLIC void RA::FlushAuditLogBuffer()
+{
+    PR_EnterMonitor(m_audit_log_monitor);
+    if ((m_bytes_unflushed > 0) && (m_audit_log_buffer != NULL)) { 
+        PR_fprintf(m_fd_audit, "%s", m_audit_log_buffer);
+        if (m_audit_signed) {
+            SignAuditLog((NSSUTF8 *) m_audit_log_buffer);
+        }
+        m_bytes_unflushed=0;
+        PR_snprintf((char *) m_audit_log_buffer, m_buffer_size, "");
+    }
+    PR_ExitMonitor(m_audit_log_monitor);
+}
+
+TPS_PUBLIC void RA::SignAuditLog(NSSUTF8 * audit_msg)
+{
+        PRTime now;
+        const char* time_fmt = "%Y-%m-%d %H:%M:%S";
+        char datetime[1024];
+        PRExplodedTime time;
+        PRThread *ct;
+        SECStatus rv;
+
         SECItem signedResult;
         NSSUTF8 *sig_b64 = NULL;
         NSSUTF8 *out_sig_b64 = NULL;
         SGNContext *sign_ctxt=NULL;
         char *audit_sig_msg;
+
+        PR_EnterMonitor(m_audit_log_monitor);
+
+        now = PR_Now();
+        PR_ExplodeTime(now, PR_LocalTimeParameters, &time);
+        PR_FormatTimeUSEnglish(datetime, 1024, time_fmt, &time);
+        ct = PR_GetCurrentThread();
+
         if (m_audit_signed==true) {
             sign_ctxt = SGN_NewContext(m_audit_signAlgTag, m_audit_signing_key);
             if( SGN_Begin(sign_ctxt) != SECSuccess ) {
-                RA::Debug("RA:: AuditThis", "SGN_Begin failed");
+                RA::Debug("RA:: SignAuditLog", "SGN_Begin failed");
                 goto loser;
             }
 
             if (m_last_audit_signature != NULL) {
-                RA::Debug("RA:: AuditThis", "m_last_audit_signature == %s",
+                RA::Debug("RA:: SignAuditLog", "m_last_audit_signature == %s",
                        m_last_audit_signature);
                 rv = SGN_Update( (SGNContext*)sign_ctxt,
                         (unsigned char *) m_last_audit_signature, 
                         (unsigned)PL_strlen((const char*)m_last_audit_signature));
                 if (rv != SECSuccess) {
-                    RA::Debug("RA:: AuditThis", "SGN_Update failed");
+                    RA::Debug("RA:: SignAuditLog", "SGN_Update failed");
                     goto loser;
                 }
 
@@ -1741,35 +1838,30 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
                         (unsigned char *) "\n", 1);
 
                 if (rv != SECSuccess) {
-                    RA::Debug("RA:: AuditThis", "SGN_Update failed");
+                    RA::Debug("RA:: SignAuditLog", "SGN_Update failed");
                     goto loser;
                 }
             } else {
-                RA::Debug("RA:: AuditThis", "m_last_audit_signature == NULL");
+                RA::Debug("RA:: SignAuditLog", "m_last_audit_signature == NULL");
             }
 
-/*
-            make sign the UTF-8 bytes later
-*/
+            /* make sign the UTF-8 bytes later */
 
             if( SGN_Update( (SGNContext*)sign_ctxt,
                         (unsigned char *) audit_msg,
                         (unsigned)PL_strlen((const char*)audit_msg)) != SECSuccess) {
-                RA::Debug("RA:: AuditThis", "SGN_Update failed");
+                RA::Debug("RA:: SignAuditLog", "SGN_Update failed");
                 goto loser;
             }
 
-            SGN_Update( (SGNContext*)sign_ctxt,
-                        (unsigned char *) "\n", 1);
-
             if( SGN_End(sign_ctxt, &signedResult) != SECSuccess) {
-                RA::Debug("RA:: AuditThis", "SGN_End failed");
+                RA::Debug("RA:: SignAuditLog", "SGN_End failed");
                 goto loser;
             }
 
             sig_b64 = NSSBase64_EncodeItem(NULL, NULL, 0, &signedResult);
             if (sig_b64 == NULL) {
-                RA::Debug("RA:: AuditThis", "NSSBase64_EncodeItem failed");
+                RA::Debug("RA:: SignAuditLog", "NSSBase64_EncodeItem failed");
                 goto loser;
             }
 
@@ -1777,7 +1869,7 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
             int sig_len = PL_strlen(sig_b64);
             out_sig_b64 =  (char *) PORT_Alloc (sig_len);
             if (out_sig_b64 == NULL) {
-                RA::Debug("RA:: AuditThis", "PORT_Alloc for out_sig_b64 failed");
+                RA::Debug("RA:: SignAuditLog", "PORT_Alloc for out_sig_b64 failed");
                 goto loser;
             }
             int i = 0;
@@ -1808,8 +1900,6 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
         }
 
 loser:
-        if (audit_msg)
-            PR_Free(audit_msg);
         if (m_audit_signed==true) {
             if (sign_ctxt)
                 SGN_DestroyContext(sign_ctxt, PR_TRUE);
@@ -1823,9 +1913,46 @@ loser:
                 SECITEM_FreeItem(&signedResult, PR_FALSE);
         }
 
-	PR_Unlock(m_audit_log_lock);
+	PR_ExitMonitor(m_audit_log_monitor);
 
 }
+
+TPS_PUBLIC void RA::SetFlushInterval(int interval)
+{
+    char interval_str[512];
+    RA::Debug("RA::SetFlushInterval", "Setting flush interval to %d seconds", interval);
+    m_flush_interval = interval;
+
+    // Interrupt the flush thread to set new interval
+    // Get monitor so as not to interrupt the flush thread during flushing
+
+    PR_EnterMonitor(m_audit_log_monitor);
+    PR_Interrupt(m_flush_thread);
+    PR_ExitMonitor(m_audit_log_monitor);
+    
+    PR_snprintf((char *) interval_str, 512, "%d", interval);
+    m_cfg->Add(CFG_AUDIT_FLUSH_INTERVAL, interval_str);
+    m_cfg->Commit(false);
+}
+
+TPS_PUBLIC void RA::SetBufferSize(int size)
+{
+    char * new_buffer;
+    char size_str[512];
+    RA::Debug("RA::SetBufferSize", "Setting buffer size to %d bytes", size);
+
+    PR_EnterMonitor(m_audit_log_monitor);
+    FlushAuditLogBuffer();
+    new_buffer = (char *) PR_Realloc(m_audit_log_buffer, size);
+    m_audit_log_buffer = new_buffer;
+    m_buffer_size = size;
+    PR_ExitMonitor(m_audit_log_monitor);
+
+    PR_snprintf((char *) size_str, 512, "%d", size);
+    m_cfg->Add(CFG_AUDIT_BUFFER_SIZE, size_str);
+    m_cfg->Commit(false);
+}
+
 
 TPS_PUBLIC void RA::Error (const char *func_name, const char *fmt, ...)
 { 

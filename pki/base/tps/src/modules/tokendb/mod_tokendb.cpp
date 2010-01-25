@@ -5150,19 +5150,23 @@ mod_tokendb_handler( request_rec *rq )
         }
 
         PR_snprintf (injection, MAX_INJECTION_SIZE,
-             "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
+             "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s%s%d%s%s%s%s%s%s%s%s%s%s", JS_START,
              "var uriBase = \"", uri, "\";\n",
              "var userid = \"", userid, "\";\n",
              "var signedAuditEnable = \"", RA::m_audit_enabled ? "true": "false", "\";\n",
              "var logSigningEnable = \"", RA::m_audit_signed ? "true" : "false", "\";\n",
+             "var signedAuditLogInterval = \"", RA::m_flush_interval, "\";\n",
+             "var signedAuditLogBufferSize = \"", RA::m_buffer_size, "\";\n",
              "var signedAuditSelectedEvents = \"", RA::m_signedAuditSelectedEvents, "\";\n",
              "var signedAuditSelectableEvents = \"", RA::m_signedAuditSelectableEvents, "\";\n",
              "var signedAuditNonSelectableEvents = \"", RA::m_signedAuditNonSelectableEvents, "\";\n");
 
          RA::Debug( "mod_tokendb::mod_tokendb_handler",
-               "signedAudit: %s %s %s %s %s", 
+               "signedAudit: %s %s %d %d %s %s %s", 
                RA::m_audit_enabled ? "true": "false",
                RA::m_audit_signed ? "true": "false",
+               RA::m_flush_interval,
+               RA::m_buffer_size,
                RA::m_signedAuditSelectedEvents,
                RA::m_signedAuditSelectableEvents, 
                RA::m_signedAuditNonSelectableEvents);
@@ -5245,6 +5249,26 @@ mod_tokendb_handler( request_rec *rq )
            }
         }
         do_free(logSigning);
+
+        char *logSigningInterval_str = get_post_field(post, "logSigningInterval", SHORT_LEN);
+        int logSigningInterval = atoi(logSigningInterval_str);
+        do_free(logSigningInterval_str);
+
+        if ((logSigningInterval>=0) &&(logSigningInterval != RA::m_flush_interval)) {
+            RA::SetFlushInterval(logSigningInterval);
+            PR_snprintf((char *)msg, 512, "'%s' has modified the  audit log signing interval to %d seconds", userid, logSigningInterval);
+            RA::tdb_activity(rq->connection->remote_ip, "", "modify_audit_signing", "success", msg, userid, NO_TOKEN_TYPE);
+        }
+
+        char *logSigningBufferSize_str = get_post_field(post, "logSigningBufferSize", SHORT_LEN);
+        int logSigningBufferSize = atoi(logSigningBufferSize_str);
+        do_free(logSigningBufferSize_str);
+
+        if ((logSigningBufferSize >=512) && (logSigningBufferSize != RA::m_buffer_size)) {
+            RA::SetBufferSize(logSigningBufferSize);
+            PR_snprintf((char *)msg, 512, "'%s' has modified the  audit log signing buffer size to %d bytes", userid, logSigningBufferSize);
+            RA::tdb_activity(rq->connection->remote_ip, "", "modify_audit_signing", "success", msg, userid, NO_TOKEN_TYPE);
+        }
 
         char *nEvents_str = get_post_field(post, "nEvents", SHORT_LEN);
         int nEvents = atoi(nEvents_str);
