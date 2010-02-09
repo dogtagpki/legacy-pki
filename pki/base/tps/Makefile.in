@@ -146,7 +146,8 @@ am_libtps_la_OBJECTS = src/main/libtps_la-Buffer.lo \
 	src/main/libtps_la-Authentication.lo \
 	src/main/libtps_la-AttributeSpec.lo \
 	src/main/libtps_la-ObjectSpec.lo \
-	src/main/libtps_la-PKCS11Obj.lo \
+	src/main/libtps_la-PKCS11Obj.lo src/main/libtps_la-LogFile.lo \
+	src/main/libtps_la-RollingLogFile.lo \
 	src/httpClient/libtps_la-httpClient.lo \
 	src/httpClient/libtps_la-Cache.lo \
 	src/httpClient/libtps_la-engine.lo \
@@ -762,6 +763,8 @@ libtps_la_SOURCES = src/main/Buffer.cpp                        \
 					src/main/AttributeSpec.cpp                 \
 					src/main/ObjectSpec.cpp                    \
 					src/main/PKCS11Obj.cpp                     \
+                                        src/main/LogFile.cpp                       \
+                                        src/main/RollingLogFile.cpp                \
 					src/httpClient/httpClient.cpp              \
 					src/httpClient/Cache.cpp                   \
 					src/httpClient/engine.cpp                  \
@@ -827,7 +830,7 @@ libtps_la_SOURCES = src/main/Buffer.cpp                        \
 					src/processor/RA_Unblock_Processor.cpp     \
 					src/processor/RA_Format_Processor.cpp
 
-libtps_la_CPPFLAGS = $(AM_CPPFLAGS) @ldapsdk_inc@ @svrcore_inc@ \
+libtps_la_CPPFLAGS = $(AM_CPPFLAGS) @apr_inc@ @ldapsdk_inc@ @svrcore_inc@ \
 	@sasl_inc@ @nss_inc@ @nspr_inc@
 
 libtps_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
@@ -1132,6 +1135,10 @@ src/main/libtps_la-AttributeSpec.lo: src/main/$(am__dirstamp) \
 src/main/libtps_la-ObjectSpec.lo: src/main/$(am__dirstamp) \
 	src/main/$(DEPDIR)/$(am__dirstamp)
 src/main/libtps_la-PKCS11Obj.lo: src/main/$(am__dirstamp) \
+	src/main/$(DEPDIR)/$(am__dirstamp)
+src/main/libtps_la-LogFile.lo: src/main/$(am__dirstamp) \
+	src/main/$(DEPDIR)/$(am__dirstamp)
+src/main/libtps_la-RollingLogFile.lo: src/main/$(am__dirstamp) \
 	src/main/$(DEPDIR)/$(am__dirstamp)
 src/httpClient/$(am__dirstamp):
 	@$(mkdir_p) src/httpClient
@@ -1860,6 +1867,8 @@ mostlyclean-compile:
 	-rm -f src/main/libtps_la-Buffer.lo
 	-rm -f src/main/libtps_la-ConfigStore.$(OBJEXT)
 	-rm -f src/main/libtps_la-ConfigStore.lo
+	-rm -f src/main/libtps_la-LogFile.$(OBJEXT)
+	-rm -f src/main/libtps_la-LogFile.lo
 	-rm -f src/main/libtps_la-Login.$(OBJEXT)
 	-rm -f src/main/libtps_la-Login.lo
 	-rm -f src/main/libtps_la-Memory.$(OBJEXT)
@@ -1878,6 +1887,8 @@ mostlyclean-compile:
 	-rm -f src/main/libtps_la-RA_Session.lo
 	-rm -f src/main/libtps_la-RA_pblock.$(OBJEXT)
 	-rm -f src/main/libtps_la-RA_pblock.lo
+	-rm -f src/main/libtps_la-RollingLogFile.$(OBJEXT)
+	-rm -f src/main/libtps_la-RollingLogFile.lo
 	-rm -f src/main/libtps_la-SecureId.$(OBJEXT)
 	-rm -f src/main/libtps_la-SecureId.lo
 	-rm -f src/main/libtps_la-Util.$(OBJEXT)
@@ -2041,6 +2052,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-AuthenticationEntry.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-Buffer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-ConfigStore.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-LogFile.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-Login.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-Memory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-NameValueSet.Plo@am__quote@
@@ -2050,6 +2062,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-RA_Msg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-RA_Session.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-RA_pblock.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-RollingLogFile.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-SecureId.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/libtps_la-Util.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/main/$(DEPDIR)/tpsclient-AuthParams.Po@am__quote@
@@ -2284,6 +2297,20 @@ src/main/libtps_la-PKCS11Obj.lo: src/main/PKCS11Obj.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/main/PKCS11Obj.cpp' object='src/main/libtps_la-PKCS11Obj.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/main/libtps_la-PKCS11Obj.lo `test -f 'src/main/PKCS11Obj.cpp' || echo '$(srcdir)/'`src/main/PKCS11Obj.cpp
+
+src/main/libtps_la-LogFile.lo: src/main/LogFile.cpp
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/main/libtps_la-LogFile.lo -MD -MP -MF "src/main/$(DEPDIR)/libtps_la-LogFile.Tpo" -c -o src/main/libtps_la-LogFile.lo `test -f 'src/main/LogFile.cpp' || echo '$(srcdir)/'`src/main/LogFile.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/main/$(DEPDIR)/libtps_la-LogFile.Tpo" "src/main/$(DEPDIR)/libtps_la-LogFile.Plo"; else rm -f "src/main/$(DEPDIR)/libtps_la-LogFile.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/main/LogFile.cpp' object='src/main/libtps_la-LogFile.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/main/libtps_la-LogFile.lo `test -f 'src/main/LogFile.cpp' || echo '$(srcdir)/'`src/main/LogFile.cpp
+
+src/main/libtps_la-RollingLogFile.lo: src/main/RollingLogFile.cpp
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/main/libtps_la-RollingLogFile.lo -MD -MP -MF "src/main/$(DEPDIR)/libtps_la-RollingLogFile.Tpo" -c -o src/main/libtps_la-RollingLogFile.lo `test -f 'src/main/RollingLogFile.cpp' || echo '$(srcdir)/'`src/main/RollingLogFile.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/main/$(DEPDIR)/libtps_la-RollingLogFile.Tpo" "src/main/$(DEPDIR)/libtps_la-RollingLogFile.Plo"; else rm -f "src/main/$(DEPDIR)/libtps_la-RollingLogFile.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/main/RollingLogFile.cpp' object='src/main/libtps_la-RollingLogFile.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/main/libtps_la-RollingLogFile.lo `test -f 'src/main/RollingLogFile.cpp' || echo '$(srcdir)/'`src/main/RollingLogFile.cpp
 
 src/httpClient/libtps_la-httpClient.lo: src/httpClient/httpClient.cpp
 @am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/httpClient/libtps_la-httpClient.lo -MD -MP -MF "src/httpClient/$(DEPDIR)/libtps_la-httpClient.Tpo" -c -o src/httpClient/libtps_la-httpClient.lo `test -f 'src/httpClient/httpClient.cpp' || echo '$(srcdir)/'`src/httpClient/httpClient.cpp; \

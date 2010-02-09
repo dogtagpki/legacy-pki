@@ -44,6 +44,7 @@
 #include "main/Buffer.h"
 #include "main/PublishEntry.h"
 #include "main/AuthenticationEntry.h"
+#include "main/LogFile.h"
 #include "authentication/Authentication.h"
 #include "apdu/APDU.h"
 #include "main/RA_Context.h"
@@ -146,6 +147,7 @@ class RA
 	  static void DebugBuffer(RA_Log_Level level, const char *func_name, const char *prefix, Buffer *buf);
           TPS_PUBLIC static void FlushAuditLogBuffer();
           TPS_PUBLIC static void SignAuditLog(NSSUTF8 *msg);
+          TPS_PUBLIC static char *GetAuditSigningMessage(NSSUTF8 *msg);
           TPS_PUBLIC static void SetFlushInterval(int interval);
           TPS_PUBLIC static void SetBufferSize(int size);
           static void RunFlushThread(void *arg);
@@ -211,6 +213,7 @@ class RA
           static HttpConnection *GetDRMConn(const char *id);
           static void ReturnDRMConn(HttpConnection *conn);
           static int GetCurrentIndex(HttpConnection *conn);
+          static LogFile* GetLogFile(const char *log_type);
 
   public:
 
@@ -260,6 +263,12 @@ class RA
 	  static const char *CFG_CHANNEL_ENCRYPTION;
           static const char *CFG_AUDIT_BUFFER_SIZE;
           static const char *CFG_AUDIT_FLUSH_INTERVAL;
+          static const char *CFG_AUDIT_FILE_TYPE;
+          static const char *CFG_DEBUG_FILE_TYPE;
+          static const char *CFG_ERROR_FILE_TYPE;
+          static const char *CFG_AUDIT_PREFIX;
+          static const char *CFG_DEBUG_PREFIX;
+          static const char *CFG_ERROR_PREFIX;
 
 
       static const char *CFG_AUTHS_ENABLE;
