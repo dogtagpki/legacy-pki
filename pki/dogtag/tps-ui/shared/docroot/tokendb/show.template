@@ -307,7 +307,7 @@ if (typeof(results) == "undefined" || results.length == 0) {
     document.write("<tr>\n");
     document.write("<td width=60%>\n");
    
-    if ((typeof(topLevel) == "undefined") || (topLevel != "operator")) { 
+    if ((allowed_transitions != "") && ((typeof(topLevel) == "undefined") || (topLevel != "operator"))) { 
         var transitions = allowed_transitions.split(",");
         document.write("<form method='get' action='tus'><select name=\"question\">");
         if (check_transition(1, transitions)) {
