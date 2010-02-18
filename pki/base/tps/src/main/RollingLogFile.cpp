@@ -173,6 +173,7 @@ void RollingLogFile::rotate() {
     const char* time_fmt = "%Y%m%d-%H%M%S";
     char datetime[1024];
     char backup_fname[1024];
+    char *first_sig = (char *) NULL;
     PRExplodedTime time;
     int status;
 
@@ -218,7 +219,34 @@ void RollingLogFile::rotate() {
                           __LINE__,
                           "Failed to reopen log file %s",
                           m_fname);
+    } else {
+        if (m_signed_log) {
+            first_sig = RA::GetAuditSigningMessage("");
+            if (first_sig != NULL) {
+                status = LogFile::write(first_sig);
+                if (status != PR_SUCCESS) {
+                    m_ctx->LogError("RollingLogFile::rotate",
+                            __LINE__,
+                            "Failed to write signature to new (rotated) log file %s",
+                             m_fname);
+                } else {
+                    status = LogFile::write("\n");
+                    if (RA::m_last_audit_signature != NULL) {
+                        PR_Free( RA::m_last_audit_signature );
+                    }
+                    RA::m_last_audit_signature = PL_strdup(first_sig);
+                    m_signed = true;
+                }
+                PR_Free(first_sig);
+            } else {
+                m_ctx->LogError("RollingLogFile::rotate",
+                           __LINE__,
+                           "Failed to generate signature for new (rotated) log file %s",
+                            m_fname);
+            }
+        }
     }
+
 
     loser: 
         m_rotation_needed = false;
