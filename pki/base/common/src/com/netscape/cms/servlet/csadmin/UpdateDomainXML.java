@@ -246,6 +246,7 @@ public class UpdateDomainXML extends CMSServlet {
         String sport = httpReq.getParameter("sport");
         String agentsport = httpReq.getParameter("agentsport");
         String adminsport = httpReq.getParameter("adminsport");
+        String eecaport = httpReq.getParameter("eeclientauthsport");
         String httpport = httpReq.getParameter("httpport");
         String domainmgr = httpReq.getParameter("dm");
         String clone = httpReq.getParameter("clone");
@@ -282,10 +283,23 @@ public class UpdateDomainXML extends CMSServlet {
             attrs.add(new LDAPAttribute("cn", cn));
             attrs.add(new LDAPAttribute("Host", host));
             attrs.add(new LDAPAttribute("SecurePort", sport));
-            attrs.add(new LDAPAttribute("SecureAgentPort", agentsport));
-            attrs.add(new LDAPAttribute("SecureAdminPort", adminsport));
-            attrs.add(new LDAPAttribute("UnSecurePort", httpport));
-            attrs.add(new LDAPAttribute("DomainManager", domainmgr));
+ 
+            if ((agentsport != null) && (!agentsport.equals(""))) {
+                attrs.add(new LDAPAttribute("SecureAgentPort", agentsport));
+            }
+            if ((adminsport != null) && (!adminsport.equals(""))) {
+                attrs.add(new LDAPAttribute("SecureAdminPort", adminsport));
+            }
+            if ((httpport != null) && (!httpport.equals(""))) {
+                attrs.add(new LDAPAttribute("UnSecurePort", httpport));
+            }
+            if ((eecaport != null) && (!eecaport.equals(""))) {
+                attrs.add(new LDAPAttribute("SecureEEClientAuthPort", eecaport));
+            }
+            if ((domainmgr != null) && (!domainmgr.equals(""))) {
+                attrs.add(new LDAPAttribute("DomainManager", domainmgr));
+            }
+
             attrs.add(new LDAPAttribute("clone", clone));
             attrs.add(new LDAPAttribute("SubsystemName", name));
             entry = new LDAPEntry(dn, attrs);
@@ -351,6 +365,7 @@ public class UpdateDomainXML extends CMSServlet {
                     parser.addItemToContainer(parent, "SecureAgentPort", agentsport);
                     parser.addItemToContainer(parent, "SecureAdminPort", adminsport);
                     parser.addItemToContainer(parent, "UnSecurePort", httpport);
+                    parser.addItemToContainer(parent, "SecureEEClientAuthPort", eecaport);
                     parser.addItemToContainer(parent, "DomainManager", domainmgr);
                     parser.addItemToContainer(parent, "Clone", clone);
                     count ++;
