@@ -989,7 +989,8 @@ public class CMSEngine implements ICMSEngine {
         nickName) {
         String newName = null;
 
-        if (tokenName.equals(Constants.PR_INTERNAL_TOKEN_NAME))
+        if (tokenName.equals(Constants.PR_INTERNAL_TOKEN_NAME) ||
+            tokenName.equalsIgnoreCase("Internal Key Storage Token"))
             newName = nickName;
         else {
             if (tokenName.equals("") && nickName.equals(""))
@@ -1056,8 +1057,8 @@ public class CMSEngine implements ICMSEngine {
                 ILogger.LL_FAILURE, "CMSEngine: Error " + exx.toString());
         }
         // update "cache" for CMS.getServerCertNickname()
-        mServerCertNickname = newName;
 */
+        mServerCertNickname = newName;
     }
 
     private String lineParsing(String input, String newName) {
