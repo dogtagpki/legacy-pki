@@ -498,7 +498,7 @@ locale),
     connid = RA::GetConfigStore()->GetConfigAsString(configname);
     upgrade_rc = UpgradeApplet(session, OP_PREFIX, (char*)tokenType, major_version, 
       minor_version, expected_version, applet_dir, security_level, connid,
-			       extensions, 10, 90);
+			       extensions, 10, 90, &keyVersion);
     if (upgrade_rc != 1) {
         RA::Debug("RA_Format_Processor::Process", 
           "applet upgrade failed");
@@ -508,11 +508,17 @@ locale),
          */
         SelectApplet(session, 0x04, 0x00, NetKeyAID);
         RA::tdb_activity(session->GetRemoteIP(), cuid, "format", "failure", "applet upgrade error", "", tokenType);
+    
+        RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE, 
+          userid, cuid, msn, "Failure", "format", 
+          keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "applet upgrade");
+
         goto loser;
     } 
-    RA::Audit(EV_UPGRADE, 
-      "op='applet_upgrade' app_ver='%s' new_app_ver='%s'", 
-      appletVersion, expected_version);
+
+    RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE, 
+      userid, cuid, msn, "Success", "format", 
+      keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "applet upgrade");
 
     if( final_applet_version != NULL ) {
         PR_Free( (char *) final_applet_version );
@@ -644,10 +650,11 @@ locale),
                   curVersion,
                   curIndex,
                   &key_data_set);
-            RA::Audit(EV_FORMAT, "op='key_change_over' app_ver='%s' cuid='%s' old_key_ver='%02x01' new_key_ver='%02x01'", 
-              final_applet_version, cuid, curVersion, 
-              ((BYTE*)newVersion)[0]);
 
+            RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                userid, cuid, msn, "Success", "format", 
+                final_applet_version, curVersion, ((BYTE*)newVersion)[0], 
+                "key changeover");
 
              finalKeyVersion = ((int) ((BYTE *)newVersion)[0]);
             /**
@@ -695,11 +702,16 @@ locale),
 
     // get keyVersion
     if (channel != NULL) {
+        if (keyVersion != NULL) {
+            PR_Free( (char *) keyVersion );
+            keyVersion = NULL;
+        }
         keyVersion = Util::Buffer2String(channel->GetKeyInfoData());
     }
 
     // need to revoke all the certificates on this token
     if (tokenFound) {
+        bool revocation_failed = false;
         PR_snprintf((char *)filter, 256, "(tokenID=%s)", cuid);
         rc = RA::ra_find_tus_certificate_entries_by_order(filter, 100, &result, 1);
         if (rc == 0) {
@@ -769,7 +781,17 @@ locale),
                         continue;
                     }
                     statusNum = certEnroll->RevokeCertificate("1", serial, connid, statusString);
-                    RA::ra_update_cert_status(attr_cn, "revoked");
+
+                    if (statusNum == 0) {
+                        RA::Audit(EV_FORMAT, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                      "Success", "revoke", serial, connid, "");
+                        RA::ra_update_cert_status(attr_cn, "revoked");
+                    } else {
+                        RA::Audit(EV_FORMAT, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                      "Failure", "revoke", serial, connid, statusString);
+                        revocation_failed = true;
+                    }
+
                     if (attr_status != NULL) {
                         PL_strfree(attr_status);
                         attr_status = NULL;
@@ -793,6 +815,12 @@ locale),
             if (certEnroll != NULL) 
                 delete certEnroll;
         } else {
+            RA::Debug(LL_PER_PDU, "RA_Format_Processor::Process", "Failed to revoke certificates on this token. Certs not found.");
+            status = STATUS_ERROR_REVOKE_CERTIFICATES_FAILED;
+            goto loser;
+        }
+
+        if (revocation_failed) {
             RA::Debug(LL_PER_PDU, "RA_Format_Processor::Process", "Failed to revoke certificates on this token.");
             status = STATUS_ERROR_REVOKE_CERTIFICATES_FAILED;
             goto loser;
@@ -832,13 +860,15 @@ locale),
            final_applet_version, tokenType);
     RA::tdb_activity(session->GetRemoteIP(), cuid, "format", "success", activity_msg, userid, tokenType);
 
-    /* audit log for successful enrollment */
-    if (authid == NULL)
-        RA::Audit(EV_FORMAT, "status='success' app_ver='%s' key_ver='%d' cuid='%s' msn='%s' uid='%s' time='%d msec'",
-          final_applet_version,(int) finalKeyVersion, cuid, msn, userid, ((PR_IntervalToMilliseconds(end) - PR_IntervalToMilliseconds(start))));
-    else
-        RA::Audit(EV_FORMAT, "status='success' app_ver='%s' key_ver='%d' cuid='%s' msn='%s' uid='%s' auth='%s' time='%d msec'",
-          final_applet_version,(int) finalKeyVersion, cuid, msn, userid, authid, ((PR_IntervalToMilliseconds(end) - PR_IntervalToMilliseconds(start))));
+    /* audit log for successful format */
+    if (authid != NULL) {
+        sprintf(activity_msg, "format processing complete, authid = %s", authid);
+    } else {
+        sprintf(activity_msg, "format processing complete");
+    } 
+    RA::Audit(EV_FORMAT, AUDIT_MSG_PROC, 
+      userid, cuid, msn, "success", "format", final_applet_version, 
+      keyVersion != NULL? keyVersion : "", activity_msg);
 
 loser:
 

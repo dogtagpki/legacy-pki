@@ -86,7 +86,7 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
     const char* required_version = NULL;
     const char *appletVersion = NULL;
     const char *final_applet_version = NULL;
-    const char *keyVersion = PL_strdup( "" );
+    char *keyVersion = PL_strdup( "" );
     const char *userid = PL_strdup( "" );
     BYTE major_version = 0x0;
     BYTE minor_version = 0x0;
@@ -272,7 +272,8 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
               security_level = SECURE_MSG_MAC;
             PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
             connid = RA::GetConfigStore()->GetConfigAsString(configname);
-            int upgrade_rc = UpgradeApplet(session, OP_PREFIX, (char*)tokenType, major_version, minor_version, expected_version, applet_dir, security_level, connid, extensions, 30, 70);
+            int upgrade_rc = UpgradeApplet(session, OP_PREFIX, (char*)tokenType, major_version, minor_version, 
+                expected_version, applet_dir, security_level, connid, extensions, 30, 70, &keyVersion);
 	    if (upgrade_rc != 1) {
                RA::Error("RA_Pin_Reset_Processor::Process", 
 			"upgrade failure");
@@ -282,10 +283,19 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
                * Bugscape #55709: Re-select Net Key Applet ONLY on failure.
                */
               SelectApplet(session, 0x04, 0x00, NetKeyAID);
+
+              RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
+                userid, cuid, msn, "Failure", "pin_reset", 
+                keyVersion != NULL? keyVersion : "", 
+                appletVersion, expected_version, "applet upgrade");
               goto loser;
 	    }
-            RA::Audit(EV_PIN_RESET, "op='applet_upgrade' app_ver='%s' new_app_ver='%s'", 
-			    appletVersion, expected_version);
+
+            RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
+              userid, cuid, msn, "Success", "pin_reset", 
+              keyVersion != NULL? keyVersion : "", 
+              appletVersion, expected_version, "applet upgrade");
+
 	    final_applet_version = expected_version;
         }
     }
@@ -358,8 +368,10 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
                   curIndex,
                   &key_data_set);
 
-        RA::Audit(EV_PIN_RESET, "op='key_change_over' app_ver='%s' cuid='%s' old_key_ver='%02x01' new_key_ver='%02x01'", final_applet_version, cuid, curVersion, ((BYTE*)newVersion)[0]);
-
+        RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                userid, cuid, msn, "Success", "pin_reset",
+                final_applet_version, curVersion, ((BYTE*)newVersion)[0],
+                "key changeover");
 
          SelectApplet(session, 0x04, 0x00, NetKeyAID);
         PR_snprintf((char *)configname, 256, "%s.%s.update.symmetricKeys.requiredVersion", OP_PREFIX, tokenType);
@@ -714,27 +726,31 @@ locale),
     RA::tdb_activity(session->GetRemoteIP(), (char *)cuid, "pin reset", "success", activity_msg, userid, tokenType);
 
     /* audit log for successful pin reset */
-    if (authid == NULL)
-        RA::Audit(EV_PIN_RESET, "status='success' app_ver='%s' key_ver='%s' cuid='%s' msn='%s' uid='%s' time='%d msec'",
-          final_applet_version, keyVersion, cuid, msn, userid, ((PR_IntervalToMilliseconds(end) - PR_IntervalToMilliseconds(start))));
-    else 
-        RA::Audit(EV_PIN_RESET, "status='success' app_ver='%s' key_ver='%s' cuid='%s' msn='%s' uid='%s' auth='%s' time='%d msec'",
-          final_applet_version, keyVersion, cuid, msn, userid, authid, ((PR_IntervalToMilliseconds(end) - PR_IntervalToMilliseconds(start))));
+    if (authid != NULL) {
+        sprintf(activity_msg, "pin_reset processing completed, authid = %s", authid);
+    } else {
+        sprintf(activity_msg, "pin_reset processing completed");
+    }
+    RA::Audit(EV_PIN_RESET, AUDIT_MSG_PROC,
+          userid, cuid, msn, "success", "pin_reset", final_applet_version, keyVersion!=NULL? keyVersion: "", activity_msg);
 
 loser:
     if (channel == NULL) {
         RA::Debug(LL_PER_PDU, "RA_Pin_Reset_Processor: Failed to create secure channel.", "");
         if (login == NULL) {
-            RA::Audit(EV_PIN_RESET, "status='error' app_ver='%s' key_ver='%s' cuid='%s' msn='%s' note='failed to login'", final_applet_version, keyVersion, cuid, msn);
+            RA::Audit(EV_PIN_RESET, AUDIT_MSG_PROC,
+              "null", cuid, msn, "failure", "pin_reset", final_applet_version, keyVersion!=NULL? keyVersion: "" , "pin_reset processing, failed to login");
 	} else { 
-            RA::Audit(EV_PIN_RESET, "status='error' app_ver='%s' key_ver='%s' cuid='%s' msn='%s'  uid='%s' note='failed to create secure channel'", final_applet_version, keyVersion, cuid, msn, userid);  
+            RA::Audit(EV_PIN_RESET, AUDIT_MSG_PROC,
+              userid, cuid, msn, "failure", "pin_reset", final_applet_version, keyVersion!=NULL? keyVersion: "", "pin_reset processing, failed to create secure channel");
         } 
     } else if (rc != 1 && status == STATUS_ERROR_LOGIN) {
         if (login == NULL) {
-            RA::Audit(EV_PIN_RESET, "status='error' app_ver='%s' key_ver='%s' cuid='%s' msn='%s' note='login failure'", final_applet_version, keyVersion, cuid, msn);
+            RA::Audit(EV_PIN_RESET, AUDIT_MSG_PROC,
+              "null", cuid, msn, "failure", "pin_reset", final_applet_version, keyVersion!=NULL? keyVersion: "", "pin_reset processing, login failure");
 	} else {
-            RA::Audit(EV_PIN_RESET, "status='error' app_ver='%s' key_ver='%s' cuid='%s' msn='%s' uid='%s' note='authentication failure'", 
-                final_applet_version, keyVersion, cuid, msn, userid);
+            RA::Audit(EV_PIN_RESET, AUDIT_MSG_PROC,
+              userid, cuid, msn, "failure", "pin_reset", final_applet_version, keyVersion, "pin_reset processing, authentication failure");
         } 
     }
     if( token_status != NULL ) {

@@ -52,6 +52,8 @@ extern "C"
 #include "plstr.h"
 #include "prmem.h"
 #include "prtime.h"
+#include "cert.h"
+#include "nss3/base64.h"
 
 #include "httpd/httpd.h"
 #include "httpd/http_config.h"
@@ -2626,7 +2628,37 @@ int check_injection_size(char **injection, int *psize, char *fixed_injection)
    }
    return 0;
 }
- 
+
+/*
+ * We need to compare current values in the database entry e with new values.
+ * If they are different, then we need to provide the audit message
+ */
+int audit_attribute_change(LDAPMessage *e, const char *fname, char *fvalue, char *msg)
+{ 
+    char **attr_values = NULL;
+    char pString[512]="";
+
+    attr_values = get_attribute_values( e, fname );
+    if (attr_values != NULL) {
+        if (fvalue == NULL) {
+            // value has been deleted
+            PR_snprintf(pString, 512, "%s;;no_value", fname);
+        } else if (strcmp(fvalue, attr_values[0]) != 0) {
+            // value has been changed 
+            PR_snprintf(pString, 512, "%s;;%s", fname, fvalue);
+        }
+        free_values(attr_values, 1);
+        attr_values = NULL;
+    } else if (fvalue != NULL) {
+        // value has been added
+        PR_snprintf(pString, 512, "%s;;%s", fname, fvalue);
+    }
+
+    if (strlen(pString) > 0) {
+        if (strlen(msg) != 0) PL_strncat(msg, "+", 4096 - strlen(msg));
+        PL_strncat(msg, pString, 4096 - strlen(msg));
+    }
+}
 
 /**
  * mod_tokendb_handler handles the protocol between the tokendb and the RA
@@ -2673,6 +2705,9 @@ mod_tokendb_handler( request_rec *rq )
     int status = LDAP_SUCCESS;
     int size, tagOffset, statusNum;
     char fixed_injection[MAX_INJECTION_SIZE];
+    char pString[512] = "";
+    char oString[512] = "";
+    char pLongString[4096] = "";
     char configname[512];
     char filter[512];
     char msg[512];
@@ -2702,6 +2737,9 @@ mod_tokendb_handler( request_rec *rq )
 
     int end_val =0;
     int start_val = 0;
+
+    /* current operation for audit */
+    char *op = NULL;
 
     RA::Debug( "mod_tokendb_handler::mod_tokendb_handler",
                "mod_tokendb_handler::mod_tokendb_handler" );
@@ -2773,10 +2811,11 @@ mod_tokendb_handler( request_rec *rq )
                            ( char * ) "SSL_CLIENT_CERT" );
     if( cert == NULL ) {
           error_out("Authentication Failure", "Failed to authenticate request");
+          RA::Audit(EV_AUTH_FAIL, AUDIT_MSG_AUTH, "ssl_client_auth", "ssl_client_auth", "Failure", "authentication failure, no cert");
           do_free(buf);
           return DONE;
     }
-
+    
     tokendbDebug( cert );
     tokendbDebug( "\n" );
 
@@ -2786,18 +2825,52 @@ mod_tokendb_handler( request_rec *rq )
     tokendbDebug( "\n" );
 
     userid = tus_authenticate( base64_cert );
-    do_free(base64_cert);
+
     if( userid == NULL ) {
           error_out("Authentication Failure", "Failed to authenticate request");
+
+          SECStatus rv;
+          SECItem certDER;
+          CERTCertificate *c = NULL;
+
+          rv = ATOB_ConvertAsciiToItem(&certDER, base64_cert);
+          if (rv) {
+              RA::Debug("mod_tokendb_handler::mod_tokendb_handler", "Error converting certificate data to binary");
+          } else {
+              c = CERT_DecodeCertFromPackage((char *)certDER.data, certDER.len);
+          }
+
+          RA::Audit(EV_AUTH_FAIL, AUDIT_MSG_AUTH, 
+            (c!= NULL) && (c->subjectName != NULL) ? c->subjectName : "ssl_client_auth", 
+            "ssl_client_auth", "Failure", "authentication failure");
           do_free(buf);
+
+          if (c != NULL) {
+              CERT_DestroyCertificate(c);
+          }
 
           return DONE;
     }
+    do_free(base64_cert);
+
+    // useful to indicate cn of user cert
+    RA::Audit(EV_AUTH_SUCCESS, AUDIT_MSG_AUTH, userid, userid, "Success", "authentication success");
 
     /* authorization */
     is_admin = tus_authorize(TOKENDB_ADMINISTRATORS_IDENTIFIER, userid);
+    if (is_admin) { 
+        RA::Audit(EV_ROLE_ASSUME, AUDIT_MSG_ROLE, userid, "Tokendb Admin", "Success", "assume privileged role");
+    }
+
     is_agent = tus_authorize(TOKENDB_AGENTS_IDENTIFIER, userid);
+    if (is_agent) { 
+        RA::Audit(EV_ROLE_ASSUME, AUDIT_MSG_ROLE, userid, "Tokendb Agent", "Success", "assume privileged role");
+    }
+ 
     is_operator = tus_authorize(TOKENDB_OPERATORS_IDENTIFIER, userid);
+    if (is_operator) { 
+        RA::Audit(EV_ROLE_ASSUME, AUDIT_MSG_ROLE, userid, "Tokendb Operator", "Success", "assume privileged role");
+    } 
 
     if( rq->uri != NULL ) {
         uri = PL_strdup( rq->uri );
@@ -2823,16 +2896,13 @@ mod_tokendb_handler( request_rec *rq )
         char *itemplate = NULL;
         tokendbDebug( "authorization for index case\n" );
         if (is_agent) {
-//   RA::Audit(EventName, format, va_list...);
-//   just an example... not really the right place
-            RA::Audit(EV_ROLE_ASSUME, AUDIT_MSG_FORMAT, userid, "Success", "Tokendb agent user authorization");
             itemplate = indexTemplate;
         } else if (is_operator) {
             itemplate = indexOperatorTemplate;
         } else if (is_admin) {
             itemplate = indexAdminTemplate;
         } else {
-            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_FORMAT, userid, "Failure", "Tokendb user authorization");
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "index", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -2840,6 +2910,8 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "index", "Success", "Tokendb user authorization");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
@@ -2854,13 +2926,14 @@ mod_tokendb_handler( request_rec *rq )
     } else if( ( PL_strstr( query, "op=index_operator" ) ) ) {
         tokendbDebug( "authorization for op=index_operator\n" );
         if (!is_operator) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "index_operator", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         }
-
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "index_operator", "Success", "Tokendb user authorization");
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n", 
@@ -2873,13 +2946,14 @@ mod_tokendb_handler( request_rec *rq )
     } else if( ( PL_strstr( query, "op=index_admin" ) ) ) {
         tokendbDebug( "authorization\n" );
         if (!is_admin) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "index_admin", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         }
-
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "index_admin", "Success", "Tokendb user authorization");
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n", 
@@ -2893,12 +2967,14 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization for do_token\n" );
 
         if( !is_agent ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "do_token", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "do_token", "Success", "Tokendb user authorization");
 
         /* XXX - chrisho */
         /* op=do_token */
@@ -3054,15 +3130,37 @@ mod_tokendb_handler( request_rec *rq )
                         statusNum = certEnroll->RevokeCertificate(revokeReason,
                                     serial, connid, statusString );
 
-                        // update certificate status
-                        if( strcmp( revokeReason, "6" ) == 0 ) {
-                            PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
-                            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                            update_cert_status( attr_cn, "revoked_on_hold" );
+                        if (statusNum != 0) { // revocation errors
+                            if( strcmp( revokeReason, "6" ) == 0 ) {
+                                PR_snprintf((char *)msg, 256, "Errors in marking certificate on_hold '%s' : %s", attr_cn, statusString);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
+                                  "Failure", "revoked_on_hold", serial, connid, statusString); 
+                            } else {
+                                PR_snprintf((char *)msg, 256, "Errors in revoking certificate '%s' : %s", attr_cn, statusString);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
+                                  "Failure", "revoke", serial, connid, statusString); 
+                            }
                         } else {
-                            PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
-                            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                            update_cert_status( attr_cn, "revoked" );
+                            // update certificate status
+                            if( strcmp( revokeReason, "6" ) == 0 ) {
+                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+                                update_cert_status( attr_cn, "revoked_on_hold" );
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
+                                  "Success", "revoked_on_hold", serial, connid, ""); 
+                            } else {
+                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+                                update_cert_status( attr_cn, "revoked" );
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
+                                  "Success", "revoke", serial, connid, ""); 
+                            }
                         }
 
                         if( attr_cn != NULL ) {
@@ -3110,6 +3208,10 @@ mod_tokendb_handler( request_rec *rq )
             if( rc == -1 ) {
                 tokendbDebug( "token is physically damaged. rc = -1\n" );
 
+                PR_snprintf(oString, 512, "token_id;;%s", cuid);
+                PR_snprintf(pString, 512, "tokenStatus;;lost+tokenReason;;destroyed");
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked physically damaged, rc=-1");
+
                 PR_snprintf( injection, MAX_INJECTION_SIZE,
                              "%s%s%s%s", JS_START,
                              "var error = \"Failed to create LDAPMod: ",
@@ -3131,6 +3233,10 @@ mod_tokendb_handler( request_rec *rq )
                 return DONE;
             } else if( rc > 0 ) {
                 tokendbDebug( "token is physically damaged. rc > 0\n" );
+
+                PR_snprintf(oString, 512, "token_id;;%s", cuid);
+                PR_snprintf(pString, 512, "tokenStatus;;lost+tokenReason;;destroyed");
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked physically damaged, rc>0");
 
                 PR_snprintf( injection, MAX_INJECTION_SIZE,
                              "%s%s%s%s%s", JS_START,
@@ -3154,6 +3260,10 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             }
+
+            PR_snprintf(oString, 512, "token_id;;%s", cuid);
+            PR_snprintf(pString, 512, "tokenStatus;;lost+tokenReason;;destroyed");
+            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pString, "token marked physically damaged");
 
         /* Is this token permanently lost? */
         } else if(((q == 2) && (transition_allowed(token_ui_state, 2))) || 
@@ -3231,16 +3341,37 @@ mod_tokendb_handler( request_rec *rq )
                                                        serial,
                                                        connid,
                                                        statusString );
+                        if (statusNum != 0) { // revocation errors
+                            if( strcmp( revokeReason, "6" ) == 0 ) {
+                                PR_snprintf((char *)msg, 256, "Errors in marking certificate on_hold '%s' : %s", attr_cn, statusString);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
 
-                        // update certificate status
-                        if( strcmp(revokeReason, "6" ) == 0 ) {
-                            PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
-                            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                            update_cert_status( attr_cn, "revoked_on_hold" );
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Failure", "revoked_on_hold", serial, connid, statusString);
+                            } else {
+                                PR_snprintf((char *)msg, 256, "Errors in revoking certificate '%s' : %s", attr_cn, statusString);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Failure", "revoke", serial, connid, statusString);
+                            }
                         } else {
-                            PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
-                            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                            update_cert_status( attr_cn, "revoked" );
+                            // update certificate status
+                            if( strcmp( revokeReason, "6" ) == 0 ) {
+                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+                                update_cert_status( attr_cn, "revoked_on_hold" );
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Success", "revoked_on_hold", serial, connid, "");                 
+                            } else {
+                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+                                update_cert_status( attr_cn, "revoked" );
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Success", "revoke", serial, connid, "");        
+                            }
                         }
 
                         if( attr_cn != NULL ) {
@@ -3287,14 +3418,24 @@ mod_tokendb_handler( request_rec *rq )
             tokendbDebug( "Revoke all the certs on this token "
                           "(reason: keyCompromise)\n" );
 
+            PR_snprintf(oString, 512, "token_id;;%s", cuid);
+
             if (q == 6) { /* terminated */
+              PR_snprintf(pString, 512, "tokenStatus;;terminated+tokenReason;;keyCompromise");
               rc = update_token_status_reason( cuidUserId, cuid,
                                              "terminated", "keyCompromise" );
             } else {
+              PR_snprintf(pString, 512, "tokenStatus;;lost+tokenReason;;keyCompromise");
               rc = update_token_status_reason( cuidUserId, cuid,
                                              "lost", "keyCompromise" );
             }
             if( rc == -1 ) {
+                if (q == 6) { /* terminated*/
+                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked terminated, rc=-1");
+                } else {
+                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked permanently lost, rc=-1");
+                }
+
                 PR_snprintf( injection, MAX_INJECTION_SIZE,
                              "%s%s%s%s", JS_START,
                              "var error = \"Failed to create LDAPMod: ",
@@ -3315,6 +3456,11 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             } else if( rc > 0 ) {
+                if (q == 6) { /* terminated*/
+                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked terminated, rc=>0");
+                } else {
+                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked permanently lost, rc>0");
+                }
                 PR_snprintf( injection, MAX_INJECTION_SIZE,
                              "%s%s%s%s%s", JS_START,
                              "var error = \"LDAP mod error: ",
@@ -3337,10 +3483,15 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             }
+            if (q == 6) { /* terminated*/
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pString, "token marked terminated");
+            } else {
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pString, "token marked permanently lost");
+            }
 
         /* Is this token temporarily lost? */
         } else if(( q == 3 ) && (transition_allowed(token_ui_state, 3))) {
-
+            bool revocation_errors = false;
             PR_snprintf((char *)msg, 256,
               "'%s' marked token temporarily lost", userid);
             RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated",
@@ -3414,14 +3565,38 @@ mod_tokendb_handler( request_rec *rq )
                                                        connid,
                                                        statusString );
 
-                        if( strcmp( revokeReason, "6" ) == 0 ) {
-                            PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
-                            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                            update_cert_status( attr_cn, "revoked_on_hold" );
+                        if (statusNum != 0) { // revocation errors
+                            if( strcmp( revokeReason, "6" ) == 0 ) {
+                                PR_snprintf((char *)msg, 256, "Errors in marking certificate on_hold '%s' : %s", attr_cn, statusString);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Failure", "revoked_on_hold", serial, connid, statusString);
+                            } else {
+                                PR_snprintf((char *)msg, 256, "Errors in revoking certificate '%s' : %s", attr_cn, statusString);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Failure", "revoke", serial, connid, statusString);
+                            }
+                            revocation_errors = true;
                         } else {
-                            PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
-                            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                            update_cert_status( attr_cn, "revoked" );
+                            // update certificate status
+                            if( strcmp( revokeReason, "6" ) == 0 ) {
+                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+                                update_cert_status( attr_cn, "revoked_on_hold" );
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Success", "revoked_on_hold", serial, connid, "");
+                            } else {
+                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+                                update_cert_status( attr_cn, "revoked" );
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Success", "revoke", serial, connid, "");
+                            }
                         }
 
                         do_free(statusString);
@@ -3459,9 +3634,22 @@ mod_tokendb_handler( request_rec *rq )
 
             }
 
+            PR_snprintf(oString, 512, "token_id;;%s", cuid);
+            PR_snprintf(pString, 512, "tokenStatus;;lost+tokenReason;;onHold");
+            if (revocation_errors) {
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked temporarily lost failed, failed to revoke certificates");
+                error_out("Errors in revoking certificates.", "Errors in revoking certificates.");
+                do_free(buf);
+                do_free(uri);
+                do_free(query);
+                return DONE;
+            }
+
             rc = update_token_status_reason( cuidUserId, cuid,
                                              "lost", "onHold" );
             if( rc == -1 ) {
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked temporarily lost, rc=-1");
+
                 PR_snprintf( injection, MAX_INJECTION_SIZE,
                              "%s%s%s%s", JS_START,
                              "var error = \"Failed to create LDAPMod: ",
@@ -3481,6 +3669,8 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             } else if( rc > 0 ) {
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked temporarily lost, rc>0");
+
                 PR_snprintf( injection, MAX_INJECTION_SIZE,
                              "%s%s%s%s%s", JS_START,
                              "var error = \"LDAP mod error: ",
@@ -3503,6 +3693,7 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             }
+            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pString, "token marked temporarily lost");
 
         /* Is this temporarily lost token found? */
         } else if(( q == 4 ) && ( transition_allowed(token_ui_state, 4) )) {
@@ -3571,11 +3762,21 @@ mod_tokendb_handler( request_rec *rq )
                                           UnrevokeCertificate( serial,
                                                                connid,
                                                                statusString );
-                         
 
-                          PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as active", attr_cn);
-                          RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                        update_cert_status( attr_cn, "active" );
+                        if (statusNum == 0) {
+                            PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as active", attr_cn);
+                            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+                            update_cert_status( attr_cn, "active" );
+
+                            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                              "Success", "unrevoke", serial, connid, "");
+                        } else {
+                            PR_snprintf((char *)msg, 256, "Errors in unrevoking Certificate '%s': %s", attr_cn, statusString);
+                            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+
+                            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                              "Failure", "unrevoke", serial, connid, statusString);
+                        }
                         
                         if( attr_cn != NULL ) {
                             PL_strfree( attr_cn );
@@ -3612,8 +3813,11 @@ mod_tokendb_handler( request_rec *rq )
             }
 
             update_token_status_reason( cuidUserId, cuid, "active", NULL );
+            PR_snprintf(oString, 512, "token_id;;%s", cuid);
+            PR_snprintf(pString, 512, "tokenStatus;;active+tokenReason;;null");
 
             if( rc == -1 ) {
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "lost token marked found, rc=-1");
                 error_out("Failed to create LDAPMod: ", "Failed to create LDAPMod");
 
                 do_free(buf);
@@ -3622,6 +3826,7 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             } else if( rc > 0 ) {
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "lost token marked found, rc>0");
                 ldap_error_out("LDAP mod error: ", "LDAP error: %s");
 
                 do_free(buf);
@@ -3630,6 +3835,7 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             }
+            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pString, "lost token marked found");
 
         /* Does this temporarily lost token become permanently lost? */
         } else if ( (q == 5) && (transition_allowed(token_ui_state, 5)) ) {
@@ -3708,31 +3914,48 @@ mod_tokendb_handler( request_rec *rq )
                         PR_snprintf( serial, 100, "0x%s", attr_serial );
 
                         int statusNum = 0;
-                        if( strcmp( attr_status, "revoked_on_hold" ) == 0 ) {
+                        if(( strcmp( attr_status, "revoked_on_hold" ) == 0 ) && (strcmp(revokeReason, "6" ) != 0)) {
                             statusNum = certEnroll->
                                         UnrevokeCertificate( serial,
                                                              connid,
                                                              statusString );
-                            do_free(statusString);
-                        }
+                            if (statusNum == 0) {
+                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as active", attr_cn);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+                                update_cert_status( attr_cn, "active" );
 
-                        if( statusNum == 0 ) {
-                            statusNum = certEnroll->
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Success", "unrevoke", serial, connid, "");
+
+                                do_free(statusString);
+                                statusNum = certEnroll->
                                         RevokeCertificate( revokeReason,
                                                            serial,
-                                                           connid, 
+                                                           connid,
                                                            statusString );
-                            do_free(statusString);
-                        }
+                                if (statusNum == 0) {
+                                    PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
+                                    RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+                                    update_cert_status( attr_cn, "revoked" );
 
-                        if( strcmp( revokeReason, "6" ) == 0 ) {
-                          PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
-                          RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                            update_cert_status( attr_cn, "revoked_on_hold" );
-                        } else {
-                          PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
-                          RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                            update_cert_status( attr_cn, "revoked" );
+                                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                      "Success", "revoke", serial, connid, "");
+                                } else {
+                                    PR_snprintf((char *)msg, 256, "Errors in revoking Certificate '%s' : %s", attr_cn, statusString);
+                                    RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+
+                                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                      "Failure", "revoke", serial, connid, statusString);
+                                }
+                            } else {
+                                PR_snprintf((char *)msg, 256, "Errors in unrevoking Certificate '%s' : %s", attr_cn, statusString);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
+
+                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
+                                  "Failure", "unrevoke", serial, connid, statusString);
+                            }
+
+                            do_free(statusString);
                         }
 
                         if( attr_cn != NULL ) {
@@ -3769,6 +3992,10 @@ mod_tokendb_handler( request_rec *rq )
 
             rc = update_token_status_reason( cuidUserId, cuid,
                                              "lost", "keyCompromise" );
+
+            PR_snprintf(oString, 512, "token_id;;%s", cuid);
+            PR_snprintf(pString, 512, "tokenStatus;;lost+tokenReason;;keyCompromise");
+            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pString, "lost token marked permanently lost");
         } else {
             // invalid operation or transition
             error_out("Transition or operation not allowed", "Transition or operation not allowed");
@@ -3796,12 +4023,15 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug("authorization\n");
 
         if( ! is_agent ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "revoke", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         }
+
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "revoke", "Success", "Tokendb user authorization");
 
         /* XXX - chrisho */
         /* op=revoke */
@@ -3820,12 +4050,15 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization\n" );
 
         if (! is_admin) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "search_activity_admin", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         } 
+
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search_activity_admin", "Success", "Tokendb user authorization");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
@@ -3841,12 +4074,14 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization\n" );
 
         if ((! is_agent) && (! is_operator)) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "search_activity", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         } 
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search_activity", "Success", "Tokendb user authorization");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
@@ -3868,6 +4103,7 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization\n" );
 
         if( ! is_admin ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "search_admin,search_users", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -3875,6 +4111,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search_admin,search_users", "Success", "Tokendb user authorization");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
@@ -3892,12 +4129,14 @@ mod_tokendb_handler( request_rec *rq )
     } else if ( PL_strstr( query, "op=search_certificate" ) )  {
         tokendbDebug( "authorization\n" );
         if ((! is_agent) && (! is_operator)) { 
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "search_certificate", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search_certificate", "Success", "Tokendb user authorization");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
@@ -3917,12 +4156,14 @@ mod_tokendb_handler( request_rec *rq )
     } else if( ( PL_strstr( query, "op=search" ) ) ) {
         tokendbDebug( "authorization for op=search\n" );
         if ((! is_agent) && (! is_operator)) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "search", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search", "Success", "Tokendb user authorization");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
@@ -3942,6 +4183,7 @@ mod_tokendb_handler( request_rec *rq )
     } else if( ( PL_strstr( query, "op=new" ) ) ) {
         tokendbDebug( "authorization\n" );
         if( ! is_admin ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "new", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -3949,6 +4191,7 @@ mod_tokendb_handler( request_rec *rq )
             return DONE;
 
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "new", "Success", "Tokendb user authorization");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
@@ -3962,6 +4205,7 @@ mod_tokendb_handler( request_rec *rq )
     } else if ( ( PL_strstr( query, "op=add_user" ) ) ) {
         tokendbDebug( "authorization for add_user\n" );
         if( ! is_admin ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "add_user", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -3969,6 +4213,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "add_user", "Success", "Tokendb user authorization");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s", JS_START,
@@ -3993,6 +4238,9 @@ mod_tokendb_handler( request_rec *rq )
                ( PL_strstr( query, "op=do_confirm_token" ) ) ||
                ( PL_strstr( query, "op=user_delete_confirm"))||
                ( PL_strstr( query, "op=confirm" ) ) ) {
+
+        op  = get_field(query, "op=", SHORT_LEN);
+
         if( ( PL_strstr( query, "op=confirm" ) )    ||
             ( PL_strstr( query, "op=view_admin" ) ) ||
             ( PL_strstr( query, "op=view_activity_admin" ) ) ||
@@ -4004,6 +4252,7 @@ mod_tokendb_handler( request_rec *rq )
             tokendbDebug( "authorization for admin ops\n" );
 
             if( ! is_admin ) {
+                RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, op, "Failure", "Tokendb user authorization");
                 error_out("Authorization Failure", "Failed to authorize request");
                 do_free(buf);
                 do_free(uri);
@@ -4011,11 +4260,13 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             }
+            RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, op, "Success", "Tokendb user authorization");
         } else if ((PL_strstr(query, "op=edit")) || 
                    (PL_strstr(query, "do_confirm_token"))) {
             tokendbDebug( "authorization for op=edit and op=do_confirm_token\n" );
 
             if (! is_agent ) {
+                RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, op, "Failure", "Tokendb user authorization");
                 error_out("Authorization Failure", "Failed to authorize request");
                 do_free(buf);
                 do_free(uri);
@@ -4023,6 +4274,7 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             }
+            RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, op, "Success", "Tokendb user authorization");
         } else if (PL_strstr(query, "op=view_activity")) {
             tokendbDebug( "authorization for view_activity\n" );
 
@@ -4039,6 +4291,7 @@ mod_tokendb_handler( request_rec *rq )
             tokendbDebug( "authorization\n" );
 
             if ((! is_agent) && (!is_operator)) { 
+                RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, op, "Failure", "Tokendb user authorization");
                 error_out("Authorization Failure", "Failed to authorize request");
                 do_free(buf);
                 do_free(uri);
@@ -4046,7 +4299,10 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             }
+            RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, op, "Success", "Tokendb user authorization");
         }
+
+        do_free(op);
 
         if ((PL_strstr( query, "op=view_activity_admin")) || 
             (PL_strstr( query, "op=view_activity" ) )) {
@@ -4573,6 +4829,7 @@ mod_tokendb_handler( request_rec *rq )
     } else if ( PL_strstr( query, "op=add_profile_user" )) {
         tokendbDebug("authorization for op=add_profile_user");
         if( ! is_admin ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "add_profile_user", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -4580,6 +4837,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "add_profile_user", "Success", "Tokendb user authorization");
         uid = get_post_field(post, "uid", SHORT_LEN);
         char *profile = get_post_field(post, "profile_0", SHORT_LEN);
         char *other_profile = get_post_field(post, "other_profile", SHORT_LEN);
@@ -4620,6 +4878,9 @@ mod_tokendb_handler( request_rec *rq )
             "'%s' has added profile %s to user %s", userid, profile, uid);
         RA::tdb_activity(rq->connection->remote_ip, "", "add_profile", "success", msg, uid, NO_TOKEN_TYPE);
 
+        PR_snprintf(oString, 512, "userid;;%s", uid);
+        PR_snprintf(pString, 512, "profile;;%s", profile);
+        RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "profile added to user"); 
 
         PR_snprintf(injection, MAX_INJECTION_SIZE,
                     "/tus/tus?op=edit_user&uid=%s&flash=Profile+%s+has+been+added+to+the+user+record",
@@ -4635,6 +4896,7 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization for op=save_user\n" );
 
         if( ! is_admin ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "save_user", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -4642,6 +4904,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "save_user", "Success", "Tokendb user authorization");
         // first save user details
         uid = get_post_field(post, "uid", SHORT_LEN);
         firstName = get_post_field(post, "firstName", SHORT_LEN);
@@ -4650,6 +4913,31 @@ mod_tokendb_handler( request_rec *rq )
         opOperator = get_post_field(post, "opOperator", SHORT_LEN);
         opAgent = get_post_field(post, "opAgent", SHORT_LEN);
         opAdmin = get_post_field(post, "opAdmin", SHORT_LEN);
+
+        // construct audit log message
+        PR_snprintf(oString, 512, "userid;;%s", uid);
+        PR_snprintf(pLongString, 4096, "");
+        PR_snprintf(filter, 512, "uid=%s", uid);
+        status = find_tus_user_entries_no_vlv( filter, &result, 0); 
+        e = get_first_entry( result );
+        if( e != NULL ) {
+            audit_attribute_change(e, "givenName", firstName, pLongString);
+            audit_attribute_change(e, "sn", lastName,  pLongString);
+        } 
+
+        if( result != NULL ) {
+            free_results( result );
+            result = NULL;
+        }
+
+        // now check cert 
+        char *test_user = tus_authenticate(userCert);
+        if ((test_user != NULL) && (strcmp(test_user, uid) == 0)) {
+            // cert did not change
+        } else {
+            if (strlen(pLongString) > 0)  PL_strcat(pLongString, "+");
+            PR_snprintf(pLongString, 4096, "%suserCertificate;;%s", pLongString, userCert);
+        }
 
         PR_snprintf((char *)userCN, 256,
             "%s %s", firstName, lastName);
@@ -4661,6 +4949,8 @@ mod_tokendb_handler( request_rec *rq )
         do_free(userCert);
 
         if( status != LDAP_SUCCESS ) {
+        PR_snprintf(oString, 512, "userid;;%s", uid);
+        RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pLongString, "user record failed to be updated"); 
             ldap_error_out("LDAP modify error: ", "LDAP error: %s");
             do_free(buf);
             do_free(uri);
@@ -4672,47 +4962,72 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
- 
-        if ((opOperator != NULL) && (PL_strstr(opOperator, OPERATOR))) {
+        if (strlen(pLongString) > 0)
+            RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pLongString, "user record updated"); 
+
+        bool has_role  = tus_authorize(TOKENDB_OPERATORS_IDENTIFIER, uid); 
+        PR_snprintf(pString, 512, "role;;operator");
+        if ((opOperator != NULL) && (PL_strstr(opOperator, OPERATOR)) && (!has_role)) {
             status = add_user_to_role_db_entry(userid, uid, OPERATOR);
             if ((status!= LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error adding user to role");
                 PR_snprintf(msg, 512, "Error adding user %s to role %s", uid, OPERATOR);
                 post_ldap_error(msg);
+            } else {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user added to role");
             }
-        } else {
+        } else if (has_role) {
             status = delete_user_from_role_db_entry(userid, uid, OPERATOR);
             if ((status!= LDAP_SUCCESS) && (status != LDAP_NO_SUCH_ATTRIBUTE)) {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error deleting user from role");
                 PR_snprintf(msg, 512, "Error deleting user %s from role %s", uid, OPERATOR);
                 post_ldap_error(msg);
+            } else {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user deleted from role");
             }
         }
 
-        if ((opAgent != NULL) && (PL_strstr(opAgent, AGENT))) {
+        has_role  = tus_authorize(TOKENDB_AGENTS_IDENTIFIER, uid); 
+        PR_snprintf(pString, 512, "role;;agent");
+        if ((opAgent != NULL) && (PL_strstr(opAgent, AGENT)) && (!has_role)) {
             status = add_user_to_role_db_entry(userid, uid, AGENT);
             if ((status!= LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error adding user to role");
                 PR_snprintf(msg, 512, "Error adding user %s to role %s", uid, AGENT);
                 post_ldap_error(msg);
+            } else {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user added to role");
             }
-        } else {
+        } else if (has_role) {
             status = delete_user_from_role_db_entry(userid, uid, AGENT);
             if ((status!= LDAP_SUCCESS) && (status != LDAP_NO_SUCH_ATTRIBUTE)) {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error deleting user from role");
                 PR_snprintf(msg, 512, "Error deleting user %s from role %s", uid, AGENT);
                 post_ldap_error(msg);
+            } else {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user deleted from role");
             }
-
         }
 
-        if ((opAdmin != NULL) && (PL_strstr(opAdmin, ADMINISTRATOR))) {
+        has_role  = tus_authorize(TOKENDB_ADMINISTRATORS_IDENTIFIER, uid); 
+        PR_snprintf(pString, 512, "role;;administrator");
+        if ((opAdmin != NULL) && (PL_strstr(opAdmin, ADMINISTRATOR)) && (!has_role)) {
             status = add_user_to_role_db_entry(userid, uid, ADMINISTRATOR);
             if ((status!= LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error adding user to role");
                 PR_snprintf(msg, 512, "Error adding user %s to role %s", uid, ADMINISTRATOR);
                 post_ldap_error(msg);
+            } else {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user added to role");
             }
-        } else {
+        } else if (has_role) {
             status = delete_user_from_role_db_entry(userid, uid, ADMINISTRATOR);
             if ((status!= LDAP_SUCCESS) && (status != LDAP_NO_SUCH_ATTRIBUTE)) {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error deleting user from role");
                 PR_snprintf(msg, 512, "Error deleting user %s from role %s", uid, ADMINISTRATOR);
                 post_ldap_error(msg);
+            } else {
+                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user deleted from role");
             }
         }
   
@@ -4734,11 +5049,15 @@ mod_tokendb_handler( request_rec *rq )
             char *p_del = get_post_field(post, p_delete, SHORT_LEN);
 
             if ((profile != NULL) && (p_del != NULL) && (PL_strstr(p_del, "delete"))) {
+                PR_snprintf(pString, 512, "profile_id;;%s", profile);
                 status = delete_profile_from_user(userid, uid, profile);
                 if ((status != LDAP_SUCCESS) && (status != LDAP_NO_SUCH_ATTRIBUTE)) {
+                    RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "error deleting profile from user");
                     PR_snprintf(msg, 512, "LDAP Error in deleting profile %s from user %s",
                         profile, uid);
                     post_ldap_error(msg);
+                } else {
+                    RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "profile deleted from user");
                 }
             }
             do_free(profile);
@@ -4766,12 +5085,14 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization\n" );
 
         if( ! is_agent ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "save", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "save", "Success", "Tokendb user authorization");
 
         getCN( filter, query );
         mNum = parse_modification_number( query );
@@ -4787,6 +5108,21 @@ mod_tokendb_handler( request_rec *rq )
         } else {
             status = modify_tus_db_entry( userid, filter, mods );
         }
+    
+        int cc;
+        PR_snprintf(oString, 512, "token_id;;%s", filter);
+        PR_snprintf(pLongString, 4096, "");
+        int first_item = 1;
+        for (cc = 0; mods[cc] != NULL; cc++) {
+           if (! first_item) PL_strcat(pLongString, "+");
+           if (mods[cc]->mod_type != NULL) { 
+               PL_strcat(pLongString, mods[cc]->mod_type);
+               PL_strcat(pLongString, ";;");
+               PL_strcat(pLongString, *mods[cc]->mod_values);
+               first_item =0;
+           } 
+        }
+        RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pLongString, "token record modified");
 
         if( mods != NULL ) {
             free_modifications( mods, 0 );
@@ -4815,6 +5151,7 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization for do_delete_user\n" );
 
         if( ! is_admin ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "do_delete_user", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -4822,6 +5159,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "do_delete_user", "Success", "Tokendb user authorization");
 
         uid = get_post_field(post, "uid", SHORT_LEN);
         opOperator = get_post_field(post, "opOperator", SHORT_LEN);
@@ -4871,6 +5209,10 @@ mod_tokendb_handler( request_rec *rq )
         status = delete_user_db_entry(userid, uid);
 
         if ((status != LDAP_SUCCESS) && (status != LDAP_NO_SUCH_OBJECT)) {
+            PR_snprintf(oString, 512, "uid;;%s", uid);
+            PR_snprintf(pString, 512, "status;;%d", status);
+            RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString,  "error in deleting user"); 
+
             PR_snprintf(msg, 512, "Error deleting user %s", uid);
             ldap_error_out(msg, msg);
             do_free(buf);
@@ -4884,6 +5226,8 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf((char *)msg, 256,
             "'%s' has deleted user %s", userid, uid);
         RA::tdb_activity(rq->connection->remote_ip, "", "delete_user", "success", msg, uid, NO_TOKEN_TYPE);
+        PR_snprintf(oString, 512, "uid;;%s", uid);
+        RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, "", "tokendb user deleted"); 
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s%s%s%s%s", JS_START,
@@ -4901,6 +5245,7 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization for addUser\n" );
 
         if( ! is_admin ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "addUser", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -4908,6 +5253,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "addUser", "Success", "Tokendb user authorization");
 
         uid = get_post_field(post, "userid", SHORT_LEN);
         firstName = get_post_field(post, "firstName", SHORT_LEN);
@@ -4956,6 +5302,9 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf((char *)msg, 512,
             "'%s' has created new user %s", userid, uid);
         RA::tdb_activity(rq->connection->remote_ip, "", "add_user", "success", msg, uid, NO_TOKEN_TYPE);
+
+        PR_snprintf(oString, 512, "uid;;%s", uid);
+        RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, "", "tokendb user added"); 
 
         if ((opOperator != NULL) && (PL_strstr(opOperator, OPERATOR))) {
             status = add_user_to_role_db_entry(userid, uid, OPERATOR);
@@ -5023,12 +5372,14 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization for op=add\n" );
         RA_Status token_type_status;
         if( ! is_admin ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "add", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "add", "Success", "Tokendb user authorization");
 
         getCN( filter, query );
 
@@ -5063,6 +5414,9 @@ mod_tokendb_handler( request_rec *rq )
             return DONE;
         }
 
+        PR_snprintf(oString, 512, "token_id;;%s", filter);
+        RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Admin", "Success", oString, "", "token record added");
+
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
@@ -5079,6 +5433,7 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization for op=delete\n" );
 
         if( ! is_admin ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "delete", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -5086,6 +5441,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "delete", "Success", "Tokendb user authorization");
 
         getCN( filter, query );
 
@@ -5112,6 +5468,9 @@ mod_tokendb_handler( request_rec *rq )
             return DONE;
         }
 
+        PR_snprintf(oString, 512, "token_id;;%s", filter);
+        RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Admin", "Success", oString, "",  "token record deleted");
+
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
@@ -5126,6 +5485,7 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization for op=load\n" );
 
         if( (! is_agent ) && (! is_operator) ) {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "load", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -5133,6 +5493,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "load", "Success", "Tokendb user authorization");
 
         getTemplateName( template1, query );
 
@@ -5141,6 +5502,7 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization for op=audit_admin\n" );
 
         if (!is_admin )  {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "audit_admin", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -5148,6 +5510,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "audit_admin", "Success", "Tokendb user authorization");
 
         PR_snprintf (injection, MAX_INJECTION_SIZE,
              "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s%s%d%s%s%s%s%s%s%s%s%s%s", JS_START,
@@ -5186,6 +5549,7 @@ mod_tokendb_handler( request_rec *rq )
         tokendbDebug( "authorization for op=audit_admin\n" );
 
         if (!is_admin )  {
+            RA::Audit(EV_AUTHZ_FAIL, AUDIT_MSG_AUTHZ, userid, "update_audit_admin", "Failure", "Tokendb user authorization");
             error_out("Authorization Failure", "Failed to authorize request");
             do_free(buf);
             do_free(uri);
@@ -5193,6 +5557,7 @@ mod_tokendb_handler( request_rec *rq )
 
             return DONE;
         }
+        RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "update_audit_admin", "Success", "Tokendb user authorization");
  
         int need_update=0;
 
@@ -5206,6 +5571,7 @@ mod_tokendb_handler( request_rec *rq )
                PR_snprintf((char *)msg, 512, "'%s' has enabled audit logging", userid);
                RA::tdb_activity(rq->connection->remote_ip, "", "enable_audit_logging", "success", msg, userid, NO_TOKEN_TYPE);
 
+               RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", "logging.audit.enable;;true", "audit logging enabled");
                // we need to sleep or not all our actvity logs will be written
                PR_Sleep(PR_SecondsToInterval(1));
            }
@@ -5219,6 +5585,8 @@ mod_tokendb_handler( request_rec *rq )
 
                PR_snprintf((char *)msg, 512, "'%s' has disabled audit logging", userid);
                RA::tdb_activity(rq->connection->remote_ip, "", "disable_audit_logging", "success", msg, userid, NO_TOKEN_TYPE);
+
+               RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", "logging.audit.enable;;false", "audit logging disabled");
                PR_Sleep(PR_SecondsToInterval(1));
            }
         }
@@ -5233,6 +5601,8 @@ mod_tokendb_handler( request_rec *rq )
 
                PR_snprintf((char *)msg, 512, "'%s' has enabled audit log signing", userid);
                RA::tdb_activity(rq->connection->remote_ip, "", "enable_audit_log_signing", "success", msg, userid, NO_TOKEN_TYPE);
+               RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", "logging.audit.logSigning;;true", "audit log signing enabled");
+
                PR_Sleep(PR_SecondsToInterval(1));
            }
         }
@@ -5245,6 +5615,8 @@ mod_tokendb_handler( request_rec *rq )
 
                PR_snprintf((char *)msg, 512, "'%s' has disabled audit log signing", userid);
                RA::tdb_activity(rq->connection->remote_ip, "", "disable_audit_log_signing", "success", msg, userid, NO_TOKEN_TYPE);
+               RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", "logging.audit.logSigning;;false", "audit log signing disabled");
+
                PR_Sleep(PR_SecondsToInterval(1));
            }
         }
@@ -5258,6 +5630,9 @@ mod_tokendb_handler( request_rec *rq )
             RA::SetFlushInterval(logSigningInterval);
             PR_snprintf((char *)msg, 512, "'%s' has modified the  audit log signing interval to %d seconds", userid, logSigningInterval);
             RA::tdb_activity(rq->connection->remote_ip, "", "modify_audit_signing", "success", msg, userid, NO_TOKEN_TYPE);
+
+            PR_snprintf(pString, 512, "logging.audit.flush.interval;;%d", logSigningInterval);
+            RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", pString, "audit log configuration modified");
         }
 
         char *logSigningBufferSize_str = get_post_field(post, "logSigningBufferSize", SHORT_LEN);
@@ -5268,6 +5643,9 @@ mod_tokendb_handler( request_rec *rq )
             RA::SetBufferSize(logSigningBufferSize);
             PR_snprintf((char *)msg, 512, "'%s' has modified the  audit log signing buffer size to %d bytes", userid, logSigningBufferSize);
             RA::tdb_activity(rq->connection->remote_ip, "", "modify_audit_signing", "success", msg, userid, NO_TOKEN_TYPE);
+
+            PR_snprintf(pString, 512, "logging.audit.buffer.size;;%d", logSigningBufferSize);
+            RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", pString, "audit log configuration modified");
         }
 
         char *nEvents_str = get_post_field(post, "nEvents", SHORT_LEN);
@@ -5298,6 +5676,9 @@ mod_tokendb_handler( request_rec *rq )
             PR_snprintf((char *)msg, 512,
             "'%s' has modified audit signing configuration", userid);
             RA::tdb_activity(rq->connection->remote_ip, "", "modify_audit_signing", "success", msg, userid, NO_TOKEN_TYPE);
+
+            PR_snprintf(pLongString, 4096, "logging.audit.selected.events;;%s", new_selected);
+            RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", pLongString, "audit log configuration modified");
 
         }
 

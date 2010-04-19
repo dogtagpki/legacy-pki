@@ -220,9 +220,21 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
     bool serverKeygen = false;
     SECKEYPublicKey *pk_p = NULL;
 
+    char audit_msg[512] = "";
+    char *keyVersion = NULL;
+
     float progress_block_size = (float) (end_progress - start_progress) / keyTypeNum;
     RA::Debug(LL_PER_CONNECTION,FN,
 	            "Start of keygen/certificate enrollment");
+
+    // get key version for audit logs
+    if (channel != NULL) {
+       if( keyVersion != NULL ) {
+           PR_Free( (char *) keyVersion );
+           keyVersion = NULL;
+       }
+       keyVersion = Util::Buffer2String(channel->GetKeyInfoData());
+    }
 
     // check if we need to do key generation (by default, overwrite everything)
     PR_snprintf((char *)configname, 256, "%s.%s.keyGen.%s.overwrite", 
@@ -308,6 +320,8 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 	RA::Debug(LL_PER_CONNECTION,FN,
 		"ServerSideKeyGen called, pKey is NULL");
 	  status = STATUS_ERROR_MAC_ENROLL_PDU;
+
+        PR_snprintf(audit_msg, 512, "failed to generate key on server");
 	goto loser;
       } else
 	RA::Debug(LL_PER_CONNECTION,FN,
@@ -318,6 +332,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 	RA::Debug(LL_PER_CONNECTION,FN,
 		"ServerSideKeyGen called, wrappedPrivKey is NULL");
 	status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "ServerSideKeyGen called, wrappedPrivKey is NULL");
 	goto loser;
       } else
 	RA::Debug(LL_PER_CONNECTION,FN,
@@ -327,6 +342,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 	RA::Debug(LL_PER_CONNECTION,FN,
 		"ServerSideKeyGen called, ivParam is NULL");
 	status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "ServerSideKeyGen called, ivParam is NULL");
 	goto loser;
       } else
 	RA::Debug(LL_PER_CONNECTION,FN,
@@ -346,6 +362,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 		"failed to convert b64 private key to binary");
 	SECITEM_FreeItem(&der, PR_FALSE);
 	  status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "failed to convert b64 private key to binary");
 	goto loser;
       }else {
 	RA::Debug(LL_PER_CONNECTION,FN,
@@ -403,6 +420,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 	RA::Error(LL_PER_CONNECTION,FN,
 		  "Error generating key on token.");
         status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "Error generating key on token");
         goto loser;
       }
 
@@ -420,6 +438,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 	RA::Error(LL_PER_CONNECTION,FN,
 		  "Unable to read public key buffer from token");
         status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "Unable to read public key buffer from token");
         goto loser;
       }
       RA::Debug(LL_PER_CONNECTION,FN,
@@ -454,6 +473,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 	    RA::Error(LL_PER_CONNECTION,FN,
 		  "Failed to parse public key");
         status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "Failed to parse public key");
         goto loser;
       }
 
@@ -505,14 +525,16 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 
     cert = certEnroll->EnrollCertificate(
                     pk_p, profileId, userid, cuid_label, 
-		    connid, ppEncodedPublicKeyInfo);
+		    connid, audit_msg, ppEncodedPublicKeyInfo);
 
     if (cert == NULL) {
         status = STATUS_ERROR_MAC_ENROLL_PDU;
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC_CERT_REQ, 
+          userid, cuid, msn, "failure", "enrollment", applet_version, 
+          keyVersion != NULL ? keyVersion : "", 
+          "", connid,  audit_msg);
         goto loser;
     }
-
-    /* fill in keyid, modulus, and exponent */
 
     si_mod = pk_p->u.rsa.modulus;
     modulus = new Buffer((BYTE*) si_mod.data, si_mod.len);
@@ -551,6 +573,10 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
         RA::ra_tus_print_integer(msg, &certificates[index]->serialNumber);
         RA::Debug("DoEnrollment", "Received Certificate");
         RA::Debug("DoEnrollment", msg);
+
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC_CERT_REQ, 
+          userid, cuid, msn, "success", "enrollment", applet_version, 
+          (keyVersion != NULL) ? keyVersion : "", msg, connid,  "certificate received");
     }
     free(cert_string);
     ktypes[index] = PL_strdup(keyType);
@@ -591,12 +617,14 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 
       if (channel->CreateObject(objid, perms, priv_keyblob.size()) != 1) {
 	status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "channel create object error");
 	goto loser;
       }
 
 
       if (channel->WriteObject(objid, (BYTE*)priv_keyblob, priv_keyblob.size()) != 1) {
 	status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "channel write object error");
 	goto loser;
       }
 
@@ -662,6 +690,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 
       if (channel->ImportKeyEnc(se_p1, se_p2, &data) != 1) {
 	status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "channel import key error");
 	goto loser;
       }
 
@@ -703,6 +732,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 
         RA::Debug(LL_PER_CONNECTION,FN,
 		"Enroll Certificate Publish Failure %d",status);
+        PR_snprintf(audit_msg, 512, "publish certificate error");
         goto loser;
       }
 
@@ -737,8 +767,8 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
     	if (rc == -1) {
        	 	RA::Error(LL_PER_CONNECTION,FN,
 		"Failed to create certificate object on token");
-
         	status = STATUS_ERROR_MAC_ENROLL_PDU;
+                PR_snprintf(audit_msg, 512, "Failed to create certificate object on token");
         	goto loser;
     	}
     }
@@ -768,6 +798,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
        	 RA::Error(LL_PER_CONNECTION,FN,
 		"PKCS11 Certificate attributes creation failed");
         	status = STATUS_ERROR_MAC_ENROLL_PDU;
+                PR_snprintf(audit_msg, 512, "PKCS11 Certificate attributes creation failed");
         	goto loser;
     	}
     }
@@ -792,6 +823,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
         	RA::Error(LL_PER_CONNECTION,FN,
 		"PKCS11 private key attributes creation failed");
         	status = STATUS_ERROR_MAC_ENROLL_PDU;
+                PR_snprintf(audit_msg, 512, "PKCS11 private key attributes creation failed");
         	goto loser;
     	}
     }
@@ -815,12 +847,30 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
         	RA::Error(LL_PER_CONNECTION,FN,
 			"PKCS11 public key attributes creation failed");
         	status = STATUS_ERROR_MAC_ENROLL_PDU;
+                PR_snprintf(audit_msg, 512, "PKCS11 public key attributes creation failed");
         	goto loser;
     	}
     }
     RA::Debug(LL_PER_CONNECTION,FN, "End of keygen/certificate enrollment");
 
 loser:
+    if (strlen(audit_msg) > 0) { // a failure occurred
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+          userid != NULL ? userid : "",
+          cuid != NULL ? cuid : "",
+          msn != NULL ? msn : "",
+          "failure",
+          "enrollment",
+          applet_version != NULL ? applet_version : "",
+          keyVersion != NULL? keyVersion : "",
+          audit_msg);
+    }
+
+    if( keyVersion != NULL ) {
+        PR_Free( (char *) keyVersion );
+        keyVersion = NULL;
+    }
+
     if( modulus != NULL ) {
         delete modulus;
         modulus = NULL;
@@ -1053,7 +1103,10 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 		BYTE &o_major_version,
 		BYTE &o_minor_version,
 		Buffer *a_aid,
-		RA_Status &o_status )
+                const char *a_msn, 
+                const char *a_userid,
+		RA_Status &o_status, 
+                char **keyVersion )
 {
 	const char *FN = "RA_Enroll_Processor::CheckAndUpgradeApplet";
 	bool r = true;
@@ -1106,7 +1159,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 				applet_dir, security_level, 
 				connid, a_extensions, 
 				5, 
-				12) != 1) {
+				12, 
+                                keyVersion) != 1) {
 
 				RA::Debug(FN, "applet upgrade failed");
 				/**
@@ -1116,6 +1170,13 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 				RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "applet upgrade error", "", a_tokenType);
 				o_status = STATUS_ERROR_UPGRADE_APPLET;		 
 				r = false;
+
+                                RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
+                                  a_userid, a_cuid, a_msn, "Failure", "enrollment",
+                                  *keyVersion != NULL? *keyVersion : "",
+                                  o_current_applet_on_token, g_applet_target_version,
+                                  "applet upgrade");
+                                
 				goto loser;
 			} else {
 				// there may be a better place to do this, but worth testing here
@@ -1123,8 +1184,13 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 			}
 
 			// Upgrade Applet reported success
-			RA::Audit(EV_ENROLLMENT, "op='applet_upgrade' app_ver='%s' new_app_ver='%s'",
-					o_current_applet_on_token, g_applet_target_version);
+                        
+                        RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
+                          a_userid, a_cuid, a_msn, "Success", "enrollment",
+                          *keyVersion != NULL? *keyVersion : "",
+                          o_current_applet_on_token, g_applet_target_version, 
+                          "applet upgrade");
+
 			o_current_applet_on_token = strdup(g_applet_target_version);
 
 			token_status = GetStatus(a_session, 0x00, 0x00);
@@ -1431,6 +1497,9 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 	char *a_cuid,
 	const char *a_tokenType,
 	char *a_msn,
+        const char *a_applet_version,
+        const char *a_userid,
+        const char *a_key_version,
 	Buffer *a_cardmanagerAID,  /* in */
 	Buffer *a_appletAID,       /* in */
     Secure_Channel *&o_channel,  /* out */
@@ -1444,6 +1513,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 	int rc;
 	bool r = false;
 	Buffer key_data_set;
+        char audit_msg[512] = "";
 
 	// the TKS is responsible for doing much of the symmetric keys update
 	// so lets find which TKS we're talking about TKS now.
@@ -1515,7 +1585,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 					defKeyIndex  /* default key index */, tksid);
 
 			if (o_channel == NULL) {
-            	RA::Audit(EV_ENROLLMENT, "status='error' key_ver=00 cuid='%s' msn='%s' note='failed to create secure channel'", a_cuid, a_msn );
+                                PR_snprintf(audit_msg, 512, "enrollment processing, failed to create secure channel"); 
+
 				RA::Error(FN, "failed to establish secure channel");
 				o_status = STATUS_ERROR_SECURE_CHANNEL;		 
 				RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "secure channel error", "", a_tokenType);
@@ -1530,6 +1601,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 				o_status = STATUS_ERROR_EXTERNAL_AUTH;
 				/* XXX should print out error codes */
 				RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "external authentication error", "", a_tokenType);
+
+                                PR_snprintf(audit_msg, 512, "enrollment processing, external authentication error"); 
 				goto loser;
 			}
 
@@ -1561,6 +1634,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 				RA::Error(FN, "failed to create new key set");
 				o_status = STATUS_ERROR_CREATE_CARDMGR;
 				RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "create card key error", "", a_tokenType);
+
+                                PR_snprintf(audit_msg, 512, "enrollment processing, create card key error"); 
 				goto loser;
 			}
 
@@ -1574,7 +1649,11 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 					curVersion, 
 					curIndex,
 					&key_data_set);
-			RA::Audit(EV_ENROLLMENT, "op='key_change_over' cuid='%s' msn='%s' old_key_ver='%02x' new_key_ver='%02x'",  a_cuid, a_msn, curVersion, ((BYTE*)newVersion)[0]);
+
+                        RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                          a_userid, a_cuid, a_msn, "Success", "enrollment",
+                          a_applet_version, curVersion, ((BYTE*)newVersion)[0],
+                          "key changeover");
 
 			/**
 			 * Re-select the Applet.
@@ -1592,10 +1671,16 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 				RA::Error(FN, "failed to establish secure channel after reselect");
 				o_status = STATUS_ERROR_CREATE_CARDMGR;
 				RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "secure channel setup error", "", a_tokenType);
+
+                                PR_snprintf(audit_msg, 512, "enrollment processing, secure channel setup error after reselect"); 
 				goto loser;
 			} else {
 				RA::Debug(FN, "Key Upgrade has completed successfully.");
 				r = true;  // Success!!
+
+                                RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+                                  a_userid, a_cuid, a_msn, "success", "enrollment", a_applet_version, 
+                                  ((BYTE*)newVersion)[0], "enrollment processing, key upgrade completed");
 			}
 
 		}
@@ -1615,9 +1700,25 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 				defKeyVer,
 				defKeyIndex  /* default key index */, tksid);
 		r = true;	  // Sucess!!
+                RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+                  a_userid, a_cuid, a_msn, "success", "enrollment", a_applet_version, 
+                  a_key_version != NULL? a_key_version: "", 
+                  "enrollment processing, key upgrade disabled");
 	}
 loser:
-	return r;
+    if (strlen(audit_msg) > 0) { // a failure occurred
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+          a_userid != NULL ? a_userid : "",
+          a_cuid != NULL ? a_cuid : "",
+          a_msn != NULL ? a_msn : "",
+          "failure",
+          "enrollment",
+          a_applet_version != NULL ? a_applet_version : "",
+          a_key_version != NULL? a_key_version : "", 
+          audit_msg);
+    }
+
+    return r;
 }
 
 /**
@@ -1664,9 +1765,9 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
     Buffer *token_status = NULL;
     char* appletVersion = NULL;
-	char *final_applet_version = NULL;
+    char *final_applet_version = NULL;
 
-    const char *keyVersion = PL_strdup( "" );
+    char *keyVersion = PL_strdup( "" );
     const char *userid = PL_strdup( "" );
     char *token_state = PL_strdup("inactive");
     char *khex = NULL;
@@ -1682,6 +1783,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     PKCS11Obj *pkcs11objx = NULL;
     Buffer labelBuffer;
     char activity_msg[4096];
+    char audit_msg[512] = ""; 
 
     Buffer *CardManagerAID = RA::GetConfigStore()->GetConfigAsBuffer(
 		   RA::CFG_APPLET_CARDMGR_INSTANCE_AID, 
@@ -1732,6 +1834,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
             RA::Error(FN, "CUID %s Disabled", cuid);
             status = STATUS_ERROR_DISABLED_TOKEN;
             RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "token disabled", "", tokenType);
+            PR_snprintf(audit_msg, 512, "token disabled");
             goto loser;
         }
 
@@ -1741,6 +1844,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
             RA::Error(FN, "CUID %s Re-Enrolled Disallowed", cuid);
             status = STATUS_ERROR_DISABLED_TOKEN;
             RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "token re-enrollment or renewal disallowed", "", tokenType);
+            PR_snprintf(audit_msg, 512, "token re-enrollment or renewal disallowed");
             goto loser;
         }
     } else {
@@ -1753,6 +1857,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
             RA::Error(FN, "CUID %s Enroll Unknown Token", cuid);
             status = STATUS_ERROR_DISABLED_TOKEN;
             RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "unknown token disallowed", "", tokenType);
+            PR_snprintf(audit_msg, 512, "unknown token disallowed");
             goto loser;
         }
     }
@@ -1771,7 +1876,8 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     if (tksid == NULL) {
         RA::Error(FN, "TKS Connection Parameter %s Not Found", configname);
         status = STATUS_ERROR_DEFAULT_TOKENTYPE_NOT_FOUND;
-        RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "token type not found", "", tokenType);
+        RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "token type TKS connection parameter not found", "", tokenType);
+        PR_snprintf(audit_msg, 512, "token type TKS connection parameter not found");
         goto loser;
     }
 
@@ -1781,10 +1887,14 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 	if (!FormatAppletVersionInfo(session, tokenType, cuid,
 		app_major_version, app_minor_version,
 		status,
-		final_applet_version /*out */)) goto loser;
+		final_applet_version /*out */)) { 
+            PR_snprintf(audit_msg, 512, "FormatAppletVersionInfo error");
+            goto loser;
+        }
 
 	PR_snprintf((char *)configname, 256, "%s.%s.loginRequest.enable", OP_PREFIX, tokenType);
 	if (!RequestUserId(session, extensions, configname, tokenType, cuid, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "RequestUserId error");
 		goto loser;
 	}
     
@@ -1792,9 +1902,14 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
 	if (!AuthenticateUser(session, configname, cuid, extensions, 
 				tokenType, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "AuthenticateUser error");
 		goto loser;
 	}
-        
+
+        // get authid for audit log
+        PR_snprintf((char *)configname, 256, "%s.%s.auth.id", OP_PREFIX, tokenType);
+        authid = RA::GetConfigStore()->GetConfigAsString(configname);
+
 	StatusUpdate(session, extensions, 4, "PROGRESS_APPLET_UPGRADE");
 
 	if (! CheckAndUpgradeApplet(
@@ -1806,7 +1921,11 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 		app_major_version, app_minor_version,
 		//appletVersion,
 		NetKeyAID,
-		status )) {
+                msn,
+                userid,
+		status, 
+                &keyVersion)) {
+                PR_snprintf(audit_msg, 512, "CheckAndUpgradeApplet error");
 		goto loser;
 	}
 	
@@ -1821,11 +1940,15 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 		cuid,
 		tokenType,
 		msn,
+                final_applet_version,
+                userid,
+                keyVersion,
 		CardManagerAID,
 		NetKeyAID,
 		channel,
 		status)) 
 	{
+                PR_snprintf(audit_msg, 512, "CheckAndUpgradeSymKeys error");
 		goto loser;
 	}
 		
@@ -1835,6 +1958,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
             RA::Error(FN, "no good channel");
             status = STATUS_ERROR_CREATE_CARDMGR;
             RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "secure channel setup error", "",tokenType);
+            PR_snprintf(audit_msg, 512, "secure channel setup error");
             goto loser;
     }
 
@@ -1853,6 +1977,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
       RA::Error(FN, "external authenticate failed");
         status = STATUS_ERROR_CREATE_CARDMGR;
         RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "external authentication error", "", tokenType);
+        PR_snprintf(audit_msg, 512, "external authentication error");
         goto loser;
     }
 
@@ -1872,6 +1997,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
         status = STATUS_ERROR_MAC_RESET_PIN_PDU;
         RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "new pin request error", "", tokenType);
+        PR_snprintf(audit_msg, 512, "new pin request error");
         goto loser;
       }
       RA::Debug(LL_PER_CONNECTION, "RA_Enroll_Processor::Process",
@@ -1893,6 +2019,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
             status = STATUS_ERROR_MAC_RESET_PIN_PDU;
             RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "create pin request error", "", tokenType);
+            PR_snprintf(audit_msg, 512, "create pin request error");
             goto loser;
         }
       }
@@ -1905,6 +2032,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
           status = STATUS_ERROR_MAC_RESET_PIN_PDU;
             RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "reset pin request error", "", tokenType);
+            PR_snprintf(audit_msg, 512, "reset pin request error");
           goto loser;
       }
     }
@@ -1945,6 +2073,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 		  "encryt data failed");
         status = STATUS_ERROR_MAC_ENROLL_PDU;
         RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "challenge encryption error", "", tokenType);
+        PR_snprintf(audit_msg, 512, "challenge encryption error");
         goto loser;
     }
     // read objects back
@@ -1992,6 +2121,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 				(int)objectLenVal);
         if (o == NULL) {
           status = STATUS_ERROR_CREATE_TUS_TOKEN_ENTRY;
+          PR_snprintf(audit_msg, 512, "error in creating token entry");
           goto loser;
         }
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
@@ -2031,6 +2161,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     rc = RA::tdb_add_token_entry((char *)userid, cuid, "uninitialized", tokenType);
     if (rc == -1) {
         status = STATUS_ERROR_CREATE_TUS_TOKEN_ENTRY;
+        PR_snprintf(audit_msg, 512, "error in creating uninitialized token entry");
         goto loser;
     }
 
@@ -2044,6 +2175,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
       key_check, plaintext_challenge, cuid, msn, final_applet_version, 
       khex, userid, status, certificates, o_certNums, tokenTypes)) {
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - GenerateCertsAfterRecoveryPolicy returns false");
+        PR_snprintf(audit_msg, 512, "GenerateCertsAfterRecoveryPolicy returns false");
         goto loser;
     } else {
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - GenerateCertsAfterRecoveryPolicy returns true");
@@ -2054,6 +2186,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
               key_check, plaintext_challenge, cuid, msn, final_applet_version, 
               khex, userid, status, certificates, o_certNums, tokenTypes)) {
                 RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after GenerateCertificates"," returns false");
+                PR_snprintf(audit_msg, 512, "GenerateCertificates returns false");
                 goto loser;
             } else {
                 RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after GenerateCertificates"," returns true");
@@ -2257,12 +2390,14 @@ op.enroll.certificates.caCert.label=caCert Label
 	if (channel->CreateObject(objid, perms, xb.size()) != 1) {
 	  status = STATUS_ERROR_MAC_ENROLL_PDU;
           RA::Debug("RA_Enroll_Processor::channel createObject"," failed");
+          PR_snprintf(audit_msg, 512, "channel createObject failed");
 	  goto loser;
 	}
       //      channel->CreateObject(objid, xb.size());
 	if (channel->WriteObject(objid, (BYTE*)xb, xb.size()) != 1) {
 	  status = STATUS_ERROR_MAC_ENROLL_PDU;
           RA::Debug("RA_Enroll_Processor::channel writeObject"," failed");
+          PR_snprintf(audit_msg, 512, "channel writeObject failed");
 	  goto loser;
 	}
     }
@@ -2307,6 +2442,7 @@ op.enroll.certificates.caCert.label=caCert Label
 		"Set life cycle state failed");
         status = STATUS_ERROR_MAC_LIFESTYLE_PDU;
         RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "set life cycle state error", "", tokenType);
+        PR_snprintf(audit_msg, 512, "set life cycle state error");
         goto loser;
     }
 
@@ -2316,6 +2452,7 @@ op.enroll.certificates.caCert.label=caCert Label
 		"Failed to close channel");
         status = STATUS_ERROR_CONNECTION;
         RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "channel not closed", "", tokenType);
+        PR_snprintf(audit_msg, 512, "channel not closed");
         goto loser;
     }
     
@@ -2343,19 +2480,51 @@ op.enroll.certificates.caCert.label=caCert Label
     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "after end");
 
     /* audit log for successful enrollment */
-    if (authid == NULL) {
-    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "authid == NULL");
-        RA::Audit(EV_ENROLLMENT, "status='success' app_ver='%s' key_ver='%s' cuid='%s' msn='%s' uid='%s' time='%d msec'",
-          final_applet_version, keyVersion, cuid, msn, userid, ((PR_IntervalToMilliseconds(end) - PR_IntervalToMilliseconds(start))));
+    if (renewed) { 
+        if (authid != NULL) { 
+            PR_snprintf(activity_msg, 4096, "renewal processing completed, authid = %s", authid);
+        } else {
+            PR_snprintf(activity_msg, 4096, "renewal processing completed");
+        }
+        RA::Audit(EV_RENEWAL, AUDIT_MSG_PROC,
+          userid, cuid, msn, "success", "renewal", final_applet_version, keyVersion, activity_msg);
     } else { 
-    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "has authid");
-        RA::Audit(EV_ENROLLMENT, "status='success' app_ver='%s' key_ver='%s' cuid='%s' msn='%s' uid='%s' auth='%s' time='%d msec'",
-          final_applet_version, keyVersion, cuid, msn, userid, authid, ((PR_IntervalToMilliseconds(end) - PR_IntervalToMilliseconds(start))));
+        if (authid != NULL) { 
+            PR_snprintf(activity_msg, 4096, "enrollment processing completed, authid = %s", authid);
+        } else {
+            PR_snprintf(activity_msg, 4096, "enrollment processing completed");
+        }
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+          userid, cuid, msn, "success", "enrollment", final_applet_version, keyVersion, activity_msg);
     }
 
     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "after audit, o_certNums=%d",o_certNums);
 
 loser:
+
+    if (strlen(audit_msg) > 0) { // a failure occurred
+        if (renewed) { 
+            RA::Audit(EV_RENEWAL, AUDIT_MSG_PROC,
+              userid != NULL ? userid : "", 
+              cuid != NULL ? cuid : "", 
+              msn != NULL ? msn : "", 
+              "failure", 
+              "renewal", 
+              final_applet_version != NULL ? final_applet_version : "", 
+              keyVersion != NULL ? keyVersion : "", 
+              audit_msg);
+        } else { 
+            RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+              userid != NULL ? userid : "", 
+              cuid != NULL ? cuid : "", 
+              msn != NULL ? msn : "", 
+              "failure", 
+              "enrollment", 
+              final_applet_version != NULL ? final_applet_version : "", 
+              keyVersion != NULL ? keyVersion : "", 
+              audit_msg);
+        }
+    }
 
     if (tokenTypes != NULL) {
         for (int nn=0; nn<o_certNums; nn++) {
@@ -2893,7 +3062,7 @@ bool isCertRenewable(CERTCertificate *cert){
  * o_cert - cert newly issued
  */
 bool RA_Enroll_Processor::DoRenewal(const char *connid, const char *profileId, CERTCertificate *i_cert,
-CERTCertificate **o_cert)
+CERTCertificate **o_cert, char *error_msg)
 {
     RA_Status status = STATUS_NO_ERROR;
     bool r = true;
@@ -2906,8 +3075,9 @@ CERTCertificate **o_cert)
     RA::Debug("RA_Enroll_Processor::DoRenewal", "begins renewal for serial number %u with profileId=%s", (int)snum, profileId);
 
     certRenewal = new CertEnroll();
-    cert = certRenewal->RenewCertificate(snum, connid, profileId);
+    cert = certRenewal->RenewCertificate(snum, connid, profileId, error_msg);
 
+// this is where renewal happens .. audit log for fail/ success here? 
     if (cert == NULL) {
         r = false;
         RA::Debug("RA_Enroll_Processor::DoRenewal", "Renewal failed for serial number %d", snum);
@@ -2960,11 +3130,23 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
     char filter[256];
     LDAPMessage *result = NULL;
     const char *pretty_cuid = NULL;
+    char audit_msg[512] = "";
+    char *keyVersion = NULL;
 
     int i = 0;
     const char *FN="RA_Enroll_Processor::ProcessRenewal";
 
     RA::Debug("RA_Enroll_Processor::ProcessRenewal", "starts");
+
+    // get key version for audit logs
+    if (channel != NULL) {
+        if( keyVersion != NULL ) {
+            PR_Free( (char *) keyVersion );
+            keyVersion = NULL;
+        }
+        keyVersion = Util::Buffer2String(channel->GetKeyInfoData());
+    }
+
     // e.g. op.enroll.userKey.renewal.keyType.num
     // renewal params will just have to match that of the previous
     // enrollment tps profile. Will try to be smarter later...
@@ -3146,10 +3328,17 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
 			RA::Debug("RA_Enroll_Processor::ProcessRenewal", "begin renewal");
                         // send renewal request to CA
                         // o_cert is the cert gotten back
-                        r = DoRenewal(caconnid, profileId, certs[0], &o_cert);
+                        r = DoRenewal(caconnid, profileId, certs[0], &o_cert, audit_msg);
                         if (r == false) {
 			    RA::Debug("RA_Enroll_Processor::ProcessRenewal", "after DoRenewal");
                             o_status = STATUS_ERROR_MAC_ENROLL_PDU;
+
+                            char snum[2048];
+                            RA::ra_tus_print_integer(snum, &(certs[0])->serialNumber);
+                            RA::Audit(EV_RENEWAL, AUDIT_MSG_PROC_CERT_REQ, 
+                              userid, cuid, msn, "failure", "renewal", final_applet_version,
+                              keyVersion != NULL ? keyVersion :  "", 
+                              snum, caconnid, audit_msg);
                             goto rloser;
                         }
 
@@ -3167,6 +3356,13 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
 			  RA::Debug("RA_Enroll_Processor::ProcessRenewal", "got cert!!");
 //			  tmp_c = NSSBase64_EncodeItem(0, 0, 0, &(o_cert)->derCert);
 //			  RA::Debug("RA_Enroll_Processor::ProcessRenewal", "after NSSBase64_EncodeItem");
+
+                          char snum[2048];
+                          RA::ra_tus_print_integer(snum, &o_cert->serialNumber);
+                          RA::Audit(EV_RENEWAL, AUDIT_MSG_PROC_CERT_REQ, 
+                            userid, cuid, msn, "success", "renewal", final_applet_version, 
+                            keyVersion != NULL ? keyVersion :  "", 
+                            snum, caconnid, "certificate renewed");
 			} else {
 			  RA::Debug("RA_Enroll_Processor::ProcessRenewal", "no cert!!");
 			  goto rloser;
@@ -3366,6 +3562,11 @@ loser:
     }
     if( result != NULL ) {
         ldap_msgfree( result );
+    }
+  
+    if( keyVersion != NULL ) {
+        PR_Free( (char *) keyVersion );
+        keyVersion = NULL;
     }
 
     return r;
