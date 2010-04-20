@@ -410,48 +410,7 @@ public class DonePanel extends WizardPanelBase {
                 context.put("errorString", "Failed to update connector information.");
                 return;
             }
-
-            // retrieve CA subsystem certificate from the CA
-            IUGSubsystem system = 
-              (IUGSubsystem) (CMS.getSubsystem(IUGSubsystem.ID));
-            String id = "";
-            try {
-                String b64 = getCASubsystemCert();
-                if (b64 != null) { 
-                    int num = cs.getInteger("preop.subsystem.count", 0);
-                    id = getCAUserId();
-                    num++;
-                    cs.putInteger("preop.subsystem.count", num);
-                    cs.putInteger("subsystem.count", num);
-                    IUser user = system.createUser(id);
-                    user.setFullName(id);
-                    user.setEmail("");
-                    user.setPassword("");
-                    user.setUserType("agentType");
-                    user.setState("1");
-                    user.setPhone("");
-                    X509CertImpl[] certs = new X509CertImpl[1];
-                    certs[0] = new X509CertImpl(CMS.AtoB(b64));
-                    user.setX509Certificates(certs);
-                    system.addUser(user);
-                    CMS.debug("DonePanel display: successfully add the user");
-                    system.addUserCert(user);
-                    CMS.debug("DonePanel display: successfully add the user certificate");
-                    cs.commit(false);
-                }
-            } catch (Exception e) {
-            }
-
-            try {
-                String groupName = "Trusted Managers";
-                IGroup group = system.getGroupFromName(groupName);
-                if (!group.isMember(id)) {
-                    group.addMemberName(id);
-                    system.modifyGroup(group);
-                    CMS.debug("DonePanel display: successfully added the user to the group.");
-                }
-            } catch (Exception e) {
-            }
+            setupClientAuthUser();
         } // if KRA
 
         // import the CA certificate into the OCSP
@@ -469,6 +428,8 @@ public class DonePanel extends WizardPanelBase {
             } catch (Exception e) {
                 CMS.debug("DonePanel display: Failed to update OCSP information in CA.");
             }
+
+            setupClientAuthUser();
         }
         
         if (!select.equals("clone")) {
@@ -574,6 +535,54 @@ public class DonePanel extends WizardPanelBase {
         context.put("csstate", "1");
     }
 
+    private void setupClientAuthUser()
+    {
+        IConfigStore cs = CMS.getConfigStore();
+
+        // retrieve CA subsystem certificate from the CA
+        IUGSubsystem system =
+          (IUGSubsystem) (CMS.getSubsystem(IUGSubsystem.ID));
+        String id = "";
+        try {
+            String b64 = getCASubsystemCert();
+            if (b64 != null) {
+                int num = cs.getInteger("preop.subsystem.count", 0);
+                id = getCAUserId();
+                num++;
+                cs.putInteger("preop.subsystem.count", num);
+                cs.putInteger("subsystem.count", num);
+                IUser user = system.createUser(id);
+                user.setFullName(id);
+                user.setEmail("");
+                user.setPassword("");
+                user.setUserType("agentType");
+                user.setState("1");
+                user.setPhone("");
+                X509CertImpl[] certs = new X509CertImpl[1];
+                certs[0] = new X509CertImpl(CMS.AtoB(b64));
+                user.setX509Certificates(certs);
+                system.addUser(user);
+                CMS.debug("DonePanel display: successfully add the user");
+                system.addUserCert(user);
+                CMS.debug("DonePanel display: successfully add the user certificate");
+                cs.commit(false);
+            }
+        } catch (Exception e) {
+        }
+
+        try {
+            String groupName = "Trusted Managers";
+            IGroup group = system.getGroupFromName(groupName);
+            if (!group.isMember(id)) {
+                group.addMemberName(id);
+                system.modifyGroup(group);
+                CMS.debug("DonePanel display: successfully added the user to the group.");
+            }
+        } catch (Exception e) {
+        }
+    }
+
+
     private void updateOCSPConfig(HttpServletResponse response) 
       throws IOException {
         IConfigStore config = CMS.getConfigStore();
@@ -590,8 +599,9 @@ public class DonePanel extends WizardPanelBase {
         } catch (Exception e) {
         }
 
-        String ocsphost = CMS.getEESSLHost();
-        int ocspport = Integer.parseInt(CMS.getEESSLPort());
+        String ocsphost = CMS.getAgentHost();
+        int ocspport = Integer.parseInt(CMS.getAgentPort());
+        int ocspagentport = Integer.parseInt(CMS.getAgentPort());
         String session_id = CMS.getConfigSDSessionId();
         String content = "xmlOutput=true&sessionID="+session_id+"&ocsp_host="+ocsphost+"&ocsp_port="+ocspport;
 
