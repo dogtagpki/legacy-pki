@@ -272,10 +272,6 @@ public class CMSEngine implements ICMSEngine {
         SessionTimer timertask = new SessionTimer(mSecurityDomainSessionTable);
         mSDTimer.schedule(timertask, 5, 5000);
 
-        if ((state == 1) && (sd.equals("existing"))) {
-            mSDTimer.cancel();
-        }
-
         // get the list of passwords 
         String passwordList = config.getString("cms.passwordlist", "internaldb,replicationdb");
 
