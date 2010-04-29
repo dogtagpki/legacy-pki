@@ -66,6 +66,7 @@ static LogFile* m_audit_log = (LogFile *)NULL;
 static int tokendbInitialized = 0;
 static int tpsConfigured = 0;
 
+RA_Context *RA::m_ctx = NULL;
 bool RA::m_pod_enable=false;
 int RA::m_pod_curr = 0;
 PRLock *RA::m_pod_lock = NULL;
@@ -285,9 +286,6 @@ int RA::InitializeSignedAudit()
                                  0   /* Stack Size */);
     }
 
-    RA::Audit(EV_AUDIT_LOG_STARTUP, AUDIT_MSG_FORMAT, "System", "Success",
-            "audit function startup");
-
     // for CC requirements, we want to flush the audit log immediately
     // to ensure that the audit log is not full
     FlushAuditLogBuffer();
@@ -378,6 +376,8 @@ TPS_PUBLIC int RA::Initialize(char *cfg_path, RA_Context *ctx)
         rc = -2;
         goto loser;
     }
+
+        m_ctx = ctx;
 
 	if (m_cfg->GetConfigAsBool(CFG_DEBUG_ENABLE, 0)) {
                 m_debug_log = GetLogFile(m_cfg->GetConfigAsString(CFG_DEBUG_FILE_TYPE, "LogFile"));
@@ -585,7 +585,11 @@ int RA::InitializeInChild(RA_Context *ctx, int nSignedAuditInitCount) {
     RA::Debug("RA::InitializeInChild", "nSignedAuditInitCount=%i",
              nSignedAuditInitCount); 
     if (NSS_IsInitialized() && (nSignedAuditInitCount >1)) {
-        InitializeSignedAudit();
+        status = InitializeSignedAudit();
+        if (status == 0) {
+            RA::Audit(EV_AUDIT_LOG_STARTUP, AUDIT_MSG_FORMAT, "System", "Success",
+              "audit function startup");
+        } 
     }
 
     if (m_debug_log != NULL) {
@@ -1798,6 +1802,8 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
         int pid;
         int last_err;
 
+        if (!m_audit_enabled) return;
+ 
         if ((m_audit_log == NULL) || (!m_audit_log->isOpen()) || (m_audit_log_buffer == NULL))
 		return;
 	if ((int) level >= m_audit_log_level)
@@ -2476,16 +2482,85 @@ TPS_PUBLIC void RA::update_signed_audit_selected_events(char *new_selected)
     PL_strfree(tmp);
 }
 
-TPS_PUBLIC void RA::update_signed_audit_enable(char *enable)
+TPS_PUBLIC void RA::update_signed_audit_enable(const char *enable)
 {
    m_cfg->Add(CFG_AUDIT_ENABLE, enable);
 }
 
 
-TPS_PUBLIC void RA::update_signed_audit_logging_enable(char *enable)
+TPS_PUBLIC void RA::update_signed_audit_log_signing(const char *enable)
 {
    m_cfg->Add(CFG_AUDIT_SIGNED, enable);
 }
+
+TPS_PUBLIC int RA::setup_audit_log(bool enable_signing, bool signing_changed)
+{ 
+    int status =0;
+    PR_EnterMonitor(m_audit_log_monitor);
+
+    // get buffer if required
+    if (m_audit_log_buffer == NULL) {
+        m_audit_log_buffer = (char *) PR_Malloc(m_buffer_size);
+        if (m_audit_log_buffer == NULL) {
+            RA::Debug(LL_PER_PDU, "RA:: setup_audit_log", "Unable to allocate memory for audit log buffer ..");
+            goto loser;
+        }
+        PR_snprintf((char *) m_audit_log_buffer, m_buffer_size, "");
+        m_bytes_unflushed = 0;
+    }
+
+    // close old log file if signing config changed
+    if (signing_changed && m_audit_log !=NULL) {
+        RA::Debug(LL_PER_PDU, "RA::setup_audit_log","Closing old audit log file");
+        FlushAuditLogBuffer();
+        m_audit_log->shutdown();
+        delete m_audit_log;
+        m_audit_log = NULL;
+    }
+
+    // open new log file if required
+    if (m_audit_log == NULL) {
+        RA::Debug(LL_PER_PDU, "RA::setup_audit_log","Opening audit log file");
+        m_audit_log = GetLogFile(m_cfg->GetConfigAsString(CFG_AUDIT_FILE_TYPE, "LogFile"));
+        status = m_audit_log->startup(m_ctx, CFG_AUDIT_PREFIX,
+                                  m_cfg->GetConfigAsString((enable_signing)?
+                                  CFG_SIGNED_AUDIT_FILENAME:CFG_AUDIT_FILENAME,
+                                  "/tmp/audit.log"),
+                                  enable_signing);
+        if (status != PR_SUCCESS)
+           goto loser;
+
+        status = m_audit_log->open();
+        if (status != PR_SUCCESS)
+            goto loser;
+    }
+
+    // update variables and CS.cfg
+    m_audit_signed = enable_signing;
+    update_signed_audit_log_signing(enable_signing? "true":"false");
+
+    // initialize signing cert and flush thread, if needed
+    status = InitializeSignedAudit();
+    if (status != 0) {
+        RA::Debug(LL_PER_PDU, "RA::setup_audit_log","Failure in InitializeSignedAudit");
+        goto loser;
+    }
+
+    PR_ExitMonitor(m_audit_log_monitor);
+    return 0;
+
+    loser: 
+        RA::Debug(LL_PER_PDU, "RA::setup_audit_log","Failure in audit log setup");
+        PR_ExitMonitor(m_audit_log_monitor);
+        return -1;
+}
+
+TPS_PUBLIC void RA::enable_audit_logging(bool enable)
+{
+    m_audit_enabled = enable;
+    update_signed_audit_enable(enable? "true": "false");
+}
+
 
 TPS_PUBLIC int RA::ra_find_tus_certificate_entries_by_order_no_vlv (char *filter,
   LDAPMessage **result, int order) 

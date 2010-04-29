@@ -151,6 +151,8 @@ class RA
           TPS_PUBLIC static void SetFlushInterval(int interval);
           TPS_PUBLIC static void SetBufferSize(int size);
           static void RunFlushThread(void *arg);
+          TPS_PUBLIC static int setup_audit_log(bool enable_signing, bool signing_changed);
+          TPS_PUBLIC static void enable_audit_logging(bool enable);
   private:
 	  static void AuditThis(RA_Log_Level level, const char *func_name, const char *fmt, va_list ap);
 	  static void ErrorThis(RA_Log_Level level, const char *func_name, const char *fmt, va_list ap);
@@ -224,8 +226,8 @@ class RA
           TPS_PUBLIC static PRLock *GetAuthLock();
           TPS_PUBLIC static void IncrementAuthCurrentIndex(int len);
           TPS_PUBLIC static void update_signed_audit_selected_events(char *new_selected);
-          TPS_PUBLIC static void update_signed_audit_enable(char *enable);
-          TPS_PUBLIC static void update_signed_audit_logging_enable(char *enable);
+          TPS_PUBLIC static void update_signed_audit_enable(const char *enable);
+          TPS_PUBLIC static void update_signed_audit_log_signing(const char *enable);
      
 	  static void SetGlobalSecurityLevel(SecurityLevel sl);
 	  static SecurityLevel GetGlobalSecurityLevel();
@@ -331,6 +333,7 @@ class RA
 
           static PublisherEntry *publisher_list;
           static int m_num_publishers;
+          static RA_Context *m_ctx;
 
 
           static PublisherEntry *getPublisherById(const char *publisher_id);

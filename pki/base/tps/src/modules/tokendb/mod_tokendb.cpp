@@ -5561,66 +5561,64 @@ mod_tokendb_handler( request_rec *rq )
  
         int need_update=0;
 
+        bool o_signing = RA::m_audit_signed;
+        bool n_signing = o_signing;
+        char *logSigning = get_post_field(post, "logSigningEnable", SHORT_LEN);
+        if (logSigning != NULL) {
+            n_signing = (PL_strcmp(logSigning, "true") == 0)? true: false;
+        } 
+        do_free(logSigning);
+
+        bool o_enable = RA::m_audit_enabled;
+        bool n_enable = o_enable;
         char *auditEnable = get_post_field(post, "auditEnable", SHORT_LEN);
-        if (PL_strcmp(auditEnable, "true") == 0) {
-           if (! RA::m_audit_enabled) {
-               need_update = 1;
-               RA::m_audit_enabled = true;
-               RA::update_signed_audit_enable("true");
-            
-               PR_snprintf((char *)msg, 512, "'%s' has enabled audit logging", userid);
-               RA::tdb_activity(rq->connection->remote_ip, "", "enable_audit_logging", "success", msg, userid, NO_TOKEN_TYPE);
-
-               RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", "logging.audit.enable;;true", "audit logging enabled");
-               // we need to sleep or not all our actvity logs will be written
-               PR_Sleep(PR_SecondsToInterval(1));
-           }
-        }
-
-        if (PL_strcmp(auditEnable, "false") == 0) {
-           if (RA::m_audit_enabled) {
-               need_update = 1;
-               RA::m_audit_enabled = false;
-               RA::update_signed_audit_enable("false");
-
-               PR_snprintf((char *)msg, 512, "'%s' has disabled audit logging", userid);
-               RA::tdb_activity(rq->connection->remote_ip, "", "disable_audit_logging", "success", msg, userid, NO_TOKEN_TYPE);
-
-               RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", "logging.audit.enable;;false", "audit logging disabled");
-               PR_Sleep(PR_SecondsToInterval(1));
-           }
+        if (auditEnable != NULL) {
+            n_enable = (PL_strcmp(auditEnable, "true") == 0)? true: false;
         }
         do_free(auditEnable);
 
-        char *logSigning = get_post_field(post, "logSigningEnable", SHORT_LEN);
-        if (PL_strcmp(logSigning, "true") == 0) {
-           if (! RA::m_audit_signed) {
-               need_update = 1;
-               RA::m_audit_signed = true;
-               RA::update_signed_audit_logging_enable("true");
+        if ((o_signing == n_signing) && (o_enable == n_enable)) {
+            // nothing changed, continue
+        } else {
+            if (o_signing != n_signing) {
+                PR_snprintf(pString, 512, "logging.audit.logSigning;;%s", (n_signing)? "true":"false");
+                if (o_enable != n_enable) {
+                    PL_strcat(pString, "+logging.audit.enable;;");
+                    PL_strcat(pString, (n_enable)? "true" : "false");
+                }
+            } else {
+                PR_snprintf(pString, 512, "logging.audit.enable;;%s", (n_enable)? "true":"false");
+            }
 
-               PR_snprintf((char *)msg, 512, "'%s' has enabled audit log signing", userid);
-               RA::tdb_activity(rq->connection->remote_ip, "", "enable_audit_log_signing", "success", msg, userid, NO_TOKEN_TYPE);
-               RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", "logging.audit.logSigning;;true", "audit log signing enabled");
+            RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", pString, "attempting to modify audit log configuration");
 
-               PR_Sleep(PR_SecondsToInterval(1));
-           }
+            if (n_enable) { // be sure to log audit log startup messages,if any
+                RA::enable_audit_logging(n_enable);
+            }
+
+            RA::setup_audit_log(n_signing, n_signing != o_signing);
+
+            if (n_enable && !o_enable) {
+                RA::Audit(EV_AUDIT_LOG_STARTUP, AUDIT_MSG_FORMAT, "System", "Success",
+                    "audit function startup");
+            } else if (!n_enable && o_enable) {
+                RA::Audit(EV_AUDIT_LOG_SHUTDOWN, AUDIT_MSG_FORMAT, "System", "Success",
+                    "audit function shutdown");
+            }
+            RA::FlushAuditLogBuffer();
+
+            // sleep to ensure all logs written
+            PR_Sleep(PR_SecondsToInterval(1));
+
+            if (!n_enable) { // turn off logging after all logs written
+                RA::enable_audit_logging(n_enable);
+            }
+            need_update = 1;
+
+            RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", pString, "audit log config modified");
+            PR_snprintf((char *)msg, 512, "'%s' has modified audit log config: %s", userid, pString);
+               RA::tdb_activity(rq->connection->remote_ip, "", "modify_audit_signing", "success", msg, userid, NO_TOKEN_TYPE);
         }
-
-        if (PL_strcmp(logSigning, "false") == 0) {
-           if (RA::m_audit_signed) {
-               need_update = 1;
-               RA::m_audit_signed = false;
-               RA::update_signed_audit_logging_enable("false");
-
-               PR_snprintf((char *)msg, 512, "'%s' has disabled audit log signing", userid);
-               RA::tdb_activity(rq->connection->remote_ip, "", "disable_audit_log_signing", "success", msg, userid, NO_TOKEN_TYPE);
-               RA::Audit(EV_CONFIG_AUDIT, AUDIT_MSG_CONFIG, userid, "Admin", "Success", "", "logging.audit.logSigning;;false", "audit log signing disabled");
-
-               PR_Sleep(PR_SecondsToInterval(1));
-           }
-        }
-        do_free(logSigning);
 
         char *logSigningInterval_str = get_post_field(post, "logSigningInterval", SHORT_LEN);
         int logSigningInterval = atoi(logSigningInterval_str);
