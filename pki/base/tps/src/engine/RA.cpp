@@ -286,10 +286,6 @@ int RA::InitializeSignedAudit()
                                  0   /* Stack Size */);
     }
 
-    // for CC requirements, we want to flush the audit log immediately
-    // to ensure that the audit log is not full
-    FlushAuditLogBuffer();
- 
     return 0;
 loser:
     RA::Debug("RA:: InitializeSignedAudit", "audit function startup failed");
@@ -589,7 +585,11 @@ int RA::InitializeInChild(RA_Context *ctx, int nSignedAuditInitCount) {
         if (status == 0) {
             RA::Audit(EV_AUDIT_LOG_STARTUP, AUDIT_MSG_FORMAT, "System", "Success",
               "audit function startup");
-        } 
+        }
+ 
+        // As per CC requirements, we want to flush the audit log immediately
+        // to ensure that the audit log is not full
+        FlushAuditLogBuffer();
     }
 
     if (m_debug_log != NULL) {
@@ -1851,6 +1851,9 @@ loser:
 TPS_PUBLIC void RA::FlushAuditLogBuffer()
 {
     int status;
+
+    if (!m_audit_enabled) return;
+
     PR_EnterMonitor(m_audit_log_monitor);
     if ((m_bytes_unflushed > 0) && (m_audit_log_buffer != NULL) && (m_audit_log != NULL)) { 
         status = m_audit_log->write(m_audit_log_buffer);
@@ -1874,6 +1877,8 @@ TPS_PUBLIC void RA::SignAuditLog(NSSUTF8 * audit_msg)
     char *audit_sig_msg = NULL;
     char sig[4096];
     int status;
+
+    if (!m_audit_enabled) return;
 
     PR_EnterMonitor(m_audit_log_monitor);
     audit_sig_msg = GetAuditSigningMessage(audit_msg);
