@@ -2811,7 +2811,7 @@ mod_tokendb_handler( request_rec *rq )
                            ( char * ) "SSL_CLIENT_CERT" );
     if( cert == NULL ) {
           error_out("Authentication Failure", "Failed to authenticate request");
-          RA::Audit(EV_AUTH_FAIL, AUDIT_MSG_AUTH, "ssl_client_auth", "ssl_client_auth", "Failure", "authentication failure, no cert");
+          RA::Audit(EV_AUTH_FAIL, AUDIT_MSG_AUTH, "null", "null", "Failure", "authentication failure, no cert");
           do_free(buf);
           return DONE;
     }
@@ -2841,8 +2841,8 @@ mod_tokendb_handler( request_rec *rq )
           }
 
           RA::Audit(EV_AUTH_FAIL, AUDIT_MSG_AUTH, 
-            (c!= NULL) && (c->subjectName != NULL) ? c->subjectName : "ssl_client_auth", 
-            "ssl_client_auth", "Failure", "authentication failure");
+            (c!= NULL) && (c->subjectName != NULL) ? c->subjectName : "null", 
+            "null", "Failure", "authentication failure");
           do_free(buf);
 
           if (c != NULL) {
@@ -4862,12 +4862,17 @@ mod_tokendb_handler( request_rec *rq )
                 status = delete_all_profiles_from_user(userid, uid);
             }
 
+            PR_snprintf(oString, 512, "userid;;%s", uid);
+            PR_snprintf(pString, 512, "profile;;%s", profile);
+
             status = add_profile_to_user(userid, uid, profile);
             if ((status != LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
+                    RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "Failure", oString, pString, "failure adding profile to user"); 
                     PR_snprintf(msg, 512, "LDAP Error in adding profile %s to user %s",
                         profile, uid);
                     post_ldap_error(msg);
             }
+            RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "profile added to user"); 
         }
         do_free(other_profile);
         do_free(buf);
@@ -4880,7 +4885,6 @@ mod_tokendb_handler( request_rec *rq )
 
         PR_snprintf(oString, 512, "userid;;%s", uid);
         PR_snprintf(pString, 512, "profile;;%s", profile);
-        RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "profile added to user"); 
 
         PR_snprintf(injection, MAX_INJECTION_SIZE,
                     "/tus/tus?op=edit_user&uid=%s&flash=Profile+%s+has+been+added+to+the+user+record",
@@ -4949,8 +4953,7 @@ mod_tokendb_handler( request_rec *rq )
         do_free(userCert);
 
         if( status != LDAP_SUCCESS ) {
-        PR_snprintf(oString, 512, "userid;;%s", uid);
-        RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pLongString, "user record failed to be updated"); 
+            RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pLongString, "user record failed to be updated"); 
             ldap_error_out("LDAP modify error: ", "LDAP error: %s");
             do_free(buf);
             do_free(uri);
@@ -4967,14 +4970,16 @@ mod_tokendb_handler( request_rec *rq )
 
         bool has_role  = tus_authorize(TOKENDB_OPERATORS_IDENTIFIER, uid); 
         PR_snprintf(pString, 512, "role;;operator");
-        if ((opOperator != NULL) && (PL_strstr(opOperator, OPERATOR)) && (!has_role)) {
-            status = add_user_to_role_db_entry(userid, uid, OPERATOR);
-            if ((status!= LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
-                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error adding user to role");
-                PR_snprintf(msg, 512, "Error adding user %s to role %s", uid, OPERATOR);
-                post_ldap_error(msg);
-            } else {
-                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user added to role");
+        if ((opOperator != NULL) && (PL_strstr(opOperator, OPERATOR))) {
+            if (!has_role) {
+                status = add_user_to_role_db_entry(userid, uid, OPERATOR);
+                if ((status!= LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
+                    RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error adding user to role");
+                    PR_snprintf(msg, 512, "Error adding user %s to role %s", uid, OPERATOR);
+                    post_ldap_error(msg);
+                } else {
+                    RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user added to role");
+                }
             }
         } else if (has_role) {
             status = delete_user_from_role_db_entry(userid, uid, OPERATOR);
@@ -4989,15 +4994,17 @@ mod_tokendb_handler( request_rec *rq )
 
         has_role  = tus_authorize(TOKENDB_AGENTS_IDENTIFIER, uid); 
         PR_snprintf(pString, 512, "role;;agent");
-        if ((opAgent != NULL) && (PL_strstr(opAgent, AGENT)) && (!has_role)) {
-            status = add_user_to_role_db_entry(userid, uid, AGENT);
-            if ((status!= LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
-                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error adding user to role");
-                PR_snprintf(msg, 512, "Error adding user %s to role %s", uid, AGENT);
-                post_ldap_error(msg);
-            } else {
-                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user added to role");
-            }
+        if ((opAgent != NULL) && (PL_strstr(opAgent, AGENT))) {
+            if (!has_role) {
+                status = add_user_to_role_db_entry(userid, uid, AGENT);
+                if ((status!= LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
+                    RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error adding user to role");
+                    PR_snprintf(msg, 512, "Error adding user %s to role %s", uid, AGENT);
+                    post_ldap_error(msg);
+                } else {
+                    RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user added to role");
+                }
+            } 
         } else if (has_role) {
             status = delete_user_from_role_db_entry(userid, uid, AGENT);
             if ((status!= LDAP_SUCCESS) && (status != LDAP_NO_SUCH_ATTRIBUTE)) {
@@ -5011,14 +5018,16 @@ mod_tokendb_handler( request_rec *rq )
 
         has_role  = tus_authorize(TOKENDB_ADMINISTRATORS_IDENTIFIER, uid); 
         PR_snprintf(pString, 512, "role;;administrator");
-        if ((opAdmin != NULL) && (PL_strstr(opAdmin, ADMINISTRATOR)) && (!has_role)) {
-            status = add_user_to_role_db_entry(userid, uid, ADMINISTRATOR);
-            if ((status!= LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
-                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error adding user to role");
-                PR_snprintf(msg, 512, "Error adding user %s to role %s", uid, ADMINISTRATOR);
-                post_ldap_error(msg);
-            } else {
-                RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user added to role");
+        if ((opAdmin != NULL) && (PL_strstr(opAdmin, ADMINISTRATOR))) {
+            if (!has_role) {
+                status = add_user_to_role_db_entry(userid, uid, ADMINISTRATOR);
+                if ((status!= LDAP_SUCCESS) && (status != LDAP_TYPE_OR_VALUE_EXISTS)) {
+                    RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "failure", oString, pString, "Error adding user to role");
+                    PR_snprintf(msg, 512, "Error adding user %s to role %s", uid, ADMINISTRATOR);
+                    post_ldap_error(msg);
+                } else {
+                    RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, pString, "user added to role");
+                }
             }
         } else if (has_role) {
             status = delete_user_from_role_db_entry(userid, uid, ADMINISTRATOR);
@@ -5122,7 +5131,6 @@ mod_tokendb_handler( request_rec *rq )
                first_item =0;
            } 
         }
-        RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pLongString, "token record modified");
 
         if( mods != NULL ) {
             free_modifications( mods, 0 );
@@ -5130,12 +5138,15 @@ mod_tokendb_handler( request_rec *rq )
         }
 
         if( status != LDAP_SUCCESS ) {
+            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pLongString, "failed to modify token record");
              ldap_error_out("LDAP modify error: ", "LDAP error: %s");
             do_free(buf);
             do_free(uri);
             do_free(query);
             return DONE;
         }
+
+        RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pLongString, "token record modified");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
                      "%s%s%s%s%s%s%s%s%s%s", JS_START,
@@ -5281,8 +5292,10 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf((char *)userCN, 256, 
             "%s %s", firstName, lastName);
 
+        PR_snprintf(oString, 512, "uid;;%s", uid);
         status = add_user_db_entry(userid, uid, "", lastName, firstName, userCN, userCert);
         if (status != LDAP_SUCCESS) {
+            RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "Failure", oString, "", "failure in adding tokendb user"); 
             PR_snprintf((char *)msg, 512, "LDAP Error in adding new user %s", uid);   
             ldap_error_out(msg, msg);
             do_free(uid);
@@ -5303,7 +5316,6 @@ mod_tokendb_handler( request_rec *rq )
             "'%s' has created new user %s", userid, uid);
         RA::tdb_activity(rq->connection->remote_ip, "", "add_user", "success", msg, uid, NO_TOKEN_TYPE);
 
-        PR_snprintf(oString, 512, "uid;;%s", uid);
         RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, "", "tokendb user added"); 
 
         if ((opOperator != NULL) && (PL_strstr(opOperator, OPERATOR))) {
@@ -5406,7 +5418,9 @@ mod_tokendb_handler( request_rec *rq )
                                            filter, "uninitialized",
                                            NULL, NULL, tokenType );
 
+        PR_snprintf(oString, 512, "token_id;;%s", filter);
         if( status != LDAP_SUCCESS ) {
+            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Admin", "Failure", oString, "", "failed to add token record");
             ldap_error_out("LDAP add error: ", "LDAP error: %s");
             do_free(buf);
             do_free(uri);
@@ -5414,7 +5428,6 @@ mod_tokendb_handler( request_rec *rq )
             return DONE;
         }
 
-        PR_snprintf(oString, 512, "token_id;;%s", filter);
         RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Admin", "Success", oString, "", "token record added");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,
@@ -5457,9 +5470,11 @@ mod_tokendb_handler( request_rec *rq )
             "'%s' has deleted token", userid);
         RA::tdb_activity(rq->connection->remote_ip, filter, "delete", "token", msg, "", tokenType);
 
+        PR_snprintf(oString, 512, "token_id;;%s", filter);
         status = delete_tus_db_entry( userid, filter );
 
         if( status != LDAP_SUCCESS ) {
+            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Admin", "Failure", oString, "",  "failure in deleting token record");
             ldap_error_out("LDAP delete error: ", "LDAP error: %s");
             do_free(buf);
             do_free(uri);
@@ -5468,7 +5483,6 @@ mod_tokendb_handler( request_rec *rq )
             return DONE;
         }
 
-        PR_snprintf(oString, 512, "token_id;;%s", filter);
         RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Admin", "Success", oString, "",  "token record deleted");
 
         PR_snprintf( injection, MAX_INJECTION_SIZE,

@@ -321,7 +321,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 		"ServerSideKeyGen called, pKey is NULL");
 	  status = STATUS_ERROR_MAC_ENROLL_PDU;
 
-        PR_snprintf(audit_msg, 512, "failed to generate key on server");
+        PR_snprintf(audit_msg, 512, "ServerSideKeyGen called, failed to generate key on server");
 	goto loser;
       } else
 	RA::Debug(LL_PER_CONNECTION,FN,
@@ -362,7 +362,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 		"failed to convert b64 private key to binary");
 	SECITEM_FreeItem(&der, PR_FALSE);
 	  status = STATUS_ERROR_MAC_ENROLL_PDU;
-        PR_snprintf(audit_msg, 512, "failed to convert b64 private key to binary");
+        PR_snprintf(audit_msg, 512, "ServerSideKeyGen: failed to convert b64 private key to binary");
 	goto loser;
       }else {
 	RA::Debug(LL_PER_CONNECTION,FN,
@@ -481,6 +481,16 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 
     RA::Debug(LL_PER_CONNECTION,FN,
 		"Keys generated. Proceeding with certificate enrollment");
+
+    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+          userid != NULL ? userid : "",
+          cuid != NULL ? cuid : "",
+          msn != NULL ? msn : "",
+          "success",
+          "enrollment",
+          applet_version != NULL ? applet_version : "",
+          keyVersion != NULL? keyVersion : "",
+          "keys generated");
 
     if(publisher_id != NULL)
     {
@@ -617,14 +627,14 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 
       if (channel->CreateObject(objid, perms, priv_keyblob.size()) != 1) {
 	status = STATUS_ERROR_MAC_ENROLL_PDU;
-        PR_snprintf(audit_msg, 512, "channel create object error");
+        PR_snprintf(audit_msg, 512, "ServerSideKeyGen: store keys in token failed, channel create object error");
 	goto loser;
       }
 
 
       if (channel->WriteObject(objid, (BYTE*)priv_keyblob, priv_keyblob.size()) != 1) {
 	status = STATUS_ERROR_MAC_ENROLL_PDU;
-        PR_snprintf(audit_msg, 512, "channel write object error");
+        PR_snprintf(audit_msg, 512, "ServerSideKeyGen: store keys in token failed, channel write object error");
 	goto loser;
       }
 
@@ -690,9 +700,20 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 
       if (channel->ImportKeyEnc(se_p1, se_p2, &data) != 1) {
 	status = STATUS_ERROR_MAC_ENROLL_PDU;
-        PR_snprintf(audit_msg, 512, "channel import key error");
+        PR_snprintf(audit_msg, 512, "ServerSideKeyGen: store keys in token failed, channel import key error");
 	goto loser;
       }
+
+      RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+          userid != NULL ? userid : "",
+          cuid != NULL ? cuid : "",
+          msn != NULL ? msn : "",
+          "success",
+          "enrollment",
+          applet_version != NULL ? applet_version : "",
+          keyVersion != NULL? keyVersion : "",
+          "server generated keys stored in token");
+
 
       /*
        * After keys are injected successfully, then write certificate object apdu
@@ -744,6 +765,7 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 	"Enroll Certificate Failure");
 
         status = STATUS_ERROR_MAC_ENROLL_PDU;
+        PR_snprintf(audit_msg, 512, "cert is null");
         goto loser;
     }
 
@@ -853,6 +875,15 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
     }
     RA::Debug(LL_PER_CONNECTION,FN, "End of keygen/certificate enrollment");
 
+    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+      userid != NULL ? userid : "",
+      cuid != NULL ? cuid : "",
+      msn != NULL ? msn : "",
+      "success",
+      "enrollment",
+      applet_version != NULL ? applet_version : "",
+      keyVersion != NULL? keyVersion : "",
+      "certificate stored on token");
 loser:
     if (strlen(audit_msg) > 0) { // a failure occurred
         RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
@@ -1650,10 +1681,18 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 					curIndex,
 					&key_data_set);
 
-                        RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
-                          a_userid, a_cuid, a_msn, "Success", "enrollment",
-                          a_applet_version, curVersion, ((BYTE*)newVersion)[0],
-                          "key changeover");
+                        if (rc!=0) {
+                            RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                              a_userid, a_cuid, a_msn, "Failure", "enrollment",
+                              a_applet_version, curVersion, ((BYTE*)newVersion)[0],
+                              "key changeover");
+                            goto loser;
+                        } else {
+                            RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                              a_userid, a_cuid, a_msn, "Success", "enrollment",
+                              a_applet_version, curVersion, ((BYTE*)newVersion)[0],
+                              "key changeover");
+                        }
 
 			/**
 			 * Re-select the Applet.
@@ -1862,6 +1901,17 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
         }
     }
 
+    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+        userid != NULL ? userid : "",
+        cuid != NULL ? cuid : "",
+        msn != NULL ? msn : "",
+        "success",
+        "enrollment",
+        final_applet_version != NULL ? final_applet_version : "",
+        keyVersion != NULL ? keyVersion : "",
+        "token enabled");
+
+
     /* XXX - this comment does not belong here
      *
      * This is very risky to call initialize and then
@@ -1906,6 +1956,16 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 		goto loser;
 	}
 
+    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+        userid != NULL ? userid : "",
+        cuid != NULL ? cuid : "",
+        msn != NULL ? msn : "",
+        "success",
+        "enrollment",
+        final_applet_version != NULL ? final_applet_version : "",
+        keyVersion != NULL ? keyVersion : "",
+        "token login successful");
+
         // get authid for audit log
         PR_snprintf((char *)configname, 256, "%s.%s.auth.id", OP_PREFIX, tokenType);
         authid = RA::GetConfigStore()->GetConfigAsString(configname);
@@ -1930,6 +1990,16 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 	}
 	
 
+    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+        userid != NULL ? userid : "",
+        cuid != NULL ? cuid : "",
+        msn != NULL ? msn : "",
+        "success",
+        "enrollment",
+        final_applet_version != NULL ? final_applet_version : "",
+        keyVersion != NULL ? keyVersion : "",
+        "applet upgraded successfully");
+
     isPinPresent = IsPinPresent(session, 0x0);
 
 	StatusUpdate(session, extensions, 12, "PROGRESS_KEY_UPGRADE");
@@ -1952,7 +2022,6 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 		goto loser;
 	}
 		
-
     /* we should have a good channel here */
     if (channel == NULL) {
             RA::Error(FN, "no good channel");
@@ -2003,6 +2072,16 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
       RA::Debug(LL_PER_CONNECTION, "RA_Enroll_Processor::Process",
 	      "after RequestNewPin, succeeded");
 
+    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+        userid != NULL ? userid : "",
+        cuid != NULL ? cuid : "",
+        msn != NULL ? msn : "",
+        "success",
+        "enrollment",
+        final_applet_version != NULL ? final_applet_version : "",
+        keyVersion != NULL ? keyVersion : "",
+        "RequestNewPin completed successfully");
+
     PR_snprintf((char *)configname, 256, "%s.%s.pinReset.enable", OP_PREFIX, tokenType);
     if (RA::GetConfigStore()->GetConfigAsBool(configname, 1)) {
       if (!isPinPresent) {
@@ -2022,6 +2101,18 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
             PR_snprintf(audit_msg, 512, "create pin request error");
             goto loser;
         }
+
+
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+           userid != NULL ? userid : "",
+           cuid != NULL ? cuid : "",
+           msn != NULL ? msn : "",
+           "success",
+           "enrollment",
+           final_applet_version != NULL ? final_applet_version : "",
+           keyVersion != NULL ? keyVersion : "",
+           "CreatePin completed successfully");
+
       }
     }
 
@@ -2035,6 +2126,16 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
             PR_snprintf(audit_msg, 512, "reset pin request error");
           goto loser;
       }
+
+      RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+        userid != NULL ? userid : "",
+        cuid != NULL ? cuid : "",
+        msn != NULL ? msn : "",
+        "success",
+        "enrollment",
+        final_applet_version != NULL ? final_applet_version : "",
+        keyVersion != NULL ? keyVersion : "",
+        "ResetPin completed successfully");
     }
 
     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
@@ -2175,7 +2276,6 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
       key_check, plaintext_challenge, cuid, msn, final_applet_version, 
       khex, userid, status, certificates, o_certNums, tokenTypes)) {
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - GenerateCertsAfterRecoveryPolicy returns false");
-        PR_snprintf(audit_msg, 512, "GenerateCertsAfterRecoveryPolicy returns false");
         goto loser;
     } else {
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - GenerateCertsAfterRecoveryPolicy returns true");
@@ -2186,7 +2286,6 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
               key_check, plaintext_challenge, cuid, msn, final_applet_version, 
               khex, userid, status, certificates, o_certNums, tokenTypes)) {
                 RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after GenerateCertificates"," returns false");
-                PR_snprintf(audit_msg, 512, "GenerateCertificates returns false");
                 goto loser;
             } else {
                 RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after GenerateCertificates"," returns true");
@@ -3157,6 +3256,7 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
         RA::Debug("RA_Enroll_Processor::ProcessRenewal", "Missing the configuration parameter for %s", configname);
         r = false;
         o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_PARAMS_NOT_FOUND;
+        PR_snprintf(audit_msg, 512, "Missing the configuration parameter for %s", configname);
         goto loser;
     }
 
@@ -3180,6 +3280,7 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
               "Missing the configuration parameter for %s", configname);
             r = false;
             o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_PARAMS_NOT_FOUND;
+            PR_snprintf(audit_msg, 512, "Missing the configuration parameter for %s", configname);
             goto loser;
         }
         RA::Debug("RA_Enroll_Processor::ProcessRenewal", "keyType == %s ", keyTypeValue);
@@ -3308,6 +3409,7 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
                               "Missing the configuration parameter for %s", configname);
                               r = false;
                             o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_PARAMS_NOT_FOUND;
+                            PR_snprintf(audit_msg, 512, "Missing the configuration parameter for %s", configname);
                             goto rloser;
                         }
                         
@@ -3321,6 +3423,7 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
                               "Missing the configuration parameter for %s", configname);
                               r = false;
                             o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_PARAMS_NOT_FOUND;
+                            PR_snprintf(audit_msg, 512, "Missing the configuration parameter for %s", configname);
                             goto rloser;
                         }
 
@@ -3365,6 +3468,7 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
                             snum, caconnid, "certificate renewed");
 			} else {
 			  RA::Debug("RA_Enroll_Processor::ProcessRenewal", "no cert!!");
+                          PR_snprintf(audit_msg, 512, "No cert returned from DoRenewal");
 			  goto rloser;
 			}
 
@@ -3386,6 +3490,7 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
 			} else {
                           RA::Debug(LL_PER_CONNECTION,FN,
                             "Not implemented");
+                          PR_snprintf(audit_msg, 512, "Write cert to token failed: pkcs11obj_enable = false not implemented");
                           goto rloser;
 /*
                           RA::Debug(LL_PER_CONNECTION,FN,
@@ -3417,19 +3522,24 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
 			{
 			  Buffer b = channel->CreatePKCS11CertAttrsBuffer(
                                key_type , certAttrId, label, keyid);
-                          if (b == NULL)
+                          if (b == NULL) {
+                              PR_snprintf(audit_msg, 512, "Write cert to token failed: CreatePKCS11CertAttrsBuffer returns null");
                               goto rloser;
+                          }
                           ObjectSpec *objSpec = 
                               ObjectSpec::ParseFromTokenData(
 				   (certAttrId[0] << 24) +
 				   (certAttrId[1] << 16),
 				   &b);
-                          if (objSpec == NULL)
+                          if (objSpec == NULL) {
+                              PR_snprintf(audit_msg, 512, "Write cert to token failed: ParseFromTokenData returns null");
                               goto rloser;
+                          }
 			  pkcs11objx->AddObjectSpec(objSpec);
 			} else {
                           RA::Debug(LL_PER_CONNECTION,FN,
                             "Not implemented");
+                          PR_snprintf(audit_msg, 512, "Write cert to token failed: pkcs11obj_enable = false not implemented");
                           goto rloser;
 /*
                           RA::Debug(LL_PER_CONNECTION,FN,
@@ -3445,23 +3555,30 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
                         }
 
                         spkix = &(o_cert->subjectPublicKeyInfo);
-                        if (spkix == NULL)
+                        if (spkix == NULL) {
+                            PR_snprintf(audit_msg, 512, "Write cert to token failed: subjectPublicKeyInfo is null");
                             goto rloser;
+                        }
                         pk_p = SECKEY_ExtractPublicKey(spkix);
-                        if (pk_p == NULL)
+                        if (pk_p == NULL) {
+                            PR_snprintf(audit_msg, 512, "Write cert to token failed: ExtractPublicKey is null");
                             goto rloser;
+                        }
                         SECKEY_DestroySubjectPublicKeyInfo(spkix);
 
 			/* fill in keyid, modulus, and exponent */
 
 			si_mod = pk_p->u.rsa.modulus;
 			modulus = new Buffer((BYTE*) si_mod.data, si_mod.len);
-                        if (modulus == NULL)
+                        if (modulus == NULL) {
+                            PR_snprintf(audit_msg, 512, "Write cert to token failed: modulus is null");
                             goto rloser;
-
+                        }
 			spkix = SECKEY_CreateSubjectPublicKeyInfo(pk_p);
-                        if (spkix == NULL)
+                        if (spkix == NULL) {
+                            PR_snprintf(audit_msg, 512, "Write cert to token failed: CreateSubjectPublicKeyInfo returns null");
                             goto rloser;
+                        }
 
 			/* 
 			 * RFC 3279
@@ -3471,35 +3588,44 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
 			 */
 			spkix->subjectPublicKey.len >>= 3;
 			si_kid = PK11_MakeIDFromPubKey(&spkix->subjectPublicKey);
-                        if (si_kid == NULL)
+                        if (si_kid == NULL) {
+                            PR_snprintf(audit_msg, 512, "Write cert to token failed: si_kid is null");
                             goto rloser;
+                        }
 			spkix->subjectPublicKey.len <<= 3;
 			SECKEY_DestroySubjectPublicKeyInfo(spkix);
 
                         if (keyid == NULL)
 			    keyid = new Buffer((BYTE*) si_kid->data, si_kid->len);
-                        if (keyid == NULL)
+                        if (keyid == NULL) {
+                            PR_snprintf(audit_msg, 512, "Write cert to token failed: keyid is null");
                             goto rloser;
+                        }
 			si_exp = pk_p->u.rsa.publicExponent;
 			exponent =  new Buffer((BYTE*) si_exp.data, si_exp.len);
-                        if (exponent == NULL)
+                        if (exponent == NULL) {
+                            PR_snprintf(audit_msg, 512, "Write cert to token failed: exponent is null");
                             goto rloser;
-
+                        }
 			RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
               "Keyid, modulus and exponent have been extracted from public key");
 			{
 			  Buffer b = channel->CreatePKCS11PriKeyAttrsBuffer(KEY_TYPE_ENCRYPTION, 
 									    priKeyAttrId, label, keyid, modulus, OP_PREFIX, 
 									    tokenType, keyTypePrefix);
-                          if (b == NULL)
+                          if (b == NULL) {
+                            PR_snprintf(audit_msg, 512, "Write cert to token failed: CreatePKCS11PriKeyAttrsBuffer returns null");
                               goto rloser;
+                          }
 			  ObjectSpec *objSpec = 
 			    ObjectSpec::ParseFromTokenData(
 							   (priKeyAttrId[0] << 24) +
 							   (priKeyAttrId[1] << 16),
 							   &b);
-                          if (objSpec == NULL)
+                          if (objSpec == NULL) {
+                              PR_snprintf(audit_msg, 512, "Write cert to token failed: ParseFromTokenData returns null");
                               goto rloser;
+                          }
 			  pkcs11objx->AddObjectSpec(objSpec);
 			}
 
@@ -3507,18 +3633,33 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
 			  Buffer b = channel->CreatePKCS11PubKeyAttrsBuffer(KEY_TYPE_ENCRYPTION, 
 									    pubKeyAttrId, label, keyid, 
 									    exponent, modulus, OP_PREFIX, tokenType, keyTypePrefix);
-                          if (b == NULL)
+                          if (b == NULL) {
+                              PR_snprintf(audit_msg, 512, "Write cert to token failed: CreatePKCS11PubKeyAttrsBuffer returns null");
                               goto rloser;
+                          }
 			  ObjectSpec *objSpec = 
 			    ObjectSpec::ParseFromTokenData(
 							   (pubKeyAttrId[0] << 24) +
 							   (pubKeyAttrId[1] << 16),
 							   &b);
-                          if (objSpec == NULL)
+                          if (objSpec == NULL) {
+                              PR_snprintf(audit_msg, 512, "Write cert to token failed: ParseFromTokenData returns null");
                               goto rloser;
+                          }
 			  pkcs11objx->AddObjectSpec(objSpec);
 			}
                         renewed = true;
+
+                        RA::Audit(EV_RENEWAL, AUDIT_MSG_PROC,
+                          userid != NULL ? userid : "",
+                          cuid != NULL ? cuid : "",
+                          msn != NULL ? msn : "",
+                          "success",
+                          "renewal",
+                          final_applet_version != NULL ? final_applet_version : "",
+                          keyVersion != NULL? keyVersion : "",
+                          "Cert written to token successfully");
+
 
 		    rloser:
 
@@ -3556,6 +3697,18 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
     }
 
 loser:
+    if (strlen(audit_msg) > 0) { // a failure occurred
+        RA::Audit(EV_RENEWAL, AUDIT_MSG_PROC,
+          userid != NULL ? userid : "",
+          cuid != NULL ? cuid : "",
+          msn != NULL ? msn : "",
+          "failure",
+          "renewal",
+          final_applet_version != NULL ? final_applet_version : "",
+          keyVersion != NULL? keyVersion : "",
+          audit_msg);
+    }
+
     if( pretty_cuid != NULL ) {
         PR_Free( (char *) pretty_cuid );
         pretty_cuid = NULL;
@@ -3593,9 +3746,20 @@ bool RA_Enroll_Processor::ProcessRecovery(AuthParams *login, char *reason, RA_Se
     bool serverKeygen = false;
     bool archive = false;
     const char *pretty_cuid = NULL;
+    char audit_msg[512] = "";
+    char *keyVersion = NULL;
 
     int i = 0;
     const char *FN="RA_Enroll_Processor::ProcessRecovery";
+
+    // get key version for audit logs
+    if (channel != NULL) {
+        if( keyVersion != NULL ) {
+            PR_Free( (char *) keyVersion );
+            keyVersion = NULL;
+        }
+        keyVersion = Util::Buffer2String(channel->GetKeyInfoData());
+    }
 
     PR_snprintf(configname, 256, "op.enroll.%s.keyGen.recovery.%s.keyType.num",
       tokenType, reason);
@@ -3696,6 +3860,7 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
                               "Missing the configuration parameter for %s", configname);
                               r = false;
                             o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_PARAMS_NOT_FOUND;
+                            PR_snprintf(audit_msg, 512, "Key Recovery failed. Missing the configuration parameter for %s", configname);
                             goto loser;
                         }
        
@@ -3745,11 +3910,13 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			  RA::Debug("RA_Enroll_Processor::ProcessRecovery", "after NSSBase64_EncodeItem");
 			} else {
 			  RA::Debug("RA_Enroll_Processor::ProcessRecovery", "no cert!!");
+                          PR_snprintf(audit_msg, 512, "Key Recovery failed. no cert");
 			  goto rloser;
 			}
 
 			if ((tmp_c == NULL) || (tmp_c =="")) {
 			  RA::Debug("RA_Enroll_Processor::ProcessRecovery", "NSSBase64_EncodeItem failed");
+                          PR_snprintf(audit_msg, 512, "Key Recovery failed. NSSBase64_EncodeItem failed");
 			  goto rloser;
 			}
 			RA::Debug("RA_Enroll_Processor::ProcessRecovery", "NSSBase64_EncodeItem succeeded");
@@ -3777,6 +3944,7 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			    r = false;
 			    o_status = STATUS_ERROR_NO_TKS_CONNID;
                             RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::ProcessRecovery", "Missing tks.connid");
+                            PR_snprintf(audit_msg, 512, "Key Recovery failed. Missing tks.connid");
 			    goto rloser;
                         }
                         
@@ -3789,6 +3957,7 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			    r = false;
 			    o_status = STATUS_ERROR_KEY_ARCHIVE_OFF;
                             RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::ProcessRecovery", "Archival is turned off");
+                            PR_snprintf(audit_msg, 512, "Key Recovery failed. Archival is turned off");
 			    goto rloser;
                         }
 
@@ -3796,6 +3965,7 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			  RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_pub is NULL");
 			  r = false;
 			  o_status = STATUS_ERROR_RECOVERY_FAILED;
+                          PR_snprintf(audit_msg, 512, "Key Recovery failed. o_pub is NULL");
 			  goto rloser;
 			} else
 			  RA::Debug(LL_PER_PDU, "DoEnrollment", "o_pub = %s", o_pub);
@@ -3809,8 +3979,7 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			  */
 			} else
 			  RA::Debug(LL_PER_PDU, "DoEnrollment", "o_priv = %s", o_priv);
-
-
+                        
 			RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::ProcessRecovery()", "key injection for RecoverKey occurs here");
 			/*
 			 * the following code converts b64-encoded public key info into SECKEYPublicKey
@@ -3826,6 +3995,7 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			  SECITEM_FreeItem(&der, PR_FALSE);
 			  r = false;
 			  o_status = STATUS_ERROR_RECOVERY_FAILED;
+                          PR_snprintf(audit_msg, 512, "Key Recovery failed. after converting public key, rv is failure");
 			  goto rloser;
 			}else {
 			  RA::Debug(LL_PER_PDU, "ProcessRecovery", "item len=%d, item type=%d",der.len, der.type);
@@ -3851,8 +4021,25 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
                           "pk_p is NULL; unable to continue");
 			    r = false;
 			    o_status = STATUS_ERROR_RECOVERY_FAILED;
+                            PR_snprintf(audit_msg, 512, "Key Recovery failed. pk_p is NULL; unable to continue");
 			    goto rloser;
             }
+
+                        // XXX - Add serial number and public key to audit log 
+                        //get serial number for audit log
+                        //char msg[2048];
+                        //RA::ra_tus_print_integer(msg, &certs[0]->serialNumber);
+
+                        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+                          userid != NULL ? userid : "",
+                          cuid != NULL ? cuid : "",
+                          msn != NULL ? msn : "",
+                          "success",
+                          "enrollment",
+                          final_applet_version != NULL ? final_applet_version : "",
+                          keyVersion != NULL? keyVersion : "",
+                          "key recovered successfully");
+
 
 			/* fill in keyid, modulus, and exponent */
 
@@ -3914,11 +4101,13 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 
 			  if (channel->CreateObject(objid, perms, priv_keyblob.size()) != 1) {
 			    r = false;
+                            PR_snprintf(audit_msg, 512, "Failed to write key to token. CreateObject failed.");
 			    goto rloser;
 			  }
 
 			  if (channel->WriteObject(objid, (BYTE*)priv_keyblob, priv_keyblob.size()) != 1) {
 			    r = false;
+                            PR_snprintf(audit_msg, 512, "Failed to write key to token. WriteObject failed.");
 			    goto rloser;
 			  }
 			}
@@ -3977,6 +4166,7 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			  if (channel->ImportKeyEnc((keyUser << 4)+priKeyNumber,
 						    (keyUsage << 4)+pubKeyNumber, &data) != 1) {
 			    r = false;
+                            PR_snprintf(audit_msg, 512, "Failed to write key to token. ImportKeyEnc failed.");
 			    goto rloser;
 			  }
 			}
@@ -4024,6 +4214,17 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 							   &b);
 			  pkcs11objx->AddObjectSpec(objSpec);
 			}
+
+                        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+                          userid != NULL ? userid : "",
+                          cuid != NULL ? cuid : "",
+                          msn != NULL ? msn : "",
+                          "success",
+                          "enrollment",
+                          final_applet_version != NULL ? final_applet_version : "",
+                          keyVersion != NULL? keyVersion : "",
+                          "key written to token successfully");
+
 		    rloser:
 
 			if( modulus != NULL ) {
@@ -4082,6 +4283,18 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
     }
 
  loser:
+    if (strlen(audit_msg) > 0) { // a failure occurred
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+          userid != NULL ? userid : "",
+          cuid != NULL ? cuid : "",
+          msn != NULL ? msn : "",
+          "failure",
+          "enrollment",
+          final_applet_version != NULL ? final_applet_version : "",
+          keyVersion != NULL? keyVersion : "",
+          audit_msg);
+    }
+
     if( pretty_cuid != NULL ) {
         PR_Free( (char *) pretty_cuid );
         pretty_cuid = NULL;
