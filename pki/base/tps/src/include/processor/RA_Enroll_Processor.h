@@ -290,6 +290,9 @@ class RA_Enroll_Processor : public RA_Processor
 				);
 
 		TPS_PUBLIC RA_Status Process(RA_Session *session, NameValueSet *extensions);
+
+	private:
+		int GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx);
 };
 
 #endif /* RA_ENROLL_PROCESSOR_H */
