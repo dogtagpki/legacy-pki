@@ -852,8 +852,8 @@ profile, IRequest req) {
             // extract all line separators from the "base64Data"
             StringBuffer sb = new StringBuffer();
             for (int i = 0; i < base64Data.length(); i++) {
-                if (base64Data.substring(i, i).getBytes() != EOL) {
-                    sb.append(base64Data.substring(i, i));
+                if (!Character.isWhitespace(base64Data.charAt(i))) {
+                    sb.append(base64Data.charAt(i));
                 }
             }
             cert = sb.toString();
