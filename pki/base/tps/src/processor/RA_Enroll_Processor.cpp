@@ -3806,8 +3806,13 @@ bool RA_Enroll_Processor::ProcessRecovery(AuthParams *login, char *reason, RA_Se
     char *keyVersion = NULL;
 
     int i = 0;
+    int totalNumCerts = 0;
+    int actualCertIndex = 0; 
+    int legalScheme = 0;
+    int isGenerateandRecover = 0;
     const char *FN="RA_Enroll_Processor::ProcessRecovery";
 
+    RA::Debug("RA_Enroll_Processor::ProcessRecovery","entering...");
     // get key version for audit logs
     if (channel != NULL) {
         if( keyVersion != NULL ) {
@@ -3827,18 +3832,77 @@ bool RA_Enroll_Processor::ProcessRecovery(AuthParams *login, char *reason, RA_Se
         goto loser;
     }
 
-RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyTypenum=%d", keyTypeNum);
+    //We will have to rifle through the configuration to see if there any recovery operations with
+    //scheme "GenerateNewKeyandRecoverLast" which allows for recovering the old key AND generating a new
+    // one for the encryption type only. If this scheme is present, the number of certs for bump by
+    // 1 for each occurance.
 
-    o_certNums = keyTypeNum;
-    certificates = (CERTCertificate **) malloc (sizeof(CERTCertificate *) * keyTypeNum);
-    ktypes = (char **) malloc (sizeof(char *) * keyTypeNum);
-    origins = (char **) malloc (sizeof(char *) * keyTypeNum);
-    tokenTypes = (char **) malloc (sizeof(char *) * keyTypeNum);
-    for (i=0; i<keyTypeNum; i++) {
+    totalNumCerts = 0;
+    for(i = 0; i<keyTypeNum; i++) {
         PR_snprintf(configname, 256, "op.enroll.%s.keyGen.recovery.%s.keyType.value.%d", tokenType, reason, i);
         const char *keyTypeValue = (char *)(RA::GetConfigStore()->GetConfigAsString(configname));
 
-RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue);
+        if (keyTypeValue == NULL) {
+            RA::Debug("RA_Enroll_Processor::ProcessRecovery",
+              "Missing the configuration parameter for %s", configname);
+            r = false;
+            o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_PARAMS_NOT_FOUND;
+            goto loser;
+        }
+        PR_snprintf(configname, 256, "op.enroll.%s.keyGen.%s.recovery.%s.scheme", tokenType, keyTypeValue, reason);
+        char *scheme = (char *)(RA::GetConfigStore()->GetConfigAsString(configname));
+        if (scheme == NULL) {
+            RA::Debug("RA_Enroll_Processor::ProcessRecovery",
+            "Missing the configuration parameter for %s", configname);
+            r = false;
+            o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_PARAMS_NOT_FOUND;
+            goto loser;
+        }
+
+        //If we are doing "GenerateNewKeyandRecoverLast, we will create two certificates
+        //for that particular round.
+        if(PL_strcasecmp(scheme, "GenerateNewKeyandRecoverLast") == 0) {
+
+            //Make sure someone doesn't try "GenerateNewKeyandRecoverLast" with a signing key.
+
+            if(PL_strcasecmp(keyTypeValue,"encryption" ) != 0) {
+                 RA::Debug("RA_Enroll_Processor::ProcessRecovery",
+                 "Invalid config param for %s. Can't use GenerateNewKeyandRecoveLaste scheme with non encryption key",
+                 configname);
+            r = false;
+            o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_PARAMS_NOT_FOUND;
+            goto loser;
+            }
+            totalNumCerts ++;
+        }
+        totalNumCerts ++;
+    }
+
+    RA::Debug("RA_Enroll_Processor::ProcessRecovery","totalNumCerts %d ",totalNumCerts);
+    RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyTypenum=%d", keyTypeNum);
+
+
+    if(!(totalNumCerts > keyTypeNum)) {
+        totalNumCerts = keyTypeNum;
+    }
+
+    o_certNums = totalNumCerts;
+    certificates = (CERTCertificate **) malloc (sizeof(CERTCertificate *) * totalNumCerts);
+    ktypes = (char **) malloc (sizeof(char *) * totalNumCerts);
+    origins = (char **) malloc (sizeof(char *) * totalNumCerts);
+    tokenTypes = (char **) malloc (sizeof(char *) * totalNumCerts);
+
+    //Iterate through number of key types. Iteration will be modified in case we have to insert extra
+    //certificates due to the "GenerateNewKeyandRecoverLast" scheme.
+
+    actualCertIndex = 0;
+    legalScheme = 0;
+    for (i=0; i<keyTypeNum; i++) {
+         RA::Debug("RA_Enroll_Processor::ProcessRecovery","Top cert loop: i %d actualCertIndex %d",i,actualCertIndex);
+        PR_snprintf(configname, 256, "op.enroll.%s.keyGen.recovery.%s.keyType.value.%d", tokenType, reason, i);
+        const char *keyTypeValue = (char *)(RA::GetConfigStore()->GetConfigAsString(configname));
+
+        RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue);
 
         if (keyTypeValue == NULL) {
             RA::Debug("RA_Enroll_Processor::ProcessRecovery",
@@ -3879,26 +3943,49 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
              nv.Add(namebuf, login->GetValue(name));
           }
         }
+        //Check for the special scheme where we generate a new cert and 
+        //recover the last one.
 
-
-        if (PL_strcasecmp(scheme, "GenerateNewKey") == 0) {
+        if(PL_strcasecmp(scheme, "GenerateNewKeyandRecoverLast") == 0)  {
+            isGenerateandRecover = 1;
+            RA::Debug("RA_Enroll_Processor::ProcessRecovery", 
+                "Scheme %s: GenerateNewKeyandRecoverLast case!",scheme); 
+        } else {
+            RA::Debug("RA_Enroll_Processor::ProcessRecovery", 
+                "Scheme %s: Not GenerateNewKeyandRecoverLast case!",scheme);
+            isGenerateandRecover = 0;
+        }
+        
+        if ((PL_strcasecmp(scheme, "GenerateNewKey") == 0) || isGenerateandRecover) {
+            legalScheme = 1;
             RA::Debug("RA_Enroll_Processor::ProcessRecovery", "Generate new key for %s", keyTypeValue);
-            r = GenerateCertificate(login, keyTypeNum, keyTypeValue, i, session, origins, ktypes, tokenType,
+            r = GenerateCertificate(login, keyTypeNum, keyTypeValue, actualCertIndex, session, origins, ktypes, tokenType,
               pkcs11objx, pkcs11obj_enable, extensions, channel, wrapped_challenge,
               key_check, plaintext_challenge, cuid, msn, final_applet_version,
               khex, userid, o_status, certificates);
-            tokenTypes[i] = PL_strdup(tokenType);
+            tokenTypes[actualCertIndex] = PL_strdup(tokenType);
             if (o_status == STATUS_NO_ERROR)
                 o_status = STATUS_ERROR_RECOVERY_IS_PROCESSED;
-        } else if (PL_strcasecmp(scheme, "RecoverLast") == 0) {
+        } 
+
+        if ((PL_strcasecmp(scheme, "RecoverLast") == 0) || isGenerateandRecover) {
             RA::Debug("RA_Enroll_Processor::RecoverLast", "Recover the key for %s", keyTypeValue);
+            // Special case for GenerateandRecover scenario.
+
+            legalScheme = 1;
+            if(isGenerateandRecover) {
+                RA::Debug("RA_Enroll_Processor::RecoverLast", 
+                    "Generate extra recoverd cert for GenerateNewKeyandRecoverLast");
+
+                actualCertIndex ++;
+            }
             PR_snprintf(filter, 256, "(&(tokenKeyType=%s)(tokenID=%s))",
               keyTypeValue, lostTokenCUID);       
             int rc = RA::ra_find_tus_certificate_entries_by_order_no_vlv(filter,
               &result, 1);
  
-            tokenTypes[i] = PL_strdup(origTokenType);
-            char **attr = (char **) malloc (sizeof(char *) * keyTypeNum);
+            tokenTypes[actualCertIndex] = PL_strdup(origTokenType);
+            char **attr = (char **) malloc (sizeof(char *) * totalNumCerts);
             if (rc == LDAP_SUCCESS) {
                 // retrieve the most recent certificate, we just recover the most
                 // recent one
@@ -3931,17 +4018,80 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			Buffer *exponent=NULL;
 	CERTSubjectPublicKeyInfo*  spkix = NULL;
 
-			/*XXX should decide later whether some of the following should
-			  be stored with token entry during enrollment*/
-			int keysize = 1024; //XXX hardcode for now
-			int pubKeyNumber = 5; //XXX hardcode for now
-			int priKeyNumber = 4; //XXX hardcode for now
-			int keyUsage = 0; //XXX hardcode for now
-			int keyUser = 0; //XXX hardcode for now
-			const char *certId="C2";
-			const char *certAttrId="c2";
-			const char *privateKeyAttrId="k4";
-			const char *publicKeyAttrId="k5";
+                        //Now we have to get the original config params for the encryption cert and keys
+
+                        //XXX these attr functions shouldn't take config params
+                        PR_snprintf(keyTypePrefix, 256, "op.enroll.%s.keyGen.encryption", tokenType);
+
+                        PR_snprintf((char *)configname, 256, "%s.keySize", keyTypePrefix);
+                        int keysize = RA::GetConfigStore()->GetConfigAsInt(configname, 1024);
+
+                        PR_snprintf((char *)configname, 256, "%s.keyUsage", keyTypePrefix);
+                        int keyUsage = RA::GetConfigStore()->GetConfigAsInt(configname, 0);
+                        PR_snprintf((char *)configname, 256, "%s.keyUser", keyTypePrefix);
+                        int keyUser = RA::GetConfigStore()->GetConfigAsInt(configname, 0);
+
+                        PR_snprintf((char *)configname, 256, "%s.certId",keyTypePrefix);
+
+                        const char *origCertId = RA::GetConfigStore()->GetConfigAsString(configname, "C0");
+ 
+                        //actually adjust the crucial values based on this extra certificate
+                        //being generated.
+
+                        int highestCertId = 0;
+                        int newCertId = 0;
+                        if(isGenerateandRecover) {
+                           //find highest cert id number.
+                           for(int j=0; j < keyTypeNum; j++) {
+                               PR_snprintf((char *)configname, 256,"%s.certId", keyTypePrefix); 
+                               const char *cId = RA::GetConfigStore()->GetConfigAsString(configname, "C0");
+                               int id_int = 0;
+                               if(cId)  {
+                                   id_int = cId[1] - '0';
+                               }
+
+                               if (id_int > highestCertId)
+                                   highestCertId = id_int;
+                           }
+                           highestCertId++; 
+                        } else {
+                           highestCertId = origCertId[1] - '0';
+                        }
+
+                        newCertId = highestCertId;
+
+                        RA::Debug("RA_Enroll_Processor::ProcessRecovery","Calculated new CertID %d.",newCertId);
+
+                        char certId[3];
+                        char certAttrId[3];
+                        char privateKeyAttrId[3];
+                        char publicKeyAttrId[3];
+                        int pubKeyNumber=0;
+                        int priKeyNumber=0;
+                       
+                        certId[0] = 'C';
+                        certId[1] = '0' + newCertId;
+                        certId[2] = 0;
+
+                        certAttrId[0] = 'c';
+                        certAttrId[1] = '0' + newCertId;
+                        certAttrId[2] = 0;
+ 
+			pubKeyNumber = 2 * newCertId + 1;
+			priKeyNumber = 2 * newCertId;
+
+			privateKeyAttrId[0] = 'k';
+                        privateKeyAttrId[1] = '0' + priKeyNumber;
+                        privateKeyAttrId[2] = 0;
+
+			publicKeyAttrId[0] = 'k';
+                        publicKeyAttrId[1] = '0' + pubKeyNumber;
+                        publicKeyAttrId[2] = 0;
+
+                        RA::Debug(
+                         "RA_Enroll_Processor::ProcessRecovery",
+                         "certId %s certAttrId %s privateKeyAttrId %s publicKeyAtrId %s priKeyNum %d pubKeyNum %d",
+                          certId,certAttrId,privateKeyAttrId,publicKeyAttrId,priKeyNumber, pubKeyNumber);
 
             PR_snprintf((char *)configname, 256, "%s.%s.keyGen.%s.label", 
 		            OP_PREFIX, tokenType, keyTypeValue);
@@ -3949,9 +4099,6 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 		        "label '%s'", configname);
             const char *pattern = RA::GetConfigStore()->GetConfigAsString(configname);
 			const char* label = MapPattern(&nv, (char *) pattern);
-
-			//XXX these attr functions shouldn't take config params
-            PR_snprintf(keyTypePrefix, 256, "op.enroll.%s.keyGen.encryption", tokenType);
 
 			BYTE objid[4];
 
@@ -3978,7 +4125,16 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			RA::Debug("RA_Enroll_Processor::ProcessRecovery", "NSSBase64_EncodeItem succeeded");
 			attr[0] = PL_strdup(tmp_c);
 			RA::Debug("RA_Enroll_Processor::ProcessRecovery", "b64 encoded cert =%s",attr[0]);
-			
+
+                         if( newCertId > 9) {
+
+                            RA::Debug(LL_PER_CONNECTION,FN,
+                                "RA_Enroll_Processor::ProcessRecovery","Possible misconfiguration or out of sync token!");
+                                PR_snprintf(audit_msg, 512,
+                                    "Renewal of cert failed, misconfiguration or out of sync token!");
+                                goto rloser;
+                        }
+	
                         // get serverKeygen and archive, check if they are enabled.
                         PR_snprintf((char *)configname, 256, "%s.%s.keyGen.%s.serverKeygen.enable", 
 		          OP_PREFIX, tokenType, keyTypeValue);
@@ -4122,13 +4278,13 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 			RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
 				  " keyid, modulus and exponent are retrieved");
 
-                        ktypes[i] = PL_strdup(keyTypeValue);
+                        ktypes[actualCertIndex] = PL_strdup(keyTypeValue);
                         // We now store the token id of the original token
                         // that generates this certificate so we can
                         // tell if the certificate should be operated
                         // on or not during formation operation
-                        origins[i] = PL_strdup(lostTokenCUID);
-                        certificates[i] = certs[0];
+                        origins[actualCertIndex] = PL_strdup(lostTokenCUID);
+                        certificates[actualCertIndex] = certs[0];
 
 
 			// Create KeyBlob for private key, but first b64 decode it
@@ -4329,13 +4485,18 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
 		      "Filter to find certificates = %s", filter);
             RA::Debug("RA_Enroll_Processor::ProcessRecovery", 
 		      "Recover key for %s", keyTypeValue);
-        } else {
+        }  
+
+        if( !legalScheme)  {
 	      RA::Debug("RA_Enroll_Processor::ProcessRecovery", 
 		    "Misconfigure parameter for %s", configname);
 	      r = false;
 	      o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_PARAMS_NOT_FOUND;
 	      goto loser;
         }
+
+        actualCertIndex++;
+         RA::Debug("RA_Enroll_Processor::ProcessRecovery","leaving cert loop... ");
     }
 
  loser:
@@ -4359,6 +4520,7 @@ RA::Debug("RA_Enroll_Processor::ProcessRecovery", "keyType == %s ", keyTypeValue
         ldap_msgfree( result );
     }
 
+     RA::Debug("RA_Enroll_Processor::ProcessRecovery","leaving whole function...");
     return r;
 }
 
