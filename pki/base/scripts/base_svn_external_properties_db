@@ -6,4 +6,4 @@
 #  that need to be saved MUST be applied to the top-level directory referred  #
 #  to by each external SVN property (i.e. - 'pki/base/config').               #
 ###############################################################################
-config http://svn.fedorahosted.org/svn/pki/trunk/pki/base/config
+config http://svn.fedorahosted.org/svn/pki/tags/DOGTAG_1_3_20100804/pki/base/config
