@@ -158,6 +158,17 @@ enum MOD_TOKENDB_BOOL {
     MOD_TOKENDB_TRUE = 1
 }; 
 
+#define MAX_TOKEN_UI_STATE  6
+
+enum token_ui_states  {
+    TOKEN_UNINITIALIZED = 0,
+    TOKEN_DAMAGED =1,
+    TOKEN_PERM_LOST=2,
+    TOKEN_TEMP_LOST=3,
+    TOKEN_FOUND =4,
+    TOKEN_TEMP_LOST_PERM_LOST =5,
+    TOKEN_TERMINATED = 6
+};
 
 
 /*  _________________________________________________________________
@@ -202,6 +213,7 @@ static char *userDeleteTemplate              = NULL;
 static char *auditAdminTemplate              = NULL;
 
 static char *profileList                     = NULL;
+static char *transitionList                  = NULL;
 
 static int sendInPieces = 0;
 static RA_Processor m_processor;
@@ -322,7 +334,7 @@ char *unencode(const char *src)
  *         must be freed by caller.
  * example: get_field("op=hello&name=foo&title=bar", "name=") returns foo
  */
-char *get_field( char *s, char* fname, int len)
+char *get_field( char *s, const char* fname, int len)
 {
     char *end = NULL;
     char *tmp = NULL;
@@ -406,6 +418,64 @@ char *get_encoded_post_field(apr_table_t *post, const char *fname, int len)
 bool match_profile(const char *profile)
 {
    return RA::match_comma_list(profile, profileList);
+}
+
+int get_token_ui_state(char *state, char *reason)
+{
+    int ret = 0;
+    if (strcmp(state, STATE_UNINITIALIZED) == 0) {
+        ret = TOKEN_UNINITIALIZED;
+    } else if (strcasecmp(state, STATE_ACTIVE) == 0) {
+        ret = TOKEN_FOUND;
+    } else if (strcasecmp(state, STATE_LOST) == 0) {
+        if (strcasecmp(reason, "keyCompromise") == 0) {
+            /* perm lost or temp -> perm lost */
+            ret =  TOKEN_PERM_LOST;
+        } else if (strcasecmp(reason, "destroyed") == 0) {
+            ret = TOKEN_DAMAGED;
+        } else if (strcasecmp(reason, "onHold") == 0) {
+            ret = TOKEN_TEMP_LOST;
+        }  
+    } else if (strcasecmp(state, "terminated") == 0) {
+        ret = TOKEN_TERMINATED;
+    } else {
+        /* state is disabled or otherwise : what to do here? */
+        ret = TOKEN_PERM_LOST;
+    }
+    return ret;
+}
+
+bool transition_allowed(int oldState, int newState) 
+{
+    /* parse the allowed transitions string and look for old:new */
+    char search[128];
+
+    if (transitionList == NULL) return true;
+
+    PR_snprintf(search, 128, "%d:%d", oldState, newState);
+    return RA::match_comma_list(search, transitionList);
+}
+
+void add_allowed_token_transitions(int token_ui_state, char *injection) 
+{
+    bool first = true;
+    int i=1;
+    char state[128];
+
+    sprintf(state, "var allowed_transitions=\"", token_ui_state);
+    PL_strcat(injection, state);
+    for (i=1; i<=MAX_TOKEN_UI_STATE; i++) {
+        if (transition_allowed(token_ui_state, i)) {
+            if (first) {
+               sprintf(state, "%d", i);
+               first = false;
+            } else {
+               sprintf(state, ",%d", i);
+            }
+            PL_strcat(injection, state);
+        }
+    }
+    PL_strcat(injection, "\";\n");
 }
 
 char *getTemplateFile( char *fileName, int *injectionTagOffset )
@@ -2218,6 +2288,7 @@ int get_tus_config( char *name )
         }
     }
 
+    get_cfg_string("tokendb.allowedTransitions=", transitionList);
     get_cfg_string("tokendb.auditAdminTemplate=", auditAdminTemplate);
 
     if( buf != NULL ) {
@@ -2609,6 +2680,10 @@ mod_tokendb_handler( request_rec *rq )
     char question_no[100];
     char cuid[256];
     char cuidUserId[100];
+    char tokenStatus[100]="";
+    char tokenReason[100]="";
+    int token_ui_state= 0;
+    bool show_token_ui_state = false;
     char serial[100];
     char userCN[256];
     char tokenType[512];
@@ -2617,7 +2692,7 @@ mod_tokendb_handler( request_rec *rq )
     char *statusString = NULL;
     char *s1, *s2;
     char *end;
-    char **attr_values;
+    char **attr_values = NULL;
     char *auth_filter = NULL;
 
     /* authorization */
@@ -2848,6 +2923,7 @@ mod_tokendb_handler( request_rec *rq )
             }
         }
 
+        tokendbDebug( "cuid:" );
         tokendbDebug( cuid );
         tokendbDebug( "\n" );
         question = PL_strstr( query, "question=" );
@@ -2855,6 +2931,7 @@ mod_tokendb_handler( request_rec *rq )
 
         PR_snprintf( question_no, 256, "%d", q );
 
+        tokendbDebug( "question_no:" );
         tokendbDebug( question_no );
 
         rc = find_tus_db_entry( cuid, 1, &result );
@@ -2862,21 +2939,44 @@ mod_tokendb_handler( request_rec *rq )
             e = get_first_entry( result );    
             if( e != NULL ) {
                 attr_values = get_attribute_values( e, "tokenUserID" );
-                PL_strcpy( cuidUserId, attr_values[0] );
-                tokendbDebug( cuidUserId );
+                tokendbDebug( "cuidUserId:" );
                 if (attr_values != NULL) {
+                    PL_strcpy( cuidUserId, attr_values[0] );
+                    tokendbDebug( cuidUserId );
                     free_values(attr_values, 1);
                     attr_values = NULL;
-                }
+                } else
+                    tokendbDebug("null");
                  
                 attr_values = get_attribute_values( e, "tokenType" );
-                PL_strcpy( tokenType, attr_values[0] );
-                tokendbDebug( tokenType );
+                tokendbDebug( "tokenType:" );
                 if (attr_values != NULL) {
+                    PL_strcpy( tokenType, attr_values[0] );
+                    tokendbDebug( tokenType );
                     free_values(attr_values, 1);
                     attr_values = NULL;
-                }
+                } else
+                    tokendbDebug("null");
+ 
+                attr_values = get_attribute_values( e, "tokenStatus" );
+                tokendbDebug( "tokenStatus:" );
+                if (attr_values != NULL) {
+                    PL_strcpy( tokenStatus, attr_values[0] );
+                    tokendbDebug( tokenStatus );
+                    free_values(attr_values, 1);
+                    attr_values = NULL;
+                } else
+                    tokendbDebug("null");
 
+                attr_values = get_attribute_values( e, "tokenReason" );
+                tokendbDebug( "tokenReason:" );
+                if (attr_values != NULL) {
+                    PL_strcpy( tokenReason, attr_values[0] );
+                    tokendbDebug( tokenReason );
+                    free_values(attr_values, 1);
+                    attr_values = NULL;
+                } else
+                    tokendbDebug("null");
             }
         }
 
@@ -2884,9 +2984,10 @@ mod_tokendb_handler( request_rec *rq )
             ldap_msgfree( result );
         }
 
+        token_ui_state = get_token_ui_state(tokenStatus, tokenReason);
 
         /* Is this token physically damaged */
-        if( q == 1 ) {
+        if(( q == 1 ) && (transition_allowed(token_ui_state, 1))) {
 
             PR_snprintf((char *)msg, 256,
               "'%s' marked token physically damaged", userid);
@@ -3055,7 +3156,8 @@ mod_tokendb_handler( request_rec *rq )
             }
 
         /* Is this token permanently lost? */
-        } else if( q == 2 || q == 6) {
+        } else if(((q == 2) && (transition_allowed(token_ui_state, 2))) || 
+                  ((q == 6) && (transition_allowed(token_ui_state, 6)))) {
             if (q == 2) {
               PR_snprintf((char *)msg, 256,
                 "'%s' marked token permanently lost", userid);             
@@ -3237,7 +3339,7 @@ mod_tokendb_handler( request_rec *rq )
             }
 
         /* Is this token temporarily lost? */
-        } else if( q == 3 ) {
+        } else if(( q == 3 ) && (transition_allowed(token_ui_state, 3))) {
 
             PR_snprintf((char *)msg, 256,
               "'%s' marked token temporarily lost", userid);
@@ -3403,7 +3505,7 @@ mod_tokendb_handler( request_rec *rq )
             }
 
         /* Is this temporarily lost token found? */
-        } else if( q == 4 ) {
+        } else if(( q == 4 ) && ( transition_allowed(token_ui_state, 4) )) {
 
             PR_snprintf((char *)msg, 256,
               "'%s' marked lost token found", userid);
@@ -3530,7 +3632,7 @@ mod_tokendb_handler( request_rec *rq )
             }
 
         /* Does this temporarily lost token become permanently lost? */
-        } else if (q == 5) {
+        } else if ( (q == 5) && (transition_allowed(token_ui_state, 5)) ) {
 
             PR_snprintf((char *)msg, 256,
               "'%s' marked lost token permanently lost", userid);
@@ -3667,6 +3769,13 @@ mod_tokendb_handler( request_rec *rq )
 
             rc = update_token_status_reason( cuidUserId, cuid,
                                              "lost", "keyCompromise" );
+        } else {
+            // invalid operation or transition
+            error_out("Transition or operation not allowed", "Transition or operation not allowed");
+            do_free(buf);
+            do_free(uri);
+            do_free(query);
+            return DONE;
         }
         
         tokendbDebug( "do_token: rc = 0\n" );
@@ -3678,6 +3787,7 @@ mod_tokendb_handler( request_rec *rq )
                      "var userid = \"", userid,
                      "\";\n" );
 
+        add_allowed_token_transitions(token_ui_state, injection);
         add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
         PL_strcat(injection, JS_STOP);
 
@@ -4124,6 +4234,11 @@ mod_tokendb_handler( request_rec *rq )
                 PL_strcat( injection, "\";\n" );
         }
 
+        if (PL_strstr( query, "op=do_confirm_token" ) ||
+            PL_strstr( query, "op=show" )) {
+                show_token_ui_state = true;
+        }
+           
         /* get attributes to be displayed to the user */
         if (( PL_strstr( query, "op=view_activity_admin" ) ) ||
             ( PL_strstr( query, "op=view_activity" ) )) {
@@ -4242,6 +4357,14 @@ mod_tokendb_handler( request_rec *rq )
                         PL_strcat( injection, "\";\n" );
                     } else {
                         PL_strcat( injection, "null;\n" );
+                    }
+
+                    if ((PL_strcmp(attrs[n], TOKEN_STATUS)==0) && show_token_ui_state) {
+                        PL_strcpy( tokenStatus, vals[0] );
+                    }
+
+                    if ((PL_strcmp(attrs[n], TOKEN_REASON)==0) && show_token_ui_state) {
+                        PL_strcpy( tokenReason, vals[0] );
                     }
 
                     if (PL_strstr(attrs[n], PROFILE_ID))  {
@@ -4382,6 +4505,11 @@ mod_tokendb_handler( request_rec *rq )
         }
         do_free(topLevel);
 
+        /* populate the authorized token transitions */
+        if (show_token_ui_state) {
+            token_ui_state = get_token_ui_state(tokenStatus, tokenReason);
+            add_allowed_token_transitions(token_ui_state, injection);
+        }
 
         add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
         PL_strcat( injection, JS_STOP );
