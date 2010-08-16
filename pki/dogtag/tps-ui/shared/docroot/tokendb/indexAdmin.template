@@ -106,34 +106,40 @@ document.write("</tr></table>");
     <td><i>Tokens</i></td>
   </tr>
   <tr>
-    <td><li><a href="tus?op=search_admin">List/Search Tokens</a></td>
+    <td>&bull;&nbsp;<a href="tus?op=search_admin">List/Search Tokens</a></td>
   </tr>
    <tr>
-    <td><li><a href="tus?op=new">Add New Token</a></td>
+    <td>&bull;&nbsp;<a href="tus?op=new">Add New Token</a></td>
   </tr>
   <tr> 
     <td><i>Users</i></td>
   </tr>
   <tr>
-    <td><li><a href="tus?op=add_user?tid=&uid=">Add User</a></td>
+    <td>&bull;&nbsp;<a href="tus?op=add_user?tid=&uid=">Add User</a></td>
   </tr>
   <tr>
-    <td><li><a href="tus?op=view_users">List Users</a></td>
+    <td>&bull;&nbsp;<a href="tus?op=view_users">List Users</a></td>
   </tr>
   <tr>
-    <td><li><a href="tus?op=search_users">Search Users</a></td>
+    <td>&bull;&nbsp;<a href="tus?op=search_users">Search Users</a></td>
   </tr>
    <tr>
     <td><i>Activities</i></td>
   </tr>
   <tr>
-    <td><li><a href="tus?op=search_activity_admin">List/Search Activities</a></td>
+    <td>&bull;&nbsp;<a href="tus?op=search_activity_admin">List/Search Activities</a></td>
+  </tr>
+   <tr>
+    <td><i>Self Tests</i></td>
+  </tr>
+  <tr>
+    <td>&bull;&nbsp;<a href="tus?op=self_test">Run Self Tests</a></td>
   </tr>
    <tr>
     <td><i>Auditing</i></td>
   </tr>
   <tr>
-    <td><li><a href="tus?op=audit_admin">Configure Signed Audit</a></td>
+    <td>&bull;&nbsp;<a href="tus?op=audit_admin">Configure Signed Audit</a></td>
   </tr>
 </table>
 <HR NOSHADE SIZE=1>
