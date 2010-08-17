@@ -607,18 +607,18 @@ start()
 		for file in ${pki_logs_directory}/*; do
 			if	[ "${file}" != "${pidfile}" ] &&
 				[ "${file}" != "${pki_signedAudit}" ]; then
-				chmod 00660 ${file}
+				chmod 00640 ${file}
 				chgrp [GROUPID] ${file}
 				chown [USERID] ${file}
 			fi
 		done
 
 		# Set permissions of signedAudit log files
+                # do not set the group id, this will be set by the sgid on the directory
 		pki_signedAudit_files=`ls -1A ${pki_signedAudit} | wc -l`
 		if	[ ${pki_signedAudit_files} -gt 0 ]; then
 			for file in ${pki_signedAudit}/*; do
-				chmod 00660 ${file}
-				chgrp [GROUPID] ${file}
+				chmod 00640 ${file}
 				chown [USERID] ${file}
 			done
 		fi

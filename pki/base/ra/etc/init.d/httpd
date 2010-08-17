@@ -578,7 +578,7 @@ start()
 		pki_logs_directory=`dirname ${pidfile}`
 		for file in ${pki_logs_directory}/*; do
 			if [ "${file}" != "${pidfile}" ]; then
-				chmod 00660 ${file}
+				chmod 00640 ${file}
 				chgrp [GROUPID] ${file}
 				chown [USERID] ${file}
 			fi
