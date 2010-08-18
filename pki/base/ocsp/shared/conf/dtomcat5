@@ -47,7 +47,7 @@
 #
 #   NUXWDOG_PID      (Optional) Path of the file which should contain the pid
 #                   of the nuxwdog watchdog process used to start the server
-# $Id: catalina.sh,v 1.19 2005/03/03 15:13:39 remm Exp $
+# $Id$
 # -----------------------------------------------------------------------------
 
 # Disallow 'others' the ability to 'write' to new files
