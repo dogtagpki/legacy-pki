@@ -620,7 +620,8 @@ cgibin_demo_SCRIPTS = $(srcdir)/forms/esc/cgi-bin/demo/enroll.cgi \
 
 cgibin_home_DATA = 
 cgibin_home_SCRIPTS = $(srcdir)/forms/esc/cgi-bin/home/enroll.cgi \
-						$(srcdir)/forms/esc/cgi-bin/home/index.cgi
+						$(srcdir)/forms/esc/cgi-bin/home/index.cgi	\
+						$(srcdir)/forms/esc/cgi-bin/home/cachain.cgi
 
 cgibin_so_DATA = 
 cgibin_so_SCRIPTS = $(srcdir)/forms/esc/cgi-bin/so/enroll.cgi \
@@ -4039,7 +4040,7 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
-	-find $(distdir) -type d ! -perm -755 -exec chmod a+rwx,go+rx {} \; -o \
+	-find $(distdir) -type d ! -perm -777 -exec chmod a+rwx {} \; -o \
 	  ! -type d ! -perm -444 -links 1 -exec chmod a+r {} \; -o \
 	  ! -type d ! -perm -400 -exec chmod a+r {} \; -o \
 	  ! -type d ! -perm -444 -exec $(SHELL) $(install_sh) -c -m a+r {} {} \; \
