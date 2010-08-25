@@ -36,6 +36,24 @@ $PKI::TPS::Startup::VERSION = '1.00';
 my $x_global_bindpwd;
 my $logfile;
 
+my $default_hardware_platform="";
+my $ldapsearch="";
+$default_hardware_platform=`pkiarch`;
+chomp($default_hardware_platform);
+if( $^O eq "linux" ) {
+        if( $default_hardware_platform eq "i386" ) {
+                $ldapsearch = "/usr/lib/mozldap/ldapsearch";
+        } elsif( $default_hardware_platform eq "x86_64" ) {
+                $ldapsearch = "/usr/lib64/mozldap/ldapsearch";
+        }
+} elsif( $^O eq "solaris" ) {
+        if( $default_hardware_platform eq "sparc" ) {
+                $ldapsearch = "/usr/lib/mozldap6/ldapsearch";
+        } elsif( $default_hardware_platform eq "sparcv9" ) {
+                $ldapsearch = "/usr/lib/sparcv9/mozldap6/ldapsearch";
+        }
+}
+
 sub handler {
   my ($conf_pool, $log_pool, $temp_pool, $s) = @_;
 
@@ -60,24 +78,44 @@ sub handler {
   open( DEBUG, ">>" . $logfile ) ||
   warn( "Could not open '" . $logfile . "':  $!" );
 
-  #read password file
+  # get ldap parameters for internal db 
+  # needed to test password
+  my $hostport = $config->get("tokendb.hostport");
+  my $host = substr($hostport, 0, index($hostport, ":"));
+  my $port = substr($hostport, index($hostport, ":") +1);
+  my $binddn = $config->get("tokendb.bindDN");
+  # my $ssl = $config->get("tokendb.ssl");
   my $pwdfile = $config->get("tokendb.bindPassPath");
-  if ((-e $pwdfile) && (-r $pwdfile)) {
-    $x_global_bindpwd = `grep -e "^tokendbBindPass" $pwdfile | cut -c17-`;
-    if ($x_global_bindpwd) {
-      return Apache2::Const::OK;
+
+  my $status =0;
+  my $iteration = 0;
+  do {
+    #read password file
+    if ((-e $pwdfile) && (-r $pwdfile) && ($iteration == 0)) {
+      $x_global_bindpwd = `grep -e "^tokendbBindPass" $pwdfile | cut -c17-`;
+    } else {
+      &debug_log("startup::post_config: bindpwd not found or iteration>0. Prompting for it");
+
+      #initialize client socket connection - TODO: check status
+      my $status = Nuxwdogclient::call_WatchdogClient_init();
+      &debug_log("startup::post_config: watchdog client initialized.");
+
+      #get password
+      my $prompt = "Please enter the password for tokendbBindPass:";
+      $x_global_bindpwd = Nuxwdogclient::call_WatchdogClient_getPassword($prompt, $iteration);
     }
+
+    #test the password
+    # 49 == INVALID_CREDENTIALS
+    $status = &test_ldap_password($host, $port, $binddn, $x_global_bindpwd);
+    $iteration ++;
+  } while ($status == 49);
+
+  if ($status != 0) {
+    # something bad happened when connecting to the database. abort the startup.
+    &debug_log("startup::post_config: test_ldap returns $status. Is the database up?");
+    return Apache2::Const::DONE;
   }
-
-  &debug_log("startup::post_config: bindpwd not found. Prompting for it");
-
-  #initialize client socket connection - TODO: check status
-  my $status = Nuxwdogclient::call_WatchdogClient_init();
-  &debug_log("startup::post_config: watchdog client initialized.");
-
-  #get password
-  my $prompt = "Please enter the password for tokendbBindPass:";
-  $x_global_bindpwd = Nuxwdogclient::call_WatchdogClient_getPassword($prompt, 0);
 
   return Apache2::Const::OK;
 }
@@ -95,6 +133,17 @@ sub debug_log
 sub global_bindpwd
 {
   return $x_global_bindpwd;
+}
+
+sub test_ldap_password
+{
+  my ($host, $port, $binddn, $passwd) = @_;
+  if ($passwd eq "") {
+      return 49;
+  }
+  system($ldapsearch, "-h", $host, "-p", $port, "-D" , $binddn, "-x", "-w", $passwd, "-b", "\"\"", 
+    "-s", "base", "(objectclass=*)");
+  return $? >>8;
 }
 
 1;

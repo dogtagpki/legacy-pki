@@ -976,6 +976,9 @@ public class DatabasePanel extends WizardPanelBase {
           CMS.debug("Populating index failure - " + e);
         }
 
+        // create master replication manager
+        createMasterReplicationManager(request, context, (secure.equals("on")?"true":"false"));
+
         // setup replication after indexes have been created
         if (select.equals("clone")) {
             CMS.debug("Start setting up replication.");
@@ -1005,6 +1008,52 @@ public class DatabasePanel extends WizardPanelBase {
                             + e.toString());
 	  }
 	}
+    }
+
+    private void createMasterReplicationManager(HttpServletRequest request,
+      Context context, String secure) throws IOException {
+        String machinename = "";
+        String instanceId = "";
+        String hostname = "";
+        int port = -1;
+        String binddn = "";
+        String bindpwd =  HttpInput.getPassword(request, "__bindpwd");
+        String replicationpwd = "";
+
+        IConfigStore cs = CMS.getConfigStore();
+        try {
+            machinename = cs.getString("machineName", "");
+            instanceId = cs.getString("instanceId", "");
+            hostname = cs.getString("internaldb.ldapconn.host", "");
+            port = cs.getInteger("internaldb.ldapconn.port", -1);
+            binddn = cs.getString("internaldb.ldapauth.bindDN", "");
+            replicationpwd = cs.getString("preop.internaldb.replicationpwd", "");
+        } catch (Exception e) {
+        }
+
+        String replicationBindUser = "Replication Manager masterAgreement1-"+machinename+"-"+instanceId;
+
+        LDAPConnection conn = null;
+        if (secure.equals("true")) {
+            CMS.debug("DatabasePanel setupReplication: creating secure (SSL) connections for internal ldap");
+            conn = new LDAPConnection(CMS.getLdapJssSSLSocketFactory());
+        } else {
+            CMS.debug("DatabasePanel setupreplication: creating non-secure (non-SSL) connections for internal ldap");
+            conn = new LDAPConnection();
+        }
+
+        try {
+            conn.connect(hostname, port, binddn, bindpwd);
+            createReplicationManager(conn, replicationBindUser, replicationpwd);
+        } catch (Exception e) {
+            CMS.debug("Failed to create master replication user:" + e);
+        } finally {
+            try {
+                if (conn != null) 
+                    conn.disconnect();
+            } catch (Exception ee) {
+            }
+        }
     }
 
     private void setupReplication(HttpServletRequest request,
@@ -1096,7 +1145,11 @@ public class DatabasePanel extends WizardPanelBase {
             String masterBindUser = "Replication Manager " + masterAgreementName;
             String cloneBindUser = "Replication Manager " + cloneAgreementName;
 
+            // This should already have been created in createMasterReplicationManager() 
+            // This may not have been done for old instances though, so we will do it again
+            // just in case
             createReplicationManager(conn1, masterBindUser, master1_replicationpwd);
+
             createReplicationManager(conn2, cloneBindUser, master2_replicationpwd);
 
             String dir1 = getInstanceDir(conn1);
