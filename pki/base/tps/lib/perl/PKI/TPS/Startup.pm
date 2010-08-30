@@ -86,6 +86,7 @@ sub handler {
   my $binddn = $config->get("tokendb.bindDN");
   # my $ssl = $config->get("tokendb.ssl");
   my $pwdfile = $config->get("tokendb.bindPassPath");
+  my $basedn = $config->get("tokendb.baseDN");
 
   my $status =0;
   my $iteration = 0;
@@ -93,6 +94,7 @@ sub handler {
     #read password file
     if ((-e $pwdfile) && (-r $pwdfile) && ($iteration == 0)) {
       $x_global_bindpwd = `grep -e "^tokendbBindPass" $pwdfile | cut -c17-`;
+      chomp($x_global_bindpwd);
     } else {
       &debug_log("startup::post_config: bindpwd not found or iteration>0. Prompting for it");
 
@@ -107,7 +109,7 @@ sub handler {
 
     #test the password
     # 49 == INVALID_CREDENTIALS
-    $status = &test_ldap_password($host, $port, $binddn, $x_global_bindpwd);
+    $status = &test_ldap_password($host, $port, $binddn, $basedn, $x_global_bindpwd);
     $iteration ++;
   } while ($status == 49);
 
@@ -137,12 +139,11 @@ sub global_bindpwd
 
 sub test_ldap_password
 {
-  my ($host, $port, $binddn, $passwd) = @_;
+  my ($host, $port, $binddn, $basedn, $passwd) = @_;
   if ($passwd eq "") {
       return 49;
   }
-  system($ldapsearch, "-h", $host, "-p", $port, "-D" , $binddn, "-x", "-w", $passwd, "-b", "\"\"", 
-    "-s", "base", "(objectclass=*)");
+  system("$ldapsearch -1 -h '$host' -p $port -D '$binddn' -x -w $passwd -b '$basedn' -s base '(objectclass=*)' >/dev/null");
   return $? >>8;
 }
 
