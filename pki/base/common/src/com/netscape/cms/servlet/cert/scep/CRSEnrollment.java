@@ -158,6 +158,7 @@ public class CRSEnrollment extends HttpServlet
       try {
 	      mProfileSubsystem = (IProfileSubsystem)CMS.getSubsystem("profile");
           mProfileId  = sc.getInitParameter("profileId");
+          CMS.debug("CRSEnrollment: init: mProfileId="+mProfileId);
 
 	      mAuthSubsystem   = (IAuthSubsystem)CMS.getSubsystem(CMS.SUBSYSTEM_AUTH);
           mAuthManagerName  = sc.getInitParameter(PROP_CRSAUTHMGR);
@@ -473,7 +474,48 @@ public class CRSEnrollment extends HttpServlet
           // Verify Signature on message (throws exception if sig bad)
           verifyRequest(req,cx);
           unwrapPKCS10(req,cx);
-                
+
+          IProfile profile = mProfileSubsystem.getProfile(mProfileId);
+          if (profile == null) {
+              CMS.debug("Profile '" + mProfileId + "' not found.");
+              throw new ServletException("Profile '" + mProfileId + "' not found.");
+          } else {
+              CMS.debug("Found profile '" + mProfileId + "'.");
+          }
+
+          IProfileAuthenticator authenticator = null;
+          try {
+              CMS.debug("Retrieving authenticator");
+              authenticator = profile.getAuthenticator();
+              if (authenticator == null) {
+                  CMS.debug("Authenticator not found.");
+                  throw new ServletException("Authenticator not found.");
+              } else {
+                  CMS.debug("Got authenticator=" + authenticator.getClass().getName());
+              }
+          } catch (EProfileException e) {
+              throw new ServletException("Authenticator not found.");
+          }
+          AuthCredentials credentials = new AuthCredentials();
+          IAuthToken authToken = null;
+          // for ssl authentication; pass in servlet for retrieving
+          // ssl client certificates
+          SessionContext context = SessionContext.getContext();
+
+          // insert profile context so that input parameter can be retrieved
+          context.put("sslClientCertProvider", new SSLClientCertProvider(httpReq));
+
+          try {
+              authToken = authenticate(credentials, authenticator, httpReq);
+          } catch (Exception e) {
+              CMS.debug("Authentication failure: "+ e.getMessage());
+              throw new ServletException("Authentication failure: "+ e.getMessage());
+          }
+          if (authToken == null) {
+              CMS.debug("Authentication failure.");
+              throw new ServletException("Authentication failure.");
+          }
+
           // Deal with Transaction ID
           String transactionID = req.getTransactionID();
           responseData = responseData + 
@@ -566,6 +608,8 @@ public class CRSEnrollment extends HttpServlet
           responseData = responseData + 
               "<PKCS10>" + pkcs10Attr + "</PKCS10>";
 
+      } catch (ServletException e) {
+          throw new ServletException(e.getMessage().toString());
       } catch (CRSInvalidSignatureException e) {
           CMS.debug("handlePKIMessage exception " + e);
           CMS.debug(e);
@@ -588,6 +632,16 @@ public class CRSEnrollment extends HttpServlet
           httpResp.setContentLength(response.length);
           httpResp.getOutputStream().write(response);
           httpResp.getOutputStream().flush();
+
+          int i1 = responseData.indexOf("<Password>");
+          if (i1 > -1) {
+              i1 += 10; // 10 is a length of "<Password>"
+              int i2 = responseData.indexOf("</Password>", i1);
+              if (i2 > -1) {
+                  responseData = responseData.substring(0, i1) + "********" +
+                                 responseData.substring(i2, responseData.length());
+              }
+          }
 
           CMS.debug("Output (decoding) PKIOperation response:");
           CMS.debug(responseData);
