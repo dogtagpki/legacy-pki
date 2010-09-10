@@ -328,6 +328,7 @@ public class CMSEngine implements ICMSEngine {
         if (tags == null) { 
             System.out.println("CMSEngine: init(): tags is null!");
         } else {
+            String skipPublishingCheck = config.getString("cms.password.ignore.publishing.failure", "true");
             for (int i=0; i < tags.length; i++) {
                 if (state != 1) break;
                 System.out.println("CMSEngine: init(): testing for password for " + tags[i]);
@@ -388,6 +389,10 @@ public class CMSEngine implements ICMSEngine {
                  if (result != PW_OK) {
                      if ((result == PW_NO_USER) && (tags[i].equals("replicationdb"))) {
                          System.out.println("CMSEngine: init(): password test execution failed for replicationdb with NO_SUCH_USER.  This may not be a latest instance.  Ignoring ..");
+                     } else if ((skipPublishingCheck.equals("true")) && (result == PW_CANNOT_CONNECT) && (tags[i].equals("CA LDAP Publishing"))) {
+                         System.out.println("Unable to connect to the publishing database to check password, but continuing to start up.  Please check if publishing is operational.");
+                         WatchdogClient.printMessage(
+                            "Unable to connect to the publishing database to check password, but continuing to start up.  Please check if publishing is operational.");
                      } else {
                          // password test failed
                          System.out.println("CMSEngine: init(): password test execution failed: " + result);
