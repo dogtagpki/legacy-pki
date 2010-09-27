@@ -515,8 +515,6 @@ get_pki_secure_port()
 # are expected to behave here.
 start()
 {
-	echo -n $"Starting $prog: "
-
 	if [ -f ${RESTART_SERVER} ] ; then
 		rm -f ${RESTART_SERVER}
 	fi
@@ -524,6 +522,7 @@ start()
         if [ -f ${wdpidfile} ]; then
             read kpid < ${wdpidfile}
             if checkpid $kpid 2>&1; then
+                echo -n $"Starting $prog: "
                 echo
                 echo "Watchdog process already running. If the server is not operational, please use restart to stop and start the server."
                 return 255
@@ -533,6 +532,7 @@ start()
 	if [ -f ${lockfile} ] ; then
 		if [ -f ${pidfile} ]; then
 			read kpid < ${pidfile}
+			echo -n $"Starting $prog: "
 			if checkpid $kpid 2>&1; then
 				echo
 				echo "process already running"
@@ -568,10 +568,10 @@ start()
                 echo "ExeContext pki_tps_t" >> $wdconfig
             fi
             LANG=$HTTPD_LANG WDOG_NO_WATCH_SIGCHLD=1 /usr/bin/nuxwdog -f $wdconfig
-            echo -n $"Starting $prog:"
+            echo -n $"Starting $prog: "
         else
             LANG=$HTTPD_LANG $httpd $OPTIONS -k start
-            echo -n $"Starting $prog:"
+            echo -n $"Starting $prog: "
         fi
 
 	RETVAL=$?

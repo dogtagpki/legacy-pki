@@ -222,6 +222,9 @@ $tmp_dir    = "";
 # "logging" parameters
 $logfile = "";
 
+# Whether or not to execute instance under a Java security manager
+$sans_security_manager = 0;
+
 # Whether or not to do verbose mode
 $verbose = 0;
 

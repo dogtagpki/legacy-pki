@@ -253,8 +253,6 @@ if LINUX
 setup_DATA =	$(srcdir)/setup/config.desktop
 endif
 
-setup_SCRIPTS =	$(srcdir)/setup/postinstall
-
 templates_DATA =	$(srcdir)/apache/pki_instance_command_wrapper \
 					$(srcdir)/apache/pki_subsystem_command_wrapper
 

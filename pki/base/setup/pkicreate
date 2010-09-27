@@ -358,6 +358,7 @@ my $PKI_UNSECURE_PORT_SLOT    = "PKI_UNSECURE_PORT";
 my $PKI_USER_SLOT             = "PKI_USER";
 my $TOMCAT_SERVER_PORT_SLOT   = "TOMCAT_SERVER_PORT";
 my $PKI_FLAVOR_SLOT           = "PKI_FLAVOR";
+my $PKI_SECURITY_MANAGER_SLOT = "PKI_SECURITY_MANAGER";
 my $PKI_UNSECURE_PORT_CONNECTOR_NAME_SLOT     = "PKI_UNSECURE_PORT_CONNECTOR_NAME";
 my $PKI_SECURE_PORT_CONNECTOR_NAME_SLOT       = "PKI_SECURE_PORT_CONNECTOR_NAME";
 my $PKI_ADMIN_SECURE_PORT_CONNECTOR_NAME_SLOT = "PKI_ADMIN_SECURE_PORT_CONNECTOR_NAME";
@@ -435,6 +436,7 @@ my $ee_secure_client_auth_port = -1;
 my $admin_secure_port    = -1;
 my $username             = "";
 my $groupname            = "";
+my $pki_security_manager = "";
 my $redirected_conf_path = "";
 my $redirected_logs_path = "";
 
@@ -815,6 +817,10 @@ sub usage()
          . "# Redirection of\n"
          . "                                                   "
          . "# 'logs' directory\n\n"
+         . "          [-sans_security_manager]                 "
+         . "# Execute instance without\n"
+         . "                                                   "
+         . "# a Java security manager\n\n"
          . "          [-verbose]                               "
          . "# Print out liberal info\n"
          . "                                                   "
@@ -892,55 +898,115 @@ sub usage()
 
     print( STDOUT
            "###############################################################################\n"
-         . "###   EXAMPLE:  PKI (Apache) subsystem instance creation of a TPS           ###\n"
+         . "###   EXAMPLES:                                                             ###\n"
+         . "###       PKI (Tomcat) subsystem instance creation of a  CA                 ###\n"
+         . "###       PKI (Tomcat) subsystem instance creation of a  Subordinate CA     ###\n"
+         . "###       PKI (Tomcat) subsystem instance creation of a  KRA                ###\n"
+         . "###       PKI (Tomcat) subsystem instance creation of an OCSP               ###\n"
+         . "###       PKI (Tomcat) subsystem instance creation of a  TKS                ###\n"
+         . "###       PKI (Apache) subsystem instance creation of an RA                 ###\n"
+         . "###       PKI (Apache) subsystem instance creation of a  TPS                ###\n"
+         . "###       PKI (Apache) subsystem instance creation of a  second TPS         ###\n"
          . "###############################################################################\n\n"
-         . "pkicreate -pki_instance_root=/var/lib      \\\n"
-         . "          -pki_instance_name=$pki_flavor-tps1      \\\n"
-         . "          -subsystem_type=tps              \\\n"
-         . "          -secure_port=7989                \\\n"
-         . "          -non_clientauth_secure_port=7990 \\\n"
-         . "          -unsecure_port=7988              \\\n"
-         . "          -user=pkiuser                    \\\n"
-         . "          -group=pkiuser                   \\\n"
-         . "          -redirect conf=/etc/$pki_flavor-tps1     \\\n"
-         . "          -redirect logs=/var/log/$pki_flavor-tps1 \\\n"
-         . "          -verbose\n\n" );
-
-    print( STDOUT
-           "###############################################################################\n"
-         . "###   EXAMPLE:  PKI (Tomcat) subsystem instance creation of a CA            ###\n"
-         . "###############################################################################\n\n"
-         . "pkicreate -pki_instance_root=/var/lib      \\\n"
-         . "          -pki_instance_name=$pki_flavor-ca1       \\\n"
-         . "          -subsystem_type=ca               \\\n"
-         . "          -agent_secure_port=9543          \\\n"
-         . "          -ee_secure_port=9544             \\\n"
-         . "          -admin_secure_port=9545          \\\n"
-         . "          -ee_secure_client_auth_port=9546 \\\n"
-         . "          -unsecure_port=9580              \\\n"
-         . "          -tomcat_server_port=9801         \\\n"
-         . "          -user=pkiuser                    \\\n"
-         . "          -group=pkiuser                   \\\n"
-         . "          -redirect conf=/etc/$pki_flavor-ca1      \\\n"
-         . "          -redirect logs=/var/log/$pki_flavor-ca1  \\\n"
-         . "          -verbose\n\n" );
-
-    print( STDOUT
-           "###############################################################################\n"
-         . "###   EXAMPLE:  PKI (Tomcat) subsystem instance creation of a KRA           ###\n"
-         . "###############################################################################\n\n"
-         . "pkicreate -pki_instance_root=/var/lib      \\\n"
-         . "          -pki_instance_name=$pki_flavor-kra1      \\\n"
-         . "          -subsystem_type=kra              \\\n"
-         . "          -agent_secure_port=10543         \\\n"
-         . "          -ee_secure_port=10544            \\\n"
-         . "          -admin_secure_port=10545         \\\n"
-         . "          -unsecure_port=10580             \\\n"
-         . "          -tomcat_server_port=10801        \\\n"
-         . "          -user=pkiuser                    \\\n"
-         . "          -group=pkiuser                   \\\n"
-         . "          -redirect conf=/etc/$pki_flavor-kra1     \\\n"
-         . "          -redirect logs=/var/log/$pki_flavor-kra1 \\\n"
+         . "pkicreate -pki_instance_root=/var/lib        \\\n"
+         . "          -pki_instance_name=pki-ca          \\\n"
+         . "          -subsystem_type=ca                 \\\n"
+         . "          -agent_secure_port=9443            \\\n"
+         . "          -ee_secure_port=9444               \\\n"
+         . "          -ee_secure_client_auth_port=9446   \\\n"
+         . "          -admin_secure_port=9445            \\\n"
+         . "          -unsecure_port=9180                \\\n"
+         . "          -tomcat_server_port=9701           \\\n"
+         . "          -user=pkiuser                      \\\n"
+         . "          -group=pkiuser                     \\\n"
+         . "          -redirect conf=/etc/pki-ca         \\\n"
+         . "          -redirect logs=/var/log/pki-ca     \\\n"
+         . "          -verbose\n\n"
+         . "pkicreate -pki_instance_root=/var/lib        \\\n"
+         . "          -pki_instance_name=pki-subca       \\\n"
+         . "          -subsystem_type=ca                 \\\n"
+         . "          -agent_secure_port=9543            \\\n"
+         . "          -ee_secure_port=9544               \\\n"
+         . "          -ee_secure_client_auth_port=9546   \\\n"
+         . "          -admin_secure_port=9545            \\\n"
+         . "          -unsecure_port=9580                \\\n"
+         . "          -tomcat_server_port=9801           \\\n"
+         . "          -user=pkiuser                      \\\n"
+         . "          -group=pkiuser                     \\\n"
+         . "          -redirect conf=/etc/pki-subca      \\\n"
+         . "          -redirect logs=/var/log/pki-subca  \\\n"
+         . "          -verbose\n\n"
+         . "pkicreate -pki_instance_root=/var/lib        \\\n"
+         . "          -pki_instance_name=pki-kra         \\\n"
+         . "          -subsystem_type=kra                \\\n"
+         . "          -agent_secure_port=10443           \\\n"
+         . "          -ee_secure_port=10444              \\\n"
+         . "          -admin_secure_port=10445           \\\n"
+         . "          -unsecure_port=10180               \\\n"
+         . "          -tomcat_server_port=10701          \\\n"
+         . "          -user=pkiuser                      \\\n"
+         . "          -group=pkiuser                     \\\n"
+         . "          -redirect conf=/etc/pki-kra        \\\n"
+         . "          -redirect logs=/var/log/pki-kra    \\\n"
+         . "          -verbose\n\n"
+         . "pkicreate -pki_instance_root=/var/lib        \\\n"
+         . "          -pki_instance_name=pki-ocsp        \\\n"
+         . "          -subsystem_type=ocsp               \\\n"
+         . "          -agent_secure_port=11443           \\\n"
+         . "          -ee_secure_port=11444              \\\n"
+         . "          -admin_secure_port=11445           \\\n"
+         . "          -unsecure_port=11180               \\\n"
+         . "          -tomcat_server_port=11701          \\\n"
+         . "          -user=pkiuser                      \\\n"
+         . "          -group=pkiuser                     \\\n"
+         . "          -redirect conf=/etc/pki-ocsp       \\\n"
+         . "          -redirect logs=/var/log/pki-ocsp   \\\n"
+         . "          -verbose\n\n"
+         . "pkicreate -pki_instance_root=/var/lib        \\\n"
+         . "          -pki_instance_name=pki-tks         \\\n"
+         . "          -subsystem_type=tks                \\\n"
+         . "          -agent_secure_port=13443           \\\n"
+         . "          -ee_secure_port=13444              \\\n"
+         . "          -admin_secure_port=13445           \\\n"
+         . "          -unsecure_port=13180               \\\n"
+         . "          -tomcat_server_port=13701          \\\n"
+         . "          -user=pkiuser                      \\\n"
+         . "          -group=pkiuser                     \\\n"
+         . "          -redirect conf=/etc/pki-tks        \\\n"
+         . "          -redirect logs=/var/log/pki-tks    \\\n"
+         . "          -verbose\n\n"
+         . "pkicreate -pki_instance_root=/var/lib        \\\n"
+         . "          -pki_instance_name=pki-ra          \\\n"
+         . "          -subsystem_type=ra                 \\\n"
+         . "          -secure_port=12889                 \\\n"
+         . "          -non_clientauth_secure_port=12890  \\\n"
+         . "          -unsecure_port=12888               \\\n"
+         . "          -user=pkiuser                      \\\n"
+         . "          -group=pkiuser                     \\\n"
+         . "          -redirect conf=/etc/pki-ra         \\\n"
+         . "          -redirect logs=/var/log/pki-ra     \\\n"
+         . "          -verbose\n\n"
+         . "pkicreate -pki_instance_root=/var/lib        \\\n"
+         . "          -pki_instance_name=pki-tps         \\\n"
+         . "          -subsystem_type=tps                \\\n"
+         . "          -secure_port=7889                  \\\n"
+         . "          -non_clientauth_secure_port=7890   \\\n"
+         . "          -unsecure_port=7888                \\\n"
+         . "          -user=pkiuser                      \\\n"
+         . "          -group=pkiuser                     \\\n"
+         . "          -redirect conf=/etc/pki-tps        \\\n"
+         . "          -redirect logs=/var/log/pki-tps    \\\n"
+         . "          -verbose\n\n"
+         . "pkicreate -pki_instance_root=/var/lib        \\\n"
+         . "          -pki_instance_name=pki-tps1        \\\n"
+         . "          -subsystem_type=tps                \\\n"
+         . "          -secure_port=7989                  \\\n"
+         . "          -non_clientauth_secure_port=7990   \\\n"
+         . "          -unsecure_port=7988                \\\n"
+         . "          -user=pkiuser                      \\\n"
+         . "          -group=pkiuser                     \\\n"
+         . "          -redirect conf=/etc/pki-tps1       \\\n"
+         . "          -redirect logs=/var/log/pki-tps1   \\\n"
          . "          -verbose\n\n" );
 
     print( STDOUT
@@ -997,6 +1063,7 @@ sub parse_arguments()
                           "tomcat_server_port:i" => \$l_tomcat_server_port,
                           "user=s" => \$username,
                           "group=s" => \$groupname,
+                          "sans_security_manager" => \$sans_security_manager,
                           "verbose" => \$verbose,
                           "redirect=s" => \%redirects );
 
@@ -1251,7 +1318,6 @@ sub parse_arguments()
         return 0;
     }
 
-
     ## Optional "-user=<username>" option
     if( $username ne "" ) {
         if( $groupname eq "" ) {
@@ -1346,6 +1412,27 @@ sub parse_arguments()
             emit( "User '$pki_user' is a member of group "
                 . "'$default_nfast_group'.\n" );
         }            
+    }
+
+
+    ## Optional "-sans_security_manager" option
+    if( !($subsystem_type eq $RA || $subsystem_type eq $TPS ) ) {
+        if( $sans_security_manager ) {
+            $pki_security_manager = "";
+            emit( "    Java security manager is DISABLED\n" );
+        } else {
+            # by default, execute instances using a Java security manager
+            $pki_security_manager = "-security";
+            emit( "    Java security manager is ENABLED\n" );
+        }
+    } else {
+        ## Mandatory EXCLUSION for RA and TPS subsystems
+        if( $sans_security_manager ) {
+            usage();
+            emit( "Must NOT attempt to disable Java security manager!\n",
+                  "error" );
+            return 0;
+        }
     }
 
 
@@ -2476,6 +2563,7 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
         $slot_hash{$PKI_USER_SLOT}             = $pki_user;
         $slot_hash{$TOMCAT_SERVER_PORT_SLOT}   = $tomcat_server_port;
         $slot_hash{$PKI_FLAVOR_SLOT}           = $pki_flavor;
+        $slot_hash{$PKI_SECURITY_MANAGER_SLOT} = $pki_security_manager;
     }
 
 

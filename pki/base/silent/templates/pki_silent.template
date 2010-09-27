@@ -1303,6 +1303,7 @@ pkisilent ConfigureDRM \
 	-agent_key_type ${kra_agent_key_type} \
 	-agent_cert_subject "${kra_agent_cert_subject}" \
 	-subsystem_name ${kra_subsystem_name} \
+	-backup_pwd ${kra_backup_password} \
 	-drm_transport_cert_subject_name "${kra_transport_cert_subject_name}" \
 	-drm_subsystem_cert_subject_name "${kra_subsystem_cert_subject_name}" \
 	-drm_storage_cert_subject_name "${kra_storage_cert_subject_name}" \

@@ -90,6 +90,13 @@ esac
 TOMCAT_CFG=[PKI_INSTANCE_PATH]/conf/tomcat5.conf
 JAVADIR="/usr/share/java"
 
+# Java Security Manager Policy Files
+CATALINA_POLICY=/usr/share/tomcat5/conf/catalina.policy
+PKI_CATALINA_POLICY=[PKI_INSTANCE_PATH]/conf/catalina.policy
+PKI_POLICY=[PKI_INSTANCE_PATH]/conf/pki.policy
+PKI_CUSTOM_POLICY=[PKI_INSTANCE_PATH]/conf/custom.policy
+PKI_INSTANCE_POLICY=[PKI_INSTANCE_PATH]/conf/[PKI_INSTANCE_ID].policy
+
 # resolve links - $0 may be a softlink
 PRG="$0"
 
@@ -345,12 +352,22 @@ if [ "$1" = "debug" ] ; then
   else
     shift
     if [ "$1" = "-security" ] ; then
-      echo "Using Security Manager"
+      echo
+      echo "    Using Security Manager"
       shift
+      echo "    Constructing '[PKI_INSTANCE_ID].policy' Security Policy"
+      cat "${CATALINA_POLICY}" "${PKI_POLICY}" "${PKI_CUSTOM_POLICY}" > "${PKI_INSTANCE_POLICY}"
+      if [ ! -f "${PKI_INSTANCE_POLICY}" ]; then
+        # Default to simply using the "legacy" PKI catalina.policy
+        PKI_INSTANCE_POLICY="${PKI_CATALINA_POLICY}"
+      else
+        # Set permissions on new PKI '[PKI_INSTANCE_ID].policy'
+        chmod 00755 "${PKI_INSTANCE_POLICY}"
+      fi
       FNAME="$CATALINA_BASE"/conf/nuxwdog-secdebug.conf
       if [ ! -f $FNAME ]; then
         echo "ExeFile $_RUNJDB" > $FNAME
-        echo "ExeArgs $_RUNJDB $JAVA_OPTS $CATALINA_OPTS -Djava.endorsed.dirs=$JAVA_ENDORSED_DIRS -classpath $CLASSPATH -sourcepath "$CATALINA_HOME"/../../jakarta-tomcat-catalina/catalina/src/share -Djava.security.manager -Djava.security.policy=="$CATALINA_BASE"/conf/catalina.policy -Dcatalina.base=$CATALINA_BASE -Dcatalina.home=$CATALINA_HOME -Djava.io.tmpdir=$CATALINA_TMPDIR org.apache.catalina.startup.Bootstrap $@ start" >> $FNAME
+        echo "ExeArgs $_RUNJDB $JAVA_OPTS $CATALINA_OPTS -Djava.endorsed.dirs=$JAVA_ENDORSED_DIRS -classpath $CLASSPATH -sourcepath "$CATALINA_HOME"/../../jakarta-tomcat-catalina/catalina/src/share -Djava.security.manager -Djava.security.policy="$PKI_INSTANCE_POLICY" -Dcatalina.base=$CATALINA_BASE -Dcatalina.home=$CATALINA_HOME -Djava.io.tmpdir=$CATALINA_TMPDIR org.apache.catalina.startup.Bootstrap $@ start" >> $FNAME
         echo "TmpDir ${CATALINA_BASE}/logs/pids" >> $FNAME
         echo "ChildSecurity 1" >> $FNAME
         echo "PidFile $NUXWDOG_PID" >> $FNAME
@@ -375,12 +392,22 @@ elif [ "$1" = "run" ]; then
 
   shift
   if [ "$1" = "-security" ] ; then
-    echo "Using Security Manager"
+    echo
+    echo "    Using Security Manager"
     shift
+    echo "    Constructing '[PKI_INSTANCE_ID].policy' Security Policy"
+    cat "${CATALINA_POLICY}" "${PKI_POLICY}" "${PKI_CUSTOM_POLICY}" > "${PKI_INSTANCE_POLICY}"
+    if [ ! -f "${PKI_INSTANCE_POLICY}" ]; then
+      # Default to simply using the "legacy" PKI catalina.policy
+      PKI_INSTANCE_POLICY="${PKI_CATALINA_POLICY}"
+    else
+      # Set permissions on new PKI '[PKI_INSTANCE_ID].policy'
+      chmod 00755 "${PKI_INSTANCE_POLICY}"
+    fi
     FNAME="$CATALINA_BASE"/conf/nuxwdog-secrun.conf
     if [ ! -f $FNAME ]; then
       echo "ExeFile $_RUNJAVA" > $FNAME
-      echo "ExeArgs $_RUNJAVA $JAVA_OPTS $CATALINA_OPTS -Djava.endorsed.dirs=$JAVA_ENDORSED_DIRS -classpath $CLASSPATH -Djava.security.manager -Djava.security.policy=="$CATALINA_BASE"/conf/catalina.policy -Dcatalina.base=$CATALINA_BASE -Dcatalina.home=$CATALINA_HOME -Djava.io.tmpdir=$CATALINA_TMPDIR org.apache.catalina.startup.Bootstrap $@ start" >> $FNAME
+      echo "ExeArgs $_RUNJAVA $JAVA_OPTS $CATALINA_OPTS -Djava.endorsed.dirs=$JAVA_ENDORSED_DIRS -classpath $CLASSPATH -Djava.security.manager -Djava.security.policy="${PKI_INSTANCE_POLICY}" -Dcatalina.base=$CATALINA_BASE -Dcatalina.home=$CATALINA_HOME -Djava.io.tmpdir=$CATALINA_TMPDIR org.apache.catalina.startup.Bootstrap $@ start" >> $FNAME
       echo "TmpDir ${CATALINA_BASE}/logs/pids" >> $FNAME
       echo "ChildSecurity 1" >> $FNAME
       echo "PidFile $NUXWDOG_PID" >> $FNAME
@@ -405,12 +432,22 @@ elif [ "$1" = "start" ] ; then
   shift
   touch "$CATALINA_BASE"/logs/catalina.out
   if [ "$1" = "-security" ] ; then
-    echo "Using Security Manager"
+    echo
+    echo "    Using Security Manager"
     shift
+    echo "    Constructing '[PKI_INSTANCE_ID].policy' Security Policy"
+    cat "${CATALINA_POLICY}" "${PKI_POLICY}" "${PKI_CUSTOM_POLICY}" > "${PKI_INSTANCE_POLICY}"
+    if [ ! -f "${PKI_INSTANCE_POLICY}" ]; then
+      # Default to simply using the "legacy" PKI catalina.policy
+      PKI_INSTANCE_POLICY="${PKI_CATALINA_POLICY}"
+    else
+      # Set permissions on new PKI '[PKI_INSTANCE_ID].policy'
+      chmod 00755 "${PKI_INSTANCE_POLICY}"
+    fi
     FNAME="$CATALINA_BASE"/conf/nuxwdog-secstart.conf
     if [ ! -f $FNAME ]; then
       echo "ExeFile $_RUNJAVA" > $FNAME
-      echo "ExeArgs $_RUNJAVA $JAVA_OPTS $CATALINA_OPTS -Djava.endorsed.dirs=$JAVA_ENDORSED_DIRS -classpath $CLASSPATH -Djava.security.manager -Djava.security.policy=="$CATALINA_BASE"/conf/catalina.policy -Dcatalina.base=$CATALINA_BASE -Dcatalina.home=$CATALINA_HOME -Djava.io.tmpdir=$CATALINA_TMPDIR org.apache.catalina.startup.Bootstrap $@ start" >> $FNAME
+      echo "ExeArgs $_RUNJAVA $JAVA_OPTS $CATALINA_OPTS -Djava.endorsed.dirs=$JAVA_ENDORSED_DIRS -classpath $CLASSPATH -Djava.security.manager -Djava.security.policy="${PKI_INSTANCE_POLICY}" -Dcatalina.base=$CATALINA_BASE -Dcatalina.home=$CATALINA_HOME -Djava.io.tmpdir=$CATALINA_TMPDIR org.apache.catalina.startup.Bootstrap $@ start" >> $FNAME
       echo "TmpDir ${CATALINA_BASE}/logs/pids" >> $FNAME
       echo "ChildSecurity 1" >> $FNAME
       echo "ExeOut ${CATALINA_BASE}/logs/catalina.out" >> $FNAME

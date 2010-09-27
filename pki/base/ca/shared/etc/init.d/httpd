@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This program is free software; you can redistribute it and/or modify
@@ -201,6 +202,9 @@ if [ -z "$TOMCAT_GROUP" ]; then
 	TOMCAT_GROUP="[PKI_GROUP]"
 fi
 
+# Set Tomcat security manager switch to "-security" or ""
+TOMCAT_SECURITY_MANAGER="[PKI_SECURITY_MANAGER]"
+
 # Since the daemon function will sandbox $tomcat
 # no environment stuff should be defined here anymore.
 # Please use the [PKI_INSTANCE_PATH]/conf/tomcat5.conf
@@ -241,7 +245,7 @@ get_pki_status_definitions()
 	unsecure_port_statement="Unsecure Port       = "
 	secure_agent_port_statement="Secure Agent Port   = "
 	secure_ee_port_statement="Secure EE Port      = "
-        secure_ee_client_auth_port_statement="EE Client Auth Port = "
+	secure_ee_client_auth_port_statement="EE Client Auth Port = "
 	secure_admin_port_statement="Secure Admin Port   = "
 	pki_console_port_statement="PKI Console Port    = "
 	tomcat_port_statement="Tomcat Port         = "
@@ -1063,13 +1067,18 @@ start()
 
 	# daemon --user $TOMCAT_USER $TOMCAT_SCRIPT start 
 	if [ ${OS} = "SunOS" ] ; then
-		su  $TOMCAT_USER -c "$TOMCAT_SCRIPT start" > /dev/null
-        else
-		runuser -s /bin/bash $TOMCAT_USER -c "$TOMCAT_SCRIPT start" 
+		su  $TOMCAT_USER -c "$TOMCAT_SCRIPT start ${TOMCAT_SECURITY_MANAGER}" > /dev/null
+	else
+		runuser -s /bin/bash $TOMCAT_USER -c "$TOMCAT_SCRIPT start ${TOMCAT_SECURITY_MANAGER}" 
 	fi
 
 	RETVAL=$?
 	[ $RETVAL = 0 ] && touch ${lockfile}
+
+	# If a security manager has been specified, reprint the start message
+	if [ "${TOMCAT_SECURITY_MANAGER}" !=  "" ] ; then
+		echo -n "Starting $TOMCAT_PROG: "
+	fi
 
 	if [ $RETVAL = 0 ] ; then
 		count=0;
@@ -1149,7 +1158,7 @@ stop()
 		# daemon --user $TOMCAT_USER $TOMCAT_SCRIPT stop
 		if [ ${OS} = "SunOS" ] ; then
 			su  $TOMCAT_USER -c "$TOMCAT_SCRIPT stop" > /dev/null
-        	else
+		else
 			runuser -s /bin/bash $TOMCAT_USER -c "$TOMCAT_SCRIPT stop" > /dev/null
 		fi
 

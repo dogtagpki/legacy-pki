@@ -91,13 +91,12 @@ am__installdirs = "$(DESTDIR)$(apache_modulesdir)" \
 	"$(DESTDIR)$(libexecdir)" "$(DESTDIR)$(perl_basedir)" \
 	"$(DESTDIR)$(perl_modulesdir)" "$(DESTDIR)$(perl_servicedir)" \
 	"$(DESTDIR)$(perl_templatesdir)" "$(DESTDIR)$(scriptsdir)" \
-	"$(DESTDIR)$(setupdir)" "$(DESTDIR)$(aliasdir)" \
-	"$(DESTDIR)$(appletsdir)" "$(DESTDIR)$(cgibin_demodir)" \
-	"$(DESTDIR)$(cgibin_homedir)" "$(DESTDIR)$(cgibin_sodir)" \
-	"$(DESTDIR)$(cgibin_sowdir)" "$(DESTDIR)$(confdir)" \
-	"$(DESTDIR)$(docrootdir)" "$(DESTDIR)$(docroot_demodir)" \
-	"$(DESTDIR)$(docroot_homedir)" "$(DESTDIR)$(docroot_sodir)" \
-	"$(DESTDIR)$(docroot_sowdir)" \
+	"$(DESTDIR)$(aliasdir)" "$(DESTDIR)$(appletsdir)" \
+	"$(DESTDIR)$(cgibin_demodir)" "$(DESTDIR)$(cgibin_homedir)" \
+	"$(DESTDIR)$(cgibin_sodir)" "$(DESTDIR)$(cgibin_sowdir)" \
+	"$(DESTDIR)$(confdir)" "$(DESTDIR)$(docrootdir)" \
+	"$(DESTDIR)$(docroot_demodir)" "$(DESTDIR)$(docroot_homedir)" \
+	"$(DESTDIR)$(docroot_sodir)" "$(DESTDIR)$(docroot_sowdir)" \
 	"$(DESTDIR)$(docroot_tokendbdir)" \
 	"$(DESTDIR)$(docroot_tps_configdir)" \
 	"$(DESTDIR)$(docroot_tps_imgdir)" \
@@ -308,12 +307,11 @@ perl_modulesSCRIPT_INSTALL = $(INSTALL_SCRIPT)
 perl_serviceSCRIPT_INSTALL = $(INSTALL_SCRIPT)
 perl_templatesSCRIPT_INSTALL = $(INSTALL_SCRIPT)
 scriptsSCRIPT_INSTALL = $(INSTALL_SCRIPT)
-setupSCRIPT_INSTALL = $(INSTALL_SCRIPT)
 SCRIPTS = $(bin_SCRIPTS) $(cgibin_demo_SCRIPTS) $(cgibin_home_SCRIPTS) \
 	$(cgibin_so_SCRIPTS) $(cgibin_sow_SCRIPTS) $(initd_SCRIPTS) \
 	$(libexec_SCRIPTS) $(perl_base_SCRIPTS) \
 	$(perl_modules_SCRIPTS) $(perl_service_SCRIPTS) \
-	$(perl_templates_SCRIPTS) $(scripts_SCRIPTS) $(setup_SCRIPTS)
+	$(perl_templates_SCRIPTS) $(scripts_SCRIPTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I.
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -723,7 +721,6 @@ scripts_DATA = $(srcdir)/scripts/schemaMods.ldif \
 
 scripts_SCRIPTS = $(srcdir)/scripts/nss_pcache
 @LINUX_TRUE@setup_DATA = $(srcdir)/setup/config.desktop
-setup_SCRIPTS = $(srcdir)/setup/postinstall
 templates_DATA = $(srcdir)/apache/pki_instance_command_wrapper \
 					$(srcdir)/apache/pki_subsystem_command_wrapper
 
@@ -1737,25 +1734,6 @@ uninstall-scriptsSCRIPTS:
 	  f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
 	  echo " rm -f '$(DESTDIR)$(scriptsdir)/$$f'"; \
 	  rm -f "$(DESTDIR)$(scriptsdir)/$$f"; \
-	done
-install-setupSCRIPTS: $(setup_SCRIPTS)
-	@$(NORMAL_INSTALL)
-	test -z "$(setupdir)" || $(mkdir_p) "$(DESTDIR)$(setupdir)"
-	@list='$(setup_SCRIPTS)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  if test -f $$d$$p; then \
-	    f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	    echo " $(setupSCRIPT_INSTALL) '$$d$$p' '$(DESTDIR)$(setupdir)/$$f'"; \
-	    $(setupSCRIPT_INSTALL) "$$d$$p" "$(DESTDIR)$(setupdir)/$$f"; \
-	  else :; fi; \
-	done
-
-uninstall-setupSCRIPTS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(setup_SCRIPTS)'; for p in $$list; do \
-	  f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	  echo " rm -f '$(DESTDIR)$(setupdir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(setupdir)/$$f"; \
 	done
 
 mostlyclean-compile:
@@ -4040,7 +4018,7 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
-	-find $(distdir) -type d ! -perm -777 -exec chmod a+rwx {} \; -o \
+	-find $(distdir) -type d ! -perm -755 -exec chmod a+rwx,go+rx {} \; -o \
 	  ! -type d ! -perm -444 -links 1 -exec chmod a+r {} \; -o \
 	  ! -type d ! -perm -400 -exec chmod a+r {} \; -o \
 	  ! -type d ! -perm -444 -exec $(SHELL) $(install_sh) -c -m a+r {} {} \; \
@@ -4142,7 +4120,7 @@ check: check-am
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(DATA) \
 		config.h
 installdirs:
-	for dir in "$(DESTDIR)$(apache_modulesdir)" "$(DESTDIR)$(libdir)" "$(DESTDIR)$(libexecdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(cgibin_demodir)" "$(DESTDIR)$(cgibin_homedir)" "$(DESTDIR)$(cgibin_sodir)" "$(DESTDIR)$(cgibin_sowdir)" "$(DESTDIR)$(initddir)" "$(DESTDIR)$(libexecdir)" "$(DESTDIR)$(perl_basedir)" "$(DESTDIR)$(perl_modulesdir)" "$(DESTDIR)$(perl_servicedir)" "$(DESTDIR)$(perl_templatesdir)" "$(DESTDIR)$(scriptsdir)" "$(DESTDIR)$(setupdir)" "$(DESTDIR)$(aliasdir)" "$(DESTDIR)$(appletsdir)" "$(DESTDIR)$(cgibin_demodir)" "$(DESTDIR)$(cgibin_homedir)" "$(DESTDIR)$(cgibin_sodir)" "$(DESTDIR)$(cgibin_sowdir)" "$(DESTDIR)$(confdir)" "$(DESTDIR)$(docrootdir)" "$(DESTDIR)$(docroot_demodir)" "$(DESTDIR)$(docroot_homedir)" "$(DESTDIR)$(docroot_sodir)" "$(DESTDIR)$(docroot_sowdir)" "$(DESTDIR)$(docroot_tokendbdir)" "$(DESTDIR)$(docroot_tps_configdir)" "$(DESTDIR)$(docroot_tps_imgdir)" "$(DESTDIR)$(docroot_tps_jsdir)" "$(DESTDIR)$(licensedir)" "$(DESTDIR)$(logsdir)" "$(DESTDIR)$(samplesdir)" "$(DESTDIR)$(scriptsdir)" "$(DESTDIR)$(setupdir)" "$(DESTDIR)$(templatesdir)"; do \
+	for dir in "$(DESTDIR)$(apache_modulesdir)" "$(DESTDIR)$(libdir)" "$(DESTDIR)$(libexecdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(cgibin_demodir)" "$(DESTDIR)$(cgibin_homedir)" "$(DESTDIR)$(cgibin_sodir)" "$(DESTDIR)$(cgibin_sowdir)" "$(DESTDIR)$(initddir)" "$(DESTDIR)$(libexecdir)" "$(DESTDIR)$(perl_basedir)" "$(DESTDIR)$(perl_modulesdir)" "$(DESTDIR)$(perl_servicedir)" "$(DESTDIR)$(perl_templatesdir)" "$(DESTDIR)$(scriptsdir)" "$(DESTDIR)$(aliasdir)" "$(DESTDIR)$(appletsdir)" "$(DESTDIR)$(cgibin_demodir)" "$(DESTDIR)$(cgibin_homedir)" "$(DESTDIR)$(cgibin_sodir)" "$(DESTDIR)$(cgibin_sowdir)" "$(DESTDIR)$(confdir)" "$(DESTDIR)$(docrootdir)" "$(DESTDIR)$(docroot_demodir)" "$(DESTDIR)$(docroot_homedir)" "$(DESTDIR)$(docroot_sodir)" "$(DESTDIR)$(docroot_sowdir)" "$(DESTDIR)$(docroot_tokendbdir)" "$(DESTDIR)$(docroot_tps_configdir)" "$(DESTDIR)$(docroot_tps_imgdir)" "$(DESTDIR)$(docroot_tps_jsdir)" "$(DESTDIR)$(licensedir)" "$(DESTDIR)$(logsdir)" "$(DESTDIR)$(samplesdir)" "$(DESTDIR)$(scriptsdir)" "$(DESTDIR)$(setupdir)" "$(DESTDIR)$(templatesdir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-am
@@ -4234,7 +4212,7 @@ install-data-am: install-aliasDATA install-apache_modulesLTLIBRARIES \
 	install-perl_baseSCRIPTS install-perl_modulesSCRIPTS \
 	install-perl_serviceSCRIPTS install-perl_templatesSCRIPTS \
 	install-samplesDATA install-scriptsDATA install-scriptsSCRIPTS \
-	install-setupDATA install-setupSCRIPTS install-templatesDATA
+	install-setupDATA install-templatesDATA
 
 install-exec-am: install-binSCRIPTS install-libLTLIBRARIES \
 	install-libexecPROGRAMS install-libexecSCRIPTS
@@ -4283,8 +4261,7 @@ uninstall-am: uninstall-aliasDATA uninstall-apache_modulesLTLIBRARIES \
 	uninstall-perl_modulesSCRIPTS uninstall-perl_serviceSCRIPTS \
 	uninstall-perl_templatesSCRIPTS uninstall-samplesDATA \
 	uninstall-scriptsDATA uninstall-scriptsSCRIPTS \
-	uninstall-setupDATA uninstall-setupSCRIPTS \
-	uninstall-templatesDATA
+	uninstall-setupDATA uninstall-templatesDATA
 
 .PHONY: CTAGS GTAGS all all-am am--refresh check check-am clean \
 	clean-apache_modulesLTLIBRARIES clean-generic \
@@ -4312,8 +4289,8 @@ uninstall-am: uninstall-aliasDATA uninstall-apache_modulesLTLIBRARIES \
 	install-perl_modulesSCRIPTS install-perl_serviceSCRIPTS \
 	install-perl_templatesSCRIPTS install-samplesDATA \
 	install-scriptsDATA install-scriptsSCRIPTS install-setupDATA \
-	install-setupSCRIPTS install-strip install-templatesDATA \
-	installcheck installcheck-am installdirs maintainer-clean \
+	install-strip install-templatesDATA installcheck \
+	installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags uninstall uninstall-aliasDATA uninstall-am \
@@ -4335,7 +4312,7 @@ uninstall-am: uninstall-aliasDATA uninstall-apache_modulesLTLIBRARIES \
 	uninstall-perl_serviceSCRIPTS uninstall-perl_templatesSCRIPTS \
 	uninstall-samplesDATA uninstall-scriptsDATA \
 	uninstall-scriptsSCRIPTS uninstall-setupDATA \
-	uninstall-setupSCRIPTS uninstall-templatesDATA
+	uninstall-templatesDATA
 
 
 %: %.in
