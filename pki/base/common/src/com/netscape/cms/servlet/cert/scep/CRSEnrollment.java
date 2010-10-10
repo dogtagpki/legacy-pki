@@ -58,7 +58,7 @@ import com.netscape.cmsutil.scep.CRSPKIMessage;
  * The HTTP parameters are 'operation' and 'message'
  * operation can be either 'GetCACert' or 'PKIOperation'
  *
- * @version $Revision: 14561 $, $Date: 2007-05-01 10:28:56 -0700 (Tue, 01 May 2007) $
+ * @version $Revision: 1335 $, $Date: 2010-10-06 11:23:26 -0700 (Wed, 06 Oct 2010) $
  */
 public class CRSEnrollment extends HttpServlet
 {
@@ -74,9 +74,18 @@ public class CRSEnrollment extends HttpServlet
 
   private   String                mAuthManagerName;
   private   String                mSubstoreName;
+  private   boolean               mEnabled = false;
+  private   boolean               mUseCA = true;
+  private   String                mNickname = null;
   private   String                mHashAlgorithm = "SHA1";
-  private   String                mmEncryptionAlgorithm = "DES3";
+  private   String                mHashAlgorithmList = null;
+  private   String[]              mAllowedHashAlgorithm;
+  private   String                mConfiguredEncryptionAlgorithm = "DES3";
   private   String                mEncryptionAlgorithm = "DES3";
+  private   String                mEncryptionAlgorithmList = null;
+  private   String[]              mAllowedEncryptionAlgorithm;
+  private   Random                mRandom = null;
+  private   int                   mNonceSizeLimit = 0;
   protected ILogger mLogger =      CMS.getLogger();
   private ICertificateAuthority ca;
 		/* for hashing challenge password */
@@ -145,16 +154,42 @@ public class CRSEnrollment extends HttpServlet
           if (mAuthority instanceof ISubsystem) {
               IConfigStore authorityConfig = ((ISubsystem)mAuthority).getConfigStore();
               IConfigStore scepConfig = authorityConfig.getSubStore("scep");
+              mEnabled = scepConfig.getBoolean("enable", false);
               mHashAlgorithm = scepConfig.getString("hashAlgorithm", "SHA1");
-              mEncryptionAlgorithm = scepConfig.getString("encryptionAlgorithm", "DES3");
+              mConfiguredEncryptionAlgorithm = scepConfig.getString("encryptionAlgorithm", "DES3");
+              mNonceSizeLimit = scepConfig.getInteger("nonceSizeLimit", 0);
+              mHashAlgorithmList = scepConfig.getString("allowedHashAlgorithms", "SHA1,SHA256,SHA512");
+              mAllowedHashAlgorithm = mHashAlgorithmList.split(",");
+              mEncryptionAlgorithmList = scepConfig.getString("allowedEncryptionAlgorithms", "DES3");
+              mAllowedEncryptionAlgorithm = mEncryptionAlgorithmList.split(",");
+              mNickname = scepConfig.getString("nickname", ca.getNickname());
+              if (!mNickname.equals(ca.getNickname())) mUseCA = false;
           }
       } catch (EBaseException e) {
       } 
-      mmEncryptionAlgorithm = mEncryptionAlgorithm;
+      mEncryptionAlgorithm = mConfiguredEncryptionAlgorithm;
+      CMS.debug("CRSEnrollment: init: SCEP support is "+((mEnabled)?"enabled":"disabled")+".");
+      CMS.debug("CRSEnrollment: init: SCEP nickname: "+mNickname);
+      CMS.debug("CRSEnrollment: init:   CA nickname: "+ca.getNickname());
+      CMS.debug("CRSEnrollment: init: Is SCEP using CA keys: "+mUseCA);
+      CMS.debug("CRSEnrollment: init: mNonceSizeLimit: "+mNonceSizeLimit);
+      CMS.debug("CRSEnrollment: init: mHashAlgorithm: "+mHashAlgorithm);
+      CMS.debug("CRSEnrollment: init: mHashAlgorithmList: "+mHashAlgorithmList);
+      for (int i = 0; i < mAllowedHashAlgorithm.length; i++) {
+          mAllowedHashAlgorithm[i] = mAllowedHashAlgorithm[i].trim();
+          CMS.debug("CRSEnrollment: init: mAllowedHashAlgorithm["+i+"]="+mAllowedHashAlgorithm[i]);
+      }
+      CMS.debug("CRSEnrollment: init: mEncryptionAlgorithm: "+mEncryptionAlgorithm);
+      CMS.debug("CRSEnrollment: init: mEncryptionAlgorithmList: "+mEncryptionAlgorithmList);
+      for (int i = 0; i < mAllowedEncryptionAlgorithm.length; i++) {
+          mAllowedEncryptionAlgorithm[i] = mAllowedEncryptionAlgorithm[i].trim();
+          CMS.debug("CRSEnrollment: init: mAllowedEncryptionAlgorithm["+i+"]="+mAllowedEncryptionAlgorithm[i]);
+      }
 
       try {
 	      mProfileSubsystem = (IProfileSubsystem)CMS.getSubsystem("profile");
           mProfileId  = sc.getInitParameter("profileId");
+          CMS.debug("CRSEnrollment: init: mProfileId="+mProfileId);
 
 	      mAuthSubsystem   = (IAuthSubsystem)CMS.getSubsystem(CMS.SUBSYSTEM_AUTH);
           mAuthManagerName  = sc.getInitParameter(PROP_CRSAUTHMGR);
@@ -189,6 +224,7 @@ public class CRSEnrollment extends HttpServlet
     catch (NoSuchAlgorithmException e) {
       }
 
+      mRandom = new Random();
   }
 
 
@@ -212,7 +248,7 @@ public class CRSEnrollment extends HttpServlet
 
         String operation = null;
         String message   = null;
-        mEncryptionAlgorithm = mmEncryptionAlgorithm;
+        mEncryptionAlgorithm = mConfiguredEncryptionAlgorithm;
         
       
         // Parse the URL from the HTTP Request. Split it up into
@@ -226,6 +262,10 @@ public class CRSEnrollment extends HttpServlet
             message   = (String)input.get(URL_MESSAGE);
             CMS.debug("message=" + message);
             
+            if (!mEnabled) {
+                CMS.debug("CRSEnrollment: SCEP support is disabled.");
+                throw new ServletException("SCEP support is disabled.");
+            }
             if (operation == null) {
                 // 'operation' is mandatory.
                 throw new ServletException("Bad request: operation missing from URL");
@@ -254,6 +294,11 @@ public class CRSEnrollment extends HttpServlet
             }
                     
         }
+        catch (ServletException e)
+        {
+            CMS.debug("ServletException " + e);
+            throw new ServletException(e.getMessage().toString());
+        }
         catch (Exception e)
             {
                 CMS.debug("Service exception " + e);
@@ -271,6 +316,20 @@ public class CRSEnrollment extends HttpServlet
         
         mLogger.log(ILogger.EV_SYSTEM, ILogger.S_OTHER,
                     level, "CEP Enrollment: "+msg);
+    }
+
+    private boolean isAlgorithmAllowed (String[] allowedAlgorithm, String algorithm) {
+        boolean allowed = false;
+
+        if (algorithm != null && algorithm.length() > 0) {
+            for (int i = 0; i < allowedAlgorithm.length; i++) {
+                if (algorithm.equalsIgnoreCase(allowedAlgorithm[i])) {
+                    allowed = true;
+                }
+            }
+        }
+
+        return allowed;
     }
 
     public IAuthToken authenticate(AuthCredentials credentials, IProfileAuthenticator authenticator,
@@ -341,7 +400,12 @@ public class CRSEnrollment extends HttpServlet
           }
           CMS.debug("handleGetCACert selected chain=" + i);
 
-          bytes = chain[i].getEncoded();
+          if (mUseCA) {
+              bytes = chain[i].getEncoded();
+          } else {
+              CryptoContext cx = new CryptoContext();
+              bytes = cx.getSigningCert().getEncoded();
+          }
 
           httpResp.setContentType("application/x-x509-ca-cert");
 
@@ -449,8 +513,21 @@ public class CRSEnrollment extends HttpServlet
 				decodedPKIMessage.length+" bytes)");
 			}
 		  try {
-          	req     = new CRSPKIMessage();
-          	String ea = req.decodeCRSPKIMessage(is);
+          	req = new CRSPKIMessage(is);
+          	String ea = req.getEncryptionAlgorithm();
+            if (!isAlgorithmAllowed (mAllowedEncryptionAlgorithm, ea)) {
+                CMS.debug("CRSEnrollment: decodePKIMessage:  Encryption algorithm '"+ea+
+                          "' is not allowed ("+mEncryptionAlgorithmList+").");
+                throw new ServletException("Encryption algorithm '"+ea+
+                                           "' is not allowed ("+mEncryptionAlgorithmList+").");
+            }
+          	String da = req.getDigestAlgorithmName();
+            if (!isAlgorithmAllowed (mAllowedHashAlgorithm, da)) {
+                CMS.debug("CRSEnrollment: decodePKIMessage:  Hashing algorithm '"+da+
+                          "' is not allowed ("+mHashAlgorithmList+").");
+                throw new ServletException("Hashing algorithm '"+da+
+                                           "' is not allowed ("+mHashAlgorithmList+").");
+            }
           	if (ea != null) {
           	    mEncryptionAlgorithm = ea;
           	}
@@ -461,12 +538,53 @@ public class CRSEnrollment extends HttpServlet
 		  }
                 
           // Create a new crypto context for doing all the crypto operations
-          cx = new CryptoContext(mEncryptionAlgorithm);
+          cx = new CryptoContext();
 
           // Verify Signature on message (throws exception if sig bad)
           verifyRequest(req,cx);
           unwrapPKCS10(req,cx);
-                
+
+          IProfile profile = mProfileSubsystem.getProfile(mProfileId);
+          if (profile == null) {
+              CMS.debug("Profile '" + mProfileId + "' not found.");
+              throw new ServletException("Profile '" + mProfileId + "' not found.");
+          } else {
+              CMS.debug("Found profile '" + mProfileId + "'.");
+          }
+
+          IProfileAuthenticator authenticator = null;
+          try {
+              CMS.debug("Retrieving authenticator");
+              authenticator = profile.getAuthenticator();
+              if (authenticator == null) {
+                  CMS.debug("Authenticator not found.");
+                  throw new ServletException("Authenticator not found.");
+              } else {
+                  CMS.debug("Got authenticator=" + authenticator.getClass().getName());
+              }
+          } catch (EProfileException e) {
+              throw new ServletException("Authenticator not found.");
+          }
+          AuthCredentials credentials = new AuthCredentials();
+          IAuthToken authToken = null;
+          // for ssl authentication; pass in servlet for retrieving
+          // ssl client certificates
+          SessionContext context = SessionContext.getContext();
+
+          // insert profile context so that input parameter can be retrieved
+          context.put("sslClientCertProvider", new SSLClientCertProvider(httpReq));
+
+          try {
+              authToken = authenticate(credentials, authenticator, httpReq);
+          } catch (Exception e) {
+              CMS.debug("Authentication failure: "+ e.getMessage());
+              throw new ServletException("Authentication failure: "+ e.getMessage());
+          }
+          if (authToken == null) {
+              CMS.debug("Authentication failure.");
+              throw new ServletException("Authentication failure.");
+          }
+
           // Deal with Transaction ID
           String transactionID = req.getTransactionID();
           responseData = responseData + 
@@ -559,6 +677,8 @@ public class CRSEnrollment extends HttpServlet
           responseData = responseData + 
               "<PKCS10>" + pkcs10Attr + "</PKCS10>";
 
+      } catch (ServletException e) {
+          throw new ServletException(e.getMessage().toString());
       } catch (CRSInvalidSignatureException e) {
           CMS.debug("handlePKIMessage exception " + e);
           CMS.debug(e);
@@ -581,6 +701,16 @@ public class CRSEnrollment extends HttpServlet
           httpResp.setContentLength(response.length);
           httpResp.getOutputStream().write(response);
           httpResp.getOutputStream().flush();
+
+          int i1 = responseData.indexOf("<Password>");
+          if (i1 > -1) {
+              i1 += 10; // 10 is a length of "<Password>"
+              int i2 = responseData.indexOf("</Password>", i1);
+              if (i2 > -1) {
+                  responseData = responseData.substring(0, i1) + "********" +
+                                 responseData.substring(i2, responseData.length());
+              }
+          }
 
           CMS.debug("Output (decoding) PKIOperation response:");
           CMS.debug(responseData);
@@ -629,13 +759,29 @@ public class CRSEnrollment extends HttpServlet
 				decodedPKIMessage.length+" bytes)");
 			}
 		  try {
-          	req     = new CRSPKIMessage();
-          	String ea = req.decodeCRSPKIMessage(is);
+          	req = new CRSPKIMessage(is);
+          	String ea = req.getEncryptionAlgorithm();
+            if (!isAlgorithmAllowed (mAllowedEncryptionAlgorithm, ea)) {
+                CMS.debug("CRSEnrollment: handlePKIOperation:  Encryption algorithm '"+ea+
+                          "' is not allowed ("+mEncryptionAlgorithmList+").");
+                throw new ServletException("Encryption algorithm '"+ea+
+                                           "' is not allowed ("+mEncryptionAlgorithmList+").");
+            }
+          	String da = req.getDigestAlgorithmName();
+            if (!isAlgorithmAllowed (mAllowedHashAlgorithm, da)) {
+                CMS.debug("CRSEnrollment: handlePKIOperation:  Hashing algorithm '"+da+
+                          "' is not allowed ("+mHashAlgorithmList+").");
+                throw new ServletException("Hashing algorithm '"+da+
+                                           "' is not allowed ("+mHashAlgorithmList+").");
+            }
           	if (ea != null) {
           	    mEncryptionAlgorithm = ea;
           	}
           	crsResp = new CRSPKIMessage();
 		  }
+          catch (ServletException e) {
+              throw new ServletException(e.getMessage().toString());
+          }
 		  catch (Exception e) {
             CMS.debug(e);
 		  	throw new ServletException("Could not decode the request.");
@@ -643,7 +789,7 @@ public class CRSEnrollment extends HttpServlet
 		  crsResp.setMessageType(crsResp.mType_CertRep);
                 
           // Create a new crypto context for doing all the crypto operations
-          cx = new CryptoContext(mEncryptionAlgorithm);
+          cx = new CryptoContext();
 
           // Verify Signature on message (throws exception if sig bad)
           verifyRequest(req,cx);
@@ -663,8 +809,17 @@ public class CRSEnrollment extends HttpServlet
               throw new ServletException("Error: malformed PKIMessage - missing sendernonce");
           }
           else {
-              crsResp.setRecipientNonce(sn);
-              crsResp.setSenderNonce(new byte[] {0});
+              if (mNonceSizeLimit > 0 && sn.length > mNonceSizeLimit) {
+                  byte[] snLimited = (mNonceSizeLimit > 0)? new byte[mNonceSizeLimit]: null;
+                  System.arraycopy(sn, 0, snLimited, 0, mNonceSizeLimit);
+                  crsResp.setRecipientNonce(snLimited);
+              } else {
+                  crsResp.setRecipientNonce(sn);
+              }
+              byte[] serverNonce = new byte[16];
+              mRandom.nextBytes(serverNonce);
+              crsResp.setSenderNonce(serverNonce);
+              // crsResp.setSenderNonce(new byte[] {0});
           }
                 
           // Deal with message type
@@ -704,6 +859,9 @@ public class CRSEnrollment extends HttpServlet
           } else {
               CMS.debug("Invalid request type " + mt);
           }
+      }
+      catch (ServletException e) {
+          throw new ServletException(e.getMessage().toString());
       }
       catch (CRSInvalidSignatureException e) {
           CMS.debug("handlePKIMessage exception " + e);
@@ -800,8 +958,9 @@ public class CRSEnrollment extends HttpServlet
   {
       IRequest foundRequest=null;
 
-      resp.setRecipientNonce(req.getSenderNonce());
-      resp.setSenderNonce(null);
+      // already done by handlePKIOperation
+      // resp.setRecipientNonce(req.getSenderNonce());
+      // resp.setSenderNonce(null);
 
 	  try {
 	  	foundRequest = findRequestByTransactionID(req.getTransactionID(),false);
@@ -1500,7 +1659,7 @@ throws EBaseException {
         Hashtable fingerprints = new Hashtable();
 
         MessageDigest md;
-        String[] hashes = new String[] {"MD2", "MD5", "SHA1"};
+        String[] hashes = new String[] {"MD2", "MD5", "SHA1", "SHA256", "SHA512"};
         PKCS10 p10 = (PKCS10)req.getP10();
 
         for (int i=0;i<hashes.length;i++) {
@@ -1777,19 +1936,19 @@ throws EBaseException {
       public CryptoContextException(String s) { super(s); }
     }
 
-    public CryptoContext(String encryptionAlgorithm)
+    public CryptoContext()
       throws CryptoContextException
       {
           try {
               KeyGenAlgorithm kga = KeyGenAlgorithm.DES;
-              if (encryptionAlgorithm != null && encryptionAlgorithm.equals("DES3")) {
+              if (mEncryptionAlgorithm != null && mEncryptionAlgorithm.equals("DES3")) {
                   kga = KeyGenAlgorithm.DES3;
               }
               cm = CryptoManager.getInstance();
               internalToken = cm.getInternalCryptoToken();
               internalKeyStorageToken = cm.getInternalKeyStorageToken();
               DESkg = internalToken.getKeyGenerator(kga);
-              signingCert = cm.findCertByNickname(ca.getNickname());
+              signingCert = cm.findCertByNickname(mNickname);
               signingCertPrivKey = cm.findPrivKeyByCert(signingCert);
 			  byte[] encPubKeyInfo = signingCert.getPublicKey().getEncoded();
 			  SEQUENCE.Template outer = SEQUENCE.getTemplate();
