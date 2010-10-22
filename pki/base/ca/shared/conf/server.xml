@@ -162,6 +162,7 @@ Tomcat Port         = [TOMCAT_SERVER_PORT] (for shutdown)
         serverCertNickFile="[PKI_INSTANCE_PATH]/conf/serverCertNick.conf"
         passwordFile="[PKI_INSTANCE_PATH]/conf/password.conf"
         passwordClass="org.apache.tomcat.util.net.jss.PlainPasswordFile"
+        configFile="[PKI_INSTANCE_PATH]/conf/CS.cfg"
         certdbDir="[PKI_INSTANCE_PATH]/alias"/>
 [PKI_CLOSE_SEPARATE_PORTS_SERVER_COMMENT]
 
