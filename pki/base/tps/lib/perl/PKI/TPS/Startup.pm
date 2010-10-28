@@ -27,7 +27,7 @@ use strict;
 use warnings;
 
 use PKI::TPS::Config;
-use Apache2::Const -compile => qw(OK DONE);
+use Apache2::Const -compile => 'OK';
 use Nuxwdogclient;
 
 package PKI::TPS::Startup;
