@@ -35,6 +35,7 @@ sub DoPage
   my $q = new CGI;
 
   my $error = $q->param('error');
+  $error = "" if !defined $error;
 
   open(FILE, "< [SERVER_ROOT]/cgi-bin/sow/welcome.html");
 

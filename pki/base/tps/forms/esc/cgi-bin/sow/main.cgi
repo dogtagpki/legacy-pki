@@ -47,6 +47,7 @@ sub DoPage
   }
 
   my $error = $q->param('error');
+  $error = "" if !defined $error;
 
   open(FILE, "< [SERVER_ROOT]/cgi-bin/sow/main.html");
 
