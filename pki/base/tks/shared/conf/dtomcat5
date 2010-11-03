@@ -353,7 +353,7 @@ if [ "$1" = "debug" ] ; then
     shift
     if [ "$1" = "-security" ] ; then
       echo
-      echo "    Using Security Manager"
+      echo "    Using Java Security Manager"
       shift
       echo "    Constructing '[PKI_INSTANCE_ID].policy' Security Policy"
       cat "${CATALINA_POLICY}" "${PKI_POLICY}" "${PKI_CUSTOM_POLICY}" > "${PKI_INSTANCE_POLICY}"
@@ -393,7 +393,7 @@ elif [ "$1" = "run" ]; then
   shift
   if [ "$1" = "-security" ] ; then
     echo
-    echo "    Using Security Manager"
+    echo "    Using Java Security Manager"
     shift
     echo "    Constructing '[PKI_INSTANCE_ID].policy' Security Policy"
     cat "${CATALINA_POLICY}" "${PKI_POLICY}" "${PKI_CUSTOM_POLICY}" > "${PKI_INSTANCE_POLICY}"
@@ -433,7 +433,7 @@ elif [ "$1" = "start" ] ; then
   touch "$CATALINA_BASE"/logs/catalina.out
   if [ "$1" = "-security" ] ; then
     echo
-    echo "    Using Security Manager"
+    echo "    Using Java Security Manager"
     shift
     echo "    Constructing '[PKI_INSTANCE_ID].policy' Security Policy"
     cat "${CATALINA_POLICY}" "${PKI_POLICY}" "${PKI_CUSTOM_POLICY}" > "${PKI_INSTANCE_POLICY}"
