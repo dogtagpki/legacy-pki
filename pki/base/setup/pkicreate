@@ -36,6 +36,7 @@
 #                -tomcat_server_port=9801
 #                -user=pkiuser
 #                -group=pkiuser
+#                -audit_group=pkiaudit
 #                -redirect conf=/etc/pki-ca1
 #                -redirect logs=/var/log/pki-ca1
 #                -verbose
@@ -295,6 +296,7 @@ my $default_java_path              = "/usr/share/java";
 my $default_dir_permissions        = 00770;
 my $default_exe_permissions        = 00770;
 my $default_file_permissions       = 00660;
+my $default_sgid_dir_permissions   = 02770;
 my $default_security_token         = "internal";
 my $default_start_stop_scripts     = "/etc/init.d";
 my $default_tomcat_common_path     = "/var/lib/tomcat5/common";
@@ -303,6 +305,9 @@ my $default_nfast_group            = "nfast";
 # Default PKI user and group to give to PKI installed files
 my $pki_user  = "pkiuser";
 my $pki_group = "pkiuser";
+
+# Default PKI group to give to PKI signedAudit directory
+my $pki_audit_group = $pki_group;                    # CA, KRA, OCSP, TKS, TPS
 
 # PKI creation constants
 my $db_password_low  = 100000000000;
@@ -436,6 +441,7 @@ my $ee_secure_client_auth_port = -1;
 my $admin_secure_port    = -1;
 my $username             = "";
 my $groupname            = "";
+my $audit_groupname      = "";
 my $pki_security_manager = "";
 my $redirected_conf_path = "";
 my $redirected_logs_path = "";
@@ -809,6 +815,12 @@ sub usage()
          . "#\n"
          . "                                                   "
          . "# [Default=pkiuser]\n\n"
+         . "          [-audit_group=<audit_groupname>]         "
+         . "# Audit group ownership\n"
+         . "                                                   "
+         . "#\n"
+         . "                                                   "
+         . "# [Default=pkiaudit]\n\n"
          . "          [-redirect conf=<real conf dir path>]    "
          . "# Redirection of\n"
          . "                                                   "
@@ -881,6 +893,14 @@ sub usage()
          . "#\n"
          . "                                                   "
          . "# [Default=pkiuser]\n\n"
+         . "          [-audit_group=<audit_groupname>]         "
+         . "# Audit group ownership\n"
+         . "                                                   "
+         . "# (TPS only)\n"
+         . "                                                   "
+         . "#\n"
+         . "                                                   "
+         . "# [Default=pkiaudit]\n\n"
          . "          [-redirect conf=<real conf dir path>]    "
          . "# Redirection of\n"
          . "                                                   "
@@ -1063,6 +1083,7 @@ sub parse_arguments()
                           "tomcat_server_port:i" => \$l_tomcat_server_port,
                           "user=s" => \$username,
                           "group=s" => \$groupname,
+                          "audit_group=s" => \$audit_groupname,
                           "sans_security_manager" => \$sans_security_manager,
                           "verbose" => \$verbose,
                           "redirect=s" => \%redirects );
@@ -1412,6 +1433,42 @@ sub parse_arguments()
             emit( "User '$pki_user' is a member of group "
                 . "'$default_nfast_group'.\n" );
         }            
+    }
+
+
+    ## Optional "-audit_group=<audit_groupname>" option
+    if( $audit_groupname ne "" ) {
+        if( $subsystem_type ne $RA ) {
+            if( !group_exists( $audit_groupname ) ) {
+                usage();
+                emit( "The audit group '$audit_groupname' is invalid "
+                    . "on this machine!\n",
+                      "error" );
+                return 0;
+            }
+
+            # Overwrite default value of $pki_audit_group with
+            # user-specified $audit_groupname
+            $pki_audit_group = $audit_groupname;
+        } else {
+            usage();
+            emit( "Must NOT include value for audit_group!\n",
+                  "error" );
+            return 0;
+        }
+
+    }
+
+
+    if( $pki_audit_group ne $pki_group ) {
+        # At this point in time, ALWAYS check that "$pki_audit_group" exists!
+        if( !group_exists( $pki_audit_group ) ) {
+            usage();
+            emit( "Please contact your system administrator "
+                . "to create '$pki_audit_group'!\n",
+                  "error" );
+            return 0;
+        }
     }
 
 
@@ -2103,7 +2160,7 @@ sub process_pki_directories()
             }
 
             ## Fix permissions of "signedAudit" directory
-            chmod( $default_dir_permissions,
+            chmod( $default_sgid_dir_permissions,
                    "$logs_instance_path/$signed_audit_base_instance_dir" );
         }
     } else {
@@ -2135,7 +2192,7 @@ sub process_pki_directories()
             }
 
             ## Fix permissions of "signedAudit" directory
-            chmod( $default_dir_permissions,
+            chmod( $default_sgid_dir_permissions,
                    "$redirected_logs_path/$signed_audit_base_instance_dir" );
         }
 
@@ -2161,6 +2218,20 @@ sub process_pki_directories()
         give_directory_to( $redirected_logs_path,
                            $pki_user,
                            $pki_group );
+
+        if( $pki_audit_group ne $pki_group ) {
+            ## Set appropriate ownership of "signedAudit directory
+            $result = give_directory_to(
+                          "$redirected_logs_path/$signed_audit_base_instance_dir",
+                          $pki_user,
+                          $pki_audit_group );
+            if( !$result ) {
+                emit( "$redirected_logs_path/$signed_audit_base_instance_dir "
+                    . "ownership problems!",
+                      "error" );
+                return 0;
+            }
+        }
     }
 
 
@@ -2320,10 +2391,23 @@ sub process_pki_directories()
         }
     }
 
-    ## Set appropriate permissions
     give_directory_to( $pki_instance_path,
                        $pki_user,
                        $pki_group );
+
+    if( $pki_audit_group ne $pki_group ) {
+        ## Set appropriate ownership of "signedAudit" directory
+        $result = give_directory_to(
+                      "$logs_instance_path/$signed_audit_base_instance_dir",
+                      $pki_user,
+                      $pki_audit_group );
+        if( !$result ) {
+            emit( "$logs_instance_path/$signed_audit_base_instance_dir "
+                . "ownership problems!",
+                  "error" );
+            return 0;
+        }
+    }
 
     return 1;
 }
