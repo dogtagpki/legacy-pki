@@ -37,170 +37,170 @@ import java.io.*;
 
 public class TBSRequest implements ASN1Value
 {
-	///////////////////////////////////////////////////////////////////////
-	// members and member access
-	///////////////////////////////////////////////////////////////////////
-	private static final INTEGER version = new INTEGER (1);
-	private ANY requestorName;
-	private SEQUENCE requestList;
-	private SEQUENCE requestExtensions;
-	private SEQUENCE sequence;
+    ///////////////////////////////////////////////////////////////////////
+    // members and member access
+    ///////////////////////////////////////////////////////////////////////
+    private static final INTEGER version = new INTEGER (1);
+    private ANY requestorName;
+    private SEQUENCE requestList;
+    private SEQUENCE requestExtensions;
+    private SEQUENCE sequence;
 
-	public INTEGER getVersion()
-	{
-		return version;
-	}
+    public INTEGER getVersion()
+    {
+        return version;
+    }
 
-	public ANY getRequestorName()
-	{
-		return requestorName;
-	}	
+    public ANY getRequestorName()
+    {
+        return requestorName;
+    }    
 
-	public int getRequestCount()
-	{
-		if( requestList == null ) {
-				return 0;
-		} else {
-				return requestList.size();
-		}
-	}
+    public int getRequestCount()
+    {
+        if (requestList == null) {
+            return 0;
+        } else {
+            return requestList.size();
+        }
+    }
 
-	public Request getRequestAt(int index)
-	{
-		return (Request) requestList.elementAt(index);
-	}
+    public Request getRequestAt(int index)
+    {
+        return (Request) requestList.elementAt(index);
+    }
 
-	public int getExtensionsCount()
-	{
-		if( requestExtensions == null ) {
-				return 0;
-		} else {
-				return requestExtensions.size();
-		}
-	}
+    public int getExtensionsCount()
+    {
+        if (requestExtensions == null) {
+            return 0;
+        } else {
+            return requestExtensions.size();
+        }
+    }
 
-	public Extension getRequestExtensionAt(int index)
-	{
-		return (Extension) requestExtensions.elementAt(index);
-	}
+    public Extension getRequestExtensionAt(int index)
+    {
+        return (Extension) requestExtensions.elementAt(index);
+    }
 
-	///////////////////////////////////////////////////////////////////////
-	// constructors
-	///////////////////////////////////////////////////////////////////////
-	/* this code is probably broken - it doesn't do appropriate tagging */
-	private TBSRequest() {}
+    ///////////////////////////////////////////////////////////////////////
+    // constructors
+    ///////////////////////////////////////////////////////////////////////
+    /* this code is probably broken - it doesn't do appropriate tagging */
+    private TBSRequest() {}
 
-	public TBSRequest(INTEGER version, ANY requestorName,
-		SEQUENCE requestList, SEQUENCE requestExtensions)
-	{
-		sequence = new SEQUENCE();
+    public TBSRequest(INTEGER version, ANY requestorName,
+        SEQUENCE requestList, SEQUENCE requestExtensions)
+    {
+        sequence = new SEQUENCE();
 
-		if (version != null) {
-			sequence.addElement (version);
-		}
+        if (version != null) {
+            sequence.addElement (version);
+        }
 
-		this.requestorName = requestorName;
-		if (requestorName != null) {
-			sequence.addElement (requestorName);
-		}
+        this.requestorName = requestorName;
+        if (requestorName != null) {
+            sequence.addElement (requestorName);
+        }
 
-		this.requestList = requestList;
-		sequence.addElement (requestList);
+        this.requestList = requestList;
+        sequence.addElement (requestList);
 
-		this.requestExtensions = requestExtensions;
-		if (requestExtensions != null) {
-			sequence.addElement (requestExtensions);
-		}
-	}
+        this.requestExtensions = requestExtensions;
+        if (requestExtensions != null) {
+            sequence.addElement (requestExtensions);
+        }
+    }
 
-	///////////////////////////////////////////////////////////////////////
-	// encode / decode
-	///////////////////////////////////////////////////////////////////////
-	public static final Tag TAG = SEQUENCE.TAG;
+    ///////////////////////////////////////////////////////////////////////
+    // encode / decode
+    ///////////////////////////////////////////////////////////////////////
+    public static final Tag TAG = SEQUENCE.TAG;
 
-	public Tag getTag()
-	{
-		return TAG;
-	}
+    public Tag getTag()
+    {
+        return TAG;
+    }
 
-	public void encode(OutputStream ostream)
-		throws IOException
-	{
-		encode(TAG, ostream);
-	}
+    public void encode(OutputStream ostream)
+        throws IOException
+    {
+        encode(TAG, ostream);
+    }
 
-	public void encode(Tag implicitTag, OutputStream ostream)
-		throws IOException
-	{
-		sequence.encode(implicitTag, ostream);
-	}
+    public void encode(Tag implicitTag, OutputStream ostream)
+        throws IOException
+    {
+        sequence.encode(implicitTag, ostream);
+    }
 
-	private static final Template templateInstance = new Template();
+    private static final Template templateInstance = new Template();
 
-	public static Template getTemplate()
-	{
-		return templateInstance;
-	}
+    public static Template getTemplate()
+    {
+        return templateInstance;
+    }
 
-	/**
- 	* A Template for decoding POPOSigningKey.
- 	*/
-	public static class Template implements ASN1Template
-	{
+    /**
+     * A Template for decoding POPOSigningKey.
+     */
+    public static class Template implements ASN1Template
+    {
 
-		private SEQUENCE.Template seqt;
+        private SEQUENCE.Template seqt;
 
-		public Template()
-		{
-			seqt = new SEQUENCE.Template();
-			seqt.addElement(
-				new EXPLICIT.Template(
-					new Tag(0), new INTEGER.Template()),
+        public Template()
+        {
+            seqt = new SEQUENCE.Template();
+            seqt.addElement(
+                new EXPLICIT.Template(
+                    new Tag(0), new INTEGER.Template()),
                 new EXPLICIT( new Tag(0), new INTEGER(0)) 
             );
-			seqt.addOptionalElement(
-				new EXPLICIT.Template(
-					new Tag (1), new ANY.Template()) );
-			seqt.addElement( new SEQUENCE.OF_Template(new Request.Template()) );
-			seqt.addOptionalElement(new EXPLICIT.Template(new Tag(2),
-				new SEQUENCE.OF_Template(new Extension.Template())) );
-		}
+            seqt.addOptionalElement(
+                new EXPLICIT.Template(
+                    new Tag (1), new ANY.Template()) );
+            seqt.addElement( new SEQUENCE.OF_Template(new Request.Template()) );
+            seqt.addOptionalElement(new EXPLICIT.Template(new Tag(2),
+                new SEQUENCE.OF_Template(new Extension.Template())) );
+        }
 
-		public boolean tagMatch(Tag tag)
-		{
-			return TAG.equals(tag);
-		}
+        public boolean tagMatch(Tag tag)
+        {
+            return TAG.equals(tag);
+        }
 
-		public ASN1Value decode(InputStream istream)
-			throws InvalidBERException, IOException
-		{
-			return decode(TAG, istream);
-		}
+        public ASN1Value decode(InputStream istream)
+            throws InvalidBERException, IOException
+        {
+            return decode(TAG, istream);
+        }
 
-		public ASN1Value decode(Tag implicitTag, InputStream istream)
-				throws InvalidBERException, IOException
-		{
-			SEQUENCE seq = (SEQUENCE) seqt.decode(implicitTag, istream);
+        public ASN1Value decode(Tag implicitTag, InputStream istream)
+                throws InvalidBERException, IOException
+        {
+            SEQUENCE seq = (SEQUENCE) seqt.decode(implicitTag, istream);
 
-			EXPLICIT exts = (EXPLICIT) seq.elementAt(3);
-			SEQUENCE exts_seq;
-			if (exts != null) {
-				exts_seq = (SEQUENCE)exts.getContent();
-			} else {
-				exts_seq = null;
-			}
+            EXPLICIT exts = (EXPLICIT) seq.elementAt(3);
+            SEQUENCE exts_seq;
+            if (exts != null) {
+                exts_seq = (SEQUENCE)exts.getContent();
+            } else {
+                exts_seq = null;
+            }
 
-			INTEGER v = (INTEGER)	((EXPLICIT)seq.elementAt(0)).getContent();
-			ANY requestorname = null;
-			if (seq.elementAt(1) != null) {
-				requestorname = (ANY) ((EXPLICIT)seq.elementAt(1)).getContent();
-			}
+            INTEGER v = (INTEGER)    ((EXPLICIT)seq.elementAt(0)).getContent();
+            ANY requestorname = null;
+            if (seq.elementAt(1) != null) {
+                requestorname = (ANY) ((EXPLICIT)seq.elementAt(1)).getContent();
+            }
 
-			return new TBSRequest(
-				v,
-				requestorname,
-				(SEQUENCE) seq.elementAt(2),
-				exts_seq);
-		}
-	}
+            return new TBSRequest(
+                v,
+                requestorname,
+                (SEQUENCE) seq.elementAt(2),
+                exts_seq);
+        }
+    }
 }
