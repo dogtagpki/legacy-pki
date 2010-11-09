@@ -40,11 +40,11 @@ public class TBSRequest implements ASN1Value
     ///////////////////////////////////////////////////////////////////////
     // members and member access
     ///////////////////////////////////////////////////////////////////////
-    private static final INTEGER version = new INTEGER (1);
+    private static final INTEGER v1 = new INTEGER (0);
+    private INTEGER version;
     private ANY requestorName;
     private SEQUENCE requestList;
     private SEQUENCE requestExtensions;
-    private SEQUENCE sequence;
 
     public INTEGER getVersion()
     {
@@ -87,30 +87,16 @@ public class TBSRequest implements ASN1Value
     ///////////////////////////////////////////////////////////////////////
     // constructors
     ///////////////////////////////////////////////////////////////////////
-    /* this code is probably broken - it doesn't do appropriate tagging */
+    
     private TBSRequest() {}
 
     public TBSRequest(INTEGER version, ANY requestorName,
         SEQUENCE requestList, SEQUENCE requestExtensions)
     {
-        sequence = new SEQUENCE();
-
-        if (version != null) {
-            sequence.addElement (version);
-        }
-
+        this.version = (version != null) ? version : v1;
         this.requestorName = requestorName;
-        if (requestorName != null) {
-            sequence.addElement (requestorName);
-        }
-
         this.requestList = requestList;
-        sequence.addElement (requestList);
-
         this.requestExtensions = requestExtensions;
-        if (requestExtensions != null) {
-            sequence.addElement (requestExtensions);
-        }
     }
 
     ///////////////////////////////////////////////////////////////////////
@@ -132,7 +118,26 @@ public class TBSRequest implements ASN1Value
     public void encode(Tag implicitTag, OutputStream ostream)
         throws IOException
     {
-        sequence.encode(implicitTag, ostream);
+        SEQUENCE seq = new SEQUENCE();
+
+        if (version != v1) {
+            seq.addElement(new EXPLICIT(Tag.get(0), version));
+        }
+
+        if (requestorName != null) {
+            seq.addElement(new EXPLICIT(Tag.get(1), requestorName));
+        }
+
+        seq.addElement(requestList);
+
+        if (requestExtensions != null) {
+            seq.addElement(new EXPLICIT(Tag.get(2), requestExtensions));
+        }
+        if (implicitTag == null) {
+            seq.encode(ostream);
+        } else {
+            seq.encode(implicitTag, ostream);
+        }
     }
 
     private static final Template templateInstance = new Template();
@@ -143,7 +148,7 @@ public class TBSRequest implements ASN1Value
     }
 
     /**
-     * A Template for decoding POPOSigningKey.
+     * A Template for decoding TBSRequest.
      */
     public static class Template implements ASN1Template
     {
@@ -182,18 +187,26 @@ public class TBSRequest implements ASN1Value
         {
             SEQUENCE seq = (SEQUENCE) seqt.decode(implicitTag, istream);
 
+            INTEGER v = v1;  //assume default version
+            EXPLICIT e_ver = (EXPLICIT) seq.elementAt(0);
+            if (e_ver != null) {
+                v = (INTEGER) e_ver.getContent();
+            }
+
+            ANY requestorname = null;
+            EXPLICIT e_requestorName = (EXPLICIT) seq.elementAt(1);
+            if (e_requestorName != null) {
+                requestorname = (ANY) e_requestorName.getContent();
+            }
+
+            //request sequence (element 2) done below
+
             EXPLICIT exts = (EXPLICIT) seq.elementAt(3);
             SEQUENCE exts_seq;
             if (exts != null) {
                 exts_seq = (SEQUENCE)exts.getContent();
             } else {
                 exts_seq = null;
-            }
-
-            INTEGER v = (INTEGER)    ((EXPLICIT)seq.elementAt(0)).getContent();
-            ANY requestorname = null;
-            if (seq.elementAt(1) != null) {
-                requestorname = (ANY) ((EXPLICIT)seq.elementAt(1)).getContent();
             }
 
             return new TBSRequest(
