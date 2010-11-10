@@ -214,6 +214,9 @@ pidfile=${PIDFILE:-/var/run/[PKI_INSTANCE_ID].pid}
 wdpidfile=${NUXWDOG_PIDFILE:-[PKI_INSTANCE_PATH]/logs/wd-[PKI_INSTANCE_ID].pid}
 lockfile=${LOCKFILE:-/var/lock/subsys/[PKI_INSTANCE_ID]}
 pki_instance_configuration_file=[PKI_INSTANCE_PATH]/conf/CS.cfg
+webapp_file=[PKI_INSTANCE_PATH]/webapps/${PKI_SUBSYSTEM_TYPE}/WEB-INF/web.xml
+webapp_configuration_file=[PKI_INSTANCE_PATH]/webapps/${PKI_SUBSYSTEM_TYPE}/WEB-INF/web.xml.configuration
+webapp_runtime_file=[PKI_INSTANCE_PATH]/webapps/${PKI_SUBSYSTEM_TYPE}/WEB-INF/web.xml.runtime
 RESTART_SERVER=[PKI_INSTANCE_PATH]/conf/restart_server_after_configuration
 RETVAL=0
 
@@ -231,6 +234,9 @@ check_pki_configuration_status()
 	elif [ -f ${RESTART_SERVER} ] ; then
 		echo "    Although '[PKI_INSTANCE_ID]' has been CONFIGURED, it must still be RESTARTED!"
 		rv=255
+	elif [ ! -f ${webapp_configuration_file} ] ; then
+		mv ${webapp_file} ${webapp_configuration_file}
+		cp -p ${webapp_runtime_file} ${webapp_file}
 	fi
 
 	return ${rv}

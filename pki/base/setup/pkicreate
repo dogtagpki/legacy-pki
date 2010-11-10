@@ -279,6 +279,7 @@ my $servercertnick_conf_base_name         = "serverCertNick.conf";           # C
 my $tomcat5_conf_base_name       = "tomcat5.conf";         # CA, KRA, OCSP, TKS
 my $velocity_prop_base_name      = "velocity.properties";  # CA, KRA, OCSP, TKS
 my $web_xml_base_name            = "web.xml";              # CA, KRA, OCSP, TKS
+my $web_xml_runtime_base_name    = "web.xml.runtime";      # CA, KRA, OCSP, TKS
 my $profile_select_base_name     = "ProfileSelect.template"; #CA
 
 # Subdirectory names
@@ -578,6 +579,8 @@ my $velocity_prop_instance_file_path          = "";  # CA, KRA, OCSP, TKS
 my $velocity_prop_subsystem_file_path         = "";  # CA, KRA, OCSP, TKS
 my $web_xml_instance_file_path                = "";  # CA, KRA, OCSP, TKS
 my $web_xml_subsystem_file_path               = "";  # CA, KRA, OCSP, TKS
+my $web_xml_runtime_instance_file_path        = "";  # CA, KRA, OCSP, TKS
+my $web_xml_runtime_subsystem_file_path       = "";  # CA, KRA, OCSP, TKS
 my $webapps_root_instance_path                = "";  # CA, KRA, OCSP, TKS
 my $webapps_root_subsystem_path               = "";  # CA, KRA, OCSP, TKS
 my $webapps_subsystem_instance_path           = "";  # CA, KRA, OCSP, TKS
@@ -1919,6 +1922,10 @@ sub initialize_subdirectory_paths()
                                            . "/" . $web_xml_base_name;
         $web_xml_subsystem_file_path       = $webinf_subsystem_path
                                            . "/" . $web_xml_base_name;
+        $web_xml_runtime_instance_file_path        = $webinf_instance_path
+                                           . "/" . $web_xml_runtime_base_name;
+        $web_xml_runtime_subsystem_file_path       = $webinf_subsystem_path
+                                           . "/" . $web_xml_runtime_base_name;
     }
 }
 
@@ -2981,6 +2988,15 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
         # process "web.xml" template
         $result = process_file_template( $web_xml_subsystem_file_path,
                                          $web_xml_instance_file_path,
+                                         \%slot_hash );
+        if( !$result ) {
+            return 0;
+        }
+
+
+        # process "web.xml.runtime" template
+        $result = process_file_template( $web_xml_runtime_subsystem_file_path,
+                                         $web_xml_runtime_instance_file_path,
                                          \%slot_hash );
         if( !$result ) {
             return 0;
