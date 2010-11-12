@@ -1907,6 +1907,69 @@ sub give_file_to
 }
 
 
+# arg0 source - Name of input file
+# arg1 target - Name of output file
+# arg2 header - Starting mark of section to be removed
+# arg3 header - Ending mark of section to be removed
+# no return value
+sub remove_marked_sections_from_file
+{
+    my( $source, $target, $header, $footer ) = @_;
+
+    my $source_fd = new FileHandle;
+    my $target_fd = new FileHandle;
+    my $skip_line = 0;
+
+    # open the input file
+    $source_fd->open( "< $source" ) or
+    die "Could not open '$source'\n";
+
+    # open the output file
+    $target_fd->open( "> $target" ) or
+    die "Could not open '$target'\n";
+
+    # read every line in the input file
+    while( <$source_fd> ) {
+        my $line = $_;
+
+        # check for starting mark of section to be removed
+        if( "$line" =~ "$header" ) {
+            # set skip_line
+            $skip_line = 1;
+
+            # skip marked header
+            next;
+        }
+
+        # check for ending mark of section to be removed
+        if( "$line" =~ "$footer" ) {
+            # unset skip_line
+            $skip_line = 0;
+
+            # skip marked footer
+            next;
+        }
+
+        # check to see if line should be skipped
+        if( $skip_line ) {
+            # skip this line
+            next;
+        }
+
+        # write this line to the output file
+        $target_fd->print( "$line" );
+    }
+
+    # close the output file
+    $target_fd->close();
+
+    # close the input file
+    $source_fd->close();
+
+    return;
+}
+
+
 ##############################################################
 # Generic "directory" Subroutines
 ##############################################################

@@ -43,6 +43,7 @@
         </init-param>
     </filter>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet>
         <servlet-name>csadmin-wizard</servlet-name>
         <servlet-class>com.netscape.cms.servlet.wizard.WizardServlet</servlet-class>
@@ -114,6 +115,7 @@
         </init-param>
     </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  tksstart  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.base.CMSStartServlet  </servlet-class>
@@ -304,6 +306,8 @@
                          <param-value> /services.template </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet>
       <servlet-name>  tksDownloadPKCS12  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.DownloadPKCS12  </servlet-class>
@@ -323,6 +327,7 @@
                          <param-value> certServer.clone.configuration </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  tksGetConfigEntries  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.GetConfigEntries </servlet-class>
@@ -438,7 +443,8 @@
       <url-pattern>   /agent/tks/computeRandomData  </url-pattern>
    </servlet-mapping>
 
-                                                                                
+    <!-- ================= PKI Installation Wizard Header ================= -->
+
     <servlet-mapping>
         <servlet-name>csadmin-wizard</servlet-name>
         <url-pattern>/admin/console/config/wizard</url-pattern>
@@ -449,6 +455,7 @@
         <url-pattern>/admin/console/config/login</url-pattern>
     </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  tksGetConfigEntries  </servlet-name>
       <url-pattern>   /admin/tks/getConfigEntries  </url-pattern>
@@ -474,11 +481,14 @@
       <url-pattern>   /services  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet-mapping>
       <servlet-name>  tksDownloadPKCS12 </servlet-name>
       <url-pattern>   /admin/console/config/savepkcs12 </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  tksGetTokenInfo </servlet-name>
       <url-pattern>   /ee/tks/getTokenInfo </url-pattern>

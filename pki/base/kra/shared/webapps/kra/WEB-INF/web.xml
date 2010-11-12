@@ -39,6 +39,7 @@
         </init-param>
     </filter>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet>
         <servlet-name>csadmin-wizard</servlet-name>
         <servlet-class>com.netscape.cms.servlet.wizard.WizardServlet</servlet-class>
@@ -112,6 +113,7 @@
 
 
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  kraKRADisplayBySerialForRecovery  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.key.DisplayBySerialForRecovery  </servlet-class>
@@ -758,6 +760,8 @@
                          <param-value> certServer.clone.configuration.UpdateNumberRange </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet>
       <servlet-name>  kraDownloadPKCS12  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.DownloadPKCS12  </servlet-class>
@@ -777,6 +781,7 @@
                          <param-value> certServer.clone.configuration </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  kraGetTokenInfo  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.GetTokenInfo  </servlet-class>
@@ -1002,6 +1007,7 @@
       <url-pattern>   /agent/kra/displayBySerial  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet-mapping>
         <servlet-name>csadmin-login</servlet-name>
         <url-pattern>/admin/console/config/login</url-pattern>
@@ -1033,6 +1039,7 @@
     </servlet-mapping>
 
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  kraRegisterUser </servlet-name>
       <url-pattern>   /admin/kra/registerUser  </url-pattern>
@@ -1043,11 +1050,13 @@
       <url-pattern>   /admin/kra/getTransportCert  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet-mapping>
         <servlet-name>csadmin-wizard</servlet-name>
         <url-pattern>/admin/console/config/wizard</url-pattern>
     </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  kraGetConfigEntries  </servlet-name>
       <url-pattern>   /admin/kra/getConfigEntries  </url-pattern>
@@ -1063,11 +1072,14 @@
       <url-pattern>   /ee/kra/updateNumberRange  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet-mapping>
       <servlet-name>  kraDownloadPKCS12 </servlet-name>
       <url-pattern>   /admin/console/config/savepkcs12 </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  kraGetTokenInfo </servlet-name>
       <url-pattern>   /ee/kra/getTokenInfo </url-pattern>

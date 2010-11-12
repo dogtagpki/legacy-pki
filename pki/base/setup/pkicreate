@@ -409,6 +409,11 @@ my $SELINUX_PORT_UNDEFINED = 0;
 my $SELINUX_PORT_DEFINED = 1;
 my $SELINUX_PORT_WRONGLY_DEFINED = 2;
 
+# PKI banners
+$marked_header = "    <!-- ================= PKI Installation Wizard Header ================= -->";
+$marked_footer = "    <!-- ================= PKI Installation Wizard Footer ================= -->";
+
+
 ##############################################################
 # Local Data Structures
 ##############################################################
@@ -580,7 +585,6 @@ my $velocity_prop_subsystem_file_path         = "";  # CA, KRA, OCSP, TKS
 my $web_xml_instance_file_path                = "";  # CA, KRA, OCSP, TKS
 my $web_xml_subsystem_file_path               = "";  # CA, KRA, OCSP, TKS
 my $web_xml_runtime_instance_file_path        = "";  # CA, KRA, OCSP, TKS
-my $web_xml_runtime_subsystem_file_path       = "";  # CA, KRA, OCSP, TKS
 my $webapps_root_instance_path                = "";  # CA, KRA, OCSP, TKS
 my $webapps_root_subsystem_path               = "";  # CA, KRA, OCSP, TKS
 my $webapps_subsystem_instance_path           = "";  # CA, KRA, OCSP, TKS
@@ -1924,8 +1928,6 @@ sub initialize_subdirectory_paths()
                                            . "/" . $web_xml_base_name;
         $web_xml_runtime_instance_file_path        = $webinf_instance_path
                                            . "/" . $web_xml_runtime_base_name;
-        $web_xml_runtime_subsystem_file_path       = $webinf_subsystem_path
-                                           . "/" . $web_xml_runtime_base_name;
     }
 }
 
@@ -2994,13 +2996,30 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
         }
 
 
-        # process "web.xml.runtime" template
-        $result = process_file_template( $web_xml_runtime_subsystem_file_path,
-                                         $web_xml_runtime_instance_file_path,
-                                         \%slot_hash );
-        if( !$result ) {
+        # create "web.xml.runtime" file from processed "web.xml" file
+        remove_marked_sections_from_file( $web_xml_instance_file_path,
+                                          $web_xml_runtime_instance_file_path,
+                                          "$marked_header",
+                                          "$marked_footer" );
+        if( ! -e $web_xml_runtime_instance_file_path ) {
+            emit( "The file called '$web_xml_runtime_instance_file_path' "
+                . "does not exist!\n",
+                  "error" );
             return 0;
         }
+
+        $result = give_file_to( $web_xml_runtime_instance_file_path,
+                                $pki_user,
+                                $pki_group );
+        if( !$result ) {
+            emit( "Can't change ownership of "
+                . "$web_xml_runtime_instance_file_path.\n",
+                  "error" );
+            return 0;
+        }
+
+        chmod( $default_file_permissions,
+               $web_xml_runtime_instance_file_path );
     }
 
     return 1;

@@ -43,6 +43,7 @@
         </init-param>
     </filter>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet>
         <servlet-name>csadmin-wizard</servlet-name>
         <servlet-class>com.netscape.cms.servlet.wizard.WizardServlet</servlet-class>
@@ -115,6 +116,7 @@
     </servlet>
 
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  ocspacl  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.admin.ACLAdminServlet  </servlet-class>
@@ -452,6 +454,8 @@
                          <param-value> certServer.ee.request.ocsp </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet>
       <servlet-name>  ocspDownloadPKCS12  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.DownloadPKCS12  </servlet-class>
@@ -469,6 +473,7 @@
                          <param-value> BasicAclAuthz </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  ocspGetTokenInfo  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.GetTokenInfo  </servlet-class>
@@ -624,6 +629,7 @@
       <url-pattern>   /ee/ocsp/*  </url-pattern>
    </servlet-mapping>
                                                                                 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet-mapping>
         <servlet-name>csadmin-wizard</servlet-name>
         <url-pattern>/admin/console/config/wizard</url-pattern>
@@ -634,6 +640,7 @@
         <url-pattern>/admin/console/config/login</url-pattern>
     </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  ocspGetConfigEntries  </servlet-name>
       <url-pattern>   /admin/ocsp/getConfigEntries  </url-pattern>
@@ -644,11 +651,14 @@
       <url-pattern>   /services  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet-mapping>
       <servlet-name>  ocspDownloadPKCS12 </servlet-name>
       <url-pattern>   /admin/console/config/savepkcs12 </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  ocspGetTokenInfo </servlet-name>
       <url-pattern>   /ee/ocsp/getTokenInfo </url-pattern>

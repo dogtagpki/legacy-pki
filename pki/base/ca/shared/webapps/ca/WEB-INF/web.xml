@@ -48,6 +48,7 @@
         </init-param>
     </filter>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet>
         <servlet-name>csadmin-wizard</servlet-name>
         <servlet-class>com.netscape.cms.servlet.wizard.WizardServlet</servlet-class>
@@ -137,6 +138,7 @@
         </init-param>
     </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  services </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.MainPageServlet </servlet-class>
@@ -335,6 +337,8 @@
                          <param-value> certServer.admin.ocsp </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet>
       <servlet-name>  caDownloadPKCS12  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.DownloadPKCS12  </servlet-class>
@@ -354,6 +358,7 @@
                          <param-value> certServer.clone.configuration </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  caGetCertChain  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.GetCertChain  </servlet-class>
@@ -2029,11 +2034,14 @@
       <url-pattern>   /ee/ca/updateNumberRange  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet-mapping>
       <servlet-name>  caDownloadPKCS12 </servlet-name>
       <url-pattern>   /admin/console/config/savepkcs12 </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  caGetCertChain  </servlet-name>
       <url-pattern>   /ee/ca/getCertChain  </url-pattern>
@@ -2419,6 +2427,7 @@
       <url-pattern>   /ee/ca/doRevoke  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet-mapping>
         <servlet-name>csadmin-login</servlet-name>
         <url-pattern>/admin/console/config/login</url-pattern>
@@ -2464,6 +2473,7 @@
         <url-pattern>/admin/console/config/wizard</url-pattern>
     </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  caUpdateConnector </servlet-name>
       <url-pattern>   /admin/ca/updateConnector  </url-pattern>
