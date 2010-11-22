@@ -130,6 +130,7 @@ public final class JssSubsystem implements ICryptoSubsystem {
     static {
 
         /* set ssl cipher string names. */
+        /* disallowing SSL2 ciphers to be turned on
         mCipherNames.put(Constants.PR_SSL2_RC4_128_WITH_MD5,
             Integer.valueOf(SSLSocket.SSL2_RC4_128_WITH_MD5));
         mCipherNames.put(Constants.PR_SSL2_RC4_128_EXPORT40_WITH_MD5,
@@ -142,6 +143,7 @@ public final class JssSubsystem implements ICryptoSubsystem {
             Integer.valueOf(SSLSocket.SSL2_DES_64_CBC_WITH_MD5));
         mCipherNames.put(Constants.PR_SSL2_DES_192_EDE3_CBC_WITH_MD5,
             Integer.valueOf(SSLSocket.SSL2_DES_192_EDE3_CBC_WITH_MD5));
+        */
         mCipherNames.put(Constants.PR_SSL3_RSA_WITH_NULL_MD5,
             Integer.valueOf(SSLSocket.SSL3_RSA_WITH_NULL_MD5));
         mCipherNames.put(Constants.PR_SSL3_RSA_EXPORT_WITH_RC4_40_MD5,
@@ -366,6 +368,7 @@ public final class JssSubsystem implements ICryptoSubsystem {
                 if (sslcipher != null) {
                     String msg = "setting ssl cipher " + cipher;
 
+                    CMS.debug("JSSSubsystem: initSSL(): "+msg);
                     log(ILogger.LL_INFO, msg);
                     if (Debug.ON)
                         Debug.trace(msg);
