@@ -702,7 +702,7 @@ public class DonePanel extends WizardPanelBase {
         int port = -1;
         try {
             host = cs.getString("preop.ca.hostname", "");
-            port = cs.getInteger("preop.ca.httpsport", -1);
+            port = cs.getInteger("preop.ca.httpsadminport", -1);
         } catch (Exception e) {
         }
 
@@ -715,7 +715,7 @@ public class DonePanel extends WizardPanelBase {
         int port = -1;
         try {
             host = cs.getString("preop.ca.hostname", "");
-            port = cs.getInteger("preop.ca.httpsadminport", -1);
+            port = cs.getInteger("preop.ca.httpsport", -1);
         } catch (Exception e) {
         }
 
