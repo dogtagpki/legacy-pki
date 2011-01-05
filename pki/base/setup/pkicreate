@@ -192,7 +192,6 @@ my $RA   = "ra";
 my $TPS  = "tps";
 
 # Base subsystem directory names
-my $acl_base_subsystem_dir      = "acl";       # CA, KRA, OCSP, TKS
 my $alias_base_subsystem_dir    = "alias";     # CA, KRA, OCSP, TKS, RA, TPS
 my $applets_base_subsystem_dir  = "applets";   # TPS
 my $cgibin_base_subsystem_dir   = "cgi-bin";   # TPS (Apache)
@@ -211,7 +210,6 @@ my $webapps_base_subsystem_dir  = "webapps";   # CA, KRA, OCSP, TKS
 my $work_base_subsystem_dir     = "work";      # CA, KRA, OCSP, TKS (Tomcat)
 
 # Base instance directory names
-my $acl_base_instance_dir      = "acl";       # CA, KRA, OCSP, TKS
 my $alias_base_instance_dir    = "alias";     # CA, KRA, OCSP, TKS, RA, TPS
 my $bin_base_instance_dir      = "bin";       # TPS
 my $cgibin_base_instance_dir   = "cgi-bin";   # TPS (Apache)
@@ -454,7 +452,6 @@ my $redirected_logs_path = "";
 
 # Base subsystem directory paths
 my $pki_subsystem_path      = "";  # CA, KRA, OCSP, TKS, RA, TPS
-my $acl_subsystem_path      = "";  # CA, KRA, OCSP, TKS
 my $alias_subsystem_path    = "";  # CA, KRA, OCSP, TKS, RA, TPS
 my $applets_subsystem_path  = "";  # TPS
 my $bin_subsystem_path      = "";  # TPS
@@ -477,7 +474,6 @@ my $work_subsystem_path     = "";  # CA, KRA, OCSP, TKS (Tomcat)
 
 # Base instance directory paths
 my $pki_instance_path      = "";  # CA, KRA, OCSP, TKS, RA, TPS
-my $acl_instance_path      = "";  # CA, KRA, OCSP, TKS
 my $alias_instance_path    = "";  # CA, KRA, OCSP, TKS, RA, TPS
 my $bin_instance_path      = "";  # TPS
 my $cgibin_instance_path   = "";  # TPS (Apache)
@@ -1608,8 +1604,6 @@ sub initialize_subsystem_paths()
 
     ## Initialize subsystem directory paths (CA, KRA, OCSP, TKS subsystems)
 
-        $acl_subsystem_path      = $pki_subsystem_path
-                                 . "/" . $acl_base_subsystem_dir;
         $profiles_subsystem_path = $pki_subsystem_path
                                  . "/" . $profiles_base_subsystem_dir;
         $webapps_subsystem_path  = $pki_subsystem_path
@@ -1671,8 +1665,6 @@ sub initialize_instance_paths()
                                 . "/" . $docroot_base_instance_dir;
     } else {
         ## Initialize instance directory paths (CA, KRA, OCSP, TKS instances)
-        $acl_instance_path      = $pki_instance_path
-                                . "/" . $acl_base_instance_dir;
         $profiles_instance_path = $pki_instance_path
                                 . "/" . $profiles_base_instance_dir;
         $webapps_instance_path = $pki_instance_path
@@ -2343,13 +2335,6 @@ sub process_pki_directories()
         }
     } else {
         ## Populate instance directory paths (CA, KRA, OCSP, TKS instances)
-        $result = copy_directory( $acl_subsystem_path,
-                                  $acl_instance_path );
-        if( !$result ) {
-            emit( "Failed to copy directory $acl_subsystem_path ...\n" );
-            return 0;
-        }
-
         $result = copy_directory( $profiles_subsystem_path,
                                   $profiles_instance_path );
         if( !$result ) {
