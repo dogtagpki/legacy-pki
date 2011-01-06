@@ -658,6 +658,7 @@
                          <param-value> kra         </param-value> </init-param>
    </servlet>
 
+<!--
    <servlet>
       <servlet-name>  krajobsScheduler  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.admin.JobsAdminServlet  </servlet-class>
@@ -666,6 +667,7 @@
              <init-param><param-name>  AuthzMgr    </param-name>
                          <param-value> BasicAclAuthz </param-value> </init-param>
    </servlet>
+-->
 
    <servlet>
       <servlet-name>  kraauths  </servlet-name>
@@ -831,11 +833,12 @@
       <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /acl                </url-pattern>
    </filter-mapping>
-
+<!--
    <filter-mapping>
       <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /jobsScheduler      </url-pattern>
    </filter-mapping>
+-->
 
    <filter-mapping>
       <filter-name>  AdminRequestFilter  </filter-name>
@@ -888,11 +891,12 @@
       <servlet-name>  kraauths  </servlet-name>
       <url-pattern>   /auths  </url-pattern>
    </servlet-mapping>
-
+<!--
    <servlet-mapping>
       <servlet-name>  krajobsScheduler  </servlet-name>
       <url-pattern>   /jobsScheduler  </url-pattern>
    </servlet-mapping>
+-->
 
    <servlet-mapping>
       <servlet-name>  krapolicy  </servlet-name>

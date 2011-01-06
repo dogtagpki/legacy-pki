@@ -160,7 +160,8 @@
              <init-param><param-name>  AuthzMgr    </param-name>
                          <param-value> BasicAclAuthz </param-value> </init-param>
    </servlet>
-                                                                                
+                         
+<!--                                                       
    <servlet>
       <servlet-name>  tksjobsScheduler  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.admin.JobsAdminServlet  </servlet-class>
@@ -169,6 +170,7 @@
              <init-param><param-name>  AuthzMgr    </param-name>
                          <param-value> BasicAclAuthz </param-value> </init-param>
    </servlet>
+-->
 
    <servlet>
       <servlet-name>  tksacl  </servlet-name>
@@ -389,10 +391,12 @@
       <url-pattern>  /log                </url-pattern>
    </filter-mapping>
 
+<!--
    <filter-mapping>
       <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /jobsScheduler      </url-pattern>
    </filter-mapping>
+-->
 
    <filter-mapping>
       <filter-name>  AdminRequestFilter  </filter-name>
@@ -429,11 +433,13 @@
       <servlet-name>  tksauths  </servlet-name>
       <url-pattern>   /auths  </url-pattern>
    </servlet-mapping>
-                                                                                
+                         
+<!--                                                       
    <servlet-mapping>
       <servlet-name>  tksjobsScheduler  </servlet-name>
       <url-pattern>   /jobsScheduler  </url-pattern>
    </servlet-mapping>
+-->
                                                                                 
    <servlet-mapping>
       <servlet-name>  tksacl  </servlet-name>

@@ -131,6 +131,7 @@
              <init-param><param-name>  AuthzMgr    </param-name>
                          <param-value> BasicAclAuthz </param-value> </init-param>
    </servlet>
+<!--
    <servlet>
       <servlet-name>  ocspjobsScheduler  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.admin.JobsAdminServlet  </servlet-class>
@@ -139,6 +140,7 @@
              <init-param><param-name>  AuthzMgr    </param-name>
                          <param-value> BasicAclAuthz </param-value> </init-param>
    </servlet>
+-->
                                                                                 
    <servlet>
       <servlet-name>  ocspug  </servlet-name>
@@ -514,10 +516,12 @@
       <url-pattern>  /acl                </url-pattern>
    </filter-mapping>
 
+<!--
    <filter-mapping>
       <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /jobsScheduler      </url-pattern>
    </filter-mapping>
+-->
 
    <filter-mapping>
       <filter-name>  AdminRequestFilter  </filter-name>
@@ -549,11 +553,13 @@
       <servlet-name>  ocspacl  </servlet-name>
       <url-pattern>   /acl  </url-pattern>
    </servlet-mapping>
-                                                                                
+                          
+<!--                                                      
    <servlet-mapping>
       <servlet-name>  ocspjobsScheduler  </servlet-name>
       <url-pattern>   /jobsScheduler  </url-pattern>
    </servlet-mapping>
+-->
                                                                                 
    <servlet-mapping>
       <servlet-name>  ocspug  </servlet-name>
