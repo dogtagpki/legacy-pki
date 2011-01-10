@@ -1491,7 +1491,7 @@ public class CRLIssuingPoint implements ICRLIssuingPoint, Runnable {
             if (mDailyUpdates.size() == 1 && ((Vector)mDailyUpdates.elementAt(0)).size() == 1 &&
                 mEnableUpdateFreq && mAutoUpdateInterval > 0) {
                 // Interval updates with starting time
-                long firstTime = MINUTE * ((Integer)((Vector)mDailyUpdates.elementAt(mCurrentDay)).elementAt(0)).longValue();
+                long firstTime = MINUTE * ((Integer)((Vector)mDailyUpdates.elementAt(0)).elementAt(0)).longValue();
                 long t = firstTime;
                 long interval = mAutoUpdateInterval;
                 if (mExtendedNextUpdate && (!fromLastUpdate) && (!delta) &&
@@ -2295,7 +2295,7 @@ public class CRLIssuingPoint implements ICRLIssuingPoint, Runnable {
             mDailyUpdates != null && mTimeListSize > 0) ||
             (mEnableUpdateFreq && mAutoUpdateInterval > 0))) {
 
-            if ((!isDeltaCRLEnabled()) || mSchemaCounter == 0) {
+            if ((!isDeltaCRLEnabled()) || mSchemaCounter == 0 || mUpdateSchema == 1) {
                 nextUpdate = new Date(findNextUpdate(false, false));
                 mNextUpdate = new Date(nextUpdate.getTime());
             }
@@ -2312,6 +2312,9 @@ public class CRLIssuingPoint implements ICRLIssuingPoint, Runnable {
                     }
                 } else {
                     nextDeltaUpdate = new Date(nextUpdate.getTime());
+                    if (mUpdateSchema == 1) {
+                        mSchemaCounter = 0;
+                    }
                 }
             }
         }
