@@ -49,6 +49,13 @@ public class ConfigureSubCA
 
     public static Hashtable mUsedPort = new Hashtable();
 
+    // global constants
+    public static final String DEFAULT_KEY_TYPE = "RSA";
+    public static final String DEFAULT_KEY_SIZE = "2048";
+    public static final String DEFAULT_KEY_CURVENAME = "nistp256";
+    public static final String DEFAULT_KEY_ALGORITHM_RSA = "SHA256withRSA";
+    public static final String DEFAULT_KEY_ALGORITHM_ECC = "SHA256withEC";
+
     // define global variables
 
     public static HTTPClient hc = null;
@@ -96,11 +103,33 @@ public class ConfigureSubCA
     public static String base_dn = null;
     public static String db_name = null;
 
-    public static String key_size = null;
     public static String key_type = null;
+    public static String key_size = null;
+    public static String key_curvename = null;
+    public static String key_algorithm = null;
     public static String signing_algorithm = null;
+
+    public static String signing_key_type = null;
+    public static String signing_key_size = null;
+    public static String signing_key_curvename = null;
     public static String signing_signingalgorithm = null;
+
+    public static String ocsp_signing_key_type = null;
+    public static String ocsp_signing_key_size = null;
+    public static String ocsp_signing_key_curvename = null;
     public static String ocsp_signing_signingalgorithm = null;
+
+    public static String subsystem_key_type = null;
+    public static String subsystem_key_size = null;
+    public static String subsystem_key_curvename = null;
+
+    public static String audit_signing_key_type = null;
+    public static String audit_signing_key_size = null;
+    public static String audit_signing_key_curvename = null;
+
+    public static String sslserver_key_type = null;
+    public static String sslserver_key_size = null;
+    public static String sslserver_key_curvename = null;
 
     public static String token_name = null;
     public static String token_pwd = null;
@@ -310,7 +339,7 @@ public class ConfigureSubCA
         hr = hc.sslConnect(sd_hostname,sd_admin_port,sd_login_uri,query_string);
 
         String query_string_1 = "uid=" + sd_admin_name +
-                                "&pwd=" + sd_admin_password +
+                                "&pwd=" + URLEncoder.encode(sd_admin_password) +
                                 "&url=" + URLEncoder.encode(subca_url) ;
 
         hr = hc.sslConnect(sd_hostname,sd_admin_port,sd_get_cookie_uri,
@@ -421,30 +450,36 @@ public class ConfigureSubCA
         ParseXML px = new ParseXML();
         ArrayList al = null;
 
-
-        String query_string = "p=10" + "&op=next" + "&xml=true" +
-                            "&keytype=" + key_type + 
-                            "&signingalgorithm=" + signing_algorithm +
-                            "&choice=default"+
-                            "&custom_size=" + key_size +
-                            "&signing_keytype=" + key_type + 
-                            "&signing_signingalgorithm=" + signing_signingalgorithm +
-                            "&signing_choice=default"+
-                            "&signing_custom_size=" + key_size +
-                            "&ocsp_signing_keytype=" + key_type + 
-                            "&ocsp_signing_signingalgorithm=" + ocsp_signing_signingalgorithm +
-                            "&ocsp_signing_choice=default"+
-                            "&ocsp_signing_custom_size=" + key_size +
-                            "&sslserver_keytype=" + key_type + 
-                            "&sslserver_choice=default"+
-                            "&sslserver_custom_size=" + key_size +
-                            "&subsystem_keytype=" + key_type + 
-                            "&subsystem_choice=default"+
-                            "&subsystem_custom_size=" + key_size +
-                            "&audit_signing_keytype=" + key_type +
-                            "&audit_signing_choice=default" + 
-                            "&audit_signing_custom_size=" + key_size + 
-                            ""; 
+        String query_string = "p=10" + "&op=next" + "&xml=true"
+                    + "&subsystem_custom_size=" + subsystem_key_size
+                    + "&subsystem_custom_curvename=" + subsystem_key_curvename
+                    + "&subsystem_keytype=" + subsystem_key_type
+                    + "&subsystem_choice=custom"
+                    + "&sslserver_custom_size=" + sslserver_key_size
+                    + "&sslserver_custom_curvename=" + sslserver_key_curvename
+                    + "&sslserver_keytype=" + sslserver_key_type
+                    + "&sslserver_choice=custom"
+                    + "&signing_custom_size=" + signing_key_size
+                    + "&signing_custom_curvename=" + signing_key_curvename
+                    + "&signing_keytype=" + signing_key_type
+                    + "&signing_choice=custom"
+                    + "&signing_keyalgorithm=" + key_algorithm
+                    + "&signing_signingalgorithm=" + signing_signingalgorithm
+                    + "&ocsp_signing_custom_size=" + ocsp_signing_key_size
+                    + "&ocsp_signing_custom_curvename=" + ocsp_signing_key_curvename
+                    + "&ocsp_signing_keytype=" + ocsp_signing_key_type
+                    + "&ocsp_signing_choice=custom"
+                    + "&ocsp_signing_signingalgorithm=" + ocsp_signing_signingalgorithm
+                    + "&audit_signing_custom_size=" + audit_signing_key_size
+                    + "&audit_signing_custom_curvename=" + audit_signing_key_curvename
+                    + "&audit_signing_keytype=" + audit_signing_key_type
+                    + "&audit_signing_choice=custom"
+                    + "&custom_size=" + key_size
+                    + "&custom_curvename=" + key_curvename
+                    + "&keytype=" + key_type
+                    + "&choice=custom"
+                    + "&signingalgorithm=" + signing_algorithm
+                    + "&keyalgorithm=" + key_algorithm;
 
         hr = hc.sslConnect(cs_hostname,cs_port,wizard_uri,query_string);
 
@@ -623,9 +658,8 @@ public class ConfigureSubCA
 
         String query_string = "p=13" + "&op=next" + "&xml=true" +
                             "&choice=backupkey" + 
-                            "&__pwd=" + backup_pwd +
-                            "&__pwdagain=" + backup_pwd +
-                            ""; 
+                            "&__pwd=" + URLEncoder.encode(backup_pwd) +
+                            "&__pwdagain=" + URLEncoder.encode(backup_pwd);
 
         hr = hc.sslConnect(cs_hostname,cs_port,wizard_uri,query_string);
 
@@ -694,8 +728,8 @@ public class ConfigureSubCA
                             "&name=" + URLEncoder.encode( agent_name ) +
                             "&email=" + 
                             URLEncoder.encode(admin_email) +
-                            "&__pwd=" + admin_password +
-                            "&__admin_password_again=" + admin_password +
+                            "&__pwd=" + URLEncoder.encode(admin_password) +
+                            "&__admin_password_again=" + URLEncoder.encode(admin_password) +
                             "&cert_request=" + 
                             URLEncoder.encode(admin_cert_request) +
                             "&display=" + URLEncoder.encode("$displayStr") +
@@ -934,6 +968,14 @@ public class ConfigureSubCA
         return true;
     }
 
+    private static String set_default(String val, String def) {
+        if ((val == null) || (val.equals(""))) {
+            return def;
+        } else {
+            return val;
+        }
+    }
+
     public static void main(String args[])
     {
         ConfigureSubCA ca = new ConfigureSubCA();
@@ -971,12 +1013,40 @@ public class ConfigureSubCA
         StringHolder x_base_dn = new StringHolder();
         StringHolder x_db_name = new StringHolder();
 
-        // key size
+        // key properties (defaults)
         StringHolder x_key_size = new StringHolder();
         StringHolder x_key_type = new StringHolder();
+        StringHolder x_key_curvename = new StringHolder();
+        StringHolder x_key_algorithm = new StringHolder();
         StringHolder x_signing_algorithm = new StringHolder();
+
+        // key properties (custom - signing)
+        StringHolder x_signing_key_size = new StringHolder();
+        StringHolder x_signing_key_type = new StringHolder();
+        StringHolder x_signing_key_curvename = new StringHolder();
         StringHolder x_signing_signingalgorithm = new StringHolder();
+
+        // key properties (custom - ocsp_signing)
+        StringHolder x_ocsp_signing_key_size = new StringHolder();
+        StringHolder x_ocsp_signing_key_type = new StringHolder();
+        StringHolder x_ocsp_signing_key_curvename = new StringHolder();
         StringHolder x_ocsp_signing_signingalgorithm = new StringHolder();
+         
+        // key properties (custom - audit_signing)
+        StringHolder x_audit_signing_key_size = new StringHolder();
+        StringHolder x_audit_signing_key_type = new StringHolder();
+        StringHolder x_audit_signing_key_curvename = new StringHolder();
+
+        // key properties (custom - subsystem)
+        StringHolder x_subsystem_key_size = new StringHolder();
+        StringHolder x_subsystem_key_type = new StringHolder();
+        StringHolder x_subsystem_key_curvename = new StringHolder();
+
+        // key properties (custom - sslserver)
+        StringHolder x_sslserver_key_size = new StringHolder();
+        StringHolder x_sslserver_key_type = new StringHolder();
+        StringHolder x_sslserver_key_curvename = new StringHolder();
+
         StringHolder x_token_name = new StringHolder();
         StringHolder x_token_pwd = new StringHolder();
 
@@ -1055,13 +1125,39 @@ public class ConfigureSubCA
         parser.addOption ("-db_name %s #db name",
                             x_db_name); 
 
-        parser.addOption ("-key_size %s #Key Size",
-                            x_key_size); 
-        parser.addOption ("-key_type %s #Key type [RSA,ECC]",
-                            x_key_type); 
-        parser.addOption("-signing_algorithm %s #Signing algorithm", x_signing_algorithm);
-        parser.addOption("-signing_signingalgorithm %s #Algorithm used be CA cert to sign objects (optional)", x_signing_signingalgorithm);
-        parser.addOption("-ocsp_signing_signingalgorithm %s #Algorithm used by the OCSP signing cert to sign objects (optional)", x_ocsp_signing_signingalgorithm);
+        // key and algorithm options (default)
+        parser.addOption("-key_type %s #Key type [RSA,ECC] (optional, default is RSA)", x_key_type); 
+        parser.addOption("-key_size %s #Key Size (optional, for RSA default is 2048)", x_key_size); 
+        parser.addOption("-key_curvename %s #Key Curve Name (optional, for ECC default is nistp256)", x_key_curvename); 
+        parser.addOption("-key_algorithm %s #Key algorithm of the CA certificate (optional, default is SHA256withRSA for RSA and SHA256withEC for ECC)", x_key_algorithm);
+        parser.addOption("-signing_algorithm %s #Signing algorithm (optional, default is key_algorithm)", x_signing_algorithm);
+
+        // key and algorithm options for signing certificate (overrides default)
+        parser.addOption("-signing_key_type %s #Key type [RSA,ECC] (optional, default is key_type)", x_signing_key_type); 
+        parser.addOption("-signing_key_size %s #Key Size (optional, for RSA default is key_size)", x_signing_key_size); 
+        parser.addOption("-signing_key_curvename %s #Key Curve Name (optional, for ECC default is key_curvename)", x_signing_key_curvename); 
+        parser.addOption("-signing_signingalgorithm %s #Algorithm used be CA cert to sign objects (optional, default is signing_algorithm)", x_signing_signingalgorithm);
+
+        // key and algorithm options for ocsp_signing certificate (overrides default)
+        parser.addOption("-ocsp_signing_key_type %s #Key type [RSA,ECC] (optional, default is key_type)", x_ocsp_signing_key_type); 
+        parser.addOption("-ocsp_signing_key_size %s #Key Size (optional, for RSA default is key_size)", x_ocsp_signing_key_size); 
+        parser.addOption("-ocsp_signing_key_curvename %s #Key Curve Name (optional, for ECC default is key_curvename)", x_ocsp_signing_key_curvename); 
+        parser.addOption("-ocsp_signing_signingalgorithm %s #Algorithm used by the OCSP signing cert to sign objects (optional, default is signing_algorithm)", x_ocsp_signing_signingalgorithm);
+
+        // key and algorithm options for audit_signing certificate (overrides default)
+        parser.addOption("-audit_signing_key_type %s #Key type [RSA,ECC] (optional, default is key_type)", x_audit_signing_key_type); 
+        parser.addOption("-audit_signing_key_size %s #Key Size (optional, for RSA default is key_size)", x_audit_signing_key_size); 
+        parser.addOption("-audit_signing_key_curvename %s #Key Curve Name (optional, for ECC default is key_curvename)", x_audit_signing_key_curvename); 
+
+        // key and algorithm options for subsystem certificate (overrides default)
+        parser.addOption("-subsystem_key_type %s #Key type [RSA,ECC] (optional, default is key_type)", x_subsystem_key_type); 
+        parser.addOption("-subsystem_key_size %s #Key Size (optional, for RSA default is key_size)", x_subsystem_key_size); 
+        parser.addOption("-subsystem_key_curvename %s #Key Curve Name (optional, for ECC default is key_curvename)", x_subsystem_key_curvename); 
+
+        // key and algorithm options for sslserver certificate (overrides default)
+        parser.addOption("-sslserver_key_type %s #Key type [RSA,ECC] (optional, default is key_type)", x_sslserver_key_type); 
+        parser.addOption("-sslserver_key_size %s #Key Size (optional, for RSA default is key_size)", x_sslserver_key_size); 
+        parser.addOption("-sslserver_key_curvename %s #Key Curve Name (optional, for ECC default is key_curvename)", x_sslserver_key_curvename); 
 
         parser.addOption ("-token_name %s #HSM/Software Token name",
                             x_token_name); 
@@ -1139,24 +1235,36 @@ public class ConfigureSubCA
         base_dn = x_base_dn.value;
         db_name = x_db_name.value;
 
-        key_size = x_key_size.value;
-        key_type = x_key_type.value;
-        if ((x_signing_algorithm.value == null) || (x_signing_algorithm.equals(""))) {
-            signing_algorithm = "SHA256withRSA";
+        key_type = set_default(x_key_type.value, DEFAULT_KEY_TYPE);
+        signing_key_type = set_default(x_signing_key_type.value, key_type);
+        ocsp_signing_key_type = set_default(x_ocsp_signing_key_type.value, key_type);
+        audit_signing_key_type = set_default(x_audit_signing_key_type.value, key_type);
+        subsystem_key_type = set_default(x_subsystem_key_type.value, key_type);
+        sslserver_key_type = set_default(x_sslserver_key_type.value, key_type);
+
+        key_size = set_default(x_key_size.value, DEFAULT_KEY_SIZE);
+        signing_key_size = set_default(x_signing_key_size.value, key_size);
+        ocsp_signing_key_size = set_default(x_ocsp_signing_key_size.value, key_size);
+        audit_signing_key_size = set_default(x_audit_signing_key_size.value, key_size);
+        subsystem_key_size = set_default(x_subsystem_key_size.value, key_size);
+        sslserver_key_size = set_default(x_sslserver_key_size.value, key_size);
+
+        key_curvename = set_default(x_key_curvename.value, DEFAULT_KEY_CURVENAME);
+        signing_key_curvename = set_default(x_signing_key_curvename.value, key_curvename);
+        ocsp_signing_key_curvename = set_default(x_ocsp_signing_key_curvename.value, key_curvename);
+        audit_signing_key_curvename = set_default(x_audit_signing_key_curvename.value, key_curvename);
+        subsystem_key_curvename = set_default(x_subsystem_key_curvename.value, key_curvename);
+        sslserver_key_curvename = set_default(x_sslserver_key_curvename.value, key_curvename);
+
+        if (signing_key_type.equalsIgnoreCase("RSA")) {
+            key_algorithm = set_default(x_key_algorithm.value, DEFAULT_KEY_ALGORITHM_RSA);
         } else {
-            signing_algorithm = x_signing_algorithm.value;
-        }
-        if ((x_ocsp_signing_signingalgorithm.value == null) || (x_ocsp_signing_signingalgorithm.equals(""))) {
-            ocsp_signing_signingalgorithm = signing_algorithm;
-        } else {
-            ocsp_signing_signingalgorithm = x_ocsp_signing_signingalgorithm.value;
+            key_algorithm = set_default(x_key_algorithm.value, DEFAULT_KEY_ALGORITHM_ECC);
         }
 
-        if ((x_signing_signingalgorithm.value == null) || (x_signing_signingalgorithm.equals(""))) {
-            signing_signingalgorithm = signing_algorithm;
-        } else {
-            signing_signingalgorithm = x_signing_signingalgorithm.value;
-        }
+        signing_algorithm = set_default(x_signing_algorithm.value, key_algorithm);
+        signing_signingalgorithm = set_default(x_signing_signingalgorithm.value, signing_algorithm);
+        ocsp_signing_signingalgorithm = set_default(x_ocsp_signing_signingalgorithm.value, signing_algorithm);
 
         token_name = x_token_name.value;
         token_pwd = x_token_pwd.value;
