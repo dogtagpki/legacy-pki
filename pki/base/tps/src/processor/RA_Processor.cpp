@@ -2460,7 +2460,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
         LDAPMessage *e = NULL;
         bool revocation_failed = false;
 
-        RA::Debug("RA_Processor::RevokeCertificates","RevokeCertificates!");
+        RA::Debug("RA_Processor::RevokeCertificates","RevokeCertificates! cuid %s",cuid);
         PR_snprintf((char *)filter, 256, "(tokenID=%s)", cuid);
         rc = RA::ra_find_tus_certificate_entries_by_order(filter, 100, &result, 1);
         if (rc == 0) {
@@ -2475,6 +2475,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                     rc = RA::ra_delete_certificate_entry(e);
                     continue;
                 }
+
                 char *attr_serial= RA::ra_get_cert_serial(e);
                 /////////////////////////////////////////////////
                 // Raidzilla Bug #57803:
@@ -2537,7 +2538,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                         continue;
                     }
                     statusNum = certEnroll->RevokeCertificate("1", serial, connid, statusString);
-
+                    RA::Debug("RA_Processor::RevokeCertificates", "Revoke cert %s status %d",serial,statusNum);
                     if (statusNum == 0) {
                         RA::Audit(EV_FORMAT, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
                                       "Success", "revoke", serial, connid, "");
@@ -2583,7 +2584,11 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
             goto loser;
         }
 
-        rc = RA::tdb_update("", cuid, (char *)final_applet_version, keyVersion, "uninitialized", "", tokenType);
+        rc = 0;
+        if (keyVersion != NULL) {
+            //Do this in format case only, could be called from a re-enroll operation
+            rc = RA::tdb_update("", cuid, (char *)final_applet_version, keyVersion, "uninitialized", "", tokenType);
+        }
 
         if (rc != 0) {
             RA::Debug(LL_PER_PDU, "RA_Processor::RevokeCertificates",
