@@ -1351,7 +1351,11 @@ Buffer *RA_Processor::GetAppletVersion(RA_Session *session)
     /* Sample: 3FBAB4BF9000 */
     if (data.size() != 6) {
 	   RA::Error(LL_PER_PDU, "Secure_Channel::GetAppletVersion", 
-		"Invalid Applet Version");
+		"Invalid Applet Version data.size %d",data.size());
+           RA::DebugBuffer(LL_PER_PDU, "RA_Processor::GetAppletVersion",
+                "Bad Applet Version: ",
+           &data);
+
 	    goto loser;
     }
 
@@ -3425,7 +3429,7 @@ loser:
 
     if (newVersionStr != NULL) {
         PR_Free( (char *) newVersionStr);
-        newVersionStr == NULL;
+        newVersionStr = NULL;
     }
 
     if (keyVersion != NULL) {
