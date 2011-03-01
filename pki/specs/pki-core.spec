@@ -1,6 +1,6 @@
 Name:             pki-core
 Version:          9.0.3
-Release:          2%{?dist}
+Release:          3%{?dist}
 Summary:          Certificate System - PKI Core Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -30,6 +30,11 @@ BuildRequires:    xalan-j2
 BuildRequires:    xerces-j2
 
 Source0:          http://pki.fedoraproject.org/pki/sources/%{name}/%{name}-%{version}.tar.gz
+
+Patch0:           %{name}-%{version}-r1846.patch
+Patch1:           %{name}-%{version}-r1860.patch
+Patch2:           %{name}-%{version}-r1862.patch
+Patch3:           %{name}-%{version}-r1864.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -372,6 +377,12 @@ This package is a part of the PKI Core used by the Certificate System.
 %setup -q
 
 
+%patch0 -b .p0
+%patch1 -b .p1
+%patch2 -b .p2
+%patch3 -b .p3
+
+
 %clean
 %{__rm} -rf %{buildroot}
 
@@ -590,6 +601,13 @@ fi
 
 
 %changelog
+* Mon Feb 21 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-3
+- Resolves #676873 - Rebase pki-core again to pick the latest features and fixes
+-     Resolves #676048 - Installation within IPA hangs, r1846
+-     Resolves #679173 - uninitialized variable warnings from Perl, r1860
+-     Resolves #679174 - netstat loop fixes needed, r1862
+-     Resolves #679580 - Velocity fails to load all dependent classes, r1864
+
 * Wed Feb 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-2
 - 'pki-common'
 -     Bugzilla Bug #676051 - IPA installation failing - Fails to create CA

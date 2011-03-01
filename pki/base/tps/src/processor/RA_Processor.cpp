@@ -382,7 +382,6 @@ int RA_Processor::UpgradeApplet(RA_Session *session, char *prefix, char *tokenTy
 	if (channel == NULL) {
              RA::Error(LL_PER_PDU, "RA_Processor::UpgradeApplet", 
 		  "channel creation failure");
-             rc = -1;
 	     goto loser;
 	}
 
@@ -1353,9 +1352,6 @@ Buffer *RA_Processor::GetAppletVersion(RA_Session *session)
     if (data.size() != 6) {
 	   RA::Error(LL_PER_PDU, "Secure_Channel::GetAppletVersion", 
 		"Invalid Applet Version");
-            RA::DebugBuffer(LL_PER_PDU, "RA_Processor::GetAppletVersion",
-                 "Bad Applet Version: ",
-            &data);
 	    goto loser;
     }
 
@@ -2649,8 +2645,6 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     char filter[512];
     Buffer curKeyInfo;
     BYTE curVersion;
-    char *curKeyInfoStr = NULL;
-    char *newVersionStr = NULL;
     bool tokenFound = false;
     int finalKeyVersion = 0;
     char *keyVersion = NULL;
@@ -2849,7 +2843,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     /* upgrade applet */
     PR_snprintf((char *)configname, 256, "%s.%s.update.applet.directory", OP_PREFIX, tokenType);
     applet_dir = RA::GetConfigStore()->GetConfigAsString(configname);
-    if (applet_dir == NULL || strlen(applet_dir) == 0) {
+    if (applet_dir == NULL) {
         RA::Error(LL_PER_PDU, "RA_Processor::UpdateApplet",
           "Failed to get %s", applet_dir);
         status = STATUS_ERROR_MISCONFIGURATION;		 
@@ -3091,18 +3085,6 @@ locale),
          */
         SelectApplet(session, 0x04, 0x00, NetKeyAID);
         RA::tdb_activity(session->GetRemoteIP(), cuid, "format", "failure", "applet upgrade error", "", tokenType);
-        // rc = -1 denotes Secure Channel Failure
-        
-        if (rc == -1) {
-             RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
-               userid, cuid, msn, "Failure", "format",
-               keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "failed to setup secure channel");
-        } else {
-
-            RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
-               userid, cuid, msn, "Success", "format",
-               keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "setup secure channel");
-        }
     
         RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE, 
           userid, cuid, msn, "Failure", "format", 
@@ -3110,10 +3092,6 @@ locale),
 
         goto loser;
     } 
-
-    RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
-            userid, cuid, msn, "Success", "format",
-            keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "setup secure channel");
 
     RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE, 
       userid, cuid, msn, "Success", "format", 
@@ -3255,33 +3233,13 @@ locale),
             // need to check return value of rc
              // and create audit log for failure
 
-            curKeyInfoStr = Util::Buffer2String(curKeyInfo);
-            newVersionStr = Util::Buffer2String(newVersion);
-
-            char curVer[10];
-            char newVer[10];
-
-            if(curKeyInfoStr != NULL && strlen(curKeyInfoStr) >= 2) {
-                curVer[0] = curKeyInfoStr[0]; curVer[1] = curKeyInfoStr[1]; curVer[2] = 0;
-            }
-            else {
-                curVer[0] = 0;
-            }
-
-            if(newVersionStr != NULL && strlen(newVersionStr) >= 2) {
-                newVer[0] = newVersionStr[0] ; newVer[1] = newVersionStr[1] ; newVer[2] = 0;
-            }
-            else {
-                newVer[0] = 0;
-            }
-
             if (rc != 0) {
                 RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
-                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "Failure", "format",
-                    final_applet_version != NULL ? final_applet_version : "", curVer, newVer,
+                    userid, cuid, msn, "Failure", "format", 
+                    final_applet_version, curVersion, ((BYTE*)newVersion)[0], 
                     "key changeover failed");
                 // do we goto loser here?
-            }
+            } 
 
              finalKeyVersion = ((int) ((BYTE *)newVersion)[0]);
             /**
@@ -3315,8 +3273,8 @@ locale),
             }
 
             RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
-                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "Success", "format",
-                    final_applet_version != NULL ? final_applet_version : "", curVer, newVer,
+                    userid, cuid, msn, "Success", "format",
+                    final_applet_version, curVersion, ((BYTE*)newVersion)[0],
                     "key changeover");
 
         }     
@@ -3413,16 +3371,6 @@ loser:
                 userid != NULL? userid : "", 
                 tokenType);
         } 
-    }
-
-    if (curKeyInfoStr != NULL) {
-        PR_Free( (char *) curKeyInfoStr);
-        curKeyInfoStr = NULL;
-    }
-
-    if (newVersionStr != NULL) {
-        PR_Free( (char *) newVersionStr);
-        newVersionStr = NULL;
     }
 
     if (keyVersion != NULL) {

@@ -67,7 +67,7 @@ sub DoPage
             "-b \"" . $basedn . "\" " .
             "-h \"" . $ldapHost . "\" " .
             "-p \"" . $ldapPort ."\" " .
-            "-LLL \"(cn=" . $name . ")\" > " . $tmpfile;
+            "\"(cn=" . $name . ")\" > " . $tmpfile;
   system($cmd);
 
   open(F, "<$tmpfile");
