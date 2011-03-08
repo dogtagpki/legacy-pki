@@ -662,7 +662,7 @@ if( $^O eq "linux" ) {
 
         # Supported hardware token PKCS #11 modules
         %supported_sec_modules_hash = ( "lunasa",
-                                        "/usr/lunasa/lib/libCryptoki2.so",
+                                        "/usr/lunasa/lib/libCryptoki2_64.so",
                                         "nfast",
                                         "/opt/nfast/toolkits/pkcs11/libcknfast.so"
                                       );
@@ -688,7 +688,7 @@ if( $^O eq "linux" ) {
 
         # Supported hardware token PKCS #11 modules
         %supported_sec_modules_hash = ( "lunasa",
-                                        "/usr/lunasa/lib/libCryptoki2.so",
+                                        "/usr/lunasa/lib/libCryptoki2_64.so",
                                         "nfast",
                                         "/opt/nfast/toolkits/pkcs11/libcknfast-64.so"
                                       );
