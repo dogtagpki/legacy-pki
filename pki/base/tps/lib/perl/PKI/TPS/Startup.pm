@@ -29,30 +29,14 @@ use warnings;
 use PKI::TPS::Config;
 use Apache2::Const -compile => qw(OK DONE);
 use Nuxwdogclient;
+use PKI::TPS::Common;
+use Net::LDAP;
 
 package PKI::TPS::Startup;
 $PKI::TPS::Startup::VERSION = '1.00';
 
 my $x_global_bindpwd;
 my $logfile;
-
-my $default_hardware_platform="";
-my $ldapsearch="";
-$default_hardware_platform=`pkiarch`;
-chomp($default_hardware_platform);
-if( $^O eq "linux" ) {
-        if( $default_hardware_platform eq "i386" ) {
-                $ldapsearch = "/usr/lib/mozldap/ldapsearch";
-        } elsif( $default_hardware_platform eq "x86_64" ) {
-                $ldapsearch = "/usr/lib64/mozldap/ldapsearch";
-        }
-} elsif( $^O eq "solaris" ) {
-        if( $default_hardware_platform eq "sparc" ) {
-                $ldapsearch = "/usr/lib/mozldap6/ldapsearch";
-        } elsif( $default_hardware_platform eq "sparcv9" ) {
-                $ldapsearch = "/usr/lib/sparcv9/mozldap6/ldapsearch";
-        }
-}
 
 sub handler {
   my ($conf_pool, $log_pool, $temp_pool, $s) = @_;
@@ -81,12 +65,12 @@ sub handler {
   # get ldap parameters for internal db 
   # needed to test password
   my $hostport = $config->get("tokendb.hostport");
-  my $host = substr($hostport, 0, index($hostport, ":"));
-  my $port = substr($hostport, index($hostport, ":") +1);
   my $binddn = $config->get("tokendb.bindDN");
-  # my $ssl = $config->get("tokendb.ssl");
+  my $secureconn = $config->get("tokendb.ssl");
   my $pwdfile = $config->get("tokendb.bindPassPath");
   my $basedn = $config->get("tokendb.baseDN");
+  my $instDir =  $config->get("service.instanceDir");
+  my $certdir = $config->get("auth.instance.1.certdir") || "$instDir/conf";
 
   my $status =0;
   my $iteration = 0;
@@ -109,7 +93,7 @@ sub handler {
 
     #test the password
     # 49 == INVALID_CREDENTIALS
-    $status = &test_ldap_password($host, $port, $binddn, $basedn, $x_global_bindpwd);
+    $status = &test_ldap_password($hostport, $secureconn, $binddn, $basedn, $x_global_bindpwd, $certdir);
     $iteration ++;
   } while ($status == 49);
 
@@ -139,12 +123,31 @@ sub global_bindpwd
 
 sub test_ldap_password
 {
-  my ($host, $port, $binddn, $basedn, $passwd) = @_;
+  my ($hostport, $secureconn, $binddn, $basedn, $passwd, $certdir) = @_;
   if ($passwd eq "") {
       return 49;
   }
-  system("$ldapsearch -1 -h '$host' -p $port -D '$binddn' -x -w $passwd -b '$basedn' -s base '(objectclass=*)' >/dev/null");
-  return $? >>8;
+
+  my $ldap;
+  my $msg;
+  if (! ($ldap = &PKI::TPS::Common::make_connection($hostport, $secureconn, \$msg, $certdir))) { 
+    &debug_log("test_ldap_password: failed to connect to $hostport : $msg");
+    return -1; 
+  };
+
+  $msg = $ldap->bind ( $binddn, version => 3, password => $passwd );
+  if ($msg->is_error) {
+    &debug_log("test_ldap_password: failed to bind to $hostport:" . $msg->error_text);
+    return $msg->code();
+  }
+
+  $msg = $ldap->search ( base => $basedn,
+                         scope   => "base",
+                         filter  => "objectclass=*",
+                         attrs   =>  []
+                       );
+  $ldap->unbind();
+  return $msg->code();
 }
 
 1;

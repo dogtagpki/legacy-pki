@@ -45,6 +45,7 @@ sub DoIsAgent
   print "Content-type: text/xml\n\n";
   
   if (!&authorize()) {
+    print "<response>not authorized</response>\n";
     return;
   }
 

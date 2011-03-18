@@ -553,7 +553,7 @@ template(`pki_tps_template',`
         corenet_tcp_sendrecv_all_nodes(pki_tps_t)
         corenet_tcp_sendrecv_all_ports(pki_tps_t)
         corenet_non_ipsec_sendrecv(pki_tps_t)
-
+        corenet_tcp_connect_http_port(pki_tps_t)
 
         dev_read_urand(pki_tps_t)
         files_exec_usr_files(pki_tps_t)

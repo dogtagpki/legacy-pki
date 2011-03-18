@@ -36,6 +36,9 @@ no warnings qw(redefine);
 require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 use CGI;
+use Net::LDAP;
+use Net::LDAP::Constant;
+use PKI::TPS::Common;
 
 $gQuery = new CGI;
 
@@ -182,12 +185,13 @@ sub GetNextAction
 sub GenerateEnrollmentPage
 {
   my ($l);
-  my $ldapHost = get_ldap_host();
-  my $ldapPort = get_ldap_port();
+  my $hostport = get_ldap_hostport();
+  my $secureconn = get_ldap_secure();
   my $basedn = get_base_dn();
   my $port = get_port();
   my $host = get_host();
   my $secure_port = get_secure_port();
+  my $certdir = get_ldap_certdir();
 
   ExitError("Failed to load enrollment page!") if (!open(ENROLL_FILE, "< [SERVER_ROOT]/cgi-bin/sow/enroll_temp.html"));
 
@@ -195,56 +199,39 @@ sub GenerateEnrollmentPage
 
   my $uid = $gQuery->param("uid");
 
-  my $tmpfile = "/tmp/read-$$.txt";
-  my $cmd = $ldapsearch . "\" " .
-            "-b \"" . $basedn . "\" " .
-            "-h \"" . $ldapHost . "\" " .
-            "-p \"" . $ldapPort ."\" " .
-            "-1 \"(uid=" . $uid . ")\" > " . $tmpfile;
-  system($cmd);
+  my $ldap;
+  my $msg;
 
-  open(F, "<$tmpfile");
+  ExitError("Failed to connect to the database. $msg") if (! ($ldap = &PKI::TPS::Common::make_connection($hostport, $secureconn, \$msg, $certdir)));
 
-  my $givenName = "-";
-  my $cn = "-";
-  my $sn = "-";
-  $uid = "-";
-  my $mail = "-";
-  my $phone = "-";
-  my $departmentNumber = ""; # photo (full size)
-  my $employeeNumber = ""; # photo (thumb)
+  $msg = $ldap->bind ( version => 3 );
+  ExitError("Failed to bind to database. " . $msg->error_text) if ($msg->is_error);
 
-  # get ldap values into internal varibles
-  while (<F>) {
-    if (/mail: (.*)/) {
-      $mail = $1;
-    }
-    if (/uid: (.*)/) {
-      $uid = $1;
-    }
-    if (/givenName: (.*)/) {
-      $givenName = $1;
-    }
-    if (/sn: (.*)/) {
-      $sn = $1;
-    }
-    if (/cn: (.*)/) {
-      $cn = $1;
-    }
-    if (/telephoneNumber: (.*)/) {
-      $phone = $1;
-    }
-    if (/departmentNumber: (.*)/) {
-      $departmentNumber = $1;
-    }
-    if (/employeeNumber: (.*)/) {
-      $employeeNumber = $1;
-    }
+  $msg = $ldap->search ( base => $basedn,
+                         scope   => "sub",
+                         filter  => "uid=$uid",
+                         attrs   =>  []
+                       );
+  if ($msg->is_error) {
+    $ldap->unbind();
+    ExitError("Search failed: " . $msg->error_text);
+  } 
+
+  if ($msg->count() < 1) {
+    $ldap->unbind();
+    ExitError("User $uid not found");
   }
-  close(F);
 
-  system("rm $tmpfile");
+  my $entry = $msg->entry(0);
 
+  my $givenName = $entry->get_value("givenName") ||  "-";
+  my $cn = $entry->get_value("cn") || "-";
+  my $sn = $entry->get_value("sn") ||"-";
+  $uid = $entry->get_value("uid") || "-";
+  my $mail = $entry->get_value("mail") || "-";
+  my $phone = $entry->get_value("telephoneNumber") || "-";
+  my $departmentNumber = $entry->get_value("departmentNumber") || "";
+  my $employeeNumber = $entry->get_value("employeeNumber") || "";
 
   while ($l = <ENROLL_FILE>)
   {
@@ -263,6 +250,7 @@ sub GenerateEnrollmentPage
   }
 
   close(ENROLL_FILE);
+  $ldap->unbind();
 }
 
 &DoPage();

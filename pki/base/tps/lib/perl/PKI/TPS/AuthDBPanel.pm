@@ -25,6 +25,7 @@ use strict;
 use warnings;
 use PKI::TPS::GlobalVar;
 use PKI::TPS::Common;
+use Net::LDAP;
 
 package PKI::TPS::AuthDBPanel;
 $PKI::TPS::AuthDBPanel::VERSION = '1.00';
@@ -75,10 +76,14 @@ sub update
     my $host = $q->param('host');
     my $port = $q->param('port');
     my $basedn = $q->param('basedn');
+    my $secureconn = $q->param('secureConn') || "false";
+    my $instDir =  $::config->get("service.instanceDir");
+    my $certdir = $::config->get("auth.instance.0.certdir") || "$instDir/conf";
 
     &PKI::TPS::Wizard::debug_log("AuthDBPanel: host=" . $host);
     &PKI::TPS::Wizard::debug_log("AuthDBPanel: port=" . $port);
     &PKI::TPS::Wizard::debug_log("AuthDBPanel: basedn=" . $basedn);
+    &PKI::TPS::Wizard::debug_log("AuthDBPanel: secureconn=" . $secureconn);
 
     if (!($port =~ /^[0-9]+$/)) {
       &PKI::TPS::Wizard::debug_log("AuthDBPanel: bad port " . $port);
@@ -86,32 +91,44 @@ sub update
       return 0;
     }
 
-    # try to do a ldapsearch
-    my $tmp = "/tmp/file$$";
-    my $mozldap_path = "/usr/lib/mozldap";
-    my $arch = `pkiarch`;
-    $arch =~ s/\n//g;
-    if ($arch eq "x86_64") {
-      $mozldap_path = "/usr/lib64/mozldap";
-    } elsif ($arch eq "sparcv9") {
-      $mozldap_path = "/usr/lib/sparcv9/mozldap6";
-    }
-    &PKI::TPS::Wizard::debug_log("AuthDBPanel: invoking $mozldap_path/ldapsearch");
-    my $status = system("$mozldap_path/ldapsearch -h '$host' " .
-                     "-p '$port' -b '$basedn' -s base 'objectclass=*' > $tmp 2>&1");
-    if ($status eq "0") {
-     &PKI::TPS::Wizard::debug_log("AuthDBPanel: auth database looks ok");
-    } else {
-      my $reason = `cat $tmp`;
-      &PKI::TPS::Wizard::debug_log("AuthDBPanel: failed to connect " . $reason);
-      $::symbol{errorString} = "Failed to Connect";
+    # try to make a connection
+    # we need to test the ldaps connection first because testing an ldaps port with ldap:// will hang the query!
+    my $hostport = $host . ":" . $port;
+    my $ldap;
+    my $msg;
+    if (! ($ldap = &PKI::TPS::Common::test_and_make_connection($hostport, $secureconn, \$msg, $certdir))) { 
+      &PKI::TPS::Wizard::debug_log("AuthDBPanel: failed to connect to auth db: $msg");
+      $::symbol{errorString} = $msg;
+      return 0; 
+    };
+
+    $msg = $ldap->bind ( version => 3 );
+    if ($msg->is_error) {
+      &PKI::TPS::Wizard::debug_log("AuthDBPanel: failed to bind to the db: " . $msg->error_text);
+      $::symbol{errorString} = "Failed to bind to the authentication database";
       return 0;
     }
-    system("rm $tmp");
+
+    $msg = $ldap->search ( base => $basedn,
+                           scope   => "base",
+                           filter  => "objectclass=*",
+                           attrs   =>  []
+                         );
+    if ($msg->is_error) {
+      &PKI::TPS::Wizard::debug_log("AuthDBPanel: search for basedn failed: " . $msg->error_text);
+      $::symbol{errorString} = "Search for base DN failed. Does the base DN exist?";
+      $ldap->unbind();
+      return 0;
+    }
+
+    &PKI::TPS::Wizard::debug_log("AuthDBPanel: auth database looks ok");
+
+    $ldap->unbind();
 
     # save values to CS.cfg
     $::config->put("auth.instance.0.baseDN", $basedn);
     $::config->put("auth.instance.0.hostport", $host . ":" . $port);
+    $::config->put("auth.instance.0.ssl", $secureconn);
     $::config->put("preop.authdb.done", "true");
     $::config->commit();
 
@@ -149,9 +166,12 @@ sub display
       $port = $portx;
     }
 
+    my $secureconn = $::config->get("auth.instance.0.ssl") || "false";
+
     $::symbol{hostname} = $host;
     $::symbol{portStr} = $port;
     $::symbol{basedn} = $basedn;
+    $::symbol{secureconn}=$secureconn;
 
     return 1;
 }

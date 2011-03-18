@@ -22,6 +22,9 @@
 #
 
 use CGI;
+use Net::LDAP;
+use Net::LDAP::Constant;
+use PKI::TPS::Common;
 
 no warnings qw(redefine);
 
@@ -42,10 +45,10 @@ sub authorize
 sub DoPage
 {
   my $q = new CGI;
-  my $ldapHost = get_ldap_host();
-  my $ldapPort = get_ldap_port();
+  my $hostport = get_ldap_hostport();
+  my $secureconn = get_ldap_secure();
   my $basedn = get_base_dn();
-  my $ldapsearch = get_ldapsearch();
+  my $certdir = get_ldap_certdir();
 
   if (!&authorize()) {
     print $q->redirect("/cgi-bin/sow/noaccess.cgi");
@@ -61,67 +64,51 @@ sub DoPage
     return;
   }
 
-  my $tmpfile = "/tmp/read-$$.txt";
-  my $cmd = $ldapsearch . " " .
-            "-b \"" . $basedn . "\" " .
-            "-h \"" . $ldapHost . "\" " .
-            "-p \"" . $ldapPort ."\" " .
-            "-1 \"(cn=" . $name . ")\" > " . $tmpfile;
-  system($cmd);
+  my $ldap;
+  my $msg;
+  if (! ($ldap = &PKI::TPS::Common::make_connection($hostport, $secureconn, \$msg, $certdir))) {
+    print $q->redirect("/cgi-bin/sow/search.cgi?error=Failed to connect to the database. $msg");
+    return;
+  };
 
-  open(F, "<$tmpfile");
-
-  my $givenName = "-";
-  my $cn = "-";
-  my $sn = "-";
-  $uid = "-";
-  my $mail = "-";
-  my $phone = "-";
-  my $photoLarge = ""; # photo (full size)
-  my $photoSmall = ""; # photo (thumb)
-  my $height = "";
-  my $weight = "";
-  my $eyecolor = "";
-
-  # get ldap values into internal varibles
-  while (<F>) {
-    if (/mail: (.*)/) {
-      $mail = $1;
-    } 
-    if (/uid: (.*)/) {
-      $uid = $1;
-    } 
-    if (/givenName: (.*)/) {
-      $givenName = $1;
-    } 
-    if (/sn: (.*)/) {
-      $sn = $1;
-    } 
-    if (/cn: (.*)/) {
-      $cn = $1;
-    } 
-    if (/telephoneNumber: (.*)/) {
-      $phone = $1;
-    } 
-    if (/photoLarge: (.*)/) {
-      $photoLarge = $1;
-    } 
-    if (/photoSmall: (.*)/) {
-      $photoSmall = $1;
-    } 
-    if (/height: (.*)/) {
-      $height = $1;
-    } 
-    if (/weight: (.*)/) {
-      $weight = $1;
-    } 
-    if (/eyeColor: (.*)/) {
-      $eyecolor = $1;
-    } 
+  $msg = $ldap->bind ( version => 3 );
+  if ($msg->is_error) {
+    print $q->redirect("/cgi-bin/sow/search.cgi?error=Failed to bind to the database. " . $msg->error_text);
+    return;
   }
-  close(F);
 
-  system("rm $tmpfile");
+  $msg = $ldap->search ( base => $basedn,
+                         scope   => "sub",
+                         filter  => "cn=$name",
+                         attrs   =>  []
+                       );
+  if ($msg->is_error) {
+    $ldap->unbind();
+    print $q->redirect("/cgi-bin/sow/search.cgi?error=Search failed: " . $msg->error_text);
+    return;
+  }
+
+  if ($msg->count() < 1) {
+    $ldap->unbind();
+    print $q->redirect("/cgi-bin/sow/search.cgi?error=User $name not found");
+    return;
+  }
+
+  my $entry = $msg->entry(0);
+  
+  my $givenName = $entry->get_value("givenName") ||  "-";
+  my $cn = $entry->get_value("cn") || "-";
+  my $sn = $entry->get_value("sn") ||"-";
+  $uid = $entry->get_value("uid") || "-";
+  my $mail = $entry->get_value("mail") || "-";
+  my $phone = $entry->get_value("telephoneNumber") || "-";
+  my $photoLarge = $entry->get_value("photoLarge") || ""; # photo (full size)
+  my $photoSmall = $entry->get_value("photoSmall") || ""; # photo (thumb)
+  my $height = $entry->get_value("height") || "";
+  my $weight = $entry->get_value("weight") || "";
+  my $eyecolor = $entry->get_value("eyeColor") || "";
+
+  $ldap->unbind();
 
   if ($uid eq "-") {
     print $q->redirect("/cgi-bin/sow/search.cgi?error=User $name not found");
