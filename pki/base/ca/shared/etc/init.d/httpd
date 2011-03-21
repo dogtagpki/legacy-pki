@@ -1277,6 +1277,16 @@ case "$1" in
 	status)
 		status
 		;;
+	start_sans_security_manager)
+		export TOMCAT_SECURITY_MANAGER=""
+		start
+		;;
+	restart_sans_security_manager)
+		stop
+		sleep 2	
+		export TOMCAT_SECURITY_MANAGER=""
+		start
+		;;
 	*)
 		echo "Usage: $TOMCAT_PROG {start|stop|restart|condrestart|status}"
 		exit 1
