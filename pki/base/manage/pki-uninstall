@@ -281,7 +281,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @ca_packages   = (
@@ -294,7 +294,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @esc_packages  = (
@@ -316,7 +316,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @ocsp_packages = (
@@ -330,7 +330,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @ra_packages   = (
@@ -351,7 +351,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @tps_packages  = (
@@ -522,15 +522,10 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "dirsec-nspr" . "$pki_suffix"
     );
 } elsif( $^O eq "solaris" ) {
-    $pki_architecture  = `uname -p`;
+    $pki_architecture  = "sparcv9";
     $pki_flavor        = "pki";
     $presence_command  = "pkginfo | grep -c ";
     $uninstall_command = "yes | /usr/sbin/pkgrm ";
-
-    if( ( $pki_architecture eq "sparc" ) &&
-        ( -d "/usr/lib/sparcv9/" ) ) {
-        $pki_architecture  = "sparcv9";
-    }
 
     if( $pki_architecture eq "sparc" ) {
         $pki_prefix = "RHAT";
@@ -571,7 +566,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @ca_packages   = (
@@ -585,7 +580,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @esc_packages  = ();
@@ -600,7 +595,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @ocsp_packages = (
@@ -614,7 +609,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @ra_packages   = (
@@ -637,7 +632,7 @@ if( $^O eq "linux" ) {
         "$pki_prefix" . "tomcatjss"                . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-util"         . "$pki_suffix",
         "$pki_prefix" . "$pki_flavor-native-tools" . "$pki_suffix",
-        "$pki_prefix" . "$pki_flavor-symkey"       . "$pki_suffix",
+        "$pki_prefix" . "symkey"                   . "$pki_suffix",
         "$pki_prefix" . "osutil"                   . "$pki_suffix"
     );
     @tps_packages  = (

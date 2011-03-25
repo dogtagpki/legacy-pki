@@ -22,20 +22,18 @@
 
     <property name="jss.home" value="${jni-jar.home}${dirsec}"/>
     <property name="jss.jar" value="${jss.home}/jss4.jar"/>
-    <property name="osutil.jar" value="${jni-jar.home}/osutil.jar"/>
     <property name="ldapjdk.jar" value="${jar.home}/ldapjdk.jar"/>
     <property name="base.jar" value="${jar.home}/idm-console-base.jar"/>
     <property name="mcc.jar" value="${jar.home}/idm-console-mcc.jar"/>
     <property name="mcc_en.jar" value="${jar.home}/idm-console-mcc_en.jar"/>
     <property name="nmclf.jar" value="${jar.home}/idm-console-nmclf.jar"/>
     <property name="nmclf_en.jar" value="${jar.home}/idm-console-nmclf_en.jar"/>
-    <property name="pki-nsutil.jar" value="${pki-jar.home}/pki-nsutil.jar"/>
+    <property name="nsutil.jar" value="${pki-jar.home}/nsutil.jar"/>
 
     <path id="classpath">
         <pathelement location="${jss.jar}"/>
-        <pathelement location="${osutil.jar}"/>
         <pathelement location="${ldapjdk.jar}"/>
-        <pathelement location="${pki-nsutil.jar}"/>
+        <pathelement location="${nsutil.jar}"/>
         <pathelement location="${base.jar}"/>
         <pathelement location="${mcc.jar}"/>
         <pathelement location="${mcc_en.jar}"/>
@@ -88,9 +86,14 @@
             </fileset>
         </copy>
         <mkdir dir="${build.jars}"/>
-        <jar jarfile="${build.jars}/pki-console-${version}.jar">
+        <jar jarfile="${build.jars}/console-cms-${version}.jar">
             <fileset dir="${build.classes}">
                 <include name="com/netscape/**"/>
+            </fileset>
+        </jar>
+        <jar jarfile="${build.jars}/console-cms-${version}_en.jar">
+            <fileset dir=".">
+                <include name="CMSAdminRS.properties"/>
             </fileset>
         </jar>
         <echo message="${end.build.jars.log.message}"/>
@@ -176,6 +179,11 @@
         <echo message="${begin.binary.zip.log.message}"/>
         <copy file="./templates/pki_console_wrapper"
               tofile="./build/pkiconsole"/>
+        <exec executable="sed">
+            <arg value="-i"/>
+            <arg value="s/\[PKI_PRODUCT\]/${product.prefix}/g"/>
+            <arg value="./build/pkiconsole"/>
+        </exec>
         <echo message="${end.binary.zip.log.message}"/>
 
         <echo message="${begin.binary.tar.log.message}"/>
@@ -191,7 +199,7 @@
                 <include name="pkiconsole"/>
             </zipfileset>
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="usr/share/doc/${product.name}-${version}">
                 <include name="EULA"/>
                 <include name="LICENSE"/>
@@ -213,7 +221,7 @@
                 <include name="pkiconsole"/>
             </tarfileset>
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${dist.name}/usr/share/doc/${product.name}-${version}">
                 <include name="EULA"/>
                 <include name="LICENSE"/>
@@ -256,12 +264,13 @@
         <echo message="${begin.source.zip.log.message}"/>
         <zip destfile="${dist.base.source}/${src.dist.name}.zip">
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="${src.dist.name}">
                 <include name="${product.name}.spec"/>
                 <include name="EULA"/>
                 <include name="LICENSE"/>
                 <include name="build.xml"/>
+                <include name="CMSAdminRS.properties"/>
                 <include name="config/product*.xml"/>
                 <include name="config/release*.xml"/>
                 <include name="release"/>
@@ -275,12 +284,13 @@
         <tar longfile="gnu"
              destfile="${dist.base.source}/${src.dist.name}.tar">
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${src.dist.name}">
                 <include name="${product.name}.spec"/>
                 <include name="EULA"/>
                 <include name="LICENSE"/>
                 <include name="build.xml"/>
+                <include name="CMSAdminRS.properties"/>
                 <include name="config/product*.xml"/>
                 <include name="config/release*.xml"/>
                 <include name="release"/>

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This program is free software; you can redistribute it and/or modify
@@ -366,13 +366,12 @@ sub display
     my $non_clientauth_securePort = $::config->get("service.non_clientauth_securePort");
     my $instanceID = $::config->get("service.instanceID");
 
-    my $initDaemon = "pki-rad";
     my $initCommand = "";
     if( $^O eq "linux" ) {
-        $initCommand = "/sbin/service $initDaemon";
+        $initCommand = "/sbin/service $instanceID";
     } else {
         ## default case:  e. g. - ( $^O eq "solaris" )
-        $initCommand  = "/etc/init.d/$initDaemon";
+        $initCommand  = "/etc/init.d/$instanceID";
     }
 
     $::symbol{host}  = $machineName;
@@ -380,7 +379,6 @@ sub display
     $::symbol{port}  = $securePort;
     $::symbol{non_clientauth_port}  = $non_clientauth_securePort;
     $::symbol{initCommand}  = $initCommand;
-    $::symbol{instanceID}  = $instanceID;
 
     $::config->deleteSubstore("preop.");
     $::config->commit();

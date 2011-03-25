@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -27,6 +27,7 @@ use PKI::TPS::GlobalVar;
 use PKI::TPS::Common;
 use URI::URL;
 use URI::Escape;
+use Net::LDAP;
 
 package PKI::TPS::AdminPanel;
 $PKI::TPS::AdminPanel::VERSION = '1.00';
@@ -113,6 +114,7 @@ sub update
     my $nickname = $::config->get("preop.cert.sslserver.nickname");
     my $instanceID = $::config->get("service.instanceID");
     my $instanceDir = $::config->get("service.instanceDir");
+    my $certdir = $::config->get("auth.instance.1.certdir") || "$instanceDir/conf";
     my $db_password = `grep \"internal:\" \"$instanceDir/conf/password.conf\" | cut -c10-`;
     $db_password =~ s/\n$//g;
 
@@ -155,8 +157,8 @@ sub update
     my $admincert = $response->{Requests}->{Request}->{b64};
     &PKI::TPS::Wizard::debug_log("AdminPanel: admincert " . $admincert);
 
-    my $ldap_host = $::config->get("preop.database.host");
-    my $ldap_port = $::config->get("preop.database.port");
+    my $hostport = $::config->get("auth.instance.1.hostport");
+    my $secureconn = $::config->get("auth.instance.1.ssl");
     my $basedn = $::config->get("preop.database.basedn");
     my $binddn = $::config->get("preop.database.binddn");
 #    my $bindpwd = $::config->get("tokendb.bindPass");
@@ -165,19 +167,35 @@ sub update
 
     my $tmp = "/tmp/addAgents-$$.ldif";
 
-    my $flavor = "pki";
+    my $flavor = `pkiflavor`;
     $flavor =~ s/\n//g;
 
-    my $ldapmodify_path = "/usr/bin/ldapmodify";
+    my $ldap;
+    my $msg;
+    if (! ($ldap = &PKI::TPS::Common::make_connection($hostport, $secureconn, \$msg, $certdir))) { 
+      &PKI::TPS::Wizard::debug_log("AdminPanel: Failed to connect to the internal database: $msg");
+      $::symbol{errorString} = "Failed to connect to the internal database";
+      return 0; 
+    };
+
+    $msg = $ldap->bind ( $binddn, version => 3, password => $bindpwd );
+    if ($msg->is_error) {
+      &PKI::TPS::Wizard::debug_log("AdminPanel: failed to bind to the internal db: " . $msg->error_text);
+      $::symbol{errorString} = "Failed to bind to the internal database";
+      return 0;
+    }
 
     $admincert =~ s/\//\\\//g;
     system("sed -e 's/\$TOKENDB_ROOT/$basedn/' " .
               "-e 's/\$TOKENDB_AGENT_PWD/$password/' " .
               "-e 's/\$TOKENDB_AGENT_CERT/$admincert/' " .
               "/usr/share/$flavor/tps/scripts/addAgents.ldif > $tmp");
-    system("$ldapmodify_path -x -h '$ldap_host' -p '$ldap_port' -D '$binddn' " .
-              "-w '$bindpwd' -a " .
-              "-f '$tmp'");
+    if (! &PKI::TPS::Common::import_ldif($ldap, $tmp, \$msg)) { 
+      &PKI::TPS::Wizard::debug_log("AdminPanel: $msg");
+      $::symbol{errorString} = "Failed to add agents to database";
+      $ldap->unbind();
+      return 0; 
+    };
     system("rm $tmp");
 
     my $reqid = $response->{Requests}->{Request}->{Id};
@@ -186,6 +204,8 @@ sub update
     $::config->put("preop.admincert.serialno.0", $sn);
     $::config->put("preop.adminpanel.done", "true");
     $::config->commit();
+
+    $ldap->unbind();
 
     return 1;
 }

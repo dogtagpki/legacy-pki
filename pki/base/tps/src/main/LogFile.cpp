@@ -218,7 +218,7 @@ int LogFile::vfprintf(const char* fmt, va_list ap)
     return status;
 }
 
-int LogFile::write(const char * msg)
+int LogFile::write(char * msg)
 {
     PRErrorCode error;
     PRInt32 status;

@@ -22,18 +22,22 @@
 #
 
 use CGI;
+use Net::LDAP;
+use Net::LDAP::Constant;
+use PKI::TPS::Common;
+no warnings qw(redefine);
 
-[REQUIRE_CFG_PL]
-
-my $ldapHost = get_ldap_host();
-my $ldapPort = get_ldap_port();
-my $basedn = get_base_dn();
-my $ldapsearch = get_ldapsearch();
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 sub main()
 {
 
   my $q = new CGI;
+
+  my $hostport = get_ldap_hostport();
+  my $secureconn = get_ldap_secure();
+  my $basedn = get_base_dn();
+  my $certdir = get_ldap_certdir();
 
   my $letters = $q->param('letters');
   if ($letters eq "") {
@@ -43,35 +47,40 @@ sub main()
     $letters =~ s/\+/ /g;
   }
 
-  my $tmpfile = "/tmp/ajax-list-$$.txt";
-  my $cmd = $ldapsearch . " " .
-            "-x " .
-            "-b \"" .  $basedn . "\" " .
-            "-h \"" . $ldapHost . "\" " .
-            "-p \"" . $ldapPort ."\" " .
-            "-S \"cn\" " .
-            "-LLL -s sub \"(cn=" . $letters . "*)\" cn uid > " . $tmpfile;
-  system($cmd);
-
+  my $ldap;
+  my $msg;
   my $result = "";
-  open(F, "<$tmpfile");
-  my $cn;
-  my $uid;
-  while (<F>) {
-    if (/cn/) {
-      $cn = $_;
-      chomp($cn);
-      $cn =~ s/cn: //g;
-      $uid = <F>;
-      chomp($uid);
-      $uid =~ s/uid: //g;
-      $result .= $uid . "###" . $cn . "|";
-    }
-  }
-  close(F);
-  system("rm $tmpfile");
 
   print "Content-Type: text/html\n\n";
+  
+  if (! ($ldap = &PKI::TPS::Common::make_connection($hostport, $secureconn, \$msg, $certdir))) {
+    return;
+  };
+
+  $msg = $ldap->bind ( version => 3 );
+  if ($msg->is_error) {
+    return;
+  }
+
+  $msg = $ldap->search ( base => $basedn,
+                         scope   => "sub",
+                         filter  => "cn=$letters*",
+                         attrs   =>  ["cn", "uid"]
+                       );
+  if ($msg->is_error) {
+    $ldap->unbind();
+    return;
+  }
+
+  my @entries = $msg->sorted("cn");
+  foreach my $entry (@entries) {
+    my $cn = $entry->get_value("cn") || ""; 
+    my $uid = $entry->get_value("uid") || "";
+    $result .= $uid . "###" . $cn . "|";
+  }
+
+  $ldap->unbind();
+
   print $result;
 }
 
