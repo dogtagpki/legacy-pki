@@ -35,8 +35,7 @@
 require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 use CGI;
-use Net::LDAP;
-use Net::LDAP::Constant;
+use Mozilla::LDAP::Conn;
 use PKI::TPS::Common;
 
 no warnings qw(redefine);
@@ -186,7 +185,8 @@ sub GetNextAction
 sub GenerateEnrollmentPage
 {
   my ($l);
-  my $hostport = get_ldap_hostport();
+  my $ldap_host = get_ldap_host();
+  my $ldap_port = get_ldap_port();
   my $secureconn = get_ldap_secure();
   my $basedn = get_base_dn();
   my $port = get_port();
@@ -200,39 +200,31 @@ sub GenerateEnrollmentPage
 
   my $uid = $gQuery->param("uid");
 
-  my $ldap;
-  my $msg;
+  my $conn =  PKI::TPS::Common::make_connection(
+                  {host => $ldap_host, port => $ldap_port, cert => $certdir},
+                  $secureconn);
 
-  ExitError("Failed to connect to the database. $msg") if (! ($ldap = &PKI::TPS::Common::make_connection($hostport, $secureconn, \$msg, $certdir))); 
+  ExitError("Failed to connect to the database. $msg") if (!$conn);
 
-  $msg = $ldap->bind ( version => 3 );
-  ExitError("Failed to bind to database. " . $msg->error_text) if ($msg->is_error);
-
-  $msg = $ldap->search ( base => $basedn,
-                         scope   => "sub",
-                         filter  => "uid=$uid",
-                         attrs   =>  []
-                       );
-  if ($msg->is_error) {
-    $ldap->unbind();
-    ExitError("Search failed: " . $msg->error_text);
-  }
+  my $entry = $conn->search ( $basedn,
+                              "sub",
+                              "uid=$uid",
+                              0
+                            );
   
-  if ($msg->count() < 1) {
-    $ldap->unbind();
+  if (!$entry) {
+    $conn->close();
     ExitError("User $uid not found");
   }
 
-  my $entry = $msg->entry(0);
-
-  my $givenName = $entry->get_value("givenName") ||  "-";
-  my $cn = $entry->get_value("cn") || "-";
-  my $sn = $entry->get_value("sn") ||"-";
-  $uid = $entry->get_value("uid") || "-";
-  my $mail = $entry->get_value("mail") || "-";
-  my $phone = $entry->get_value("telephoneNumber") || "-";
-  my $departmentNumber = $entry->get_value("departmentNumber") || ""; 
-  my $employeeNumber = $entry->get_value("employeeNumber") || ""; 
+  my $givenName = ($entry->getValues("givenName"))[0] ||  "-";
+  my $cn = ($entry->getValues("cn"))[0] || "-";
+  my $sn = ($entry->getValues("sn"))[0] ||"-";
+  $uid = ($entry->getValues("uid"))[0] || "-";
+  my $mail = ($entry->getValues("mail"))[0] || "-";
+  my $phone = ($entry->getValues("telephoneNumber"))[0] || "-";
+  my $departmentNumber = ($entry->getValues("departmentNumber"))[0] || ""; 
+  my $employeeNumber = ($entry->getValues("employeeNumber"))[0] || ""; 
 
   while ($l = <ENROLL_FILE>)
   {
@@ -251,7 +243,7 @@ sub GenerateEnrollmentPage
   }
 
   close(ENROLL_FILE);
-  $ldap->unbind();
+  $conn->close();
 }
 
 &DoPage();

@@ -25,7 +25,7 @@ use strict;
 use warnings;
 use PKI::TPS::GlobalVar;
 use PKI::TPS::Common;
-use Net::LDAP;
+use Mozilla::LDAP::Conn;
 
 package PKI::TPS::AuthDBPanel;
 $PKI::TPS::AuthDBPanel::VERSION = '1.00';
@@ -78,7 +78,7 @@ sub update
     my $basedn = $q->param('basedn');
     my $secureconn = $q->param('secureConn') || "false";
     my $instDir =  $::config->get("service.instanceDir");
-    my $certdir = $::config->get("auth.instance.0.certdir") || "$instDir/conf";
+    my $certdir = "$instDir/alias";
 
     &PKI::TPS::Wizard::debug_log("AuthDBPanel: host=" . $host);
     &PKI::TPS::Wizard::debug_log("AuthDBPanel: port=" . $port);
@@ -93,37 +93,26 @@ sub update
 
     # try to make a connection
     # we need to test the ldaps connection first because testing an ldaps port with ldap:// will hang the query!
-    my $hostport = $host . ":" . $port;
-    my $ldap;
     my $msg;
-    if (! ($ldap = &PKI::TPS::Common::test_and_make_connection($hostport, $secureconn, \$msg, $certdir))) { 
+
+    my $conn = &PKI::TPS::Common::test_and_make_connection({host => $host, port => $port, cert => $certdir}, $secureconn, \$msg);
+    if (! $conn) {
       &PKI::TPS::Wizard::debug_log("AuthDBPanel: failed to connect to auth db: $msg");
       $::symbol{errorString} = $msg;
       return 0; 
     };
 
-    $msg = $ldap->bind ( version => 3 );
-    if ($msg->is_error) {
-      &PKI::TPS::Wizard::debug_log("AuthDBPanel: failed to bind to the db: " . $msg->error_text);
-      $::symbol{errorString} = "Failed to bind to the authentication database";
-      return 0;
-    }
-
-    $msg = $ldap->search ( base => $basedn,
-                           scope   => "base",
-                           filter  => "objectclass=*",
-                           attrs   =>  []
-                         );
-    if ($msg->is_error) {
-      &PKI::TPS::Wizard::debug_log("AuthDBPanel: search for basedn failed: " . $msg->error_text);
+    my $entry = $conn->search($basedn, "base", "objectclass=*", 0);
+    if (! $entry) {
+      &PKI::TPS::Wizard::debug_log("AuthDBPanel: search for basedn failed: " . $conn->getErrorString());
       $::symbol{errorString} = "Search for base DN failed. Does the base DN exist?";
-      $ldap->unbind();
+      $conn->close();
       return 0;
     }
 
     &PKI::TPS::Wizard::debug_log("AuthDBPanel: auth database looks ok");
 
-    $ldap->unbind();
+    $conn->close();
 
     # save values to CS.cfg
     $::config->put("auth.instance.0.baseDN", $basedn);

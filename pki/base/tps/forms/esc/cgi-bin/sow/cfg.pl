@@ -21,8 +21,7 @@
 #
 
 use lib "/usr/share/pki/tps/lib/perl";
-use Net::LDAP;
-use Net::LDAP::Constant;
+use Mozilla::LDAP::Conn;
 use PKI::TPS::Common;
 require PKI::TPS::Startup;
 
@@ -38,11 +37,20 @@ my $host = "localhost";
 
 my $cfg = "[SERVER_ROOT]/conf/CS.cfg";
 
-sub get_ldap_hostport()
+sub get_ldap_host()
 {
   my $ldapport = `grep auth.instance.0.hostport $cfg | cut -c26-`;
   chomp($ldapport);
-  return $ldapport;  
+  my ($ldapHost, $p) = split(/:/, $ldapport);
+  return $ldapHost;
+}
+
+sub get_ldap_port()
+{
+  my $ldapport = `grep auth.instance.0.hostport $cfg | cut -c26-`;
+  chomp($ldapport);
+  my ($p, $ldapPort) = split(/:/, $ldapport);
+  return $ldapPort;
 }
 
 sub get_ldap_secure()
@@ -54,9 +62,9 @@ sub get_ldap_secure()
 
 sub get_ldap_certdir()
 {
-  my $ldapcertdir = `grep auth.instance.0.certdir $cfg | cut -c25-`;
+  my $ldapcertdir = `grep service.instanceDir $cfg | cut -c21-`;
   chomp($ldapcertdir);
-  return $ldapcertdir;
+  return $ldapcertdir . "/alias";
 }
 
 sub get_base_dn()
@@ -98,6 +106,8 @@ sub is_agent()
 
   my $x_hostport = `grep -e "^tokendb.hostport" $cfg | cut -c18-`;
   chomp($x_hostport);
+  my ($x_host, $x_port) = split(/:/, $x_hostport);
+
   my $x_secureconn = `grep -e "^tokendb.ssl" $cfg | cut -c13-`;
   chomp($x_secureconn);
   my $x_basedn = `grep -e "^tokendb.userBaseDN" $cfg | cut -c20-`;
@@ -106,31 +116,25 @@ sub is_agent()
   chomp($x_binddn);
   my $x_bindpwd = PKI::TPS::Startup::global_bindpwd();
   chomp($x_bindpwd);
-  my $x_certdir = `grep -e "^tokendb.certdir" $cfg | cut -c17-`;
-  chomp($x_certdir);
+  my $x_certdir = get_ldap_certdir();
 
-
-  my $ldap;
-  my $msg;
-  return 0 if (! ($ldap = &PKI::TPS::Common::make_connection($x_hostport, $x_secureconn, \$msg, $certdir)));
-
-  $msg = $ldap->bind ( $x_binddn,  version => 3, password => $x_bindpwd );
-  return 0 if ($msg->is_error);
-
-  $msg = $ldap->search ( base => "cn=TUS Officers,ou=Groups,$x_basedn",
-                         scope   => "sub",
-                         filter  => "uid=$uid",
-                         attrs   =>  []
-                       );
-  if ($msg->is_error) {
-    $ldap->unbind();
-    return 0;
-  }
- 
-  if ($msg->count() > 0) {
-    return 1;
-  } 
+  my $ldap =  PKI::TPS::Common::make_connection(
+                  {host => $x_host, port => $x_port, pswd => $x_bindpwd, bind => $x_binddn, cert => $x_certdir},
+                  $x_secureconn); 
   
+  return 0 if (! $ldap);
+
+  my $entry = $ldap->search ( "cn=TUS Officers,ou=Groups,$x_basedn",
+                              "sub",
+                              "uid=$uid",
+                              0
+                            );
+
+  $ldap->close();
+
+  if ($entry) {
+     return 1;
+  }
   return 0;
 }
 
@@ -143,30 +147,28 @@ sub is_user()
   $uid =~ /uid=([^,]*)/; # retrieve the uid
   $uid = $1;
 
-  my $x_hostport = get_ldap_hostport();
+  my $x_host = get_ldap_host();
+  my $x_port = get_ldap_port();
   my $x_secureconn = get_ldap_secure();
   my $x_basedn = get_base_dn();
   my $x_certdir = get_ldap_certdir();
 
-  my $ldap;
-  my $msg;
-  return 0 if (! ($ldap = &PKI::TPS::Common::make_connection($x_hostport, $x_secureconn, \$msg, $certdir)));
+  my $ldap = PKI::TPS::Common::make_connection(
+                  {host => $x_host, port => $x_port, cert => $x_certdir},
+                  $x_secureconn);
 
-  $msg = $ldap->bind ( version => 3 );
-  return 0 if ($msg->is_error);
+  return 0 if (! $ldap);
 
-  $msg = $ldap->search ( base => "ou=people,$x_basedn",
-                         scope   => "sub",
-                         filter  => "uid=$uid",
-                         attrs   =>  []
-                       );
-  if ($msg->is_error) {
-    $ldap->unbind();
-    return 0;
-  }
+  my $entry = $ldap->search ( "ou=people,$x_basedn",
+                              "sub",
+                              "uid=$uid",
+                               0
+                            );
 
-  if ($msg->count() > 0) {
-    return 1;
+  $ldap->close();
+
+  if ($entry) {
+     return 1;
   }
   return 0;
 }

@@ -22,8 +22,7 @@
 #
 
 use CGI;
-use Net::LDAP;
-use Net::LDAP::Constant;
+use Mozilla::LDAP::Conn;
 use PKI::TPS::Common;
 
 no warnings qw(redefine);
@@ -45,7 +44,8 @@ sub authorize
 sub DoPage
 {
   my $q = new CGI;
-  my $hostport = get_ldap_hostport();
+  my $host = get_ldap_host();
+  my $port = get_ldap_port();
   my $secureconn = get_ldap_secure();
   my $basedn = get_base_dn();
   my $certdir = get_ldap_certdir();
@@ -64,52 +64,37 @@ sub DoPage
     return;
   }
 
-  my $ldap;
-  my $msg;
-  if (! ($ldap = &PKI::TPS::Common::make_connection($hostport, $secureconn, \$msg, $certdir))) {
-    print $q->redirect("/cgi-bin/sow/search.cgi?error=Failed to connect to the database. $msg");
-    return;
-  };
 
-  $msg = $ldap->bind ( version => 3 );
-  if ($msg->is_error) {
-    print $q->redirect("/cgi-bin/sow/search.cgi?error=Failed to bind to the database. " . $msg->error_text);
-    return;
-  }
+  my $conn =  PKI::TPS::Common::make_connection(
+                  {host => $host, port => $port, cert => $certdir},
+                  $secureconn);
 
-  $msg = $ldap->search ( base => $basedn,
-                         scope   => "sub",
-                         filter  => "cn=$name",
-                         attrs   =>  []
-                       );
 
-  if ($msg->is_error) {
-    $ldap->unbind();
-    print $q->redirect("/cgi-bin/sow/search.cgi?error=Search failed: " . $msg->error_text);
-    return;
-  }
+  my $entry = $conn->search ( $basedn,
+                              "sub",
+                              "cn=$name",
+                              0
+                            );
 
-  if ($msg->count() < 1) {
-    $ldap->unbind();
+  if (!$entry) {
+    $conn->close();
     print $q->redirect("/cgi-bin/sow/search.cgi?error=User $name not found");
     return;
   }
 
-  my $entry = $msg->entry(0);
-  
-  my $givenName = $entry->get_value("givenName") ||  "-";
-  my $cn = $entry->get_value("cn") || "-";
-  my $sn = $entry->get_value("sn") ||"-";
-  $uid = $entry->get_value("uid") || "-";
-  my $mail = $entry->get_value("mail") || "-";
-  my $phone = $entry->get_value("telephoneNumber") || "-";
-  my $photoLarge = $entry->get_value("photoLarge") || ""; # photo (full size)
-  my $photoSmall = $entry->get_value("photoSmall") || ""; # photo (thumb)
-  my $height = $entry->get_value("height") || "";
-  my $weight = $entry->get_value("weight") || "";
-  my $eyecolor = $entry->get_value("eyeColor") || "";
+  my $givenName = ($entry->getValues("givenName"))[0] ||  "-";
+  my $cn = ($entry->getValues("cn"))[0] || "-";
+  my $sn = ($entry->getValues("sn"))[0] ||"-";
+  $uid = ($entry->getValues("uid"))[0] || "-";
+  my $mail = ($entry->getValues("mail"))[0] || "-";
+  my $phone = ($entry->getValues("telephoneNumber"))[0] || "-";
+  my $photoLarge = ($entry->getValues("photoLarge"))[0] || ""; # photo (full size)
+  my $photoSmall = ($entry->getValues("photoSmall"))[0] || ""; # photo (thumb)
+  my $height = ($entry->getValues("height"))[0] || "";
+  my $weight = ($entry->getValues("weight"))[0] || "";
+  my $eyecolor = ($entry->getValues("eyeColor"))[0] || "";
 
-  $ldap->unbind();
+  $conn->close();
 
   if ($uid eq "-") {
     print $q->redirect("/cgi-bin/sow/search.cgi?error=User $name not found");

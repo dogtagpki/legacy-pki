@@ -22,8 +22,7 @@
 #
 
 use CGI;
-use Net::LDAP;
-use Net::LDAP::Constant;
+use Mozilla::LDAP::Conn;
 use PKI::TPS::Common;
 no warnings qw(redefine);
 
@@ -34,7 +33,8 @@ sub main()
 
   my $q = new CGI;
 
-  my $hostport = get_ldap_hostport();
+  my $host = get_ldap_host();
+  my $port = get_ldap_port();
   my $secureconn = get_ldap_secure();
   my $basedn = get_base_dn();
   my $certdir = get_ldap_certdir();
@@ -47,39 +47,32 @@ sub main()
     $letters =~ s/\+/ /g;
   }
 
-  my $ldap;
-  my $msg;
   my $result = "";
 
   print "Content-Type: text/html\n\n";
-  
-  if (! ($ldap = &PKI::TPS::Common::make_connection($hostport, $secureconn, \$msg, $certdir))) {
-    return;
-  };
+ 
+  my $conn =  PKI::TPS::Common::make_connection(
+                  {host => $host, port => $port, cert => $certdir},
+                  $secureconn);
 
-  $msg = $ldap->bind ( version => 3 );
-  if ($msg->is_error) {
-    return;
-  }
+  return if (!$conn); 
 
-  $msg = $ldap->search ( base => $basedn,
-                         scope   => "sub",
-                         filter  => "cn=$letters*",
-                         attrs   =>  ["cn", "uid"]
-                       );
-  if ($msg->is_error) {
-    $ldap->unbind();
-    return;
-  }
+  my $entry = $conn->search ( { base =>$basedn,
+                                scope => "sub",
+                                filter => "cn=$letters*",
+                                attrsonly => 0,
+                                attrs => qw(cn uid), 
+                                sortattrs => qw(cn)}
+                            );
 
-  my @entries = $msg->sorted("cn");
-  foreach my $entry (@entries) {
-    my $cn = $entry->get_value("cn") || ""; 
-    my $uid = $entry->get_value("uid") || "";
+  while ($entry) {
+    my $cn =  ($entry->getValues("cn"))[0]  || ""; 
+    my $uid = ($entry->getValues("uid"))[0] || "";
     $result .= $uid . "###" . $cn . "|";
+    $entry  $conn->nextEntry();
   }
 
-  $ldap->unbind();
+  $conn->close();
 
   print $result;
 }

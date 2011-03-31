@@ -26,8 +26,8 @@ package PKI::TPS::Common;
 use strict;
 use warnings;
 use Exporter;
-use Net::LDAP;
-use Net::LDAP::LDIF;
+use Mozilla::LDAP::Conn;
+use Mozilla::LDAP::LDIF;
 
 use vars qw(@ISA @EXPORT @EXPORT_OK);
 @ISA = qw(Exporter Autoloader);
@@ -50,58 +50,62 @@ sub r {
 
 sub import_ldif
 {
-  my ($ldap, $ldif_file, $msg_ref) = @_;
-  my $ldif = Net::LDAP::LDIF->new( $ldif_file, "r", onerror => 'undef' );
-  while( not $ldif->eof () ) {
-    my $entry = $ldif->read_entry ( );
-    if ( $ldif->error () ) {
-      $$msg_ref = "Error parsing LDIF:" . $ldif->error() . "\n" . $ldif->error_lines();
-      return 0;
-    } else {
-      $entry->update($ldap);
+  my ($conn, $ldif_file, $msg_ref) = @_;
+
+  if (!open( MYLDIF, "$ldif_file" )) {
+    $$msg_ref = "Could not open $ldif_file: $!\n";
+    return 0;
+  }
+
+  my $in = new Mozilla::LDAP::LDIF(*MYLDIF);
+  while (my $entry = readOneEntry $in) {
+    if (!$conn->add($entry)) {
+      $$msg_ref .= "Error: could not add entry " . $entry->getDN() . ":" . $conn->getErrorString() . "\n";
     }
   }
-  $ldif->done();
+  close( MYLDIF );
   return 1;
 }
 
-sub test_and_make_connection 
+
+# this subroutine checks if an ldaps connection is successful first
+# and then if an ldap connection is successful.
+# This prevents a hanging condition when someone tries to connect to a ldaps
+# port using LDAP
+#
+# The arg hash is assumed to have the certdir (key == cert) defined.
+
+sub test_and_make_connection
 {
-  my ($hostport, $secureconn, $msg_ref, $certdir) = @_; 
-  my $ldap;
-  if ( $ldap = Net::LDAP->new ( "ldaps://$hostport", timeout => 30, capath => $certdir , verify => "require", inet6 => 1 )) { #ldaps succeeds
+  my  ($arg_ref, $secureconn, $msg_ref) = @_;
+  my $conn = new Mozilla::LDAP::Conn($arg_ref);
+  if ($conn) { #ldaps succeeds
     if ($secureconn eq "false") {
       $$msg_ref = "SSL not selected, but this looks like an SSL port.";
       return undef;
     }
   } else { #ldaps failed
     if ($secureconn eq "true") {
-      $$msg_ref = "Failed to connect to LDAPS port: $@";
+      $$msg_ref = "Failed to connect to LDAPS port";
       return undef;
     }
-    if (! ($ldap = Net::LDAP->new ( "ldap://$hostport", timeout => 30, inet6 =>1 ))) { 
-      $$msg_ref = "Failed to connect to LDAP port: $@";
+    delete $arg_ref->{cert};
+    $conn = new Mozilla::LDAP::Conn($arg_ref);
+    if (!$conn) { # ldap failed
+      $$msg_ref = "Failed to connect to LDAP port:";
       return undef;
     }
   }
-  return $ldap;
+  return $conn;
 }
 
 sub make_connection
 {
-  my ($hostport, $secureconn, $msg_ref, $certdir) =@_;
-  my $ldap;
+  my ($arg_ref, $secureconn) = @_;
   if ($secureconn eq "false") {
-    $ldap = Net::LDAP->new ( "ldap://$hostport", timeout => 30, inet6 => 1 );
-  } else {
-    $ldap = Net::LDAP->new ( "ldaps://$hostport", timeout => 30, capath => $certdir, verify => "require", inet6 => 1 );
+    delete $arg_ref->{cert};
   }
-  if (!$ldap) {
-    $$msg_ref="$@";
-    return undef;
-  }
-  return $ldap;
+  return new Mozilla::LDAP::Conn($arg_ref);
 }
-
-
+  
 1;
