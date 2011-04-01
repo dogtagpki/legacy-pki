@@ -93,13 +93,13 @@ AC_ARG_ENABLE(debug, [  --enable-debug         Enable debug features],
 ])
 AC_SUBST([debug_defs])
 
-AC_PREFIX_DEFAULT([/opt])
+AC_PREFIX_DEFAULT([/opt/native-tools])
 
 # installation paths - by default, configure will just
 # use /usr as the prefix for everything, which means
 # /usr/etc, /usr/opt, and /usr/var.  FHS sez to use
 # /etc, /opt, and /var.
-ac_default_prefix=/opt
+ac_default_prefix=/opt/native-tools
 prefix=$ac_default_prefix
 exec_prefix=$prefix
 # relative to prefix
@@ -224,7 +224,7 @@ AM_CONDITIONAL(SOLARIS,test "$platform" = "solaris")
 # Check for library dependencies
 m4_include(m4/nspr.m4)
 m4_include(m4/nss.m4)
-m4_include(m4/openldap.m4)
+m4_include(m4/mozldap.m4)
 m4_include(m4/sasl.m4)
 m4_include(m4/svrcore.m4)
 

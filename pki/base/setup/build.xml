@@ -146,10 +146,10 @@
             <zipfileset dir="."
                         filemode="755"
                         prefix="usr/share/${product.prefix}/scripts">
-                <include name="pkicommon.pm"/>
+                <include name="pkicommon"/>
             </zipfileset>
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="usr/share/doc/${dist.name}">
                 <include name="EULA"/>
                 <include name="LICENSE"/>
@@ -170,10 +170,10 @@
             <tarfileset dir="."
                         mode="755"
                         prefix="${dist.name}/usr/share/${product.prefix}/scripts">
-                <include name="pkicommon.pm"/>
+                <include name="pkicommon"/>
             </tarfileset>
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${dist.name}/usr/share/doc/${dist.name}">
                 <include name="EULA"/>
                 <include name="LICENSE"/>
@@ -216,7 +216,7 @@
         <echo message="${begin.source.zip.log.message}"/>
         <zip destfile="${dist.base.source}/${src.dist.name}.zip">
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="${src.dist.name}">
                 <include name="${specfile}"/>
                 <include name="EULA"/>
@@ -224,19 +224,11 @@
                 <include name="build.xml"/>
                 <include name="config/product*.xml"/>
                 <include name="config/release*.xml"/>
-                <exclude name="pkicommon.pm"/>
-                <exclude name="pkicreate"/>
-                <exclude name="pkihost"/>
-                <exclude name="pkiremove"/>
-                <include name="release"/>
-            </zipfileset>
-            <zipfileset dir="."
-                        filemode="755"
-                        prefix="${src.dist.name}">
-                <include name="pkicommon.pm"/>
                 <include name="pkicreate"/>
+                <include name="pkicommon"/>
                 <include name="pkihost"/>
                 <include name="pkiremove"/>
+                <include name="release"/>
             </zipfileset>
         </zip>
         <echo message="${end.source.zip.log.message}"/>
@@ -245,7 +237,7 @@
         <tar longfile="gnu"
              destfile="${dist.base.source}/${src.dist.name}.tar">
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${src.dist.name}">
                 <include name="${specfile}"/>
                 <include name="EULA"/>
@@ -253,19 +245,11 @@
                 <include name="build.xml"/>
                 <include name="config/product*.xml"/>
                 <include name="config/release*.xml"/>
-                <exclude name="pkicommon.pm"/>
-                <exclude name="pkicreate"/>
-                <exclude name="pkihost"/>
-                <exclude name="pkiremove"/>
-                <include name="release"/>
-            </tarfileset>
-            <tarfileset dir="."
-                        mode="755"
-                        prefix="${src.dist.name}">
-                <include name="pkicommon.pm"/>
                 <include name="pkicreate"/>
+                <include name="pkicommon"/>
                 <include name="pkihost"/>
                 <include name="pkiremove"/>
+                <include name="release"/>
             </tarfileset>
         </tar>
         <echo message="${end.source.tar.log.message}"/>

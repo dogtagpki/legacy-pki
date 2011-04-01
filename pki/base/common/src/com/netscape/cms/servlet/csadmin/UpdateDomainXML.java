@@ -326,9 +326,9 @@ public class UpdateDomainXML extends CMSServlet {
                 attrs.add(new LDAPAttribute("SecureEEClientAuthPort", eecaport));
             }
             if ((domainmgr != null) && (!domainmgr.equals(""))) {
-                attrs.add(new LDAPAttribute("DomainManager", domainmgr.toUpperCase()));
+                attrs.add(new LDAPAttribute("DomainManager", domainmgr));
             }
-            attrs.add(new LDAPAttribute("clone", clone.toUpperCase()));
+            attrs.add(new LDAPAttribute("clone", clone));
             attrs.add(new LDAPAttribute("SubsystemName", name));
             entry = new LDAPEntry(dn, attrs);
  
@@ -392,10 +392,10 @@ public class UpdateDomainXML extends CMSServlet {
                     parser.addItemToContainer(parent, "SecurePort", sport);
                     parser.addItemToContainer(parent, "SecureAgentPort", agentsport);
                     parser.addItemToContainer(parent, "SecureAdminPort", adminsport);
-                    parser.addItemToContainer(parent, "SecureEEClientAuthPort", eecaport);
                     parser.addItemToContainer(parent, "UnSecurePort", httpport);
-                    parser.addItemToContainer(parent, "DomainManager", domainmgr.toUpperCase());
-                    parser.addItemToContainer(parent, "Clone", clone.toUpperCase());
+                    parser.addItemToContainer(parent, "SecureEEClientAuthPort", eecaport);
+                    parser.addItemToContainer(parent, "DomainManager", domainmgr);
+                    parser.addItemToContainer(parent, "Clone", clone);
                     count ++;
                 }
                 //update count 

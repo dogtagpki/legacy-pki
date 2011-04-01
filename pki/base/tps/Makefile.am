@@ -25,7 +25,7 @@ ACLOCAL_AMFLAGS = -I m4
 # Compiler Flags
 #------------------------
 DEBUG_DEFINES = @debug_defs@
-TPS_INCLUDES = -I$(srcdir)/src/include
+TPS_INCLUDES = -I$(srcdir)/src/include 
 # These paths are dependent on the settings of prefix and exec_prefix
 # which may be specified at make time.  So we cannot use AC_DEFINE in
 # the configure.ac because that would set the values prior to their
@@ -55,11 +55,12 @@ endif
 # Linker Flags
 #------------------------
 APR_LINK = @apr_lib@ -l@apr_lib_version@
-LDAPSDK_LINK = @ldapsdk_lib@ -lldap -lldap_r -llber
+LDAPSDK_LINK = @ldapsdk_lib@ -lssldap60 -lprldap60 -lldap60 -lldif60
 SVRCORE_LINK = @svrcore_lib@ -lsvrcore
 SASL_LINK = @sasl_lib@ -lsasl2
 NSS_LINK = @nss_lib@ -lnss3 -lssl3 -lsmime3 -lsoftokn3
 NSPR_LINK = @nspr_lib@ -lplc4 -lplds4 -lnspr4
+WDOG_LINK = -lnuxwdog
 
 LIBSOCKET=@LIBSOCKET@
 LIBNSL=@LIBNSL@
@@ -132,7 +133,7 @@ cgibin_home_DATA =
 
 cgibin_home_SCRIPTS =	$(srcdir)/forms/esc/cgi-bin/home/enroll.cgi \
 						$(srcdir)/forms/esc/cgi-bin/home/index.cgi	\
-						 $(srcdir)/forms/esc/cgi-bin/home/cachain.cgi
+						$(srcdir)/forms/esc/cgi-bin/home/cachain.cgi
 
 cgibin_so_DATA =
 
@@ -164,7 +165,7 @@ conf_DATA =	$(srcdir)/apache/conf/httpd.conf      \
 			$(srcdir)/apache/conf/mime.types      \
 			$(srcdir)/apache/conf/nss.conf        \
 			$(srcdir)/apache/conf/perl.conf       \
-			$(srcdir)/doc/CS.cfg.in
+			$(srcdir)/doc/CS.cfg
 
 docroot_DATA =	$(srcdir)/forms/index.cgi  \
 				$(srcdir)/forms/index.html
@@ -185,9 +186,11 @@ docroot_tps_img_DATA =
 
 docroot_tps_js_DATA =
 
-initd_SCRIPTS =	$(srcdir)/etc/init.d/pki-tpsd
+initd_SCRIPTS =	$(srcdir)/etc/init.d/httpd
 
 license_DATA =	$(srcdir)/LICENSE
+
+libexec_SCRIPTS =	$(srcdir)/apache/apachectl
 
 # create an empty 'logs' directory
 logs_DATA =
@@ -226,7 +229,8 @@ perl_modules_SCRIPTS =	$(srcdir)/lib/perl/PKI/TPS/AdminAuthPanel.pm         \
 						$(srcdir)/lib/perl/PKI/TPS/SubsystemTypePanel.pm     \
 						$(srcdir)/lib/perl/PKI/TPS/TKSInfoPanel.pm           \
 						$(srcdir)/lib/perl/PKI/TPS/WelcomePanel.pm           \
-						$(srcdir)/lib/perl/PKI/TPS/wizard.pm
+						$(srcdir)/lib/perl/PKI/TPS/wizard.pm                 \
+						$(srcdir)/lib/perl/PKI/TPS/Startup.pm
 
 perl_service_SCRIPTS =	$(srcdir)/lib/perl/PKI/Service/Op.pm
 
@@ -247,7 +251,7 @@ scripts_DATA =	$(srcdir)/scripts/schemaMods.ldif \
 scripts_SCRIPTS =	$(srcdir)/scripts/nss_pcache
 
 if LINUX
-setup_DATA =	$(srcdir)/setup/config.desktop.in $(srcdir)/setup/registry_instance
+setup_DATA =	$(srcdir)/setup/config.desktop
 endif
 
 templates_DATA =	$(srcdir)/apache/pki_instance_command_wrapper \
@@ -267,10 +271,10 @@ libtokendb_la_SOURCES = src/tus/tus_db.c
 
 libtokendb_la_CPPFLAGS = $(AM_CPPFLAGS) @ldapsdk_inc@ @svrcore_inc@ \
 	@sasl_inc@ @nss_inc@ @nspr_inc@
-libtokendb_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(GENERIC_LIBRARY_VERSION) --release $(VERSION)
+libtokendb_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
 libtokendb_la_LIBADD = $(LDAPSDK_LINK) $(SVRCORE_LINK)                    \
 	$(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) $(LIBNSL) $(LIBSOCKET) $(LIBDL) \
-	$(LIBCSTD) $(LIBCRUN)
+	$(LIBCSTD) $(LIBCRUN) $(WDOG_LINK)
 
 
 #------------------------
@@ -366,10 +370,10 @@ libtps_la_SOURCES =	src/main/Buffer.cpp                        \
 
 libtps_la_CPPFLAGS = $(AM_CPPFLAGS) @apr_inc@ @ldapsdk_inc@ @svrcore_inc@ \
 	@sasl_inc@ @nss_inc@ @nspr_inc@
-libtps_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(GENERIC_LIBRARY_VERSION) --release $(VERSION)
+libtps_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
 libtps_la_LIBADD = ${top_builddir}/libtokendb.la $(LDAPSDK_LINK)       \
 	$(SVRCORE_LINK) $(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) $(LIBNSL)    \
-	$(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN)
+	$(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN) 
 
 
 #------------------------
@@ -379,10 +383,10 @@ libldapauth_la_SOURCES =	src/authentication/LDAP_Authentication.cpp
 
 libldapauth_la_CPPFLAGS = $(AM_CPPFLAGS) @ldapsdk_inc@ @svrcore_inc@ \
 	@sasl_inc@ @nss_inc@ @nspr_inc@
-libldapauth_la_LDFLAGS = $(AM_LDFLAGS) -version-info $(GENERIC_LIBRARY_VERSION) --release $(VERSION)
+libldapauth_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version
 libldapauth_la_LIBADD = ${top_builddir}/libtps.la $(LDAPSDK_LINK)       \
 	$(SVRCORE_LINK) $(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) $(LIBNSL)     \
-	$(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN)
+	$(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN) $(WDOG_LINK)
 
 
 #------------------------
@@ -397,7 +401,7 @@ mod_tps_la_CPPFLAGS = $(AM_CPPFLAGS) @apr_inc@ \
 mod_tps_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version -module
 mod_tps_la_LIBADD = ${top_builddir}/libtps.la $(APR_LINK)                 \
 	$(LDAPSDK_LINK) $(SVRCORE_LINK) $(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) \
-	$(LIBNSL) $(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN)
+	$(LIBNSL) $(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN) 
 
 
 #------------------------
@@ -410,7 +414,7 @@ mod_tokendb_la_CPPFLAGS = $(AM_CPPFLAGS) @apr_inc@ \
 mod_tokendb_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version -module
 mod_tokendb_la_LIBADD = ${top_builddir}/libtokendb.la $(APR_LINK)         \
 	$(LDAPSDK_LINK) $(SVRCORE_LINK) $(SASL_LINK) $(NSS_LINK) $(NSPR_LINK) \
-	$(LIBNSL) $(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN)
+	$(LIBNSL) $(LIBSOCKET) $(LIBDL) $(LIBCSTD) $(LIBCRUN) 
 
 
 #////////////////////////////////////////////////////////////////

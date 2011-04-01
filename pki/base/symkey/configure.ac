@@ -20,7 +20,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.59)
-AC_INIT([pki-symkey], [1.3.2], [http://bugzilla.redhat.com/])
+AC_INIT([symkey], [1.1.0], [http://bugzilla.redhat.com/])
 # AC_CONFIG_HEADER must be called right after AC_INIT.
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.9 foreign subdir-objects])
@@ -95,13 +95,13 @@ AC_ARG_ENABLE(debug, [  --enable-debug         Enable debug features],
 ])
 AC_SUBST([debug_defs])
 
-AC_PREFIX_DEFAULT([/opt])
+AC_PREFIX_DEFAULT([/opt/symkey])
 
 # installation paths - by default, configure will just
 # use /usr as the prefix for everything, which means
 # /usr/etc, /usr/opt, and /usr/var.  FHS sez to use
 # /etc, /opt, and /var.
-ac_default_prefix=/opt
+ac_default_prefix=/opt/symkey
 prefix=$ac_default_prefix
 exec_prefix=$prefix
 dnl as opposed to the default $prefix/etc
@@ -111,7 +111,7 @@ dnl as opposed to the default $prefix/var
 
 # relative to prefix
 licensedir=/doc
-symkey_jardir=/java
+symkey_jardir=/jars
 AC_SUBST(licensedir)
 AC_SUBST(symkey_jardir)
 
