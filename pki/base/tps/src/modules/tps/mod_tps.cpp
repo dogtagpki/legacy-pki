@@ -63,6 +63,7 @@ extern "C"
 #include "processor/RA_Renew_Processor.h"
 #include "processor/RA_Unblock_Processor.h"
 #include "ssl.h"
+#include "nuxwdog/WatchdogClient.h"
 
 #define MOD_TPS_KEY_NAME "mod_tps"
 
@@ -603,8 +604,11 @@ mod_tps_config_server_create( apr_pool_t *p, server_rec *sv )
 
 static void mod_tps_init_child(apr_pool_t *p, server_rec *sv)
 {
-     int status = -1;
+    int status = -1;
+    PRStatus wstatus;
+    char* wd_pipe = NULL;
     mod_tps_server_configuration *srv_cfg = NULL;
+
     srv_cfg = ( ( mod_tps_server_configuration * )
            ap_get_module_config(sv->module_config, &MOD_TPS_CONFIG_KEY));
 
@@ -624,6 +628,22 @@ static void mod_tps_init_child(apr_pool_t *p, server_rec *sv)
                      "mod_tps_init_child - pid is [%d] - config should be done in regular post config",
                      getpid());
     }
+
+    /* send endInit message to watchdog */
+    wd_pipe = PR_GetEnv("WD_PIPE_NAME");
+    if ((wd_pipe != NULL) && (strlen(wd_pipe) > 0)) {
+        wstatus = call_WatchdogClient_init();
+        if (wstatus != PR_SUCCESS) {
+            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0 /* status */, NULL,
+                "mod_tps_init_child: unable to initialize connection to Watchdog");
+        } else {
+            wstatus = call_WatchdogClient_sendEndInit(0);
+            if (wstatus != PR_SUCCESS) {
+                ap_log_error(APLOG_MARK, APLOG_DEBUG, 0 /* status */, NULL,
+                    "mod_tps_init_child: send_end_init failed");
+            }
+        }
+    } 
 
     ap_log_error(APLOG_MARK, APLOG_DEBUG, 0 /* status */, NULL,
                  "Leaving mod_tps_init_child");

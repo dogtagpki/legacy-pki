@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -107,5 +107,5 @@ sub make_connection
   }
   return new Mozilla::LDAP::Conn($arg_ref);
 }
-
+  
 1;

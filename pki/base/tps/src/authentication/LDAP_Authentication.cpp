@@ -24,10 +24,13 @@
 #include <math.h>
 #include "engine/RA.h"
 #include "ldap.h"
+#include "ldap_ssl.h"
+#include "ldappr.h"
 #include "authentication/LDAP_Authentication.h"
 #include "authentication/Authentication.h"
 #include "main/Memory.h"
 #include "main/Util.h"
+#include "nuxwdog/WatchdogClient.h"
 
 /**
  * Constructs a base processor.
@@ -67,16 +70,42 @@ LDAP_Authentication::~LDAP_Authentication ()
 /*
  * Search for password name "name" in the password file "filepath"
  */
-static char *get_pwd_from_conf(char *filepath, const char *name)
+static char *get_pwd_from_conf(char *filepath, char *name)
 {
     PRFileDesc *fd;
     char line[1024];
     int removed_return;
     char *val= NULL;
+    char prompt[128];
+    PRStatus status;
+    char *wd_pipe = NULL;
 
+    if (strlen(filepath) == 0) {
+        return NULL;
+    }
     fd= PR_Open(filepath, PR_RDONLY, 400);
     if (fd == NULL) {
-        return NULL;
+        // password file is not readable.
+        // if started by the watchdog, ask the watchdog instead.
+        wd_pipe = PR_GetEnv("WD_PIPE_NAME");
+        if ((wd_pipe != NULL) && (strlen(wd_pipe) > 0)) {
+            status = call_WatchdogClient_init(); 
+            if (status != PR_SUCCESS) {
+                /* PR_fprintf(debug_fd, "get_pwd_from_conf unable to initialize connection to Watchdog"); */
+                return NULL;
+            }
+            sprintf(line, "Please enter the password for %s:", name);
+            val = call_WatchdogClient_getPassword(line, 0); 
+            if (val == NULL) {
+                /*PR_fprintf(debug_fd, "get_pwd_from_conf failed to get password from watchdog");*/
+                return NULL;
+            }
+            return val;
+        } else {
+            // not started by watchdog. Even if this is pre-fork, getting the password 
+            // directly from stdin is problematic here. 
+            return NULL;
+        }
     }
 
     while (1) {
@@ -153,7 +182,6 @@ void LDAP_Authentication::Initialize(int instanceIndex) {
 int LDAP_Authentication::Authenticate(AuthParams *params)
 {
     char buffer[500];
-    char ldapuri[1024];
     char *host = NULL;
     char *portStr = NULL;
     int port = 0;
@@ -165,7 +193,6 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
     char *uid = NULL;
     char *password = NULL;
     int retries = 0;
-    int rc =0;
 
     if (params == NULL) {
         status = TPS_AUTH_ERROR_USERNOTFOUND;
@@ -178,26 +205,27 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
     GetHostPort(&host, &portStr);
     port = atoi(portStr); 
 
-    if ((m_ssl != NULL) && (strcmp(m_ssl, "true")==0)) {
+    if (m_ssl != NULL & strcmp(m_ssl, "true")==0) {
       /* handling of SSL */
-      snprintf(ldapuri, 1024, "ldaps://%s:%i", host, port);
+      ld = ldapssl_init(host, port, 1); 
     } else {
-      snprintf(ldapuri, 1024, "ldap://%s:%i", host, port);
+      /* NOTE:  ldapssl_init() already utilizes */
+      /*        prldap (IPv6) functionality.    */
+      ld = prldap_init(host, port, 1); 
     }
-    status = ldap_initialize(&ld, ldapuri);
-
-    while ((ld == NULL) && (retries < m_connectRetries)) {
+    while (ld == NULL && retries < m_connectRetries) {
         RA::IncrementAuthCurrentIndex(m_connInfo->GetHostPortListLen());
         GetHostPort(&host, &portStr);
         port = atoi(portStr);
-        if ((m_ssl != NULL) && (strcmp(m_ssl, "true")==0)) {
+        if (m_ssl != NULL & strcmp(m_ssl, "true")==0) {
           /* handling of SSL */
-          snprintf(ldapuri, 1024, "ldaps://%s:%i", host, port);
+          ld = ldapssl_init(host, port, 1); 
         } else {
-          snprintf(ldapuri, 1024, "ldap://%s:%i", host, port);
+          /* NOTE:  ldapssl_init() already utilizes */
+          /*        prldap (IPv6) functionality.    */
+          ld = prldap_init(host, port, 1); 
         }
-        status = ldap_initialize(&ld, ldapuri);
-        retries++;    
+            retries++;    
     }
 
     if (ld == NULL) {
@@ -212,13 +240,14 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
         GetHostPort(&host, &portStr);
         port = atoi(portStr);
         RA::Debug("ldap auth:"," host=%s, portstr=%s, port=%d", host, portStr, port);
-        if ((m_ssl != NULL) && (strcmp(m_ssl, "true")==0)) {
+        if (m_ssl != NULL & strcmp(m_ssl, "true")==0) {
           /* handling of SSL */
-          snprintf(ldapuri, 1024, "ldaps://%s:%i", host, port);
+          ld = ldapssl_init(host, port, 1); 
         } else {
-          snprintf(ldapuri, 1024, "ldap://%s:%i", host, port);
+          /* NOTE:  ldapssl_init() already utilizes */
+          /*        prldap (IPv6) functionality.    */
+          ld = prldap_init(host, port, 1); 
         }
-        status = ldap_initialize(&ld, ldapuri);
 
         if (ld == NULL) {
             RA::Debug("LDAP_Authentication::Authenticate:", "ld null.  Trying failover...");
@@ -233,14 +262,11 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
 
         if (m_bindDN != NULL && strlen(m_bindDN) > 0) {
             RA::Debug("LDAP_Authentication::Authenticate", "Simple bind required '%s'", m_bindDN);
-            struct berval credential;
-            credential.bv_val = m_bindPwd;
-            credential.bv_len= strlen(m_bindPwd);
-            rc = ldap_sasl_bind_s(ld, m_bindDN, LDAP_SASL_SIMPLE, &credential, NULL, NULL, NULL);
+            ldap_simple_bind_s(ld, m_bindDN, m_bindPwd);
         }
 
         int ldap_status = LDAP_OTHER;
-        if ((ldap_status = ldap_search_ext_s(ld, m_baseDN, LDAP_SCOPE_SUBTREE, buffer, NULL, 0, NULL, NULL, NULL, 0, &result)) != LDAP_SUCCESS) {
+        if ((ldap_status = ldap_search_s(ld, m_baseDN, LDAP_SCOPE_SUBTREE, buffer, NULL, 0, &result)) != LDAP_SUCCESS) {
             if (ldap_status != LDAP_NO_SUCH_OBJECT) {
               RA::Debug("LDAP_Authentication::Authenticate:", "LDAP_UNAVAILABLE.  Trying failover...");
               retries++;
@@ -251,11 +277,7 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
             for (e = ldap_first_entry(ld, result); e != NULL; e = ldap_next_entry(ld, e)) {
                 if ((dn = ldap_get_dn(ld, e)) != NULL) {
                     RA::Debug("LDAP_Authentication::Authenticate", "User bind required '%s' '(sensitive)'", dn );
-                    struct berval credential;
-                    credential.bv_val = password;
-                    credential.bv_len= strlen(password);
-                    rc = ldap_sasl_bind_s(ld, dn, LDAP_SASL_SIMPLE, &credential, NULL, NULL, NULL);
-                    if (rc == LDAP_SUCCESS) {
+                    if (ldap_simple_bind_s(ld, dn, password) == LDAP_SUCCESS) {
                         /* retrieve attributes and, */
                         /* put them into the auth parameters */
                         if (m_attributes != NULL) { 
@@ -264,16 +286,16 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
                              char *token = NULL; 
                              token = strtok(m_dup_attributes, ","); 
                              while( token != NULL ) { 
-                                 struct berval **v = NULL;
-                                 v = ldap_get_values_len(ld, e, token);
-                                 if ((v != NULL) && (v[0]!= NULL) && (v[0]->bv_val != NULL)) {
-                                     RA::Debug("LDAP_Authentication::Authenticate", "Exposed %s=%s", token, v[0]->bv_val);
-                                     params->Add(token, PL_strdup(v[0]->bv_val));
+                                 char **v = NULL;
+                                 v = ldap_get_values(ld, e, token);
+                                 if (v != NULL) {
+                                     RA::Debug("LDAP_Authentication::Authenticate", "Exposed %s=%s", token, v[0]);
+                                     params->Add(token, PL_strdup(v[0]));
                                      RA::Debug("LDAP_Authentication::Authenticate", "Size %d", params->Size());
                                  }
                                  token = strtok( NULL, "," ); 
                                  if( v != NULL ) {
-                                     ldap_value_free_len( v );
+                                     ldap_value_free( v );
                                      v = NULL;
                                  }
 
@@ -311,7 +333,7 @@ loser:
     }
 
     if (ld != NULL) {
-        ldap_unbind_ext_s(ld, NULL, NULL);
+        ldap_unbind(ld);
         ld = NULL;
     } 
     return status;

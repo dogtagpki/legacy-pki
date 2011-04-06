@@ -24,7 +24,7 @@
     <title>Dogtag Certificate System</title>
 
     <link rel="shortcut icon" href="../img/favicon.ico" />
-    <link rel="stylesheet" href="../../../css/pki-base.css" type="text/css" />
+    <link rel="stylesheet" href="../css/pki-base.css" type="text/css" />
   </head>
 
 
@@ -82,7 +82,7 @@ A one time random pin has been generated during setup to protect unauthorized ac
     <table class="details">
       <tr>
         <th>PIN:</th>
-        <td><input type=password name="pin"></td>
+        <td><input type=password name="__pin"></td>
       </tr>
     </table>
                                                                                      <div align="right">
