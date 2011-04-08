@@ -324,22 +324,6 @@ sub display
       &PKI::TPS::Wizard::debug_log("DonePanel: No KRA setup");
     }
 
-    # Give Object Signing capability to audit_signing cert
-    open FILE, ">$instDir/conf/.pwfile";
-    system( "chmod 00660 $instDir/conf/.pwfile" );
-    $token_pwd  =~ s/\n//g;
-    print FILE $token_pwd;
-    close FILE;
-    my $hw;
-    if (($tokenname eq "") || ($tokenname eq "NSS Certificate DB")) {
-        $hw = "";
-    } else {
-        $hw = "-h $tokenname";
-    }
-    my $auditSigningNickname = $::config->get("preop.cert.audit_signing.nickname");
-    my $tmp = `/usr/bin/certutil -d "$instDir/alias" -M $hw -f "$instDir/conf/.pwfile" -n "$auditSigningNickname" -t "u,u,Pu"`;
-    $tmp = `rm $instDir/conf/.pwfile`;
-
     $::config->put("preop.done.status", "done");
     $::config->put("tps.configured", "true");
     $::config->commit();

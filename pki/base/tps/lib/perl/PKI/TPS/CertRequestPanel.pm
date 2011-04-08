@@ -189,8 +189,13 @@ sub update
 
             $::config->put("preop.cert.$certtag.cert", $certa);
 
-            &PKI::TPS::Wizard::debug_log("CertRequestPanel: update: about to certutil -d $instanceDir/alias $hw -A -f $instanceDir/conf/.pwfile -n $nickname -t u,u,u -a -i $cert_fn");
-            $tmp = `certutil -d $instanceDir/alias $hw -A -f $instanceDir/conf/.pwfile -n "$nickname" -t "u,u,u" -a -i $cert_fn`;
+            if ($certtag ne "audit_signing") {
+                &PKI::TPS::Wizard::debug_log("CertRequestPanel: update: about to certutil -d $instanceDir/alias $hw -A -f $instanceDir/conf/.pwfile -n $nickname -t u,u,u -a -i $cert_fn");
+                $tmp = `certutil -d $instanceDir/alias $hw -A -f $instanceDir/conf/.pwfile -n "$nickname" -t "u,u,u" -a -i $cert_fn`;
+            } else {
+                &PKI::TPS::Wizard::debug_log("CertRequestPanel: update: about to certutil -d $instanceDir/alias $hw -A -f $instanceDir/conf/.pwfile -n $nickname -t u,u,Pu -a -i $cert_fn");
+                $tmp = `certutil -d $instanceDir/alias $hw -A -f $instanceDir/conf/.pwfile -n "$nickname" -t "u,u,Pu" -a -i $cert_fn`;
+            }  
             &PKI::TPS::Wizard::debug_log("CertRequestPanel: update: done certutil: $tmp");
             $tmp = `rm $cert_fn`;
 
