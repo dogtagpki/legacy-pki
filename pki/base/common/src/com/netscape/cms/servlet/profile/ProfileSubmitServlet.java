@@ -65,6 +65,7 @@ public class ProfileSubmitServlet extends ProfileServlet {
     private String mReqType = null;
     private String mAuthorityId = null;
 
+    private final static byte EOL[] = { Character.LINE_SEPARATOR };
     private final static String[]
         SIGNED_AUDIT_AUTOMATED_REJECTION_REASON = new String[] {
             
@@ -423,16 +424,10 @@ public class ProfileSubmitServlet extends ProfileServlet {
         HttpServletResponse response = cmsReq.getHttpResp();
         boolean xmlOutput = false;
 
-        String v = request.getParameter("xml");
+        String v = request.getParameter("xmlOutput");
         if ((v != null) && (v.equalsIgnoreCase("true"))) {
-            xmlOutput = true;
-        }
-        v = request.getParameter("xmlOutput");
-        if ((v != null) && (v.equalsIgnoreCase("true"))) {
-            xmlOutput = true;
-        }
-        if (xmlOutput) {
             CMS.debug("xmlOutput true");
+            xmlOutput = true;
         } else {
             CMS.debug("xmlOutput false");
         }

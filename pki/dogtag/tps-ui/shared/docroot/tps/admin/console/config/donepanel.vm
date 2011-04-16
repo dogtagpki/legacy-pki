@@ -1,17 +1,18 @@
 <!-- --- BEGIN COPYRIGHT BLOCK ---
-     This program is free software; you can redistribute it and/or modify
-     it under the terms of the GNU General Public License as published by
-     the Free Software Foundation; version 2 of the License.
-
-     This program is distributed in the hope that it will be useful,
+     This library is free software; you can redistribute it and/or
+     modify it under the terms of the GNU Lesser General Public
+     License as published by the Free Software Foundation.
+     
+     This library is distributed in the hope that it will be useful,
      but WITHOUT ANY WARRANTY; without even the implied warranty of
-     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-     GNU General Public License for more details.
-
-     You should have received a copy of the GNU General Public License along
-     with this program; if not, write to the Free Software Foundation, Inc.,
-     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+     Lesser General Public License for more details.
+     
+     You should have received a copy of the GNU Lesser General Public
+     License along with this library; if not, write to the Free Software
+     Foundation, Inc., 51 Franklin Street, Fifth Floor,
+     Boston, MA  02110-1301  USA 
+     
      Copyright (C) 2007 Red Hat, Inc.
      All rights reserved.
      --- END COPYRIGHT BLOCK --- -->
@@ -32,13 +33,13 @@ function performPanel() {
 <img src="../img/icon_crit_update.gif">&nbsp;<font color="red">$errorString</font>
 #end
 #if ($systemType == "tks")
-As 'root', restart the server on the command line by typing "$initCommand restart $instanceID". After performing this restart, the server should become operational. 
+As 'root', restart the server on the command line by typing "$initCommand restart". After performing this restart, the server should become operational. 
 #else
 #if ($externalCA == "true" && $systemType == "kra")
-As 'root', restart the server on the command line by typing "$initCommand restart $instanceID". Startup the administration console to add the peer CA to the Trusted Manager's Group. Make sure to add the transport certificate and connector information to the peer CA. After performing this restart, the server should become operational.
+As 'root', restart the server on the command line by typing "$initCommand restart". Startup the administration console to add the peer CA to the Trusted Manager's Group. Make sure to add the transport certificate and connector information to the peer CA. After performing this restart, the server should become operational.
 #else
 As 'root', restart the server on the command line by typing "$initCommand
- restart $instanceID". After performing this restart, the server should become operational.
+ restart". After performing this restart, the server should become operational.
 <br/>
 Please go to the <A href="https://$host:$non_clientauth_port">services page</A> to access all of the available interfaces.
 <br/>

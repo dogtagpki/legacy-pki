@@ -73,24 +73,21 @@ static const SEC_ASN1Template secu_PolicyQualifierTemplate[] = {
     { SEC_ASN1_SEQUENCE,
 	  0, NULL, sizeof(CERTPolicyQualifier) },
     { SEC_ASN1_OBJECT_ID,
-	  offsetof(CERTPolicyQualifier, qualifierID),
-          NULL, 0},
+	  offsetof(CERTPolicyQualifier, qualifierID) },
     { SEC_ASN1_ANY | SEC_ASN1_OPTIONAL,
-	  offsetof(CERTPolicyQualifier, qualifierValue),
-          NULL, 0},
-    { 0, 0, NULL, 0 }
+	  offsetof(CERTPolicyQualifier, qualifierValue) },
+    { 0 }
 };
 
 static const SEC_ASN1Template secu_PolicyInfoTemplate[] = {
     { SEC_ASN1_SEQUENCE,
 	  0, NULL, sizeof(CERTPolicyInfo) },
     { SEC_ASN1_OBJECT_ID,
-	  offsetof(CERTPolicyInfo, policyID),
-          NULL, 0},
+	  offsetof(CERTPolicyInfo, policyID) },
     { SEC_ASN1_SEQUENCE_OF | SEC_ASN1_OPTIONAL,
 	  offsetof(CERTPolicyInfo, policyQualifiers),
-	  secu_PolicyQualifierTemplate, 0 },
-    { 0, 0, NULL, 0 }
+	  secu_PolicyQualifierTemplate },
+    { 0 }
 };
 
 static const SEC_ASN1Template secu_CertificatePoliciesTemplate[] = {
@@ -181,7 +178,7 @@ itemToString(SECItem *item)
 
 static SECStatus
 secu_PrintUserNoticeQualifier(FILE *out, SECItem * qualifierValue,
-                              const char *msg, int level)
+                              char *msg, int level)
 {
     CERTUserNotice *userNotice = NULL;
     if (qualifierValue)
@@ -210,7 +207,7 @@ secu_PrintUserNoticeQualifier(FILE *out, SECItem * qualifierValue,
 
 static SECStatus
 secu_PrintPolicyQualifier(FILE *out,CERTPolicyQualifier *policyQualifier,
-			  const char *msg, int level)
+			  char *msg,int level)
 {
    SECStatus rv;
    SECItem * qualifierValue = &policyQualifier->qualifierValue;
@@ -236,7 +233,7 @@ secu_PrintPolicyQualifier(FILE *out,CERTPolicyQualifier *policyQualifier,
 }
 
 static SECStatus
-secu_PrintPolicyInfo(FILE *out, CERTPolicyInfo *policyInfo, const char *msg, int level)
+secu_PrintPolicyInfo(FILE *out,CERTPolicyInfo *policyInfo,char *msg,int level)
 {
    CERTPolicyQualifier **policyQualifiers;
 
@@ -251,7 +248,7 @@ secu_PrintPolicyInfo(FILE *out, CERTPolicyInfo *policyInfo, const char *msg, int
 }
 
 void
-SECU_PrintPolicy(FILE *out, SECItem *value, const char *msg, int level)
+SECU_PrintPolicy(FILE *out, SECItem *value, char *msg, int level)
 {
    CERTCertificatePolicies *policies = NULL;
    CERTPolicyInfo **policyInfos;
@@ -279,7 +276,7 @@ SECU_PrintPolicy(FILE *out, SECItem *value, const char *msg, int level)
 
 void
 SECU_PrintPrivKeyUsagePeriodExtension(FILE *out, SECItem *value, 
-			              const char *msg, int level)
+			              char *msg, int level)
 {
     CERTPrivKeyUsagePeriod * prd;
     PLArenaPool * arena = PORT_NewArena(DER_DEFAULT_CHUNKSIZE);
