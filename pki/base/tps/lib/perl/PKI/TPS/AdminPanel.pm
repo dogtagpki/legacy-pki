@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -115,7 +115,6 @@ sub update
     my $instanceID = $::config->get("service.instanceID");
     my $instanceDir = $::config->get("service.instanceDir");
     my $certdir = "$instanceDir/alias";
-
     my $db_password = `grep \"internal:\" \"$instanceDir/conf/password.conf\" | cut -c10-`;
     $db_password =~ s/\n$//g;
 
@@ -169,7 +168,7 @@ sub update
 
     my $tmp = "/tmp/addAgents-$$.ldif";
 
-    my $flavor = "pki";
+    my $flavor = `pkiflavor`;
     $flavor =~ s/\n//g;
 
     my $conn =  PKI::TPS::Common::make_connection(
@@ -179,7 +178,7 @@ sub update
     if (!$conn) {
       &PKI::TPS::Wizard::debug_log("AdminPanel: Failed to connect to the internal database");
       $::symbol{errorString} = "Failed to connect to the internal database";
-      return 0;
+      return 0; 
     };
 
     my $msg;
@@ -188,11 +187,11 @@ sub update
               "-e 's/\$TOKENDB_AGENT_PWD/$password/' " .
               "-e 's/\$TOKENDB_AGENT_CERT/$admincert/' " .
               "/usr/share/$flavor/tps/scripts/addAgents.ldif > $tmp");
-    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) {
+    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) { 
       &PKI::TPS::Wizard::debug_log("AdminPanel: $msg");
       $::symbol{errorString} = "Failed to add agents to database";
       $conn->close();
-      return 0;
+      return 0; 
     };
     if ($msg ne "") {
       &PKI::TPS::Wizard::debug_log("AdminPanel: adding agents errors : $msg");
@@ -205,6 +204,8 @@ sub update
     $::config->put("preop.admincert.serialno.0", $sn);
     $::config->put("preop.adminpanel.done", "true");
     $::config->commit();
+
+    $conn->close();
 
     return 1;
 }

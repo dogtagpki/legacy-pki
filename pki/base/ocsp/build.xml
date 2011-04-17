@@ -27,24 +27,24 @@
     <property name="ldapjdk.jar" value="${jar.home}/ldapjdk.jar"/>
     <property name="servlet.jar" value="${jar.home}/servlet.jar"/>
     <property name="velocity.jar" value="${jar.home}/velocity.jar"/>
-    <property name="pki-certsrv.jar" value="${pki-jar.home}/pki-certsrv.jar"/>
-    <property name="pki-cms.jar" value="${pki-jar.home}/pki-cms.jar"/>
-    <property name="pki-cmscore.jar" value="${pki-jar.home}/pki-cmscore.jar"/>
-    <property name="pki-cmsutil.jar" value="${pki-jar.home}/pki-cmsutil.jar"/>
-    <property name="pki-nsutil.jar" value="${pki-jar.home}/pki-nsutil.jar"/>
+    <property name="certsrv.jar" value="${pki-jar.home}/certsrv.jar"/>
+    <property name="cms.jar" value="${pki-jar.home}/cms.jar"/>
+    <property name="cmscore.jar" value="${pki-jar.home}/cmscore.jar"/>
+    <property name="cmsutil.jar" value="${pki-jar.home}/cmsutil.jar"/>
+    <property name="nsutil.jar" value="${pki-jar.home}/nsutil.jar"/>
 
     <path id="classpath">
         <pathelement location="${servlet.jar}"/>
         <pathelement location="${jss.jar}"/>
         <pathelement location="${ldapjdk.jar}"/>
-        <pathelement location="${pki-nsutil.jar}"/>
-        <pathelement location="${pki-cmsutil.jar}"/>
+        <pathelement location="${nsutil.jar}"/>
+        <pathelement location="${cmsutil.jar}"/>
         <pathelement location="${osutil.jar}"/>
         <pathelement location="${symkey.jar}"/>
         <pathelement location="${velocity.jar}"/>
-        <pathelement location="${pki-cms.jar}"/>
-        <pathelement location="${pki-certsrv.jar}"/>
-        <pathelement location="${pki-cmscore.jar}"/>
+        <pathelement location="${cms.jar}"/>
+        <pathelement location="${certsrv.jar}"/>
+        <pathelement location="${cmscore.jar}"/>
     </path>
 
     <!-- Set up component-specific properties -->
@@ -53,7 +53,7 @@
           outputproperty="config.desktop.version">
         <arg value="-pi -e"/>
         <arg value="s/Version=.*/Version=${version}/"/>
-        <arg value="setup/config.desktop.in"/>
+        <arg value="setup/config.desktop"/>
     </exec>
 
 
@@ -95,7 +95,7 @@
             description="--> generate jar files">
         <echo message="${begin.build.jars.log.message}"/>
         <mkdir dir="${build.jars}"/>
-        <jar jarfile="${build.jars}/pki-ocsp.jar">
+        <jar jarfile="${build.jars}/${product}.jar">
             <fileset dir="${build.classes}">
                 <include name="com/netscape/${product}/**"/>
             </fileset>
@@ -184,28 +184,21 @@
         <zip destfile="${dist.base.binaries}/${dist.name}.zip">
             <zipfileset dir="./build/jars"
                         filemode="755"
-                        prefix="usr/share/java/${product.prefix}">
+                        prefix="usr/share/java/${product.prefix}/${product}">
                 <include name="**"/>
             </zipfileset>
             <zipfileset dir="./setup"
-                        filemode="644"
-                        prefix="usr/share/${product.prefix}/${product}/setup">
-                <include name="config.desktop.in"/>
-                <include name="registry_instance"/>
-            </zipfileset>
-            <zipfileset dir="./shared/etc/init.d"
                         filemode="755"
-                        prefix="etc/${init.d}">
-                <include name="pki-ocspd"/>
+                        prefix="usr/share/${product.prefix}/${product}/setup">
+                <include name="**"/>
             </zipfileset>
             <zipfileset dir="./shared"
-                        filemode="644"
+                        filemode="755"
                         prefix="usr/share/${product.prefix}/${product}">
                 <include name="**"/>
-                <exclude name="etc/init.d/pki-ocspd"/>
             </zipfileset>
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="usr/share/doc/${dist.name}">
                 <include name="EULA"/>
                 <include name="LICENSE"/>
@@ -218,28 +211,21 @@
              destfile="${dist.base.binaries}/${dist.name}.tar">
             <tarfileset dir="./build/jars"
                         mode="755"
-                        prefix="${dist.name}/usr/share/java/${product.prefix}">
+                        prefix="${dist.name}/usr/share/java/${product.prefix}/${product}">
                 <include name="**"/>
             </tarfileset>
             <tarfileset dir="./setup"
-                        mode="644"
-                        prefix="${dist.name}/usr/share/${product.prefix}/${product}/setup">
-                <include name="config.desktop.in"/>
-                <include name="registry_instance"/>
-            </tarfileset>
-            <tarfileset dir="./shared/etc/init.d"
                         mode="755"
-                        prefix="${dist.name}/etc/${init.d}">
-                <include name="pki-ocspd"/>                 
+                        prefix="${dist.name}/usr/share/${product.prefix}/${product}/setup">
+                <include name="**"/>
             </tarfileset>
             <tarfileset dir="./shared"
-                        mode="644"
+                        mode="755"
                         prefix="${dist.name}/usr/share/${product.prefix}/${product}">
                 <include name="**"/>
-                <exclude name="etc/init.d/pki-ocspd"/>
             </tarfileset>
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${dist.name}/usr/share/doc/${dist.name}">
                 <include name="EULA"/>
                 <include name="LICENSE"/>
@@ -282,7 +268,7 @@
         <echo message="${begin.source.zip.log.message}"/>
         <zip destfile="${dist.base.source}/${src.dist.name}.zip">
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="${src.dist.name}">
                 <include name="${specfile}"/>
                 <include name="EULA"/>
@@ -302,7 +288,7 @@
         <tar longfile="gnu"
              destfile="${dist.base.source}/${src.dist.name}.tar">
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${src.dist.name}">
                 <include name="${specfile}"/>
                 <include name="EULA"/>

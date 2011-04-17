@@ -6,7 +6,6 @@
 <!DOCTYPE web-app 
    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN" "file:///usr/share/pki/setup/web-app_2_3.dtd">
 <web-app>
-
     <filter>
         <filter-name>AgentRequestFilter</filter-name>
         <filter-class>com.netscape.cms.servlet.filter.AgentRequestFilter</filter-class>
@@ -50,6 +49,7 @@
         </init-param>
     </filter>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet>
         <servlet-name>csadmin-wizard</servlet-name>
         <servlet-class>com.netscape.cms.servlet.wizard.WizardServlet</servlet-class>
@@ -76,7 +76,7 @@
         </init-param>
     </servlet>
 
-
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  ocspacl  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.admin.ACLAdminServlet  </servlet-class>
@@ -85,7 +85,6 @@
              <init-param><param-name>  AuthzMgr    </param-name>
                          <param-value> BasicAclAuthz </param-value> </init-param>
    </servlet>
-
 <!--
    <servlet>
       <servlet-name>  ocspjobsScheduler  </servlet-name>
@@ -417,6 +416,8 @@
                          <param-value> certServer.ee.request.ocsp </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet>
       <servlet-name>  ocspDownloadPKCS12  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.DownloadPKCS12  </servlet-class>
@@ -434,6 +435,7 @@
                          <param-value> BasicAclAuthz </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  ocspGetTokenInfo  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.GetTokenInfo  </servlet-class>
@@ -456,15 +458,43 @@
    <filter-mapping>
       <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /admin/*            </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /auths              </url-pattern>
-      <url-pattern>  /ug                 </url-pattern>
-      <url-pattern>  /log                </url-pattern>
-<!--
-      <url-pattern>  /jobsScheduler      </url-pattern>
--->
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /acl                </url-pattern>
+   </filter-mapping>
+
+<!--
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
+      <url-pattern>  /jobsScheduler      </url-pattern>
+   </filter-mapping>
+-->
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
+      <url-pattern>  /ug                 </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /server             </url-pattern>
-      <url-pattern>  /ocsp               </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
+      <url-pattern>  /log              </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
+      <url-pattern>  /ocsp              </url-pattern>
    </filter-mapping>
 
    <filter-mapping>
@@ -477,8 +507,8 @@
       <servlet-name>  ocspacl  </servlet-name>
       <url-pattern>   /acl  </url-pattern>
    </servlet-mapping>
-
-<!--                                                                                
+                          
+<!--                                                      
    <servlet-mapping>
       <servlet-name>  ocspjobsScheduler  </servlet-name>
       <url-pattern>   /jobsScheduler  </url-pattern>
@@ -585,6 +615,7 @@
       <url-pattern>   /ee/ocsp/*  </url-pattern>
    </servlet-mapping>
                                                                                 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet-mapping>
         <servlet-name>csadmin-wizard</servlet-name>
         <url-pattern>/admin/console/config/wizard</url-pattern>
@@ -595,6 +626,7 @@
         <url-pattern>/admin/console/config/login</url-pattern>
     </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  ocspGetConfigEntries  </servlet-name>
       <url-pattern>   /admin/ocsp/getConfigEntries  </url-pattern>
@@ -605,11 +637,14 @@
       <url-pattern>   /services  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet-mapping>
       <servlet-name>  ocspDownloadPKCS12 </servlet-name>
       <url-pattern>   /admin/console/config/savepkcs12 </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  ocspGetTokenInfo </servlet-name>
       <url-pattern>   /ee/ocsp/getTokenInfo </url-pattern>
