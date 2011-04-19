@@ -29,10 +29,6 @@
             description="--> Generate this target locally">
         <echo message="Generating the '${product.name}' target locally ..."/>
         <exec executable="ant" dir="${release.root}">
-            <arg value="-Dproduct.ui.flavor.prefix=${product.ui.flavor.prefix}"/>
-            <arg value="-Dproduct.prefix=${product.prefix}"/>
-            <arg value="-Dproduct=${product}"/>
-            <arg value="-Dversion=${version}"/>
             <arg value="-Dspecfile=${product.name}.spec"/>
             <arg value="-Ddirsec=${dirsec}"/>
             <arg value="${target}"/>
@@ -54,10 +50,6 @@
         <echo message="Creating the '${product.name}' source distribution ..."/>
         <exec executable="ant"
               dir="${release.root}">
-            <arg value="-Dproduct.ui.flavor.prefix=${product.ui.flavor.prefix}"/>
-            <arg value="-Dproduct.prefix=${product.prefix}"/>
-            <arg value="-Dproduct=${product}"/>
-            <arg value="-Dversion=${version}"/>
             <arg value="-Dspecfile=${product.name}.spec"/>
             <arg value="-Ddirsec=${dirsec}"/>
             <arg value="distribute_source"/>
@@ -78,8 +70,6 @@
               dir="${release.root}">
             <arg value="--define"/>
             <arg value="_topdir ${top.dir}/${release.root}/dist/rpmpkg"/>
-            <arg value="--define"/>
-            <arg value="rhel ${rhel}"/>
             <arg value="-ta"/>
             <arg value="${top.dir}/${release.root}/dist/source/${product.name}-${version}.tar.gz"/>
         </exec>

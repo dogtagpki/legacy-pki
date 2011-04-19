@@ -92,7 +92,7 @@ PKI_RELEASE_UI_DIR="${PKI_RELEASE_ROOT}/${PKI_UI_DIR}"
 
 # Establish common PKI package names
 OSUTIL=osutil${RPM_EXT}
-PKI_SYMKEY=pki-symkey${RPM_EXT}
+SYMKEY=symkey${RPM_EXT}
 PKI_NATIVE_TOOLS=pki-native-tools${RPM_EXT}
 PKI_UTIL=pki-util${RPM_EXT}
 PKI_UTIL_JAVADOC=pki-util-javadoc${RPM_EXT}
@@ -103,7 +103,6 @@ PKI_COMMON_UI=${PKI_FLAVOR}-pki-common-ui${RPM_EXT}
 PKI_COMMON=pki-common${RPM_EXT}
 PKI_COMMON_JAVADOC=pki-common-javadoc${RPM_EXT}
 PKI_SELINUX=pki-selinux${RPM_EXT}
-PKI_SILENT=pki-silent${RPM_EXT}
 
 # Establish PKI subsystem package names
 PKI_CA_UI=${PKI_FLAVOR}-pki-ca-ui${RPM_EXT}
@@ -112,6 +111,7 @@ PKI_CA=pki-ca${RPM_EXT}
 # Establish optional PKI package names
 PKI_CONSOLE_UI=${PKI_FLAVOR}-pki-console-ui${RPM_EXT}
 PKI_CONSOLE=pki-console${RPM_EXT}
+PKI_SILENT=pki-silent${RPM_EXT}
 
 # Always start with a new release root directory
 rm -rf ${PKI_RELEASE_ROOT}
@@ -121,9 +121,9 @@ mkdir -p ${PKI_RELEASE_ROOT}
 ${PKI_BUILD_SCRIPT_DIR}/osutil/${PKI_BUILD_SCRIPT}
 ${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_DIR}/osutil/${RPM_DIR}/${OSUTIL}
 
-# Build and install 'pki-symkey' packages
+# Build and install 'symkey' packages
 ${PKI_BUILD_SCRIPT_DIR}/symkey/${PKI_BUILD_SCRIPT}
-${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_DIR}/symkey/${RPM_DIR}/${PKI_SYMKEY}
+${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_DIR}/symkey/${RPM_DIR}/${SYMKEY}
 
 # Build and install 'pki-native-tools' packages
 ${PKI_BUILD_SCRIPT_DIR}/native-tools/${PKI_BUILD_SCRIPT}
@@ -156,10 +156,6 @@ ${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_DIR}/common/${RPM_DIR}/$
 ${PKI_BUILD_SCRIPT_DIR}/selinux/${PKI_BUILD_SCRIPT}
 ${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_DIR}/selinux/${RPM_DIR}/${PKI_SELINUX}
 
-# Build and install 'pki-silent' packages
-${PKI_BUILD_SCRIPT_DIR}/silent/${PKI_BUILD_SCRIPT}
-${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_DIR}/silent/${RPM_DIR}/${PKI_SILENT}
-
 # Build and install 'pki-ca-ui' packages
 ${PKI_BUILD_SCRIPT_DIR}/ca-ui/${PKI_BUILD_SCRIPT}
 ${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_UI_DIR}/ca-ui/${RPM_DIR}/${PKI_CA_UI}
@@ -175,4 +171,8 @@ ${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_UI_DIR}/console-ui/${RPM
 # Build and install 'pki-console' packages
 ${PKI_BUILD_SCRIPT_DIR}/console/${PKI_BUILD_SCRIPT}
 ${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_DIR}/console/${RPM_DIR}/${PKI_CONSOLE}
+
+# Build and install 'pki-silent' packages
+${PKI_BUILD_SCRIPT_DIR}/silent/${PKI_BUILD_SCRIPT}
+${PKI_SUDO} ${YUM_EXE} ${YUM_EXE_OPTIONS} ${PKI_RELEASE_DIR}/silent/${RPM_DIR}/${PKI_SILENT}
 

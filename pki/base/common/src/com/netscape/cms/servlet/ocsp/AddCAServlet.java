@@ -186,6 +186,7 @@ public class AddCAServlet extends CMSServlet {
             auditCA);
 
         audit( auditMessage );
+        CMS.debug("AddCAServlet: b64 of CA cert submitted to add: "+b64);
 
         if (b64.indexOf(BEGIN_HEADER) == -1) {
             auditMessage = CMS.getLogMessage(
@@ -236,7 +237,9 @@ public class AddCAServlet extends CMSServlet {
             certs[0] = cert;
             leafCert = cert;
             auditCASubjectDN = leafCert.getSubjectDN().getName();
+            CMS.debug("AddCAServlet: auditCASubjectDN: "+auditCASubjectDN);
         } catch (Exception e) {
+            CMS.debug("AddCAServlet: Cert.mapCert() called:"+ e.toString());
         }
         if (certs == null) {
             try {
@@ -248,7 +251,9 @@ public class AddCAServlet extends CMSServlet {
                     leafCert = certs[0];
                 }
                 auditCASubjectDN = leafCert.getSubjectDN().getName();
+                CMS.debug("AddCAServlet: auditCASubjectDN: "+auditCASubjectDN);
             } catch (Exception e) {
+                CMS.debug("AddCAServlet: Cert.mapCertFromPKCS7() called:"+ e.toString());
                 auditMessage = CMS.getLogMessage(
                     LOGGING_SIGNED_AUDIT_OCSP_ADD_CA_REQUEST_PROCESSED,
                     auditSubjectID,
@@ -274,6 +279,7 @@ public class AddCAServlet extends CMSServlet {
             try {
                 rec.set(ICRLIssuingPointRecord.ATTR_CA_CERT, leafCert.getEncoded());
             } catch (Exception e) {
+                CMS.debug("AddCAServlet: defStore.createCRLIssuingPointRecord() called: "+ e.toString());
                 auditMessage = CMS.getLogMessage(
                     LOGGING_SIGNED_AUDIT_OCSP_ADD_CA_REQUEST_PROCESSED,
                     auditSubjectID,

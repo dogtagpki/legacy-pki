@@ -67,10 +67,10 @@ invalid_architecture() {
 ##                                                                           ##
 ###############################################################################
 
-OS=`uname -s`
+OS=`pkiname`
+ARCHITECTURE=`pkiarch`
 
 if [ "${OS}" = "Linux" ] ; then
-    ARCHITECTURE=`uname -i`
     if [ "${ARCHITECTURE}" = "i386" ] ; then
         LD_LIBRARY_PATH=/usr/lib:/lib
         LD_LIBRARY_PATH=/usr/lib/dirsec:${LD_LIBRARY_PATH}
@@ -102,11 +102,6 @@ if [ "${OS}" = "Linux" ] ; then
         exit 255
     fi
 elif [ "${OS}" = "SunOS" ] ; then
-    ARCHITECTURE=`uname -p`
-    if [ "${ARCHITECTURE}" = "sparc" ] &&
-       [ -d "/usr/lib/sparcv9/" ] ; then
-        ARCHITECTURE="sparcv9"
-    fi
     if [ "${ARCHITECTURE}" = "sparc" ] ; then
         LD_LIBRARY_PATH=/usr/lib:/lib
         LD_LIBRARY_PATH=/usr/lib/dirsec:${LD_LIBRARY_PATH}

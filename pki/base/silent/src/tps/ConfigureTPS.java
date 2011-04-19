@@ -42,7 +42,7 @@ import netscape.security.x509.X509CertImpl;
 import netscape.security.x509.X509Key;
 import netscape.security.x509.X500Name;
 
-import com.netscape.osutil.OSUtil;
+import com.netscape.osutil.*;
 
 public class ConfigureTPS
 {
@@ -715,10 +715,8 @@ public class ConfigureTPS
 
 		try
 		{
-			// cert_to_import = 
-			//     new sun.misc.BASE64Encoder().encode(hr.getResponseData());
 			cert_to_import = 
-				OSUtil.BtoA(hr.getResponseData());
+				new sun.misc.BASE64Encoder().encode(hr.getResponseData());
 
 		}
 		catch (Exception e)
