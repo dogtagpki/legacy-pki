@@ -126,7 +126,6 @@ public abstract class EnrollProfile extends BasicProfile
             }
         }
                 
-
         // populate requests with appropriate content
         IRequest result[] = new IRequest[num_requests];
 

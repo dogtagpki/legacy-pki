@@ -1,17 +1,18 @@
 <!-- --- BEGIN COPYRIGHT BLOCK ---
-     This program is free software; you can redistribute it and/or modify
-     it under the terms of the GNU General Public License as published by
-     the Free Software Foundation; version 2 of the License.
-
-     This program is distributed in the hope that it will be useful,
+     This library is free software; you can redistribute it and/or
+     modify it under the terms of the GNU Lesser General Public
+     License as published by the Free Software Foundation.
+     
+     This library is distributed in the hope that it will be useful,
      but WITHOUT ANY WARRANTY; without even the implied warranty of
-     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-     GNU General Public License for more details.
-
-     You should have received a copy of the GNU General Public License along
-     with this program; if not, write to the Free Software Foundation, Inc.,
-     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+     Lesser General Public License for more details.
+     
+     You should have received a copy of the GNU Lesser General Public
+     License along with this library; if not, write to the Free Software
+     Foundation, Inc., 51 Franklin Street, Fifth Floor,
+     Boston, MA  02110-1301  USA 
+     
      Copyright (C) 2007 Red Hat, Inc.
      All rights reserved.
      --- END COPYRIGHT BLOCK --- -->
@@ -108,7 +109,7 @@ Enter the URL to an existing security domain.
 <table>
 <tr>
 <td valign="top"><b>NOTE:&nbsp;&nbsp; </b></td>
-<td>Since a Security Domain MUST be a CA (although all CAs are NOT necessarily Security Domains), an appropriate value for this URL may be obtained by logging into the machine which hosts the desired Security Domain CA as 'root' and running the command "$initCommand status $instanceID" from the command-line.</td>
+<td>Since a Security Domain MUST be a CA (although all CAs are NOT necessarily Security Domains), an appropriate value for this URL may be obtained by logging into the machine which hosts the desired Security Domain CA as 'root' and running the command "$initCommand status" from the command-line.</td>
 </tr>
 </table>
 <br/>
