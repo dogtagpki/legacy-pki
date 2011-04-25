@@ -305,7 +305,6 @@ my $TOMCAT_SSL2_CIPHERS                 = "TOMCAT_SSL2_CIPHERS";
 my $TOMCAT_SSL3_CIPHERS                 = "TOMCAT_SSL3_CIPHERS";
 my $TOMCAT_TLS3_CIPHERS                 = "TOMCAT_TLS3_CIPHERS";
 my $TOMCAT_INSTANCE_COMMON_LIB          = "TOMCAT_INSTANCE_COMMON_LIB";
-my $TOMCAT_LOG_DIR                      = "TOMCAT_LOG_DIR";
 my $PKI_INSTANCE_INITSCRIPT             = "PKI_INSTANCE_INITSCRIPT";
 my $PKI_FLAVOR_SLOT                     = "PKI_FLAVOR";
 my $PKI_UNSECURE_PORT_CONNECTOR_NAME_SLOT              = "PKI_UNSECURE_PORT_CONNECTOR_NAME";
@@ -597,7 +596,7 @@ if ($^O eq "linux") {
         # 64-bit Linux
 
         # Supported hardware token PKCS #11 modules
-        %supported_sec_modules_hash = ("lunasa" => "/usr/lunasa/lib/libCryptoki2_64.so",
+        %supported_sec_modules_hash = ("lunasa" => "/usr/lunasa/lib/libCryptoki2.so",
                                        "nfast"  => "/opt/nfast/toolkits/pkcs11/libcknfast.so");
     } else {
         emit("Unsupported '$^O' hardware platform '$default_hardware_platform'!\n", "error");
@@ -649,10 +648,6 @@ pkicreate -pki_instance_root=<pki_instance_root>   # Instance root directory
 
           #####################################################################
           ###   OR SELECT a single secure port shared by AGENT,EE and ADMIN ###
-          ###                                                               ###
-          ###   WARNING:  Use of a single shared secure port has been       ###
-          ###             DEPRECATED!  Use 'port separation' in conjunction ###
-          ###             with 'port forwarding' to emulate this behavior.  ###
           #####################################################################
 
           -secure_port=<secure_port>               # Secure port
@@ -2030,7 +2025,7 @@ sub process_pki_directories
     ## Populate pki instance registry
     # create pki registry for this subsystem
     return 0 if !create_directory($pki_registry_subsystem_path,
-                                  $default_dir_permissions, $pki_user, $pki_group, 'preserve');
+                                  $default_dir_permissions, $pki_user, $pki_group);
 
 
     ## Populate instance directory paths (CA instances)
@@ -2424,13 +2419,6 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
                                           . "-SSL3_RSA_WITH_NULL_MD5,-TLS_RSA_EXPORT1024_WITH_RC4_56_SHA,"
                                           . "-TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,+TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA";
         $slot_hash{$TOMCAT_INSTANCE_COMMON_LIB} = "$tomcat_instance_common_lib_path/*.jar";
-        if (!$redirected_logs_path) {
-            $slot_hash{$TOMCAT_LOG_DIR} = $logs_instance_path;
-        }
-        else {
-            $slot_hash{$TOMCAT_LOG_DIR} = $redirected_logs_path;
-        }
-
     }
 
     ## Process templates (instance independent)

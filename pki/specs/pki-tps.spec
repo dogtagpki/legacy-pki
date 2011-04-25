@@ -1,5 +1,5 @@
 Name:             pki-tps
-Version:          9.0.3
+Version:          9.0.0
 Release:          1%{?dist}
 Summary:          Certificate System - Token Processing System
 URL:              http://pki.fedoraproject.org/
@@ -25,7 +25,6 @@ Requires:         mod_nss
 Requires:         mod_perl
 Requires:         mod_revocator
 Requires:         openldap-clients
-Requires:         perl-Mozilla-LDAP
 Requires:         pki-native-tools
 Requires:         pki-selinux
 Requires:         pki-setup
@@ -215,33 +214,6 @@ fi
 
 
 %changelog
-* Tue Apr 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #691867 - add ldaps support through perLDAP
-
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.2-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #684381 - CS.cfg specifies incorrect type of comments
-- Bugzilla Bug #689956 - TPS Configuration with nethsm: audit signing
-  certificate location is not configured to nethsm in CS.cfg
-
-* Thu Mar 17 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.1-1
-- Bugzilla Bug #688763 - Rebase updated Dogtag Packages for Fedora 15 (alpha)
-- Bugzilla Bug #676421 - CC: Remove unused TPS interface calls and add
-  audit logging
-- Bugzilla Bug #676678 - Missing audit log messages for Secure Channel
-  Generation.
-- Bugzilla Bug #606944 - Convert TPS to use ldap utilities and API from
-  OpenLDAP instead of the Mozldap
-- Bugzilla Bug #676152 - Token enrollment with symmetric key change over
-  fails.
-- Bugzilla Bug #674396 - TPS: some audit signatures failed to verify
-- Bugzilla Bug #680567 - CC doc: remove update.applet.directory audit
-  message from TPS doc.
-- Bugzilla Bug #681066 - TPS authentication crash when exercising audit
-  log message.
-- Bugzilla Bug #684259 - incorrect group used for tps operators
-
 * Wed Dec 1 2010 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-1
 - Updated Dogtag 1.3.x --> Dogtag 2.0.0 --> Dogtag 9.0.0
 - Bugzilla Bug #620863 - saved CS.cfg files should be moved to a subdirectory

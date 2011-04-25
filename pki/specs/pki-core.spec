@@ -1,6 +1,6 @@
 Name:             pki-core
-Version:          9.0.6
-Release:          2%{?dist}
+Version:          9.0.3
+Release:          10%{?dist}
 Summary:          Certificate System - PKI Core Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -15,7 +15,7 @@ BuildRoot:        %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:    cmake
 BuildRequires:    java-devel >= 1:1.6.0
 BuildRequires:    jpackage-utils
-BuildRequires:    jss >= 4.2.6-15
+BuildRequires:    jss >= 4.2.6-12
 BuildRequires:    ldapjdk
 BuildRequires:    nspr-devel
 BuildRequires:    nss-devel
@@ -24,16 +24,21 @@ BuildRequires:    osutil
 BuildRequires:    pkgconfig
 BuildRequires:    policycoreutils
 BuildRequires:    selinux-policy-devel
-%if 0%{?fedora} >= 15
-BuildRequires:    tomcatjss >= 2.1.1
-%else
 BuildRequires:    tomcatjss >= 2.0.0
-%endif
 BuildRequires:    velocity
 BuildRequires:    xalan-j2
 BuildRequires:    xerces-j2
 
 Source0:          http://pki.fedoraproject.org/pki/sources/%{name}/%{name}-%{version}.tar.gz
+
+Patch0:           %{name}-%{version}-r1846.patch
+Patch1:           %{name}-%{version}-r1860.patch
+Patch2:           %{name}-%{version}-r1862.patch
+Patch3:           %{name}-%{version}-r1864.patch
+Patch4:           %{name}-%{version}-r1875.patch
+Patch5:           %{name}-%{version}-r1879.patch
+Patch6:           %{name}-%{version}-r1886.patch
+Patch7:           %{name}-%{version}-r1908.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -121,7 +126,7 @@ Group:            System Environment/Libraries
 
 Requires:         java >= 1:1.6.0
 Requires:         jpackage-utils
-Requires:         jss >= 4.2.6-15
+Requires:         jss >= 4.2.6-12
 Requires:         nss
 
 Provides:         symkey = %{version}-%{release}
@@ -162,9 +167,8 @@ BuildArch:        noarch
 
 Requires:         java >= 1:1.6.0
 Requires:         jpackage-utils
-Requires:         jss >= 4.2.6-15
+Requires:         jss >= 4.2.6-12
 Requires:         ldapjdk
-Requires:         osutil
 
 %description -n   pki-util
 The PKI Utility Framework is required by the following four PKI subsystems:
@@ -247,16 +251,13 @@ Requires:         jakarta-commons-lang
 Requires:         jakarta-commons-logging
 %endif
 Requires:         java >= 1:1.6.0
-Requires:         jss >= 4.2.6-15
+Requires:         jss >= 4.2.6-12
+Requires:         osutil
 Requires:         pki-common-theme >= 9.0.0
 Requires:         pki-java-tools = %{version}-%{release}
 Requires:         pki-setup = %{version}-%{release}
 Requires:         pki-symkey = %{version}-%{release}
-%if 0%{?fedora} >= 15
-Requires:         tomcatjss >= 2.1.1
-%else
 Requires:         tomcatjss >= 2.0.0
-%endif
 Requires:         %{_javadir}/ldapjdk.jar
 Requires:         %{_javadir}/velocity.jar
 Requires:         %{_javadir}/xalan-j2.jar
@@ -380,6 +381,16 @@ This package is a part of the PKI Core used by the Certificate System.
 
 
 %setup -q
+
+
+%patch0 -b .p0
+%patch1 -b .p1
+%patch2 -b .p2
+%patch3 -b .p3
+%patch4 -b .p4
+%patch5 -b .p5
+%patch6 -b .p6
+%patch7 -b .p7
 
 
 %clean
@@ -600,91 +611,38 @@ fi
 
 
 %changelog
-* Mon Apr 11 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.6-2
-- Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
+* Tue Mar 22 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-10
+- Resolves #688251 - Dogtag installation under IPA takes too much
+  time - SELinux policy compilation, r1908
 
-* Tue Apr 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.6-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #693327 - Missing requires: tomcatjss
-- 'pki-setup'
--     Bugzilla Bug #690626 - pkiremove removes the registry entry for
-      all instances on a machine
-- 'pki-symkey'
-- 'pki-native-tools'
-- 'pki-util'
-- 'pki-java-tools'
--     Bugzilla Bug #689453 - CRMFPopClient request to CA's unsecure port
-      throws file not found exception.
-- 'pki-common'
--     Bugzilla Bug #692990 - Audit log messages needed to match CC doc:
-      DRM Recovery audit log messages
-- 'pki-selinux'
-- 'pki-ca'
-- 'pki-silent'
+* Fri Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-9
+- Resolves: bug 645097 
+- update to the pki-core-9.0.3-r1886.patch file
 
-* Tue Apr 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.5-2
-- Bugzilla Bug #693327 - Missing requires: tomcatjss
+* Wed Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-8
+- Resolves 645097 
+- Resolves #683172 - pkisilent needs to provide option to set
+  nsDS5ReplicaTransportInfo to TLS in replication agreements
+  when creating a clone, r1886
 
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.5-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Require "jss >= 4.2.6-15" as a build and runtime requirement
-- Require "tomcatjss >= 2.1.1" as a build and runtime requirement
-  for Fedora 15 and later platforms
-- 'pki-setup'
--     Bugzilla Bug #688287 - Add "deprecation" notice regarding using
-      "shared ports" in pkicreate -help . . .
--     Bugzilla Bug #688251 - Dogtag installation under IPA takes
-      too much time - SELinux policy compilation
-- 'pki-symkey'
-- 'pki-native-tools'
-- 'pki-util'
-- 'pki-java-tools'
--     Bugzilla Bug #689501 - ExtJoiner tool fails to join the multiple
-      extensions
-- 'pki-common'
--     Bugzilla Bug #683581 - CA configuration with ECC(Default
-      EC curve-nistp521) CA fails with 'signing operation failed'
--     Bugzilla Bug #689662 - ocsp publishing needs to be re-enabled
-      on the EE port
-- 'pki-selinux'
--     Bugzilla Bug #684871 - ldaps selinux link change
-- 'pki-ca'
--     Bugzilla Bug #683581 - CA configuration with ECC(Default
-      EC curve-nistp521) CA fails with 'signing operation failed'
--     Bugzilla Bug #684381 - CS.cfg specifies incorrect type of comments
--     Bugzilla Bug #689453 - CRMFPopClient request to CA's unsecure port
-      throws file not found exception.(profile and CS.cfg only)
-- 'pki-silent'
+* Fri Mar 4 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-7
+- Resolves 645097 
 
-* Thu Mar 17 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.4-1
-- Bugzilla Bug #688763 - Rebase updated Dogtag Packages for Fedora 15 (alpha)
-- Bugzilla Bug #676182 - IPA installation failing - Fails to create CA
-  instance
-- Bugzilla Bug #675742 - Profile caIPAserviceCert Not Found
-- 'pki-setup'
--     Bugzilla Bug #678157 - uninitialized variable warnings from Perl
--     Bugzilla Bug #679574 - Velocity fails to load all dependent classes
--     Bugzilla Bug #680420 - xml-commons-apis.jar dependency
--     Bugzilla Bug #682013 - pkisilent needs xml-commons-apis.jar in it's
-      classpath
--     Bugzilla Bug #673508 - CS8 64 bit pkicreate script uses wrong library
-      name for SafeNet LunaSA
-- 'pki-common'
--     Bugzilla Bug #673638 - Installation within IPA hangs
--     Bugzilla Bug #678715 - netstat loop fixes needed
--     Bugzilla Bug #673609 - CC: authorize() call needs to be added to
-      getStats servlet
-- 'pki-selinux'
--     Bugzilla Bug #674195: SELinux error message thrown during token
-      enrollment
-- 'pki-ca'
--     Bugzilla Bug #673638 - Installation within IPA hangs
--     Bugzilla Bug #673609 - CC: authorize() call needs to be added to
-      getStats servlet
--     Bugzilla Bug #676330 - init script cannot start service
-- 'pki-silent'
--     Bugzilla Bug #682013 - pkisilent needs xml-commons-apis.jar in it's
-      classpath
+* Fri Mar 4 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-6
+- Resolves #682021 - pkisilent needs xml-commons-apis.jar in it's classpath
+
+* Wed Mar 2 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-5
+- Resolves 645097 
+
+* Wed Mar 2 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-4
+- Resolves #681367 - xml-commons-apis.jar dependency, r1875
+
+* Mon Feb 21 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-3
+- Resolves #676873 - Rebase pki-core again to pick the latest features and fixes
+-     Resolves #676048 - Installation within IPA hangs, r1846
+-     Resolves #679173 - uninitialized variable warnings from Perl, r1860
+-     Resolves #679174 - netstat loop fixes needed, r1862
+-     Resolves #679580 - Velocity fails to load all dependent classes, r1864
 
 * Wed Feb 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-2
 - 'pki-common'

@@ -1,5 +1,5 @@
 Name:             pki-ocsp
-Version:          9.0.1
+Version:          9.0.0
 Release:          1%{?dist}
 Summary:          Certificate System - Online Certificate Status Protocol Manager
 URL:              http://pki.fedoraproject.org/
@@ -13,7 +13,7 @@ BuildRoot:        %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:    cmake
 BuildRequires:    java-devel >= 1:1.6.0
 BuildRequires:    jpackage-utils
-BuildRequires:    jss >= 4.2.6-15
+BuildRequires:    jss >= 4.2.6-12
 BuildRequires:    nspr-devel
 BuildRequires:    nss-devel
 BuildRequires:    pki-common
@@ -166,13 +166,6 @@ fi
 
 
 %changelog
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.1-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #683581 - CA configuration with ECC(Default
-  EC curve-nistp521) CA fails with 'signing operation failed'
-- Bugzilla Bug #684381 - CS.cfg specifies incorrect type of comments
-- Require "jss >= 4.2.6-15" as a build and runtime requirement
-
 * Wed Dec 1 2010 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-1
 - Updated Dogtag 1.3.x --> Dogtag 2.0.0 --> Dogtag 9.0.0
 - Bugzilla Bug #620925 - CC: auditor needs to be able to download audit logs

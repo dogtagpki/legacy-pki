@@ -150,9 +150,6 @@ template(`pki_ca_template',`
 	# These are used to read tomcat class files in /var/lib/tomcat
 	files_read_var_lib_files($1_t)
 	files_read_var_lib_symlinks($1_t)
-        
-        #needed in tps key archival in kra
-        files_list_var($1_t)
 
 	kernel_read_network_state($1_t)
 	kernel_read_system_state($1_t)
@@ -471,7 +468,6 @@ template(`pki_tps_template',`
 	domain_use_interactive_fds($1_t)
 
 	files_read_etc_files($1_t)
-        allow pki_tps_t pki_tps_etc_rw_t:lnk_file read;
 
 	manage_dirs_pattern($1_t, $1_etc_rw_t, $1_etc_rw_t)
 	manage_files_pattern($1_t, $1_etc_rw_t, $1_etc_rw_t)
@@ -610,7 +606,7 @@ template(`pki_tps_template',`
         rpm_exec(pki_tps_t)
 
         # allow writing to the kernel keyring
-        allow pki_tps_t self:key { write read };
+        allow $pki_tps_t self:key { write read };
 
 ')
 
@@ -791,7 +787,7 @@ template(`pki_ra_template',`
         rpm_exec(pki_ra_t)
 
         # allow writing to the kernel keyring
-        allow pki_ra_t self:key { write read };
+        allow $pki_ra_t self:key { write read };
 
 
 ')

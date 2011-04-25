@@ -1187,7 +1187,6 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 		RA_Status &o_status, 
                 char **keyVersion )
 {
-        int rc = 0;
 	const char *FN = "RA_Enroll_Processor::CheckAndUpgradeApplet";
 	bool r = true;
 	const char *applet_dir=NULL;
@@ -1219,7 +1218,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 			/* upgrade applet */
 			PR_snprintf((char *)configname, 256, "%s.%s.update.applet.directory", OP_PREFIX, a_tokenType);
 			applet_dir = RA::GetConfigStore()->GetConfigAsString(configname);
-			if (applet_dir == NULL || strlen(applet_dir) == 0) {
+			if (applet_dir == NULL) {
 				RA::Error(LL_PER_CONNECTION, FN,
 						"Failed to read applet directory parameter %s", configname);
 				o_status = STATUS_ERROR_MISCONFIGURATION;		 
@@ -1231,7 +1230,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 			RA::Debug(FN, "TKS connection id =%s", connid);
 			//StatusUpdate(a_session, a_extensions, 5, "PROGRESS_UPGRADE_APPLET");
 
-			if (rc = UpgradeApplet(a_session, (char *) OP_PREFIX, (char*) a_tokenType,
+			if (UpgradeApplet(a_session, (char *) OP_PREFIX, (char*) a_tokenType,
 				o_major_version, o_minor_version, 
 				g_applet_target_version, 
 				applet_dir, security_level, 
@@ -1249,18 +1248,6 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 				o_status = STATUS_ERROR_UPGRADE_APPLET;		 
 				r = false;
 
-                                if (rc == -1) {
-                                    RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
-                                        a_userid, a_cuid, a_msn, "Failure", "enrollment",
-                                        *keyVersion != NULL? *keyVersion : "", o_current_applet_on_token, g_applet_target_version, "failed to setup secure channel");
-                                } else {
-
-                                    RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
-                                    a_userid, a_cuid, a_msn, "Success", "enrollment",
-                                    *keyVersion != NULL? *keyVersion : "", o_current_applet_on_token, g_applet_target_version, "setup secure channel");
-                                }
-
-
                                 RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                                   a_userid, a_cuid, a_msn, "Failure", "enrollment",
                                   *keyVersion != NULL? *keyVersion : "",
@@ -1274,11 +1261,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 			}
 
 			// Upgrade Applet reported success
-			
-                        RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
-                            a_userid, a_cuid, a_msn, "Success", "enrollment",
-                            *keyVersion != NULL? *keyVersion : "", o_current_applet_on_token, g_applet_target_version, "setup secure channel");
-
+                        
                         RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                           a_userid, a_cuid, a_msn, "Success", "enrollment",
                           *keyVersion != NULL? *keyVersion : "",
@@ -1606,11 +1589,6 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 	bool r = false;
 	Buffer key_data_set;
         char audit_msg[512] = "";
-        char curVer[10];
-        char newVer[10];
-
-        char *curKeyInfoStr = NULL;
-        char *newVersionStr = NULL;
 
 	// the TKS is responsible for doing much of the symmetric keys update
 	// so lets find which TKS we're talking about TKS now.
@@ -1742,29 +1720,10 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 					curIndex,
 					&key_data_set);
 
-
-                        curKeyInfoStr = Util::Buffer2String(curKeyInfo);
-                        newVersionStr = Util::Buffer2String(newVersion);
-
-                        if(curKeyInfoStr != NULL && strlen(curKeyInfoStr) >= 2) {
-                            curVer[0] = curKeyInfoStr[0]; curVer[1] = curKeyInfoStr[1]; curVer[2] = 0;
-                        }
-                        else {
-                            curVer[0] = 0;
-                        }
-
-                        if(newVersionStr != NULL && strlen(newVersionStr) >= 2) {
-                            newVer[0] = newVersionStr[0] ; newVer[1] = newVersionStr[1] ; newVer[2] = 0;
-                        }
-                        else {
-                            newVer[0] = 0;
-                        }
-
-
                         if (rc!=0) {
                             RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
-                              a_userid != NULL ? a_userid : "", a_cuid != NULL ? a_cuid : "",  a_msn != NULL ? a_msn : "", "Failure", "enrollment",
-                              a_applet_version != NULL ? a_applet_version : "", curVer, newVer,
+                              a_userid, a_cuid, a_msn, "Failure", "enrollment",
+                              a_applet_version, curVersion, ((BYTE*)newVersion)[0],
                               "key changeover");
 
                             if ((a_cuid != NULL) && (a_tokenType != NULL)) {
@@ -1779,8 +1738,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
                             goto loser;
                         } else {
                             RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
-                              a_userid != NULL ? a_userid : "", a_cuid != NULL ? a_cuid : "", a_msn != NULL ? a_msn : "", "Success", "enrollment",
-                              a_applet_version != NULL ? a_applet_version : "", curVer, newVer,
+                              a_userid, a_cuid, a_msn, "Success", "enrollment",
+                              a_applet_version, curVersion, ((BYTE*)newVersion)[0],
                               "key changeover");
                         }
 
@@ -1806,9 +1765,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 				r = true;  // Success!!
 
                                 RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
-                                  a_userid != NULL ? a_userid : "", a_cuid != NULL ? a_cuid : "", 
-                                  a_msn != NULL ? a_msn : "", "success", "enrollment", a_applet_version != NULL ? a_applet_version : "",
-                                  newVer, "enrollment processing, key upgrade completed");
+                                  a_userid, a_cuid, a_msn, "success", "enrollment", a_applet_version, 
+                                  ((BYTE*)newVersion)[0], "enrollment processing, key upgrade completed");
 			}
 
 		}
@@ -1834,17 +1792,6 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
                   "enrollment processing, key upgrade disabled");
 	}
 loser:
-    
-    if (curKeyInfoStr != NULL) {
-        PR_Free( (char *) curKeyInfoStr);
-        curKeyInfoStr = NULL;
-    }
-
-    if (newVersionStr != NULL) {
-        PR_Free( (char *) newVersionStr);
-        newVersionStr = NULL;
-    }
-
     if (strlen(audit_msg) > 0) { // a failure occurred
         RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
           a_userid != NULL ? a_userid : "",
@@ -3537,9 +3484,7 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
         ktypes[i] = NULL;
         origins[i] = NULL;
         tokenTypes[i] = NULL;
-    }
-    
-    for (i=0; i<keyTypeNum; i++) {
+
         bool renewable = true;
         // e.g. op.enroll.userKey.renewal.keyType.value.0=signing
         // e.g. op.enroll.userKey.renewal.keyType.value.1=encryption

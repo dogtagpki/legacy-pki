@@ -162,13 +162,11 @@ public class AddCRLServlet extends CMSServlet {
 
             if (auditSubjectID.equals(ILogger.NONROLEUSER) ||
                    auditSubjectID.equals(ILogger.UNIDENTIFIED))  {
-                if (authToken != null) {
-                    String uid = authToken.getInString(IAuthToken.USER_ID);
-                    if (uid != null) {
-                        CMS.debug("AddCAServlet: auditSubjectID set to "+uid);
-                        auditSubjectID = uid;
-                    }
-                } 
+                String uid = authToken.getInString(IAuthToken.USER_ID);
+                if (uid != null) {
+                    CMS.debug("AddCAServlet: auditSubjectID set to "+uid);
+                    auditSubjectID = uid;
+                }
             }
             log(ILogger.LL_INFO, "AddCRLServlet");
             String b64 = cmsReq.getHttpReq().getParameter("crl");
