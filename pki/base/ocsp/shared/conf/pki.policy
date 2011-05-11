@@ -18,6 +18,9 @@ grant codeBase "file:/usr/share/java/jasper5-runtime.jar" {
 grant codeBase "file:/usr/share/java/tomcat5/-" {
     permission java.security.AllPermission;
 };
+grant codeBase "file:/usr/share/eclipse/plugins/org.eclipse.jdt.core*.jar" {
+    permission java.security.AllPermission;
+};
 
 
 
