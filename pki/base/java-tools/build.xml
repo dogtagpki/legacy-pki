@@ -279,6 +279,18 @@
         <delete file="./build/cmds/CRMFPopClient.tmp"/>
 
         <copy file="./templates/pki_java_command_wrapper"
+              tofile="./build/cmds/DRMTool.tmp"/>
+        <exec executable="sed"
+              output="./build/cmds/DRMTool">
+            <arg value="-e"/>
+            <arg value="s/\[PKI_PRODUCT\]/${product.prefix}/g"/>
+            <arg value="-e"/>
+            <arg value="s/\[PKI_COMMAND\]/DRMTool/g"/>
+            <arg value="./build/cmds/DRMTool.tmp"/>
+        </exec>
+        <delete file="./build/cmds/DRMTool.tmp"/>
+
+        <copy file="./templates/pki_java_command_wrapper"
               tofile="./build/cmds/ExtJoiner.tmp"/>
         <exec executable="sed"
               output="./build/cmds/ExtJoiner">
