@@ -651,6 +651,14 @@ public class AdminServlet extends HttpServlet {
         CMS.debug("AdminServlet: " + CMS.getLogMessage("ADMIN_SRVLT_CHECK_AUTHZ_AUTH", mServletID));
         // hardcoded for now .. just testing
         try {
+            if (mOp != null) {
+                auditOperation = mOp;
+            }
+
+            if (AUTHZ_RES_NAME != null) {
+                auditACLResource = AUTHZ_RES_NAME;
+            }
+
             // we check both "read" and "write" for now. later within
             //			each servlet, they can break it down
             authzTok = mAuthz.authorize(mAclMethod, authToken, AUTHZ_RES_NAME, mOp);

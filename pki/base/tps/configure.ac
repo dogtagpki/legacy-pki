@@ -28,18 +28,6 @@ AM_INIT_AUTOMAKE([1.9 foreign subdir-objects])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 
-# Library versioning.
-GENERIC_MAJOR_VERSION=1
-GENERIC_MINOR_VERSION=0
-GENERIC_MICRO_VERSION=0
-GENERIC_LIBRARY_VERSION=0:0:0
-AC_SUBST(GENERIC_LIBRARY_VERSION)
-GENERIC_VERSION=$GENERIC_MAJOR_VERSION.$GENERIC_MINOR_VERSION.$GENERIC_MICRO_VERSION
-GENERIC_RELEASE=$GENERIC_MAJOR_VERSION.$GENERIC_MINOR_VERSION
-AC_SUBST(GENERIC_RELEASE)
-AC_SUBST(GENERIC_VERSION)
-VERSION=$GENERIC_VERSION
-
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC
@@ -107,13 +95,13 @@ AC_ARG_ENABLE(debug, [  --enable-debug         Enable debug features],
 ])
 AC_SUBST([debug_defs])
 
-AC_PREFIX_DEFAULT([/opt])
+AC_PREFIX_DEFAULT([/opt/tps])
 
 # installation paths - by default, configure will just
 # use /usr as the prefix for everything, which means
 # /usr/etc, /usr/opt, and /usr/var.  FHS sez to use
 # /etc, /opt, and /var.
-ac_default_prefix=/opt
+ac_default_prefix=/opt/tps
 prefix=$ac_default_prefix
 exec_prefix=$prefix
 dnl as opposed to the default $prefix/etc
@@ -143,6 +131,8 @@ docroot_tps_configdir=/docroot/tps/admin/console/config
 docroot_tps_cssdir=/docroot/tps/admin/console/css
 docroot_tps_imgdir=/docroot/tps/admin/console/img
 docroot_tps_jsdir=/docroot/tps/admin/console/js
+# relative to sysconfdir
+initddir=/init.d
 # relative to prefix
 licensedir=/doc
 logsdir=/logs/signedAudit
@@ -175,6 +165,7 @@ AC_SUBST(docroot_tps_configdir)
 AC_SUBST(docroot_tps_cssdir)
 AC_SUBST(docroot_tps_imgdir)
 AC_SUBST(docroot_tps_jsdir)
+AC_SUBST(initddir)
 AC_SUBST(licensedir)
 AC_SUBST(logsdir)
 AC_SUBST(perl_basedir)
@@ -220,9 +211,6 @@ case $host in
     AC_DEFINE([SW_THREADS], [], [SW_THREADS])
     AC_DEFINE([USE_NODL_TABS], [], [USE_NODL_TABS])
     platform="linux"
-    # relative to sysconfdir
-    initddir=/rc.d/init.d
-    AC_SUBST(initddir)
     ;;
   ia64-hp-hpux*)
     AC_DEFINE([XP_UNIX], [], [UNIX])
@@ -235,9 +223,6 @@ case $host in
     AC_DEFINE([_POSIX_C_SOURCE], [199506L], [POSIX revision])
     AC_DEFINE([_HPUX_SOURCE], [], [_HPUX_SOURCE])
     platform="hpux"
-    # relative to sysconfdir
-    initddir=/init.d
-    AC_SUBST(initddir)
     ;;
   hppa*-hp-hpux*)
     AC_DEFINE([XP_UNIX], [], [UNIX])
@@ -256,9 +241,6 @@ case $host in
     AC_DEFINE([NET_SSL], [], [NET_SSL])
     AC_DEFINE([SW_THREADS], [], [SW_THREADS])
     platform="hpux"
-    # relative to sysconfdir
-    initddir=/init.d
-    AC_SUBST(initddir)
     ;;
   sparc-sun-solaris*)
     AC_DEFINE([XP_UNIX], [], [UNIX])
@@ -294,15 +276,9 @@ dnl Cstd and Crun are required to link any C++ related code
     AC_DEFINE([SOLARIS_55_OR_GREATER], [], [SOLARIS_55_OR_GREATER])
     AC_DEFINE([SYSV], [], [SYSV])
     platform="solaris"
-    # relative to sysconfdir
-    initddir=/init.d
-    AC_SUBST(initddir)
     ;;
   *)
     platform=""
-    # relative to sysconfdir
-    initddir=/init.d
-    AC_SUBST(initddir)
     ;;
 esac
 
@@ -313,7 +289,7 @@ AM_CONDITIONAL(SOLARIS,test "$platform" = "solaris")
 # Check for library dependencies
 m4_include(m4/nspr.m4)
 m4_include(m4/nss.m4)
-m4_include(m4/openldap.m4)
+m4_include(m4/mozldap.m4)
 m4_include(m4/sasl.m4)
 m4_include(m4/svrcore.m4)
 m4_include(m4/apr.m4)

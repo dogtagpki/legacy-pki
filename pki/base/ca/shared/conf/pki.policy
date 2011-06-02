@@ -1,0 +1,66 @@
+
+
+// ========== PKI CA, DRM, OCSP, and TKS PERMISSIONS ==========================
+
+// These permissions are granted by default to
+// all PKI CA, DRM, OCSP, and TKS instances
+
+// These permissions apply to Tomcat5 java as utilized by PKI instances
+grant codeBase "file:/usr/share/java/jakarta-commons-modeler.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/jasper5-compiler.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/jasper5-runtime.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/tomcat5/-" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/eclipse/plugins/org.eclipse.jdt.core*.jar" {
+    permission java.security.AllPermission;
+};
+
+
+
+// These permissions apply to PKI configuration
+grant codeBase "file:/usr/share/java/tomcat5-servlet-2.4-api.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/velocity.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/xalan-j2-serializer.jar" {
+    permission java.security.AllPermission;
+};
+
+
+
+// These permissions apply to LDAP support for PKI instances
+grant codeBase "file:/usr/share/java/ldapjdk.jar" {
+    permission java.security.AllPermission;
+};
+
+
+
+// These permissions apply to PKI instances
+grant codeBase "file:/usr/lib/java/jss4.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/lib/java/nuxwdog.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/lib/java/osutil.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/lib/java/symkey.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/tomcatjss.jar" {
+    permission java.security.AllPermission;
+};
+grant codeBase "file:/usr/share/java/pki/-" {
+    permission java.security.AllPermission;
+};
+
