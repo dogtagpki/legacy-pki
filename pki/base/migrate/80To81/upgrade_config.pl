@@ -34,11 +34,11 @@ use common;
 #
 # Sample Invocation (for CA):
 #
-# ./upgrade_ui.pl -pki_instance_root=/var/lib
-#                 -pki_instance_name=pki-ca
-#                 -subsystem_type=ca
-#                 -old_subsystem_dir=/usr/share/pki/ca-8.1.0.1
-#                 -verbose
+# ./upgrade_config.pl -pki_instance_root=/var/lib
+#                     -pki_instance_name=pki-ca
+#                     -subsystem_type=ca
+#                     -old_subsystem_dir=/usr/share/pki/ca-8.1.0.1
+#                     -verbose
 #
 ##############################################################
 
