@@ -160,7 +160,7 @@
             </doctitle>
             <fileset dir="src"
                      defaultexcludes="yes">
-                <include name="com/netscape/cmstools/**"/>
+                <include name="com/netscape/cmstools/*.java"/>
             </fileset>
         </javadoc>
         <echo message="${end.compose.javadocs.log.message}"/>
@@ -439,6 +439,11 @@
                         prefix="usr/share/${product.prefix}">
                 <include name="**"/>
             </zipfileset>
+            <zipfileset dir="./src/com/netscape/cmstools"
+                        filemode="644"
+                        prefix="usr/share/${product.prefix}/${product}">
+                <include name="DRMTool.cfg"/>
+            </zipfileset>
             <zipfileset dir="."
                         filemode="755"
                         prefix="usr/share/doc/${dist.name}">
@@ -470,6 +475,11 @@
                         mode="755"
                         prefix="usr/share/${product.prefix}">
                 <include name="**"/>
+            </tarfileset>
+            <tarfileset dir="./src/com/netscape/cmstools"
+                        mode="644"
+                        prefix="usr/share/${product.prefix}/${product}">
+                <include name="DRMTool.cfg"/>
             </tarfileset>
             <tarfileset dir="."
                         mode="755"
