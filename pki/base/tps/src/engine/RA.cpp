@@ -84,6 +84,7 @@ PRLock *RA::m_config_lock = NULL;
 PRMonitor *RA::m_audit_log_monitor = NULL;
 bool RA::m_audit_enabled = false;
 bool RA::m_audit_signed = false;
+static int m_sa_count = 0;
 SECKEYPrivateKey *RA::m_audit_signing_key = NULL;
 NSSUTF8 *RA::m_last_audit_signature = NULL;
 SECOidTag RA::m_audit_signAlgTag;
@@ -330,6 +331,7 @@ void RA::getLastSignature() {
     RA::Debug("RA:: getLastSignature", "starts");
     if ((m_audit_log != NULL) && (m_audit_log_monitor != NULL)) {
         PR_EnterMonitor(m_audit_log_monitor);
+        int count =0;
         int removed_return;
         while (1) {
           int n = m_audit_log->ReadLine(line, 1024, &removed_return);
@@ -1199,7 +1201,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 
       char * tmp = NULL;
       tmp = ra_pb->find_val_s("public_key");
-      if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+      if ((tmp == NULL) || (tmp == "")) {
 	RA::Error(LL_PER_PDU, "RecoverKey"," got no public key");
 	goto loser;
       } else {
@@ -1209,7 +1211,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 
       tmp = NULL;
       tmp = ra_pb->find_val_s("wrapped_priv_key");
-      if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+      if ((tmp == NULL) || (tmp == "")) {
 	RA::Error(LL_PER_PDU, "RecoverKey"," got no wrapped private key");
 	//XXX	      goto loser;
       } else {
@@ -1218,7 +1220,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       }
 
       tmp = ra_pb->find_val_s("iv_param");
-      if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+      if ((tmp == NULL) || (tmp == "")) {
           RA::Error(LL_PER_PDU, "RecoverKey",
               "did not get iv_param for recovered  key in DRM response");
       } else {
@@ -1295,22 +1297,22 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
     int currRetries = 0;
     char *p = NULL;
 
-    if ((cuid == NULL) || (strcmp(cuid,"")==0)) {
+    if ((cuid == NULL) || (cuid == "")) {
       RA::Debug( LL_PER_CONNECTION, FN,
 			"error: passed invalid cuid");
       goto loser;
     }
-    if ((userid == NULL) || (strcmp(userid,"")==0)) {
+    if ((userid == NULL) || (userid =="")) {
       RA::Debug(LL_PER_CONNECTION, FN,
 			"error: passed invalid userid");
       goto loser;
     }
-    if ((desKey_s == NULL) || (strcmp(desKey_s,"")==0)) {
+    if ((desKey_s == NULL) || (desKey_s =="")) {
       RA::Debug(LL_PER_CONNECTION, FN, 
 			 "error: passed invalid desKey_s");
       goto loser;
     }
-    if ((connId == NULL) ||(strcmp(connId,"")==0)) {
+    if ((connId == NULL) ||(connId == "")) {
       RA::Debug(LL_PER_CONNECTION, FN,
 			 "error: passed invalid connId");
       goto loser;
@@ -1432,7 +1434,7 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 
 	  tmp = NULL;
 	  tmp = ra_pb->find_val_s("wrapped_priv_key");
-	  if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+	  if ((tmp == NULL) || (tmp == "")) {
 	    RA::Error(LL_PER_CONNECTION, FN,
 				"did not get wrapped private key in DRM response");
 	  } else {
@@ -1442,7 +1444,7 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 	  }
 
 	  tmp = ra_pb->find_val_s("iv_param");
-	  if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+	  if ((tmp == NULL) || (tmp == "")) {
 	    RA::Error(LL_PER_CONNECTION, FN,
 				"did not get iv_param for private key in DRM response");
 	  } else {
@@ -1923,10 +1925,13 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
         char datetime[1024]; 
         PRExplodedTime time;
 	PRThread *ct;
+        SECStatus rv;
         char *message_p1 = NULL;
         char *message_p2 = NULL;
         int nbytes;
         int status;
+        int pid;
+        int last_err;
 
         if (!m_audit_enabled) return;
  
@@ -1967,6 +1972,7 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
         PR_Free(message_p1);
         PR_Free(message_p2);
 
+loser:
         if (audit_msg)
             PR_Free(audit_msg);
 
@@ -2030,14 +2036,10 @@ TPS_PUBLIC void RA::SignAuditLog(NSSUTF8 * audit_msg)
     PR_ExitMonitor(m_audit_log_monitor);
 }
 
-TPS_PUBLIC void RA::ra_free_values(struct berval **values) 
-{
-    free_values(values, 1);
-}
      
 /* sign audit_msg and last signature 
    returns char* - must be freed by caller */
-TPS_PUBLIC char * RA::GetAuditSigningMessage(const NSSUTF8 * audit_msg)
+TPS_PUBLIC char * RA::GetAuditSigningMessage(NSSUTF8 * audit_msg)
 {
         PRTime now;
         const char* time_fmt = "%Y-%m-%d %H:%M:%S";
@@ -2535,6 +2537,7 @@ int RA::InitializeHttpConnections(const char *id, int *len, HttpConnection **con
     char configname[256];
     char connID[100];
     CERTCertDBHandle *handle = 0;
+    CERTCertificate *cert = NULL;
     int rc = 0;
     int i=0;
 
@@ -2754,7 +2757,7 @@ TPS_PUBLIC LDAPMessage *RA::ra_get_next_entry(LDAPMessage *e) {
     return get_next_entry(e);
 }
 
-TPS_PUBLIC struct berval **RA::ra_get_attribute_values(LDAPMessage *e, const char *p) {
+TPS_PUBLIC char **RA::ra_get_attribute_values(LDAPMessage *e, const char *p) {
     return get_attribute_values(e, p);
 }
 
@@ -2774,7 +2777,7 @@ TPS_PUBLIC char *RA::ra_get_cert_cn(LDAPMessage *entry) {
     return get_cert_cn(entry);
 }
 
-TPS_PUBLIC char *RA::ra_get_cert_attr_byname(LDAPMessage *entry, const char *name) {
+TPS_PUBLIC char *RA::ra_get_cert_attr_byname(LDAPMessage *entry, char *name) {
     return get_cert_attr_byname(entry, name);
 }
 
@@ -2900,7 +2903,7 @@ TPS_PUBLIC int RA::ra_delete_certificate_entry(LDAPMessage* e)
    return rc;
 }
 
-int RA::tdb_activity(const char *ip, const char *cuid, const char *op, const char *result, const char *msg, const char *userid, const char *token_type)
+int RA::tdb_activity(char *ip, char *cuid, const char *op, const char *result, const char *msg, const char *userid, const char *token_type)
 {
   return add_activity(ip, cuid, op, result, msg, userid, token_type);
 }
@@ -2948,19 +2951,9 @@ int RA::tdb_update_certificates(char* cuid, char **tokentypes, char *userid, CER
             bool found = false;
             if (r == LDAP_SUCCESS) {
                 for (e = get_first_entry(result); e != NULL; e = get_next_entry(e)) {
-                    struct berval **values = get_attribute_values(e, "tokenID");
-                    if ((values == NULL) || (values[0] == NULL)) {
-                        RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates",
-                            "unable to get tokenid");
-                        if (values != NULL) { 
-                            ldap_value_free_len(values);
-                            values = NULL;
-                        }
-                        continue;
-                    }
-
+                    char **values = get_attribute_values(e, "tokenID");
                     char *cn = get_cert_cn(e);
-                    if (PL_strcmp(cuid, values[0]->bv_val)== 0)  found = true;
+                    if (PL_strcmp(cuid, values[0])== 0)  found = true;
                     if (cn != NULL) {
                         RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Updating cert status of %s to active in tokendb", cn);
                         r = update_cert_status(cn, "active");
@@ -2972,7 +2965,7 @@ int RA::tdb_update_certificates(char* cuid, char **tokentypes, char *userid, CER
                         cn = NULL;
                     }
  
-                    ldap_value_free_len(values);
+                    ldap_value_free(values);
                 }
 
                 ldap_msgfree(result);
@@ -3024,25 +3017,25 @@ int RA::tdb_add_token_entry(char *userid, char* cuid, const char *status, const 
 
         // try to see if the userid is there
         LDAPMessage *e = ra_get_first_entry(ldapResult);
-        struct berval **uid = ra_get_attribute_values(e, "tokenUserID");
+        char **uid = ra_get_attribute_values(e, "tokenUserID");
 
-        if ((uid != NULL) && (uid[0] != NULL)) {
-            if (uid[0]->bv_val != NULL) {
-                if (strlen(uid[0]->bv_val) > 0 && strcmp(uid[0]->bv_val, userid) != 0) {
-                    ldap_value_free_len(uid);
+        if (uid != NULL) {
+            if (uid[0] != NULL) {
+                if (strlen(uid[0]) > 0 && strcmp(uid[0], userid) != 0) {
+                    ldap_value_free(uid);
                     RA::Debug(LL_PER_PDU, "RA::tdb_add_token_entry",
                           "This token does not belong to this user: %s", userid);
                     r = -1;
 		    goto loser;
                 } else {
-                    if (strlen(uid[0]->bv_val) > 0 && strcmp(uid[0]->bv_val, userid) == 0) {
-                        ldap_value_free_len(uid);
+                    if (strlen(uid[0]) > 0 && strcmp(uid[0], userid) == 0) {
+                        ldap_value_free(uid);
                         r = 0;
 			goto loser;
                     }
                 }
             }
-            ldap_value_free_len(uid);
+            ldap_value_free(uid);
         }
 
         // this is the recycled token, update userid and dateOfCreate
