@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -91,14 +91,14 @@ sub update
     # we need to test the ldaps connection first because testing an ldaps port with ldap:// will hang the query!
     my $msg;
     my $conn = &PKI::TPS::Common::test_and_make_connection(
-                  {host => $host, port => $port, cert => $certdir, bind =>  $binddn, pswd => $bindpwd},
-                  $secureconn,
+                  {host => $host, port => $port, cert => $certdir, bind =>  $binddn, pswd => $bindpwd}, 
+                  $secureconn, 
                   \$msg);
 
     if (!$conn) {
       &PKI::TPS::Wizard::debug_log("DatabasePanel: failed to connect to internal db: $msg");
       $::symbol{errorString} = $msg;
-      return 0;
+      return 0; 
     }
 
     # save values to CS.cfg
@@ -135,7 +135,7 @@ sub update
       $objectclass = "organizationalUnit";
     }
 
-    my $flavor = "pki";
+    my $flavor = `pkiflavor`;
     $flavor =~ s/\n//g;
 
     # creating database
@@ -146,11 +146,11 @@ sub update
               "-e 's/\$TYPE/$type/' " .
               "-e 's/\$VALUE/$value/' " .
               "/usr/share/$flavor/tps/scripts/database.ldif > $tmp");
-    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) {
+    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) { 
       &PKI::TPS::Wizard::debug_log("DatabasePanel: $msg");
       $::symbol{errorString} = "Failed to create database";
       $conn->close();
-      return 0;
+      return 0; 
     };
     if ($msg ne "") {
       &PKI::TPS::Wizard::debug_log("DatabasePanel: database creation errors : $msg");
@@ -159,11 +159,11 @@ sub update
     system("rm $tmp");
 
     # add schema
-    if (! &PKI::TPS::Common::import_ldif($conn, "/usr/share/$flavor/tps/scripts/schemaMods.ldif", \$msg, 1)) {
+    if (! &PKI::TPS::Common::import_ldif($conn, "/usr/share/$flavor/tps/scripts/schemaMods.ldif", \$msg, 1)) { 
       &PKI::TPS::Wizard::debug_log("DatabasePanel: $msg");
       $::symbol{errorString} = "Failed to add schema";
       $conn->close();
-      return 0;
+      return 0; 
     };
     if ($msg ne "") {
       &PKI::TPS::Wizard::debug_log("DatabasePanel: schema creation errors : $msg");
@@ -174,11 +174,11 @@ sub update
     $tmp = "/tmp/addTokens-$$.ldif";
     system("sed -e 's/\$TOKENDB_ROOT/$basedn/g' " .
               "/usr/share/$flavor/tps/scripts/addTokens.ldif > $tmp");
-    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) {
+    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) { 
       &PKI::TPS::Wizard::debug_log("DatabasePanel: $msg");
       $::symbol{errorString} = "Failed to populate database";
       $conn->close();
-      return 0;
+      return 0; 
     };
     if ($msg ne "") {
       &PKI::TPS::Wizard::debug_log("DatabasePanel: database population errors : $msg");
@@ -190,11 +190,11 @@ sub update
     $tmp = "/tmp/addIndexes-$$.ldif";
     system("sed -e 's/userRoot/$database/g' " .
               "/usr/share/$flavor/tps/scripts/addIndexes.ldif > $tmp");
-    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) {
+    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) { 
       &PKI::TPS::Wizard::debug_log("DatabasePanel: $msg");
       $::symbol{errorString} = "Failed to add indexes";
       $conn->close();
-      return 0;
+      return 0; 
     };
     if ($msg ne "") {
       &PKI::TPS::Wizard::debug_log("DatabasePanel: adding index errors : $msg");
@@ -206,11 +206,11 @@ sub update
     $tmp = "/tmp/addVLVIndexes-$$.ldif";
     system("sed -e 's/userRoot/$database/g;s/\$TOKENDB_ROOT/$basedn/g' " .
               "/usr/share/$flavor/tps/scripts/addVLVIndexes.ldif > $tmp");
-    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) {
+    if (! &PKI::TPS::Common::import_ldif($conn, $tmp, \$msg)) { 
       &PKI::TPS::Wizard::debug_log("DatabasePanel: $msg");
       $::symbol{errorString} = "Failed to add vlv indexes";
       $conn->close();
-      return 0;
+      return 0; 
     };
     if ($msg ne "") {
       &PKI::TPS::Wizard::debug_log("DatabasePanel: adding VLV index errors : $msg");
@@ -259,7 +259,7 @@ sub display
     if ($binddn ne "") {
       $::symbol{binddn} = $binddn;
     }
-
+    
     my $secureconn = $::config->get("auth.instance.1.ssl") || "false";
     $::symbol{secureconn} =  $secureconn;
 
