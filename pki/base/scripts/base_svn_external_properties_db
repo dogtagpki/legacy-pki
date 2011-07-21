@@ -6,4 +6,4 @@
 #  that need to be saved MUST be applied to the top-level directory referred  #
 #  to by each external SVN property (i.e. - 'pki/base/config').               #
 ###############################################################################
-config http://svn.fedorahosted.org/svn/pki/trunk/pki/base/config
+config http://svn.fedorahosted.org/svn/pki/branches/IPA_v2_RHEL_6_ERRATA_BRANCH/pki/base/config
