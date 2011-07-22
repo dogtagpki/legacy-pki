@@ -7,7 +7,7 @@
 #  to by each external SVN property (i.e. - 'pki/base/config' AND             #
 #  'pki/ipa/config-ext' AND 'pki/dogtag/common-ui/shared').                   #
 ###############################################################################
-config http://svn.fedorahosted.org/svn/pki/trunk/pki/base/config
-config-ext http://svn.fedorahosted.org/svn/pki/trunk/pki/ipa/config-ext
-shared http://svn.fedorahosted.org/svn/pki/trunk/pki/dogtag/common-ui/shared
+config http://svn.fedorahosted.org/svn/pki/branches/IPA_v2_RHEL_6_ERRATA_BRANCH/pki/base/config
+config-ext http://svn.fedorahosted.org/svn/pki/branches/IPA_v2_RHEL_6_ERRATA_BRANCH/pki/ipa/config-ext
+shared http://svn.fedorahosted.org/svn/pki/branches/IPA_v2_RHEL_6_ERRATA_BRANCH/pki/dogtag/common-ui/shared
 

@@ -23,9 +23,9 @@ cd `dirname $0`
 PKI_PWD=`pwd`
 
 # Name and location of the SVN external properties URL.
-SVN_BASE_URL="http://svn.fedorahosted.org/svn/pki/trunk/pki/base"
-SVN_DOGTAG_URL="http://svn.fedorahosted.org/svn/pki/trunk/pki/dogtag"
-SVN_IPA_URL="http://svn.fedorahosted.org/svn/pki/trunk/pki/ipa"
+SVN_BASE_URL="http://svn.fedorahosted.org/svn/pki/branches/IPA_v2_RHEL_6_ERRATA_BRANCH/pki/base"
+SVN_DOGTAG_URL="http://svn.fedorahosted.org/svn/pki/branches/IPA_v2_RHEL_6_ERRATA_BRANCH/pki/dogtag"
+SVN_IPA_URL="http://svn.fedorahosted.org/svn/pki/branches/IPA_v2_RHEL_6_ERRATA_BRANCH/pki/ipa"
 
 # Name and location of the "top-level" SVN external properties DB.
 SVN_EXTERNAL_PROPERTIES_DB_LOCATION="${PKI_PWD}"
