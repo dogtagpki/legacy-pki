@@ -26,7 +26,6 @@ import sun.misc.*;
 import netscape.security.x509.*;
 import netscape.security.util.*;
 
-import com.netscape.osutil.OSUtil;
 
 public class Utilities {
     private static final String keyValueSeparators = "=: \t\r\n\f";
@@ -304,9 +303,8 @@ public class Utilities {
         temp = temp.replaceAll("\\n", "");
 
         try {
-            // BASE64Decoder base64 = new BASE64Decoder();
-            // byte decodedBASE64Cert[] = base64.decodeBuffer(temp);
-            byte decodedBASE64Cert[] = OSUtil.AtoB(temp);
+            BASE64Decoder base64 = new BASE64Decoder();
+            byte decodedBASE64Cert[] = base64.decodeBuffer(temp);
             X509CertImpl x509_cert = new X509CertImpl(decodedBASE64Cert);
             X509CertInfo certinfo = (X509CertInfo) x509_cert.get("x509.INFO");
 
