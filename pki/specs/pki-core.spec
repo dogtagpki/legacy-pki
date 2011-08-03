@@ -1,6 +1,6 @@
 Name:             pki-core
 Version:          9.0.3
-Release:          11%{?dist}
+Release:          12%{?dist}
 Summary:          Certificate System - PKI Core Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -40,6 +40,7 @@ Patch5:           %{name}-%{version}-r1879.patch
 Patch6:           %{name}-%{version}-r1886.patch
 Patch7:           %{name}-%{version}-r1908.patch
 Patch8:           %{name}-%{version}-r2074.patch
+Patch9:           %{name}-%{version}-r2097.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -393,6 +394,7 @@ This package is a part of the PKI Core used by the Certificate System.
 %patch6 -b .p6
 %patch7 -b .p7
 %patch8 -b .p8
+%patch9 -b .p9
 
 
 %clean
@@ -613,6 +615,10 @@ fi
 
 
 %changelog
+* Wed Aug 3 2011 Ade Lee <alee@redhat.com> 9.0.3-12
+- Resolves #689909 - Dogtag installation under IPA takes too much
+  time - remove the inefficient sleeps, r2097
+
 * Fri Jul 22 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-11
 - Resolves #722634 - Add client usage flag to caIPAserviceCert, r2074
 
