@@ -44,6 +44,7 @@ Patch9:           %{name}-%{version}-r2097.patch
 Patch10:          %{name}-%{version}-r2103.patch
 Patch11:          %{name}-%{version}-r2104.patch
 Patch12:          %{name}-%{version}-r2106.patch
+Patch13:          %{name}-%{version}-r2112.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -401,6 +402,7 @@ This package is a part of the PKI Core used by the Certificate System.
 %patch10 -b .p10
 %patch11 -b .p11
 %patch12 -b .p12
+%patch13 -b .p13
 
 
 %clean
@@ -622,10 +624,12 @@ fi
 
 %changelog
 * Thu Aug 4 2011 Ade Lee <alee@redhat.com> 9.0.3-13
-- Resolves #698796: Race conditions during IPA installation, 2103
-- Resolves #708075 - Clone installation does not work over NAT, 2104
+- Resolves #698796: Race conditions during IPA installation, r2103 (alee)
+- Resolves #708075 - Clone installation does not work over NAT, r2104 (alee)
 - Resolves #726785 - If replication fails while setting up a clone it 
-  will wait forever, 2106
+  will wait forever, r2106 (alee)
+- Resolves #691076 - pkiremove removes the registry entry for all instances
+  on a machine, r2112 (mharmsen)
 
 * Wed Aug 3 2011 Ade Lee <alee@redhat.com> 9.0.3-12
 - Resolves #689909 - Dogtag installation under IPA takes too much
