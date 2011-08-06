@@ -1,6 +1,6 @@
 Name:             pki-kra
 Version:          9.0.0
-Release:          1%{?dist}
+Release:          2%{?dist}
 Summary:          Certificate System - Data Recovery Manager
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -159,6 +159,9 @@ fi
 
 
 %changelog
+* Fri Aug 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-2
+- Bugzilla Bug #693835 - /var/log/tomcat6/catalina.out owned by pkiuser
+
 * Wed Dec 1 2010 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-1
 - Updated Dogtag 1.3.x --> Dogtag 2.0.0 --> Dogtag 9.0.0
 - Bugzilla Bug #620925 - CC: auditor needs to be able to download audit logs
