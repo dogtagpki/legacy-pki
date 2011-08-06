@@ -45,6 +45,7 @@ Patch10:          %{name}-%{version}-r2103.patch
 Patch11:          %{name}-%{version}-r2104.patch
 Patch12:          %{name}-%{version}-r2106.patch
 Patch13:          %{name}-%{version}-r2112.patch
+Patch14:          %{name}-%{version}-r2118.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -403,6 +404,7 @@ This package is a part of the PKI Core used by the Certificate System.
 %patch11 -b .p11
 %patch12 -b .p12
 %patch13 -b .p13
+%patch14 -b .p14
 
 
 %clean
@@ -630,6 +632,8 @@ fi
   will wait forever, r2106 (alee)
 - Resolves #691076 - pkiremove removes the registry entry for all instances
   on a machine, r2112 (mharmsen)
+- Resolves #693835 - /var/log/tomcat6/catalina.out owned by pkiuser, r2118
+  (mharmsen)
 
 * Wed Aug 3 2011 Ade Lee <alee@redhat.com> 9.0.3-12
 - Resolves #689909 - Dogtag installation under IPA takes too much
