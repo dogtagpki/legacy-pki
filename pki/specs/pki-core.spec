@@ -47,6 +47,7 @@ Patch12:          %{name}-%{version}-r2106.patch
 Patch13:          %{name}-%{version}-r2112.patch
 Patch14:          %{name}-%{version}-r2118.patch
 Patch15:          %{name}-%{version}-r2125.patch
+Patch16:          %{name}-%{version}-r2126.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -407,6 +408,7 @@ This package is a part of the PKI Core used by the Certificate System.
 %patch13 -b .p13
 %patch14 -b .p14
 %patch15 -b .p15
+%patch16 -b .p16
 
 
 %clean
@@ -638,6 +640,8 @@ fi
   (mharmsen)
 - Resolves #729126 - Increase default validity from 6mo to 2yrs in IPA
   profile, r2125 (awnuk)
+- Resolves #728651 - CS8 64 bit pkicreate script uses wrong library name
+  for, r2126 (mharmsen)
 
 * Wed Aug 3 2011 Ade Lee <alee@redhat.com> 9.0.3-12
 - Resolves #689909 - Dogtag installation under IPA takes too much
