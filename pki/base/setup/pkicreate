@@ -3049,8 +3049,13 @@ sub process_pki_files_and_symlinks()
 
     # create a filled in empty "password.conf"
     # password file for this instance
-    create_file( $password_conf_instance_file_path,
-                 "$default_security_token:$db_password" );
+    if ($subsystem_type eq $RA || $subsystem_type eq $TPS) {
+        create_file($password_conf_instance_file_path,
+                    "$default_security_token:$db_password" );
+    } else {
+        create_file($password_conf_instance_file_path,
+                    "$default_security_token=$db_password" );
+    }
 
     $result = give_file_to( $password_conf_instance_file_path,
                             $pki_user,
