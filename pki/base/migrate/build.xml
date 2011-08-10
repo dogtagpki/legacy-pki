@@ -162,6 +162,7 @@
                 <include name="TxtTo80/**"/>
                 <include name="80/**"/>
                 <include name="TpsTo80/**"/>
+                <include name="80To81/**"/>
             </zipfileset>
             <zipfileset dir="."
                         filemode="755"
@@ -201,6 +202,7 @@
                 <include name="TxtTo80/**"/>
                 <include name="80/**"/>
                 <include name="TpsTo80/**"/>
+                <include name="80To81/**"/>
             </tarfileset>
             <tarfileset dir="."
                         mode="755"
@@ -278,6 +280,7 @@
                 <include name="TxtTo80/**"/>
                 <include name="80/**"/>
                 <include name="TpsTo80/**"/>
+                <include name="80To81/**"/>
             </zipfileset>
         </zip>
         <echo message="${end.source.zip.log.message}"/>
@@ -318,6 +321,7 @@
                 <include name="TxtTo80/**"/>
                 <include name="80/**"/>
                 <include name="TpsTo80/**"/>
+                <include name="80To81/**"/>
             </tarfileset>
         </tar>
         <echo message="${end.source.tar.log.message}"/>
