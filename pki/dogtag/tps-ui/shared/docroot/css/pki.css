@@ -1,16 +1,17 @@
 /* --- BEGIN COPYRIGHT BLOCK ---
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA  02110-1301  USA
  *
  * Copyright (C) 2007 Red Hat, Inc.
  * All rights reserved.
@@ -248,11 +249,13 @@ a.help-title img {
   vertical-align: top;
 
   /* Mozilla and IE extensions */
-  opacity: 0.75;
+  -moz-opacity: 75%;
+  filter: alpha(opacity=70);
 }
 a.help-title:hover img {
   /* Mozilla and IE extensions */
-  opacity: 1.0;
+  -moz-opacity: 100%;
+  filter: alpha(opacity=100);
 }
 
 a[name]:hover {
@@ -393,7 +396,7 @@ div.up-arrow {
 	font-size: 12px;
 	color: #999;
         float: left;
-        margin: 0 2%;
+        marginp: 0 2%;
         white-space: nowrap;
 }
 .up-arrow img {
@@ -462,7 +465,7 @@ table.namespace-control {
 }
 
 table.details-2-columns {
-	padding: 4px;
+	padding: 4;
 	border: none;
 }
 

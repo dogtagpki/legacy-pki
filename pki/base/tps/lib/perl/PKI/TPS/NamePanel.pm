@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -367,7 +367,12 @@ $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sen
             }
 
             &PKI::TPS::Wizard::debug_log("NamePanel: update: try to import cert from $cert_fn");
-            $tmp = `certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -A -n "$nickname" -t "u,u,u" -a -i $cert_fn`;
+            if ($certtag ne "audit_signing") {
+                $tmp = `certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -A -n "$nickname" -t "u,u,u" -a -i $cert_fn`;
+            } else {
+               $tmp = `certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -A -n "$nickname" -t "u,u,Pu" -a -i $cert_fn`;
+            }
+
             # changed the cert, need to change nickname too, if necessary
             if ($hw ne "") {
                 if ($certtag eq "sslserver") {
@@ -375,13 +380,15 @@ $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sen
                         $::config->put("preop.cert.$certtag.nickname", "$tk$nickname");
                     }
                     $changed = "true";
-                }
-                if ($certtag eq "subsystem") {
+                } elsif ($certtag eq "subsystem") {
                     &PKI::TPS::Wizard::debug_log("NamePanel: update: sslnickname changed");
                     $::config->put("preop.cert.$certtag.nickname", "$tk$nickname");
                     $::config->put("conn.ca1.clientNickname", "$tk$nickname");
                     $::config->put("conn.drm1.clientNickname", "$tk$nickname");
                     $::config->put("conn.tks1.clientNickname", "$tk$nickname");
+                } else {
+                    &PKI::TPS::Wizard::debug_log("NamePanel: update: $certtag changed");
+                    $::config->put("preop.cert.$certtag.nickname", "$tk$nickname");
                 }
                 $::config->commit();
              } else {
@@ -405,38 +412,20 @@ $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sen
     my $selftestNickname = $::config->get( "preop.cert.subsystem.nickname" );
     my $selftestNickname_sslserver = $::config->get( "preop.cert.sslserver.nickname" );
     my $selftestNickname_audit_signing = $::config->get( "preop.cert.audit_signing.nickname" );
-    if ($hw ne "") {
-        $::config->put( "selftests.plugin.TPSPresence.nickname",
-                        "$tk$selftestNickname" );
-        $::config->put( "selftests.plugin.TPSValidity.nickname", 
-                        "$tk$selftestNickname" );
+    $::config->put( "selftests.plugin.TPSPresence.nickname",
+                    "$selftestNickname" );
+    $::config->put( "selftests.plugin.TPSValidity.nickname", 
+                    "$selftestNickname" );
 
-        $::config->put( "tps.cert.sslserver.nickname",
-                        "$tk$selftestNickname_sslserver" );
-        $::config->put( "tps.cert.subsystem.nickname",
-                        "$tk$selftestNickname" );
-        $::config->put( "tps.cert.audit_signing.nickname",
-                        "$tk$selftestNickname_audit_signing" );
+    $::config->put( "tps.cert.sslserver.nickname",
+                    "$selftestNickname_sslserver" );
+    $::config->put( "tps.cert.subsystem.nickname",
+                    "$selftestNickname" );
+    $::config->put( "tps.cert.audit_signing.nickname",
+                    "$selftestNickname_audit_signing" );
 
-        $::config->put( "logging.audit.signedAuditCertNickname",
-                        "$tk$selftestNickname_audit_signing" );
-    } else {
-        $::config->put( "selftests.plugin.TPSPresence.nickname",
-                        "$selftestNickname" );
-        $::config->put( "selftests.plugin.TPSValidity.nickname", 
-                        "$selftestNickname" );
-
-        $::config->put( "tps.cert.sslserver.nickname",
-                        "$selftestNickname_sslserver" );
-        $::config->put( "tps.cert.subsystem.nickname",
-                        "$selftestNickname" );
-        $::config->put( "tps.cert.audit_signing.nickname",
-                        "$selftestNickname_audit_signing" );
-
-        $::config->put( "logging.audit.signedAuditCertNickname",
-                        "$selftestNickname_audit_signing" );
-    }
-    $::config->commit();
+    $::config->put( "logging.audit.signedAuditCertNickname",
+                    "$selftestNickname_audit_signing" );
 
 DONE:
     $::config->put("preop.namepanel.done", "true");
