@@ -85,13 +85,13 @@ implements CertAttrSet {
         DerOutputStream seq = new DerOutputStream();
 
         DerOutputStream tagged = new DerOutputStream();
-        if ((permitted != null) &&(permitted.getSubtrees().size()>0)) {
+        if (permitted != null) {
             DerOutputStream tmp = new DerOutputStream();
             permitted.encode(tmp);
             tagged.writeImplicit(DerValue.createTag(DerValue.TAG_CONTEXT,
                                  true, TAG_PERMITTED), tmp);
         }
-        if ((excluded != null) && (excluded.getSubtrees().size()>0)) {
+        if (excluded != null) {
             DerOutputStream tmp = new DerOutputStream();
             excluded.encode(tmp);
             tagged.writeImplicit(DerValue.createTag(DerValue.TAG_CONTEXT,

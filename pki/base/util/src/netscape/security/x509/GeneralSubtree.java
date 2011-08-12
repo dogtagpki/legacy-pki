@@ -125,7 +125,10 @@ public class GeneralSubtree {
 
         name.encode(seq);
 
-        if (minimum != MIN_DEFAULT) 
+		// XXX NSS 2.8 crashes when minimum is not set.
+		// always encode minimum as a workaround. 
+		// REMOVE WHEN NSS HAS FIXED THE PROBLEM.
+        // if (minimum != MIN_DEFAULT) 
 		{
             DerOutputStream tmp = new DerOutputStream();
             tmp.putInteger(new BigInt(minimum));

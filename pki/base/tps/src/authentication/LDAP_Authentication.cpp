@@ -160,7 +160,7 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
     LDAP *ld = NULL;
     int status = TPS_AUTH_ERROR_LDAP;
     int version = LDAP_VERSION3;
-    LDAPMessage *result = NULL, *e = NULL;
+    LDAPMessage *result, *e;
     char *dn = NULL;
     char *uid = NULL;
     char *password = NULL;

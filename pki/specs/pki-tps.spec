@@ -1,5 +1,5 @@
 Name:             pki-tps
-Version:          9.0.6
+Version:          9.0.0
 Release:          1%{?dist}
 Summary:          Certificate System - Token Processing System
 URL:              http://pki.fedoraproject.org/
@@ -25,7 +25,6 @@ Requires:         mod_nss
 Requires:         mod_perl
 Requires:         mod_revocator
 Requires:         openldap-clients
-Requires:         perl-Mozilla-LDAP
 Requires:         pki-native-tools
 Requires:         pki-selinux
 Requires:         pki-setup
@@ -215,63 +214,6 @@ fi
 
 
 %changelog
-* Wed Aug 10 2011 Jack Magne <jmagne@redhat.com> 9.0.6-1
-- Bugzilla Bug #725572 - Starting TPS subsystem with no pre-existing audit
-  log file does not write audit messages.
-
-* Thu Jul 14 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.5-1
-- Bugzilla Bug #697035 - TPS database schema not populated correctly
-  (alee)
-- Bugzilla Bug #694569 - parameter used by pkiremove not updated (alee)
-- Bugzilla Bug #696851 - TPS crashes that cause AuditVerify on TPS audit
-  logs - some of the signatures are failing. (jmagne)
-- Bugzilla Bug #699837 - service command is not fully backwards
-  compatible with Dogtag pki subsystems (mharmsen)
-- Bugzilla Bug #696443 - ESC display Smartcard renewal operation success
-  for a failed renewal operation. (jmagne)
-- Bugzilla Bug #707095 - tps delete user operation should check for roles
-  (not have them passed in) (alee)
-- Bugzilla Bug #717813 - EV_AUDIT_LOG_SHUTDOWN audit log not generated
-  for tps and ca on server shutdown (alee)
-- Bugzilla Bug #717765 - TPS configuration: logging into security domain
-  from tps does not work with clientauth=want. (alee)
-- Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-
-* Tue Apr 26 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.4-1
-- Bugzilla Bug #697035 - TPS database schema not populated correctly
-- Bugzilla Bug #694569 - parameter used by pkiremove not updated
-- Bugzilla Bug #696851 - TPS crashes that cause AuditVerify on
-  TPS audit logs - some of the signatures are failing.
-- Bugzilla Bug #699837 - service command is not fully backwards compatible
-  with Dogtag pki subsystems
-
-* Tue Apr 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #691867 - add ldaps support through perLDAP
-
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.2-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #684381 - CS.cfg specifies incorrect type of comments
-- Bugzilla Bug #689956 - TPS Configuration with nethsm: audit signing
-  certificate location is not configured to nethsm in CS.cfg
-
-* Thu Mar 17 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.1-1
-- Bugzilla Bug #688763 - Rebase updated Dogtag Packages for Fedora 15 (alpha)
-- Bugzilla Bug #676421 - CC: Remove unused TPS interface calls and add
-  audit logging
-- Bugzilla Bug #676678 - Missing audit log messages for Secure Channel
-  Generation.
-- Bugzilla Bug #606944 - Convert TPS to use ldap utilities and API from
-  OpenLDAP instead of the Mozldap
-- Bugzilla Bug #676152 - Token enrollment with symmetric key change over
-  fails.
-- Bugzilla Bug #674396 - TPS: some audit signatures failed to verify
-- Bugzilla Bug #680567 - CC doc: remove update.applet.directory audit
-  message from TPS doc.
-- Bugzilla Bug #681066 - TPS authentication crash when exercising audit
-  log message.
-- Bugzilla Bug #684259 - incorrect group used for tps operators
-
 * Wed Dec 1 2010 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-1
 - Updated Dogtag 1.3.x --> Dogtag 2.0.0 --> Dogtag 9.0.0
 - Bugzilla Bug #620863 - saved CS.cfg files should be moved to a subdirectory

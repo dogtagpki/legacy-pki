@@ -421,7 +421,6 @@ public abstract class CMSServlet extends HttpServlet {
                 pn.equalsIgnoreCase("pin")                  ||
                 pn.equalsIgnoreCase("pwd")                  ||
                 pn.equalsIgnoreCase("pwdagain")             ||
-                pn.startsWith("p12Password")                ||
                 pn.equalsIgnoreCase("uPasswd") ) {
               CMS.debug("CMSServlet::service() param name='" + pn +
                         "' value='(sensitive)'" );
@@ -1817,76 +1816,11 @@ public abstract class CMSServlet extends HttpServlet {
         }
     }
 
-    public AuthzToken authorize(String authzMgrName, String resource, IAuthToken authToken,
+    public AuthzToken authorize(String authzMgrName, IAuthToken authToken,
       String exp) throws EBaseException {
-        AuthzToken authzToken = null;
-        String auditMessage = null;
-        String auditSubjectID = auditSubjectID();
-        String auditGroupID = auditGroupID();
-        String auditACLResource = resource;
-        String auditOperation = "enroll";
-
-        SessionContext auditContext = SessionContext.getExistingContext();
-        String authManagerId = null;
-
-        try {
-            authzToken = mAuthz.authorize(authzMgrName, authToken, exp);
-            if (authzToken != null) {
-                auditMessage = CMS.getLogMessage(
-                            LOGGING_SIGNED_AUDIT_AUTHZ_SUCCESS,
-                            auditSubjectID,
-                            ILogger.SUCCESS,
-                            auditACLResource,
-                            auditOperation);
-
-                audit(auditMessage);
-
-                // store a message in the signed audit log file
-                auditMessage = CMS.getLogMessage(
-                            LOGGING_SIGNED_AUDIT_ROLE_ASSUME,
-                            auditSubjectID,
-                            ILogger.SUCCESS,
-                            auditGroupID);
-
-                audit(auditMessage);
-            } else {
-                auditMessage = CMS.getLogMessage(
-                            LOGGING_SIGNED_AUDIT_AUTHZ_FAIL,
-                            auditSubjectID,
-                            ILogger.FAILURE,
-                            auditACLResource,
-                            auditOperation);
-
-                audit(auditMessage);
-
-                auditMessage = CMS.getLogMessage(
-                            LOGGING_SIGNED_AUDIT_ROLE_ASSUME,
-                            auditSubjectID,
-                            ILogger.FAILURE,
-                            auditGroupID);
-
-                audit(auditMessage);
-            }
-            return authzToken;
-        } catch (Exception e) {
-            auditMessage = CMS.getLogMessage(
-                        LOGGING_SIGNED_AUDIT_AUTHZ_FAIL,
-                        auditSubjectID,
-                        ILogger.FAILURE,
-                        auditACLResource,
-                        auditOperation);
-
-            audit(auditMessage);
-
-            auditMessage = CMS.getLogMessage(
-                        LOGGING_SIGNED_AUDIT_ROLE_ASSUME,
-                        auditSubjectID,
-                        ILogger.FAILURE,
-                        auditGroupID);
-
-            audit(auditMessage);
-            throw new EBaseException(e.toString());
-        }
+        AuthzToken authzToken = mAuthz.authorize(authzMgrName, authToken,
+          exp);
+        return authzToken;
     }
 
     /**
@@ -2283,21 +2217,8 @@ public abstract class CMSServlet extends HttpServlet {
             if (c == ',' || c == '=' || c == '+' || c == '<' ||
                 c == '>' || c == '#' || c == ';' || c == '\r' ||
                 c == '\n' || c == '\\' || c == '"') {
-                if ((c == 0x5c) && ((i+1) < v.length())) {
-                    int nextC = v.charAt(i+1);
-                    if ((c == 0x5c) && (nextC == ',' || nextC == '=' || nextC == '+' ||
-                                        nextC == '<' || nextC == '>' || nextC == '#' ||
-                                        nextC == ';' || nextC == '\r' || nextC == '\n' ||
-                                        nextC == '\\' || nextC == '"')) {
-                        if (doubleEscape) result.append('\\');
-                    } else {
                         result.append('\\');
                         if (doubleEscape) result.append('\\');
-                    }
-                } else {
-                    result.append('\\');
-                    if (doubleEscape) result.append('\\');
-                }
             }
             if (c == '\r') {
                 result.append("0D");

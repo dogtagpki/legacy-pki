@@ -35,8 +35,14 @@
 [REQUIRE_CFG_PL]
 
 use CGI;
-use Mozilla::LDAP::Conn;
-use PKI::TPS::Common;
+
+my $ldapHost = get_ldap_host();
+my $ldapPort = get_ldap_port();
+my $basedn = get_base_dn();
+my $port = get_port();
+my $host = get_host();
+my $secure_port = get_secure_port();
+my $ldapsearch = get_ldapsearch();
 
 $gQuery = new CGI;
 
@@ -183,14 +189,6 @@ sub GetNextAction
 sub GenerateEnrollmentPage
 {
   my ($l);
-  my $ldap_host = get_ldap_host();
-  my $ldap_port = get_ldap_port();
-  my $secureconn = get_ldap_secure();
-  my $basedn = get_base_dn();
-  my $port = get_port();
-  my $host = get_host();
-  my $secure_port = get_secure_port();
-  my $certdir = get_ldap_certdir();
 
   ExitError("Failed to load enrollment page!") if (!open(ENROLL_FILE, "< enroll.html"));
 
@@ -198,31 +196,57 @@ sub GenerateEnrollmentPage
 
   my $uid = $gQuery->param("uid");
 
-  my $conn =  PKI::TPS::Common::make_connection(
-                  {host => $ldap_host, port => $ldap_port, cert => $certdir},
-                  $secureconn);
+  my $tmpfile = "/tmp/read-$$.txt";
+  my $cmd = $ldapsearch . " " .
+            "-x " .
+            "-b \"" . $basedn . "\" " .
+            "-h \"" . $ldapHost . "\" " .
+            "-p \"" . $ldapPort ."\" " .
+            "\"(uid=" . $uid . ")\" > " . $tmpfile;
+  system($cmd);
 
-  ExitError("Failed to connect to the database. $msg") if (!$conn);
+  open(F, "<$tmpfile");
 
-  my $entry = $conn->search ( $basedn,
-                              "sub",
-                              "uid=$uid",
-                              0
-                            );
+  my $givenName = "-";
+  my $cn = "-";
+  my $sn = "-";
+  $uid = "-";
+  my $mail = "-";
+  my $phone = "-";
+  my $departmentNumber = ""; # photo (full size)
+  my $employeeNumber = ""; # photo (thumb)
 
-  if (!$entry) {
-    $conn->close();
-    ExitError("User $uid not found");
+  # get ldap values into internal varibles
+  while (<F>) {
+    if (/mail: (.*)/) {
+      $mail = $1;
+    }
+    if (/uid: (.*)/) {
+      $uid = $1;
+    }
+    if (/givenName: (.*)/) {
+      $givenName = $1;
+    }
+    if (/sn: (.*)/) {
+      $sn = $1;
+    }
+    if (/cn: (.*)/) {
+      $cn = $1;
+    }
+    if (/telephoneNumber: (.*)/) {
+      $phone = $1;
+    }
+    if (/departmentNumber: (.*)/) {
+      $departmentNumber = $1;
+    }
+    if (/employeeNumber: (.*)/) {
+      $employeeNumber = $1;
+    }
   }
+  close(F);
 
-  my $givenName = ($entry->getValues("givenName"))[0] ||  "-";
-  my $cn = ($entry->getValues("cn"))[0] || "-";
-  my $sn = ($entry->getValues("sn"))[0] ||"-";
-  $uid = ($entry->getValues("uid"))[0] || "-";
-  my $mail = ($entry->getValues("mail"))[0] || "-";
-  my $phone = ($entry->getValues("telephoneNumber"))[0] || "-";
-  my $departmentNumber = ($entry->getValues("departmentNumber"))[0] || "";
-  my $employeeNumber = ($entry->getValues("employeeNumber"))[0] || "";
+  system("rm $tmpfile");
+
 
   while ($l = <ENROLL_FILE>)
   {

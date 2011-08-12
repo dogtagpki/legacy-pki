@@ -668,7 +668,7 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
     char * err = strstr((char *)response, (char *)pattern);
 
     RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
-          "begin parsing err: %s", err);
+          "begin parsing");
 
     if (err == NULL) {
       RA::Error("CertEnroll::parseResponse",
