@@ -1,6 +1,6 @@
 Name:             pki-core
 Version:          9.0.3
-Release:          13%{?dist}
+Release:          14%{?dist}
 Summary:          Certificate System - PKI Core Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -49,6 +49,7 @@ Patch14:          %{name}-%{version}-r2118.patch
 Patch15:          %{name}-%{version}-r2125.patch
 Patch16:          %{name}-%{version}-r2126.patch
 Patch17:          %{name}-%{version}-r2128.patch
+Patch18:          %{name}-%{version}-r2149.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -411,6 +412,7 @@ This package is a part of the PKI Core used by the Certificate System.
 %patch15 -b .p15
 %patch16 -b .p16
 %patch17 -b .p17
+%patch18 -b .p18
 
 
 %clean
@@ -631,6 +633,10 @@ fi
 
 
 %changelog
+* Mon Aug 15 2011 Ade Lee <alee@redhat.com> 9.0.3-14
+- Resolves #700522 - pki tomcat6 instances currently running unconfined, 
+  allow server to come up when selinux disabled, r2149
+
 * Thu Aug 4 2011 Ade Lee <alee@redhat.com> 9.0.3-13
 - Resolves #698796: Race conditions during IPA installation, r2103 (alee)
 - Resolves #708075 - Clone installation does not work over NAT, r2104 (alee)
