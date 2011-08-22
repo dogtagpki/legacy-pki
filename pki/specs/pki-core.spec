@@ -1,6 +1,6 @@
 Name:             pki-core
 Version:          9.0.3
-Release:          14%{?dist}
+Release:          15%{?dist}
 Summary:          Certificate System - PKI Core Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -50,6 +50,7 @@ Patch15:          %{name}-%{version}-r2125.patch
 Patch16:          %{name}-%{version}-r2126.patch
 Patch17:          %{name}-%{version}-r2128.patch
 Patch18:          %{name}-%{version}-r2149.patch
+Patch19:          %{name}-%{version}-r2151.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -413,6 +414,7 @@ This package is a part of the PKI Core used by the Certificate System.
 %patch16 -b .p16
 %patch17 -b .p17
 %patch18 -b .p18
+%patch19 -b .p19
 
 
 %clean
@@ -633,6 +635,9 @@ fi
 
 
 %changelog
+* Mon Aug 22 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-15
+- Resolves #717643 - Fopen without NULL check and other Coverity issues
+
 * Mon Aug 15 2011 Ade Lee <alee@redhat.com> 9.0.3-14
 - Resolves #700522 - pki tomcat6 instances currently running unconfined, 
   allow server to come up when selinux disabled, r2149
