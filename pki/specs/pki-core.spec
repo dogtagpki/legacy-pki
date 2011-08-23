@@ -1,6 +1,6 @@
 Name:             pki-core
 Version:          9.0.3
-Release:          17%{?dist}
+Release:          18%{?dist}
 Summary:          Certificate System - PKI Core Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -53,6 +53,7 @@ Patch18:          %{name}-%{version}-r2149.patch
 Patch19:          %{name}-%{version}-r2151.patch
 Patch20:          %{name}-%{version}-r2153.patch
 Patch21:          %{name}-%{version}-r2161.patch
+Patch22:          %{name}-%{version}-r2163.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -419,6 +420,7 @@ This package is a part of the PKI Core used by the Certificate System.
 %patch19 -b .p19
 %patch20 -b .p20
 %patch21 -b .p21
+%patch22 -b .p22
 
 
 %clean
@@ -639,6 +641,9 @@ fi
 
 
 %changelog
+* Tue Aug 23 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-18
+- Resolves #730801 - Coverity issues in native-tools area, r2163
+
 * Tue Aug 23 2011 Ade Lee <alee@redhat.com> 9.0.3-17
 - Resolves #712931 - CS requires too many ports to be open in the FW, r2161
 
