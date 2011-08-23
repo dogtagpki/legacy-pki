@@ -1,6 +1,6 @@
 Name:             ipa-pki-theme
 Version:          9.0.3
-Release:          6%{?dist}
+Release:          7%{?dist}
 Summary:          Certificate System - IPA PKI Theme Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -15,6 +15,7 @@ BuildRequires:    cmake
 Source0:          http://pki.fedoraproject.org/pki/sources/%{name}/%{name}-%{version}.tar.gz
 
 Patch0:           %{name}-%{version}-r1886.patch
+Patch1:           %{name}-%{version}-r2161.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -98,6 +99,7 @@ This package is used by the Certificate System utilized by IPA.
 
 
 %patch0 -b .p0
+%patch1 -b .p1
 
 
 %clean
@@ -131,6 +133,9 @@ cd build
 
 
 %changelog
+* Tue Aug 23 2011 Ade Lee <alee@redhat.com> 9.0.3-7
+- Resolves #712931 - CS requires too many ports to be open in the FW, r2161
+
 * Wed Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-6
 - Resolves: #643543
 - update to the ipa-pki-theme-9.0.3-r1886.patch file
