@@ -698,7 +698,7 @@ start_instance()
                      $PKI_INSTANCE_INITSCRIPT start
                 rv=$?
             else
-                $PKI_INSTANCE_INITSCRIPT start 
+                $PKI_INSTANCE_INITSCRIPT start
                 rv=$?
             fi
             ;;

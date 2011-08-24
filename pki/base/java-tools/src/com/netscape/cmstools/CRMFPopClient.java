@@ -36,7 +36,7 @@ import org.mozilla.jss.CryptoManager;
 import org.mozilla.jss.crypto.CryptoToken;
 import org.mozilla.jss.crypto.KeyPairGenerator;
 import org.mozilla.jss.crypto.KeyPairAlgorithm;
-import netscape.security.provider.RSAPublicKey;
+//import netscape.security.provider.RSAPublicKey;
 import netscape.security.pkcs.PKCS10;
 //import java.security.Signature;
 import netscape.security.x509.X500Name;
@@ -58,7 +58,7 @@ import com.netscape.cmsutil.util.*;
  * Usage:
  * <pre>
  *     CRMFPopClient  TOKEN_PWD
- *                    PROFILE_NAME HOST PORT USER_NAME REQUESTOR_NAME
+ *                    Authenticator HOST PORT USER_NAME PASSWORD
  *                    POP_OPTION
  *                    SUBJECT_DN [OUTPUT_CERT_REQ]
  *
@@ -75,14 +75,14 @@ import com.netscape.cmsutil.util.*;
  * Examples:
  * <pre>
  *     CRMFPopClient  password123
- *                    caEncUserCert host.example.com 1026 MyUid MyUid
+ *                    nullAuthMgr host.netscape.com 1026 admin netscape
  *                    [POP_SUCCESS or POP_FAIL or POP_NONE]
  *                    CN=MyTest,C=US,UID=MyUid
  *
  *                    ---  or  ---
  *
  *     CRMFPopClient  password123
- *                    caEncUserCert host.example.com 1026 joe joe
+ *                    nullAuthMgr host.netscape.com 1026 admin netscape
  *                    [POP_SUCCESS or POP_FAIL or POP_NONE]
  *                    CN=MyTest,C=US,UID=MyUid OUTPUT_CERT_REQ 
  *
@@ -114,7 +114,7 @@ public class CRMFPopClient
            System.out.println("Usage:");
            System.out.println("");
            System.out.println("    CRMFPopClient TOKEN_PWD");
-           System.out.println("                  PROFILE_NAME HOST PORT USER_NAME REQUESTOR_NAME");
+           System.out.println("                  Authenticator HOST PORT USER_NAME PASSWORD");
            System.out.println("                  POP_OPTION");
            System.out.println("                  SUBJECT_DN  [OUTPUT_CERT_REQ]   \n");
            System.out.println("                  ---  or  ---\n");
@@ -125,12 +125,12 @@ public class CRMFPopClient
            System.out.println("Examples:");
            System.out.println("");
            System.out.println("    CRMFPopClient password123");
-           System.out.println("                  caEncUserCert host.example.com 1026 MyUid MyUid");
+           System.out.println("                  nullAuthMgr host.netscape.com 1026 admin netscape");
            System.out.println("                  [POP_SUCCESS or POP_FAIL or POP_NONE]");
            System.out.println("                  CN=MyTest,C=US,UID=MyUid\n");
            System.out.println("                  ---  or  ---\n");
            System.out.println("    CRMFPopClient password123"); 
-           System.out.println("                  caEncUserCert host.example.com 1026 MyUid myUid");
+           System.out.println("                  nullAuthMgr host.netscape.com 1026 admin netscape");
            System.out.println("                  [POP_SUCCESS or POP_FAIL or POP_NONE]");
            System.out.println("                  CN=MyTest,C=US,UID=MyUid OUTPUT_CERT_REQ\n"); 
            System.out.println("                  ---  or  ---\n");
@@ -181,13 +181,13 @@ public class CRMFPopClient
 
            int argsLen =  getRealArgsLength(args);
 
-           // System.out.println("args length " + argsLen);
+          // System.out.println("args length " + argsLen);
 
 
            System.out.println("\n\nProof Of Possession Utility....");
            System.out.println("");
 
-           if(argsLen == 0 || (argsLen != 8 && argsLen != 9 && argsLen !=10 && argsLen != 4))
+           if(argsLen == 0 || (argsLen != 8 && argsLen != 9 && argsLen != 4))
            {
                 usage();
                 return;
@@ -200,21 +200,22 @@ public class CRMFPopClient
 
            int PORT = 0;
            String USER_NAME = null;
-           String REQUESTOR_NAME = null;
-           String PROFILE_NAME = null;
+           String USER_PWORD = null;
+           String AUTHENTICATOR = null;
  
            String HOST = null; 
            String SUBJ_DN = null;
+
               
            if(argsLen >= 8)
            { 
-               PROFILE_NAME = args[1];
+               AUTHENTICATOR = args[1];
                HOST = args[2];
     
                PORT = Integer.parseInt(args[3]);
 
                USER_NAME = args[4];
-               REQUESTOR_NAME = args[5];
+               USER_PWORD = args[5];
 
                SUBJ_DN = args[7];
 
@@ -231,9 +232,11 @@ public class CRMFPopClient
 
            int doServerHit = 1;
 
-           if(argsLen >= 9) { 
+           if(argsLen == 9)  
                 OUTPUT_CERT_REQ = args[8];
-           } 
+                     
+
+
 
             if(argsLen == 4)
             {
@@ -279,7 +282,7 @@ public class CRMFPopClient
 	    } catch (Exception e) { 
 		// it is ok if it is already initialized 
 		System.out.println("INITIALIZATION ERROR: " + e.toString());
-                //		return;
+//		return;
             }
 
 
@@ -303,7 +306,7 @@ public class CRMFPopClient
 		KeyPairAlgorithm.RSA); 
 		kg.initialize(KEY_LEN);
 
-		String profileName = PROFILE_NAME;
+		String authenticator = AUTHENTICATOR;
 		pair = kg.genKeyPair(); 
 
                 System.out.println("."); //key pair generated");
@@ -369,7 +372,7 @@ public class CRMFPopClient
 		    certTemplate.setPublicKey(new SubjectPublicKeyInfo(pair.getPublic()));
 		    // set extension
 		    AlgorithmIdentifier algS = new AlgorithmIdentifier(new OBJECT_IDENTIFIER("1.2.840.113549.3.7"), new OCTET_STRING(iv));
-		    EncryptedValue encValue = new EncryptedValue(null, algS, new BIT_STRING(session_data, 0),null, null,new BIT_STRING(key_data, 0));
+		    EncryptedValue encValue = new EncryptedValue(null, algS, new BIT_STRING(session_data, 7),null, null,new BIT_STRING(key_data, 7));
 		    EncryptedKey key = new EncryptedKey(encValue);
 		    PKIArchiveOptions opt = new PKIArchiveOptions(key);
 		    SEQUENCE seq = new SEQUENCE();
@@ -502,7 +505,8 @@ byte[] b =
 
          		// post PKCS10 
 
-                        url = new URL("http://" + HOST + ":" + PORT + "/ca/ee/ca/profileSubmit?cert_request_type=crmf&cert_request=" + Req + "&renewal=false&uid=" + USER_NAME + "&xmlOutput=false&&profileId=" + profileName + "&sn_uid=" + USER_NAME +"&SubId=profile&requestor_name="+ REQUESTOR_NAME);
+			url = new URL("http://" + HOST + ":" + PORT + "/enrollment?importCert=off&uid="+USER_NAME+"&pwd="+ USER_PWORD+"&authenticator=" + authenticator + "&csrRequestorName=" + USER_PREFIX + 0 + "&CN=testuser&UID=" + USER_PREFIX + 0 + "&SMIME=true&SSLClient=true&ObjectSigning=false&csrRequestorEmail=mail&csrRequestorPhone=1234&csrRequestorComments=hello&CRMFRequest=" + Req + "&submit=Submit&subject=CN%3Dtestuser%2CUID%3D$user%2COU%3DPKI%2CO%3DU.S.Government%2CC%3DUS&certType=client&templateType=DisplayBySerial");
+
 			//System.out.println("Posting " + url);
 
                         System.out.println(""); 
@@ -558,7 +562,7 @@ byte[] b =
 
             int nameLen = x5Name.getNamesLength();
 
-            //            System.out.println("x5Name len: " + nameLen);
+//            System.out.println("x5Name len: " + nameLen);
 
             netscape.security.x509.RDN cur = null;
 
@@ -580,14 +584,14 @@ byte[] b =
                 {
 
                      ret.addElement(new AVA(new OBJECT_IDENTIFIER("0.9.2342.19200300.100.1.1"),  new PrintableString(split[1]))); 
-                     //                    System.out.println("UID found : " + split[1]);
+ //                    System.out.println("UID found : " + split[1]);
 
                 }
 
                 if(split[0].equals("C"))
                 {
                      ret.addCountryName(split[1]);
-                     //                   System.out.println("C found : " + split[1]);
+  //                   System.out.println("C found : " + split[1]);
                      continue;
 
                 }
@@ -595,28 +599,28 @@ byte[] b =
                 if(split[0].equals("CN"))
                 {
                      ret.addCommonName(split[1]);
-                     //                  System.out.println("CN found : " + split[1]);
+   //                  System.out.println("CN found : " + split[1]);
                      continue;
                 }
 
                 if(split[0].equals("L"))
                 {
                      ret.addLocalityName(split[1]);
-                     //                 System.out.println("L found : " + split[1]);
+    //                 System.out.println("L found : " + split[1]);
                      continue;
                 }
 
                 if(split[0].equals("O"))
                 {
                      ret.addOrganizationName(split[1]);
-                     //                System.out.println("O found : " + split[1]);
+     //                System.out.println("O found : " + split[1]);
                      continue;
                 }
 
                 if(split[0].equals("ST"))
                 {
                      ret.addStateOrProvinceName(split[1]);
-                     //               System.out.println("ST found : " + split[1]);
+      //               System.out.println("ST found : " + split[1]);
                      continue;
                 }
 

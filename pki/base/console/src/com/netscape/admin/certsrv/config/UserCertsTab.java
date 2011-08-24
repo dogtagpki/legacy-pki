@@ -126,7 +126,7 @@ public class UserCertsTab extends CMSBaseUGTab {
                 nvps.add(Constants.PR_NICK_NAME, nickname);
                 nvps.add(Constants.PR_SERIAL_NUMBER, serialno);
                 nvps.add(Constants.PR_ISSUER_NAME, issuername);
-                NameValuePairs results = mConnection.read(
+                NameValuePairs results = mConnection.process(
                   DestDef.DEST_SERVER_ADMIN, ScopeDef.SC_CERT_PRETTY_PRINT,
                   Constants.RS_ID_CONFIG, nvps);
                 if (nvps.size() <= 0)
@@ -185,8 +185,7 @@ public class UserCertsTab extends CMSBaseUGTab {
         //actionlister to this object
         mRefresh = makeJButton("REFRESH");
         mHelp = makeJButton("HELP");
-        //JButton[] buttons = { mRefresh, mHelp };
-        JButton[] buttons = { mRefresh };
+        JButton[] buttons = { mRefresh, mHelp };
         return makeJButtonPanel(buttons, true);
     }
 

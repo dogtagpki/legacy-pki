@@ -137,7 +137,7 @@ static void
 Usage(const char *progName)
 {
     fprintf(stderr, 
-    	"Usage: %s [-n nickname] [-p password | -w pwfile ] [-d dbdir] \n"
+    	"Usage: %s -n nickname [-p password | -w pwfile ] [-d dbdir] \n"
 	"          [-e post] [-v] [-V] -r url hostname[:port]\n"
     "     -n  : nickname or hsm:nickname\n"
     "     -v  : verbose\n"
@@ -580,11 +580,9 @@ client_main(
 
     SSL_BadCertHook(model_sock, myBadCertHandler, NULL);
 
-    if( nickName) {
-    	SSL_GetClientAuthDataHook(model_sock, 
+    SSL_GetClientAuthDataHook(model_sock, 
                               (SSLGetClientAuthData)my_GetClientAuthData, 
                               nickName);
-    }
 
     /* I'm not going to set the HandshakeCallback function. */
 
@@ -725,8 +723,8 @@ main(int argc, char **argv)
      	port = (unsigned short)tmpI;
     }
 
-    if ( !url) {
-	fprintf( stderr, "ERROR:  Invalid url!\n" );
+    if (!nickName || !url) {
+	fprintf( stderr, "ERROR:  Invalid nickname or url!\n" );
 	Usage(progName);
     }
 
@@ -759,19 +757,18 @@ main(int argc, char **argv)
 	exit(1);
     }
 
-    if(nickName) {
-    	cert[kt_rsa] = PK11_FindCertFromNickname(nickName, passwd);
-    	if (cert[kt_rsa] == NULL) {
-		fprintf(stderr, "Can't find certificate %s\n", nickName);
-		exit(1);
-    	}
-    
-    	privKey[kt_rsa] = PK11_FindKeyByAnyCert(cert[kt_rsa], passwd);
-    	if (privKey[kt_rsa] == NULL) {
-		fprintf(stderr, "Can't find Private Key for cert %s (possibly incorrect password)\n", nickName);
-		exit(1);
-    	}
+    cert[kt_rsa] = PK11_FindCertFromNickname(nickName, passwd);
+    if (cert[kt_rsa] == NULL) {
+	fprintf(stderr, "Can't find certificate %s\n", nickName);
+	exit(1);
     }
+
+    privKey[kt_rsa] = PK11_FindKeyByAnyCert(cert[kt_rsa], passwd);
+    if (privKey[kt_rsa] == NULL) {
+	fprintf(stderr, "Can't find Private Key for cert %s (possibly incorrect password)\n", nickName);
+	exit(1);
+    }
+
 
     client_main(port, connections, privKey, cert, hostName, nickName);
 

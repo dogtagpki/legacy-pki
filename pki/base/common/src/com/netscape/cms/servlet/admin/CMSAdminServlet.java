@@ -163,8 +163,6 @@ public final class CMSAdminServlet extends AdminServlet {
                     getSubjectName(req, resp);
                 else if (scope.equals(ScopeDef.SC_GET_NICKNAMES))
                     getAllNicknames(req, resp);
-                else if (scope.equals(ScopeDef.SC_CERT_PRETTY_PRINT))
-                    getCertPrettyPrint(req, resp);
             } else if (op.equals(OpDef.OP_MODIFY)) {
                 mOp = "modify";
                 if ((mToken = super.authorize(req)) == null) {
@@ -2275,45 +2273,23 @@ private void 	createMasterKey(HttpServletRequest req,
             //		nickname).
             //
 
-            CMS.debug("CMSAdminServlet.installCert(): About to try jssSubSystem.importCert: "+ nicknameWithoutTokenName);
             try {
                 jssSubSystem.importCert(pkcs, nicknameWithoutTokenName, 
                     certType);
             } catch (EBaseException e) {
-
-                boolean certFound = false;
-
-                String eString = e.toString();
-                if(eString.contains("Failed to find certificate that was just imported")) {
-                    CMS.debug("CMSAdminServlet.installCert(): nickname="+nicknameWithoutTokenName + " TokenException: " + eString);
-
-                    X509Certificate cert = null;
-                    try {
-                        cert = CryptoManager.getInstance().findCertByNickname(nickname);
-                        if (cert != null) {
-                            certFound = true;
-                        }
-                        CMS.debug("CMSAdminServlet.installCert() Found cert just imported: " + nickname);
-                    } catch (Exception ex) {
-                        CMS.debug("CMSAdminServlet.installCert() Can't find cert just imported: " + ex.toString());
-                    }
-                } 
-
-                if (!certFound) {
-                    // if it fails, let use a different nickname to try
-                    Date now = new Date();	
-                    String newNickname = nicknameWithoutTokenName + "-" +
+                // if it fails, let use a different nickname to try
+                Date now = new Date();	
+                String newNickname = nicknameWithoutTokenName + "-" +
                                      now.getTime();
 
-                    jssSubSystem.importCert(pkcs, newNickname, certType);
-                    nicknameWithoutTokenName = newNickname;
-                    if (tokenName.equals(Constants.PR_INTERNAL_TOKEN_NAME)) {
-                        nickname = newNickname;
-                    } else {
-                        nickname = tokenName + ":" + newNickname;
-                    }
-                    CMS.debug("CMSAdminServlet: installCert():  After second install attempt following initial error: nickname="+nickname);
-               }
+                jssSubSystem.importCert(pkcs, newNickname, certType);
+                nicknameWithoutTokenName = newNickname;
+                if (tokenName.equals(Constants.PR_INTERNAL_TOKEN_NAME)) {
+                    nickname = newNickname;
+                } else {
+                    nickname = tokenName + ":" + newNickname;
+                }
+                CMS.debug("CMSAdminServlet: installCert(): nickname="+nickname);
             }
 
             if (certType.equals(Constants.PR_CA_SIGNING_CERT)) {
@@ -2461,12 +2437,7 @@ private void 	createMasterKey(HttpServletRequest req,
             audit(auditMessage);
 
             mConfig.commit(true);
-            if(verified == true) {
-                sendResponse(SUCCESS, null, null, resp);
-            } else {
-                sendResponse(ERROR, CMS.getUserMessage(getLocale(req), "CMS_ADMIN_SRVLT_CERT_VALIDATE_FAILED"),
-                null, resp);
-            }
+            sendResponse(SUCCESS, null, null, resp);
         } catch (EBaseException eAudit1) {
             // store a message in the signed audit log file
             auditMessage = CMS.getLogMessage(

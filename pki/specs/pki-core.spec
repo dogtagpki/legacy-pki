@@ -1,6 +1,6 @@
 Name:             pki-core
-Version:          9.0.12
-Release:          1%{?dist}
+Version:          9.0.3
+Release:          18%{?dist}
 Summary:          Certificate System - PKI Core Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -15,7 +15,7 @@ BuildRoot:        %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:    cmake
 BuildRequires:    java-devel >= 1:1.6.0
 BuildRequires:    jpackage-utils
-BuildRequires:    jss >= 4.2.6-17
+BuildRequires:    jss >= 4.2.6-12
 BuildRequires:    ldapjdk
 BuildRequires:    nspr-devel
 BuildRequires:    nss-devel
@@ -24,16 +24,36 @@ BuildRequires:    osutil
 BuildRequires:    pkgconfig
 BuildRequires:    policycoreutils
 BuildRequires:    selinux-policy-devel
-%if 0%{?fedora} >= 15
-BuildRequires:    tomcatjss >= 6.0.0
-%else
 BuildRequires:    tomcatjss >= 2.0.0
-%endif
 BuildRequires:    velocity
 BuildRequires:    xalan-j2
 BuildRequires:    xerces-j2
 
 Source0:          http://pki.fedoraproject.org/pki/sources/%{name}/%{name}-%{version}.tar.gz
+
+Patch0:           %{name}-%{version}-r1846.patch
+Patch1:           %{name}-%{version}-r1860.patch
+Patch2:           %{name}-%{version}-r1862.patch
+Patch3:           %{name}-%{version}-r1864.patch
+Patch4:           %{name}-%{version}-r1875.patch
+Patch5:           %{name}-%{version}-r1879.patch
+Patch6:           %{name}-%{version}-r1886.patch
+Patch7:           %{name}-%{version}-r1908.patch
+Patch8:           %{name}-%{version}-r2074.patch
+Patch9:           %{name}-%{version}-r2097.patch
+Patch10:          %{name}-%{version}-r2103.patch
+Patch11:          %{name}-%{version}-r2104.patch
+Patch12:          %{name}-%{version}-r2106.patch
+Patch13:          %{name}-%{version}-r2112.patch
+Patch14:          %{name}-%{version}-r2118.patch
+Patch15:          %{name}-%{version}-r2125.patch
+Patch16:          %{name}-%{version}-r2126.patch
+Patch17:          %{name}-%{version}-r2128.patch
+Patch18:          %{name}-%{version}-r2149.patch
+Patch19:          %{name}-%{version}-r2151.patch
+Patch20:          %{name}-%{version}-r2153.patch
+Patch21:          %{name}-%{version}-r2161.patch
+Patch22:          %{name}-%{version}-r2163.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -121,7 +141,7 @@ Group:            System Environment/Libraries
 
 Requires:         java >= 1:1.6.0
 Requires:         jpackage-utils
-Requires:         jss >= 4.2.6-17
+Requires:         jss >= 4.2.6-12
 Requires:         nss
 
 Provides:         symkey = %{version}-%{release}
@@ -162,9 +182,8 @@ BuildArch:        noarch
 
 Requires:         java >= 1:1.6.0
 Requires:         jpackage-utils
-Requires:         jss >= 4.2.6-17
+Requires:         jss >= 4.2.6-12
 Requires:         ldapjdk
-Requires:         osutil
 
 %description -n   pki-util
 The PKI Utility Framework is required by the following four PKI subsystems:
@@ -247,16 +266,13 @@ Requires:         jakarta-commons-lang
 Requires:         jakarta-commons-logging
 %endif
 Requires:         java >= 1:1.6.0
-Requires:         jss >= 4.2.6-17
+Requires:         jss >= 4.2.6-12
+Requires:         osutil
 Requires:         pki-common-theme >= 9.0.0
 Requires:         pki-java-tools = %{version}-%{release}
 Requires:         pki-setup = %{version}-%{release}
 Requires:         pki-symkey = %{version}-%{release}
-%if 0%{?fedora} >= 15
-Requires:         tomcatjss >= 6.0.0
-%else
 Requires:         tomcatjss >= 2.0.0
-%endif
 Requires:         %{_javadir}/ldapjdk.jar
 Requires:         %{_javadir}/velocity.jar
 Requires:         %{_javadir}/xalan-j2.jar
@@ -382,6 +398,31 @@ This package is a part of the PKI Core used by the Certificate System.
 %setup -q
 
 
+%patch0 -b .p0
+%patch1 -b .p1
+%patch2 -b .p2
+%patch3 -b .p3
+%patch4 -b .p4
+%patch5 -b .p5
+%patch6 -b .p6
+%patch7 -b .p7
+%patch8 -b .p8
+%patch9 -b .p9
+%patch10 -b .p10
+%patch11 -b .p11
+%patch12 -b .p12
+%patch13 -b .p13
+%patch14 -b .p14
+%patch15 -b .p15
+%patch16 -b .p16
+%patch17 -b .p17
+%patch18 -b .p18
+%patch19 -b .p19
+%patch20 -b .p20
+%patch21 -b .p21
+%patch22 -b .p22
+
+
 %clean
 %{__rm} -rf %{buildroot}
 
@@ -469,8 +510,10 @@ fi
 %dir %{_datadir}/pki
 %dir %{_datadir}/pki/scripts
 %{_datadir}/pki/scripts/pkicommon.pm
+%if 0%{?rhel} || 0%{?fedora} < 15
 %dir %{_localstatedir}/lock/pki
 %dir %{_localstatedir}/run/pki
+%endif
 
 
 %files -n pki-symkey
@@ -483,6 +526,7 @@ fi
 %files -n pki-native-tools
 %defattr(-,root,root,-)
 %doc base/native-tools/LICENSE base/native-tools/doc/README
+%{_bindir}/bulkissuance
 %{_bindir}/p7tool
 %{_bindir}/revoker
 %{_bindir}/setpin
@@ -517,7 +561,6 @@ fi
 %{_bindir}/CMCResponse
 %{_bindir}/CMCRevoke
 %{_bindir}/CRMFPopClient
-%{_bindir}/DRMTool
 %{_bindir}/ExtJoiner
 %{_bindir}/GenExtKeyUsage
 %{_bindir}/GenIssuerAltNameExt
@@ -531,7 +574,6 @@ fi
 %{_bindir}/TokenInfo
 %{_javadir}/pki/pki-tools-%{version}.jar
 %{_javadir}/pki/pki-tools.jar
-%{_datadir}/pki/java-tools/
 
 %files -n pki-java-tools-javadoc
 %defattr(-,root,root,-)
@@ -599,315 +641,76 @@ fi
 
 
 %changelog
-* Tue Aug 23 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.12-1
-- 'pki-setup'
--      Bugzilla Bug #712931 - CS requires too many ports
-       to be open in the FW (alee)
-- 'pki-symkey'
-- 'pki-native-tools'
--      Bugzilla Bug #717643 - Fopen without NULL check and other Coverity
-       issues (awnuk)
--      Bugzilla Bug #730801 - Coverity issues in native-tools area (awnuk)
-- 'pki-util'
-- 'pki-java-tools'
-- 'pki-common'
--      Bugzilla Bug #700522 - pki tomcat6 instances currently running
-       unconfined, allow server to come up when selinux disabled (alee)
--      Bugzilla Bug #731741 - some CS.cfg nickname parameters not updated
-       correctly when subsystem cloned (using hsm) (alee)
--      Bugzilla Bug #712931 - CS requires too many ports
-       to be open in the FW (alee)
-- 'pki-selinux'
--      Bugzilla Bug #712931 - CS requires too many ports
-       to be open in the FW (alee)
-- 'pki-ca'
--      Bugzilla Bug #712931 - CS requires too many ports
-       to be open in the FW (alee)
-- 'pki-silent'
+* Tue Aug 23 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-18
+- Resolves #730801 - Coverity issues in native-tools area, r2163
 
-* Wed Aug 10 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.11-1
-- 'pki-setup'
--      Bugzilla Bug #689909 - Dogtag installation under IPA takes too much
-       time - remove the inefficient sleeps (alee)
-- 'pki-symkey'
-- 'pki-native-tools'
-- 'pki-util'
-- 'pki-java-tools'
--      Bugzilla Bug #724861 - DRMTool: fix duplicate "dn:" records by
-       renumbering "cn=<value>" (mharmsen)
-- 'pki-common'
--      Bugzilla Bug #717041 - Improve escaping of some enrollment inputs like
-       (jmagne, awnuk)
--      Bugzilla Bug #689909 - Dogtag installation under IPA takes too much
-       time - remove the inefficient sleeps (alee)
--      Bugzilla Bug #708075 - Clone installation does not work over NAT
-       (alee)
--      Bugzilla Bug #726785 - If replication fails while setting up a clone
-       it will wait forever (alee)
--      Bugzilla Bug #728332 - xml output has changed on cert requests (awnuk)
--      Bugzilla Bug #700505 - pki tomcat6 instances currently running
-       unconfined (alee)
-- 'pki-selinux'
--      Bugzilla Bug #700505 - pki tomcat6 instances currently running
-       unconfined (alee)
-- 'pki-ca'
--      Bugzilla Bug #728605 - RFE: increase default validity from 6mo to 2yrs
-       in IPA profile (awnuk)
-- 'pki-silent'
--      Bugzilla Bug #689909 - Dogtag installation under IPA takes too much
-       time - remove the inefficient sleeps (alee)
+* Tue Aug 23 2011 Ade Lee <alee@redhat.com> 9.0.3-17
+- Resolves #712931 - CS requires too many ports to be open in the FW, r2161
 
-* Fri Jul 22 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.10-1
-- 'pki-setup'
-- 'pki-symkey'
-- 'pki-native-tools'
-- 'pki-util'
--      Bugzilla Bug #719007 - Key Constraint keyParameter being ignored
-       using an ECC CA to generate ECC certs from CRMF. (jmagne)
--      Bugzilla Bug #716307 - rhcs80 - DER shall not include an encoding
-       for any component value which is equal to its default value (alee)
-- 'pki-java-tools'
-- 'pki-common'
--      Bugzilla Bug #720510 - Console: Adding a certificate into nethsm
-       throws Token not found error. (jmagne)
--      Bugzilla Bug #719007 - Key Constraint keyParameter being ignored
-       using an ECC CA to generate ECC certs from CRMF. (jmagne)
--      Bugzilla Bug #716307 - rhcs80 - DER shall not include an encoding
-       for any component value which is equal to its default value (alee)
--      Bugzilla Bug #722989 - Registering an agent when a subsystem is
-       created - does not log AUTHZ_SUCCESS event. (alee)
-- 'pki-selinux'
-- 'pki-ca'
--      Bugzilla Bug #719113 - Add client usage flag to caIPAserviceCert
-       (awnuk)
-- 'pki-silent'
+* Mon Aug 22 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-16
+- Resolves #717643 - Fopen without NULL check and other Coverity issues
+* Mon Aug 22 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-15
+- Resolves #717643 - Fopen without NULL check and other Coverity issues
 
-* Thu Jul 14 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.9-1
-- Updated release of 'jss'
-- Updated release of 'tomcatjss' for Fedora 15
-- 'pki-setup'
--      Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
-       (mharmsen)
--      Bugzilla Bug #693815 - /var/log/tomcat6/catalina.out owned by pkiuser
-       (jdennis)
--      Bugzilla Bug #694569 - parameter used by pkiremove not updated (alee)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'pki-symkey'
--      Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
-       (mharmsen)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'pki-native-tools'
--      Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
-       (mharmsen)
--      Bugzilla Bug #717765 - TPS configuration: logging into security domain
-       from tps does not work with clientauth=want. (alee)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'pki-util'
--      Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
-       (mharmsen)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'pki-java-tools'
--      Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
-       (mharmsen)
--      Bugzilla Bug #532548 - Tool to do DRM re-key (mharmsen)
--      Bugzilla Bug #532548 - Tool to do DRM re-key (config file and record
-       processing) (mharmsen)
--      Bugzilla Bug #532548 - Tool to do DRM re-key (tweaks) (mharmsen)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'pki-common'
--      Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
-       (mharmsen)
--      Bugzilla Bug #695403 - Editing signedaudit or transaction, system
-       logs throws 'Invalid protocol' for OCSP subsystems (alee)
--      Bugzilla Bug #694569 - parameter used by pkiremove not updated (alee)
--      Bugzilla Bug #695015 - Serial No. of a revoked certificate is not
-       populated in the CA signedAudit messages (alee)
--      Bugzilla Bug #694143 - CA Agent not returning specified request (awnuk)
--      Bugzilla Bug #695015 - Serial No. of a revoked certificate is not
-       populated in the CA signedAudit messages (jmagne)
--      Bugzilla Bug #698885 - Race conditions during IPA installation (alee)
--      Bugzilla Bug #704792 - CC_LAB_EVAL: CA agent interface:
-       SubjectID=$Unidentified$ fails audit evaluation (jmagne)
--      Bugzilla Bug #705914 - SCEP mishandles nicknames when processing
-       subsequent SCEP requests. (awnuk)
--      Bugzilla Bug #661142 - Verification should fail when a revoked
-       certificate is added. (jmagne)
--      Bugzilla Bug #707416 - CC_LAB_EVAL: Security Domain: missing audit msgs
-       for modify/add (alee)
--      Bugzilla Bug #707416 - additional audit messages for GetCookie (alee)
--      Bugzilla Bug #707607 - Published certificate summary has list of
-       non-published certificates with succeeded status (jmagne)
--      Bugzilla Bug #717813 - EV_AUDIT_LOG_SHUTDOWN audit log not generated
-       for tps and ca on server shutdown (jmagne)
--      Bugzilla Bug #697939 - DRM signed audit log message - operation should
-       be read instead of modify (jmagne)
--      Bugzilla Bug #718427 - When audit log is full, server continue to
-       function. (alee)
--      Bugzilla Bug #718607 - CC_LAB_EVAL: No AUTH message is generated in
-       CA's signedaudit log when a directory based user enrollment is
-       performed (jmagne)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'pki-selinux'
--      Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
-       (mharmsen)
--      Bugzilla Bug #720503 - RA and TPS require additional SELinux
-       permissions to run in "Enforcing" mode (alee)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'pki-ca'
--      Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
-       (mharmsen)
--      Bugzilla Bug #693815 - /var/log/tomcat6/catalina.out owned by pkiuser
-       (jdennis)
--      Bugzilla Bug #699837 - service command is not fully backwards
-       compatible with Dogtag pki subsystems (mharmsen)
--      Bugzilla Bug #649910 - Console: an auditor or agent can be added to an
-       administrator group. (jmagne)
--      Bugzilla Bug #707416 - CC_LAB_EVAL: Security Domain: missing audit msgs
-       for modify/add (alee)
--      Bugzilla Bug #716269 - make ra authenticated profiles non-visible on ee
-       pages (alee)
--      Bugzilla Bug #718621 - CC_LAB_EVAL: PRIVATE_KEY_ARCHIVE_REQUEST occurs
-       for a revocation invoked by EE user (awnuk)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'pki-silent'
--      Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
-       (mharmsen)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
+* Mon Aug 15 2011 Ade Lee <alee@redhat.com> 9.0.3-14
+- Resolves #700522 - pki tomcat6 instances currently running unconfined, 
+  allow server to come up when selinux disabled, r2149
 
-* Wed May 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.8-2
-- 'pki-setup'
-- 'pki-symkey'
-- 'pki-native-tools'
-- 'pki-util'
-- 'pki-java-tools'
--     Added 'DRMTool.cfg' configuration file to inventory
-- 'pki-common'
-- 'pki-selinux'
-- 'pki-ca'
-- 'pki-silent'
+* Thu Aug 4 2011 Ade Lee <alee@redhat.com> 9.0.3-13
+- Resolves #698796: Race conditions during IPA installation, r2103 (alee)
+- Resolves #708075 - Clone installation does not work over NAT, r2104 (alee)
+- Resolves #726785 - If replication fails while setting up a clone it 
+  will wait forever, r2106 (alee)
+- Resolves #691076 - pkiremove removes the registry entry for all instances
+  on a machine, r2112 (mharmsen)
+- Resolves #693835 - /var/log/tomcat6/catalina.out owned by pkiuser, r2118
+  (mharmsen)
+- Resolves #729126 - Increase default validity from 6mo to 2yrs in IPA
+  profile, r2125 (awnuk)
+- Resolves #728651 - CS8 64 bit pkicreate script uses wrong library name
+  for, r2126 (mharmsen)
+- Resolves #700522 - pki tomcat6 instances currently running unconfined,
+  r2128 (alee)
 
-* Wed May 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.8-1
-- 'pki-setup'
-- 'pki-symkey'
-- 'pki-native-tools'
-- 'pki-util'
-- 'pki-java-tools'
--     Bugzilla Bug #532548 - Tool to do DRM re-key
-- 'pki-common'
-- 'pki-selinux'
-- 'pki-ca'
-- 'pki-silent'
+* Wed Aug 3 2011 Ade Lee <alee@redhat.com> 9.0.3-12
+- Resolves #689909 - Dogtag installation under IPA takes too much
+  time - remove the inefficient sleeps, r2097
 
-* Tue Apr 26 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.7-1
-- 'pki-setup'
--     Bugzilla Bug #693815 - /var/log/tomcat6/catalina.out owned by pkiuser
--     Bugzilla Bug #694569 - parameter used by pkiremove not updated
-- 'pki-symkey'
-- 'pki-native-tools'
-- 'pki-util'
-- 'pki-java-tools'
-- 'pki-common'
--     Bugzilla Bug #695403 - Editing signedaudit or transaction, system logs
-      throws 'Invalid protocol' for OCSP subsystems
--     Bugzilla Bug #694569 - parameter used by pkiremove not updated
--     Bugzilla Bug #695015 - Serial No. of a revoked certificate is not
-      populated in the CA signedAudit messages
--     Bugzilla Bug #694143 - CA Agent not returning specified request
--     Bugzilla Bug #695015 - Serial No. of a revoked certificate is not
-      populated in the CA signedAudit messages
--     Bugzilla Bug #698885 - Race conditions during IPA installation
-- 'pki-selinux'
-- 'pki-ca'
--     Bugzilla Bug #693815 - /var/log/tomcat6/catalina.out owned by pkiuser
--     Bugzilla Bug #699837 - service command is not fully backwards compatible
-      with Dogtag pki subsystems
-- 'pki-silent'
+* Fri Jul 22 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-11
+- Resolves #722634 - Add client usage flag to caIPAserviceCert, r2074
 
-* Mon Apr 11 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.6-2
-- Bugzilla Bug #695157 - Auditverify on TPS audit log throws error.
+* Tue Mar 22 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-10
+- Resolves #688251 - Dogtag installation under IPA takes too much
+  time - SELinux policy compilation, r1908
 
-* Tue Apr 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.6-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #693327 - Missing requires: tomcatjss
-- 'pki-setup'
--     Bugzilla Bug #690626 - pkiremove removes the registry entry for
-      all instances on a machine
-- 'pki-symkey'
-- 'pki-native-tools'
-- 'pki-util'
-- 'pki-java-tools'
--     Bugzilla Bug #689453 - CRMFPopClient request to CA's unsecure port
-      throws file not found exception.
-- 'pki-common'
--     Bugzilla Bug #692990 - Audit log messages needed to match CC doc:
-      DRM Recovery audit log messages
-- 'pki-selinux'
-- 'pki-ca'
-- 'pki-silent'
+* Fri Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-9
+- Resolves: bug 645097 
+- update to the pki-core-9.0.3-r1886.patch file
 
-* Tue Apr 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.5-2
-- Bugzilla Bug #693327 - Missing requires: tomcatjss
+* Wed Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-8
+- Resolves 645097 
+- Resolves #683172 - pkisilent needs to provide option to set
+  nsDS5ReplicaTransportInfo to TLS in replication agreements
+  when creating a clone, r1886
 
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.5-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Require "jss >= 4.2.6-15" as a build and runtime requirement
-- Require "tomcatjss >= 2.1.1" as a build and runtime requirement
-  for Fedora 15 and later platforms
-- 'pki-setup'
--     Bugzilla Bug #688287 - Add "deprecation" notice regarding using
-      "shared ports" in pkicreate -help . . .
--     Bugzilla Bug #688251 - Dogtag installation under IPA takes
-      too much time - SELinux policy compilation
-- 'pki-symkey'
-- 'pki-native-tools'
-- 'pki-util'
-- 'pki-java-tools'
--     Bugzilla Bug #689501 - ExtJoiner tool fails to join the multiple
-      extensions
-- 'pki-common'
--     Bugzilla Bug #683581 - CA configuration with ECC(Default
-      EC curve-nistp521) CA fails with 'signing operation failed'
--     Bugzilla Bug #689662 - ocsp publishing needs to be re-enabled
-      on the EE port
-- 'pki-selinux'
--     Bugzilla Bug #684871 - ldaps selinux link change
-- 'pki-ca'
--     Bugzilla Bug #683581 - CA configuration with ECC(Default
-      EC curve-nistp521) CA fails with 'signing operation failed'
--     Bugzilla Bug #684381 - CS.cfg specifies incorrect type of comments
--     Bugzilla Bug #689453 - CRMFPopClient request to CA's unsecure port
-      throws file not found exception.(profile and CS.cfg only)
-- 'pki-silent'
+* Fri Mar 4 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-7
+- Resolves 645097 
 
-* Thu Mar 17 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.4-1
-- Bugzilla Bug #688763 - Rebase updated Dogtag Packages for Fedora 15 (alpha)
-- Bugzilla Bug #676182 - IPA installation failing - Fails to create CA
-  instance
-- Bugzilla Bug #675742 - Profile caIPAserviceCert Not Found
-- 'pki-setup'
--     Bugzilla Bug #678157 - uninitialized variable warnings from Perl
--     Bugzilla Bug #679574 - Velocity fails to load all dependent classes
--     Bugzilla Bug #680420 - xml-commons-apis.jar dependency
--     Bugzilla Bug #682013 - pkisilent needs xml-commons-apis.jar in it's
-      classpath
--     Bugzilla Bug #673508 - CS8 64 bit pkicreate script uses wrong library
-      name for SafeNet LunaSA
-- 'pki-common'
--     Bugzilla Bug #673638 - Installation within IPA hangs
--     Bugzilla Bug #678715 - netstat loop fixes needed
--     Bugzilla Bug #673609 - CC: authorize() call needs to be added to
-      getStats servlet
-- 'pki-selinux'
--     Bugzilla Bug #674195: SELinux error message thrown during token
-      enrollment
-- 'pki-ca'
--     Bugzilla Bug #673638 - Installation within IPA hangs
--     Bugzilla Bug #673609 - CC: authorize() call needs to be added to
-      getStats servlet
--     Bugzilla Bug #676330 - init script cannot start service
-- 'pki-silent'
--     Bugzilla Bug #682013 - pkisilent needs xml-commons-apis.jar in it's
-      classpath
+* Fri Mar 4 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-6
+- Resolves #682021 - pkisilent needs xml-commons-apis.jar in it's classpath
+
+* Wed Mar 2 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-5
+- Resolves 645097 
+
+* Wed Mar 2 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-4
+- Resolves #681367 - xml-commons-apis.jar dependency, r1875
+
+* Mon Feb 21 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-3
+- Resolves #676873 - Rebase pki-core again to pick the latest features and fixes
+-     Resolves #676048 - Installation within IPA hangs, r1846
+-     Resolves #679173 - uninitialized variable warnings from Perl, r1860
+-     Resolves #679174 - netstat loop fixes needed, r1862
+-     Resolves #679580 - Velocity fails to load all dependent classes, r1864
 
 * Wed Feb 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-2
 - 'pki-common'

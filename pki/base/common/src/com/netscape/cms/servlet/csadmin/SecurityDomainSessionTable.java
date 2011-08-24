@@ -35,7 +35,7 @@ public class SecurityDomainSessionTable
         m_timeToLive = timeToLive;
     }
 
-    public int addEntry(String sessionId, String ip, 
+    public void addEntry(String sessionId, String ip, 
       String uid, String group) {
         Vector v = new Vector();
         v.addElement(ip);
@@ -45,12 +45,10 @@ public class SecurityDomainSessionTable
         long t = d.getTime();
         v.addElement(Long.valueOf(t));
         m_sessions.put(sessionId, v);
-        return SUCCESS;
     }
 
-    public int removeEntry(String sessionId) {
+    public void removeEntry(String sessionId) {
         m_sessions.remove(sessionId);
-        return SUCCESS;
     }
 
     public boolean isSessionIdExist(String sessionId) {

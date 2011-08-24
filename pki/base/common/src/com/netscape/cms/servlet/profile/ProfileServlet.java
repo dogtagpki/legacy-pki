@@ -333,7 +333,7 @@ public class ProfileServlet extends CMSServlet {
             char c = in[i];
 
             /* presumably this gives better performance */
-            if ((c > 0x23) && (c!= 0x5c) && (c!= 0x3c) && (c!= 0x3e)) { 
+            if ((c > 0x23) && (c != 0x5c)) {
                 out[j++] = c;
                 continue;
             }
@@ -341,21 +341,10 @@ public class ProfileServlet extends CMSServlet {
             /* some inputs are coming in as '\' and 'n' */
             /* see BZ 500736 for details */
             if ((c == 0x5c) && ((i+1)<l) && (in[i+1] == 'n' ||
-                 in[i+1] == 'r' || in[i+1] == 'f' || in[i+1] == 't' ||
-                 in[i+1] == '<' || in[i+1] == '>' ||
-                 in[i+1] == '\"' || in[i+1] == '\'' || in[i+1] == '\\')) {
-                if (in[i+1] == 'x' && ((i+3)<l) && in[i+2] == '3' &&
-                    (in[i+3] == 'c' || in[i+3] == 'e')) {
-                    out[j++] = '\\';
-                    out[j++] = in[i+1];
-                    out[j++] = in[i+2];
-                    out[j++] = in[i+3];
-                    i += 3;
-                } else { 
-                    out[j++] = '\\';
-                    out[j++] = in[i+1];
-                    i++;
-                }
+                 in[i+1] == 'n' || in[i+1] == 'f' || in[i+1] == 't')) {
+                out[j++] = '\\';
+                out[j++] = in[i+1];
+                i++;
                 continue;
             }
 

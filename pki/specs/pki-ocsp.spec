@@ -1,6 +1,6 @@
 Name:             pki-ocsp
-Version:          9.0.4
-Release:          1%{?dist}
+Version:          9.0.0
+Release:          2%{?dist}
 Summary:          Certificate System - Online Certificate Status Protocol Manager
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -13,7 +13,7 @@ BuildRoot:        %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:    cmake
 BuildRequires:    java-devel >= 1:1.6.0
 BuildRequires:    jpackage-utils
-BuildRequires:    jss >= 4.2.6-17
+BuildRequires:    jss >= 4.2.6-12
 BuildRequires:    nspr-devel
 BuildRequires:    nss-devel
 BuildRequires:    pki-common
@@ -166,31 +166,8 @@ fi
 
 
 %changelog
-* Tue Aug 23 2011 Ade Lee <alee@redhat.com> 9.0.4-1
-- Bugzilla Bug #712931 - CS requires too many ports
-  to be open in the FW
-
-* Thu Jul 14 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-1
-- Bugzilla Bug #693815 - /var/log/tomcat6/catalina.out owned by pkiuser
-  (jdennis)
-- Bugzilla Bug #699837 - service command is not fully backwards
-  compatible with Dogtag pki subsystems (mharmsen)
-- Bugzilla Bug #649910 - Console: an auditor or agent can be added to an
-  administrator group. (jmagne)
-- Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- Updated release of 'jss'
-
-* Tue Apr 26 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.2-1
-- Bugzilla Bug #693815 - /var/log/tomcat6/catalina.out owned by pkiuser
-- Bugzilla Bug #699837 - service command is not fully backwards compatible
-  with Dogtag pki subsystems
-
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.1-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #683581 - CA configuration with ECC(Default
-  EC curve-nistp521) CA fails with 'signing operation failed'
-- Bugzilla Bug #684381 - CS.cfg specifies incorrect type of comments
-- Require "jss >= 4.2.6-15" as a build and runtime requirement
+* Fri Aug 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-2
+- Bugzilla Bug #693835 - /var/log/tomcat6/catalina.out owned by pkiuser
 
 * Wed Dec 1 2010 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-1
 - Updated Dogtag 1.3.x --> Dogtag 2.0.0 --> Dogtag 9.0.0

@@ -311,8 +311,7 @@ public class CMSTabPanel extends CMSBaseConfigPanel
 		mbReset = makeJButton("RESET");
 		mbHelp = makeJButton("HELP");
 
-		//JButton[] buttons = { mbOK, mbReset, mbHelp };
-		JButton[] buttons = { mbOK, mbReset };
+		JButton[] buttons = { mbOK, mbReset, mbHelp };
 		return makeJButtonPanel(buttons, true, true);
     }
 
