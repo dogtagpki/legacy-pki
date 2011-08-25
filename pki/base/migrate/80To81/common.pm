@@ -1014,7 +1014,9 @@ sub perform_file_actions
             emit("Create directory $destfile", "info");
             if (!$dry_run) {
                 mkpath($destfile);
-                chown $pki_user, $pki_group, $destfile;
+                my $uid   = getpwnam($pki_user);
+                my $gid   = getgrnam($pki_group);
+                chown $uid, $gid, $destfile;
             }
         }
     }
