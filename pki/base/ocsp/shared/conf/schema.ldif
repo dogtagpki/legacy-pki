@@ -472,3 +472,13 @@ dn: cn=schema
 changetype: modify
 add: objectClasses
 objectClasses: ( securityDomainSessionEntry-oid NAME 'securityDomainSessionEntry' DESC 'CMS defined class' SUP top STRUCTURAL MUST ( cn $ host $ uid $ cmsUserGroup $ dateOfCreate ) X-ORIGIN 'user defined' ) 
+
+dn: cn=schema
+changetype: modify
+add: objectClasses
+objectClasses: ( pkiCA-oid NAME 'pkiCA' DESC 'CMS defined class' SUP top AUXILIARY MAY ( cACertificate $ certificateRevocationList $ authorityRevocationList $ crossCertificatePair ) X-ORIGIN 'user defined' ) 
+
+dn: cn=schema
+changetype: modify
+add: objectClasses
+objectClasses: ( deltaCRL-oid NAME 'deltaCRL' DESC 'CMS defined class' SUP top AUXILIARY MAY deltaRevocationList X-ORIGIN 'user defined' ) 

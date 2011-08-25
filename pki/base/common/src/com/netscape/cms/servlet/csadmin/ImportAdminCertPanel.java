@@ -229,7 +229,6 @@ public class ImportAdminCertPanel extends WizardPanelBase {
             } catch (Exception e) {
                 CMS.debug(
                         "ImportAdminCertPanel update: Failed to get request id.");
-                context.put("updateStatus", "failure");
                 throw new IOException("Failed to get request id.");
             }
 
@@ -295,14 +294,12 @@ public class ImportAdminCertPanel extends WizardPanelBase {
         } catch (LDAPException e) {
             CMS.debug("ImportAdminCertPanel update: failed to add certificate to the internal database. Exception: "+e.toString());
             if (e.getLDAPResultCode() != LDAPException.ATTRIBUTE_OR_VALUE_EXISTS) {
-                context.put("updateStatus", "failure");
                 throw new IOException(e.toString());
             }
         } catch (Exception e) {
             CMS.debug(
                     "ImportAdminCertPanel update: failed to add certificate. Exception: "
                             + e.toString());
-            context.put("updateStatus", "failure");
             throw new IOException(e.toString());
         }
 
@@ -310,7 +307,6 @@ public class ImportAdminCertPanel extends WizardPanelBase {
         context.put("info", "");
         context.put("title", "Import Administrator Certificate");
         context.put("panel", "admin/console/config/importadmincertpanel.vm");
-        context.put("updateStatus", "success");
     }
 
     public boolean shouldSkip() {
