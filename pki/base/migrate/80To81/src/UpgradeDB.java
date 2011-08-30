@@ -1803,6 +1803,64 @@ public class UpgradeDB {
 
 
     /**
+     * Add missing TUS Operators group in TPS.
+     * <P>
+     */
+    private static void updateTUSGroups () {
+        boolean noError = true;
+        String[] values = null;
+
+        logInfo("");
+        logInfo("Updating TUS groups.");
+        for (int i = 0; noError && namingContext != null && i < namingContext.length; i++) {
+            values = getAttributeValues("ou=Tokens,"+namingContext[i], "ou");
+            if (values == null && errorCode == LDAPException.NO_SUCH_OBJECT) {
+                errorCode = LDAPException.SUCCESS;
+            }
+            if (values != null) {
+                logInfo("Checking for presence of 'TUS Operators' group.");
+                values = getAttributeValues("cn=TUS Operators,ou=Groups,"+namingContext[i], "cn");
+                if (values == null && errorCode == LDAPException.NO_SUCH_OBJECT) {
+                    logInfo("Adding 'TUS Operators' group.");
+                    errorCode = LDAPException.SUCCESS;
+                    LDAPAttribute attr1 = new LDAPAttribute ("cn", "TUS Operators");
+                    LDAPAttribute attr2 = new LDAPAttribute ("objectClass", "top");
+                    LDAPAttribute attr3 = new LDAPAttribute ("objectClass", "groupOfNames");
+                    LDAPAttribute attr4 = new LDAPAttribute ("description", "Operators for TUS");
+                    LDAPAttributeSet attrs = new LDAPAttributeSet();
+                    attrs.add (attr1);
+                    attrs.add (attr2);
+                    attrs.add (attr3);
+                    attrs.add (attr4);
+                    LDAPEntry entry = new LDAPEntry ("cn=TUS Operators,ou=Groups,"+namingContext[i], attrs);
+                    try {
+                        lc.add (entry);
+                        logInfo ("Added 'cn=TUS Operators,ou=Groups,"+
+                                  namingContext[i]+"' entry.");
+                    } catch(LDAPException e) {
+                        errorCode = e.getLDAPResultCode();
+                        if (errorCode != LDAPException.ENTRY_ALREADY_EXISTS) {
+                            logInfo("LDAPException '"+errorCode+"' thrown adding '"+
+                                    "cn=TUS Operators,ou=Groups,"+namingContext[i]+"' entry");
+                            logInfo("Error: " + e.toString());
+                        }
+                        noError = false;
+                        logInfo ("Failed to add 'cn=TUS Operators,ou=Groups,"+
+                                  namingContext[i]+"' entry."+"  Error: "+errorCode);
+                    }
+                } else if (values != null) {
+                    logInfo("'cn=TUS Operators,ou=Groups,"+
+                              namingContext[i]+"' entry already exists.");
+                    errorCode = LDAPException.SUCCESS;
+                } else if (errorCode != LDAPException.SUCCESS) {
+                    noError = false;
+                    logInfo("Error: "+errorCode);
+                }
+            }
+        }
+    }
+
+    /**
      * Check tool arguments for errors
      * <P>
      * @param args array of arguments
@@ -1906,6 +1964,9 @@ public class UpgradeDB {
                 }
                 if (errorCode == LDAPException.SUCCESS) {
                     updateACLs();
+                }
+                if (errorCode == LDAPException.SUCCESS) {
+                    updateTUSGroups();
                 }
                 if (errorCode != LDAPException.SUCCESS) {
                     logInfo("LDAPException: return code:" + errorCode);
