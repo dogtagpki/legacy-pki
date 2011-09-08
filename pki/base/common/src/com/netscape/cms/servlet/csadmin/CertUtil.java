@@ -58,7 +58,6 @@ public class CertUtil {
       throws IOException {
         HttpClient httpclient = new HttpClient();
         String c = null;
-        CMS.debug("CertUtil createRemoteCert: content " + content);
         try {
             JssSSLSocketFactory factory = new JssSSLSocketFactory();
 
@@ -73,6 +72,7 @@ public class CertUtil {
             httprequest.setHeader("content-type",
                     "application/x-www-form-urlencoded");
             httprequest.setContent(content);
+            CMS.debug("CertUtil createRemoteCert: content " + content);
             HttpResponse httpresponse = httpclient.send(httprequest);
 
             c = httpresponse.getContent();

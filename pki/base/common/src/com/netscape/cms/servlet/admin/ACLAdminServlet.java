@@ -898,9 +898,8 @@ public class ACLAdminServlet extends AdminServlet {
      ACL acl = AccessManager.getInstance().getACL(target);
      oos.writeObject(acl);
      }
-     // BASE64Encoder encoder = new BASE64Encoder();
-     // params.add(Constants.PT_ACLS, encoder.encodeBuffer(bos.toByteArray()));
-     params.add(Constants.PT_ACLS, CMS.BtoA(bos.toByteArray()));
+     BASE64Encoder encoder = new BASE64Encoder();
+     params.add(Constants.PT_ACLS, encoder.encodeBuffer(bos.toByteArray()));
      sendResponse(SUCCESS, null, params, resp);
      }
      */

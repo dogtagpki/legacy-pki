@@ -324,7 +324,6 @@ public class NamePanel extends WizardPanelBase {
                 String dn = HttpInput.getDN(request, cert.getCertTag());
 
                 if (dn == null || dn.length() == 0) {
-                    context.put("updateStatus", "validate-failure");
                     throw new IOException("Empty DN for " + cert.getUserFriendlyName());
                 }
             }
@@ -729,7 +728,6 @@ public class NamePanel extends WizardPanelBase {
         if (inputChanged(request)) {
             mServlet.cleanUpFromPanel(mServlet.getPanelNo(request));
         } else if (isPanelDone()) {
-            context.put("updateStatus", "success");
             return;
         }
 
@@ -758,12 +756,10 @@ public class NamePanel extends WizardPanelBase {
                 }
                 updateCloneConfig(config);
                 CMS.debug("NamePanel: clone configuration done");
-                context.put("updateStatus", "success");
                 return;
             }
         } catch (Exception e) {
             CMS.debug("NamePanel: configCertWithTag failure - " + e);
-            context.put("updateStatus", "failure");
             return;
         }
 
@@ -874,11 +870,7 @@ public class NamePanel extends WizardPanelBase {
             config.commit(false);
         } catch (Exception e) {}
 
-        if (!hasErr) {
-            context.put("updateStatus", "success");
-        } else {
-            context.put("updateStatus", "failure");
-        }
+
         CMS.debug("NamePanel: update() done");
     }
 
