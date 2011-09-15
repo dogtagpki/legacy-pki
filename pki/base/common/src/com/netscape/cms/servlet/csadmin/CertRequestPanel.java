@@ -577,7 +577,8 @@ public class CertRequestPanel extends WizardPanelBase {
                             && !b64.startsWith("...")) {
                         String b64chain = HttpInput.getCertChain(request, certTag+"_cc");
                         CMS.debug(
-                                "CertRequestPanel: in update() process remote...import cert");
+                                "CertRequestPanel: in update() process remote...import cert: b64chain " + b64chain);
+
 
                         String input = HttpInput.getCert(request, cert.getCertTag());
 
@@ -621,8 +622,8 @@ public class CertRequestPanel extends WizardPanelBase {
                                 }
 
                                 if (/*(certchains.length <= 1) &&*/
-				    (b64chain != null)) {
-                                  CMS.debug("CertRequestPanel: cert might not have contained chain...calling importCertificateChain");
+				    (b64chain != null && b64chain.length() != 0)) {
+                                  CMS.debug("CertRequestPanel: cert might not have contained chain...calling importCertificateChain: " + b64chain);
                                   try {
                                     CryptoUtil.importCertificateChain(
 				      CryptoUtil.normalizeCertAndReq(b64chain));
