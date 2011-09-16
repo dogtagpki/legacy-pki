@@ -99,13 +99,11 @@ public class SecurityDomainPanel extends WizardPanelBase {
         String default_admin_url = "";
         String name = "";
         String cstype = "";
-        String systemdService = "";
 
         try {
             default_admin_url = config.getString("preop.securitydomain.admin_url", "");
             name = config.getString("preop.securitydomain.name", "");
             cstype = config.getString("cs.type", "");
-            systemdService = config.getString("pkicreate.systemd.servicename", "");
         } catch (Exception e) {
             CMS.debug(e.toString());
         }
@@ -212,21 +210,13 @@ public class SecurityDomainPanel extends WizardPanelBase {
         }
 
         // Information for "existing" Security Domain CAs
-        String initDaemon = "pki-cad";
         String instanceId = "&lt;security_domain_instance_name&gt;";
         String os = System.getProperty( "os.name" );
         if( os.equalsIgnoreCase( "Linux" ) ) {
-            if (! systemdService.equals("")) {
-                context.put( "initCommand", "/usr/bin/pkicontrol" );
-                context.put( "instanceId", "ca " + systemdService );
-            } else {
-                context.put( "initCommand", "/sbin/service " + initDaemon );
-                context.put( "instanceId", instanceId );
-            }
+            context.put( "initCommand", "/sbin/service " + instanceId );
         } else {
             /* default case:  e. g. - ( os.equalsIgnoreCase( "SunOS" ) */
-            context.put( "initCommand", "/etc/init.d/" + initDaemon );
-            context.put( "instanceId", instanceId );
+            context.put( "initCommand", "/etc/init.d/" + instanceId );
         }
     }
 
@@ -250,7 +240,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
             String name = HttpInput.getSecurityDomainName(request, "sdomainName");
             if (name == null || name.equals("")) {
                 initParams(request, context);
-                context.put("updateStatus", "validate-failure");
                 throw new IOException("Missing name value for the security domain");
             }
         } else if (select.equals("existingdomain")) {
@@ -259,7 +248,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
             String admin_url = HttpInput.getURL( request, "sdomainURL" );
             if( admin_url == null || admin_url.equals("") ) {
                 initParams( request, context );
-                context.put("updateStatus", "validate-failure");
                 throw new IOException( "Missing SSL Admin HTTPS url value "
                                      + "for the security domain" );
             } else {
@@ -277,7 +265,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
                 } catch( Exception e ) {
                     CMS.debug( "SecurityDomainPanel: exception caught: "
                              + e.toString() );
-                    context.put("updateStatus", "validate-failure");
                     throw new IOException( "Illegal SSL Admin HTTPS url value "
                                          + "for the security domain" );
                 }
@@ -335,7 +322,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
 
         if (select == null) {
             CMS.debug("SecurityDomainPanel: choice not found");
-            context.put("updateStatus", "failure");
             throw new IOException("choice not found");
         }
         IConfigStore config = CMS.getConfigStore();
@@ -394,7 +380,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
                     admin_port = admin_u.getPort();
                 } catch( MalformedURLException e ) {
                     errorString = "Malformed SSL Admin HTTPS URL";
-                    context.put("updateStatus", "failure");
                     throw new IOException( errorString );
                 }
 
@@ -414,7 +399,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
         } else {
             CMS.debug("SecurityDomainPanel: invalid choice " + select);
             errorString = "Invalid choice";
-            context.put("updateStatus", "failure");
             throw new IOException("invalid choice " + select);
         }
 
@@ -431,7 +415,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
         } catch (EBaseException e) {}
 
         context.put("errorString", errorString);
-        context.put("updateStatus", "success");
     }
 
     /**
@@ -489,16 +472,13 @@ public class SecurityDomainPanel extends WizardPanelBase {
         } catch (EBaseException e) {}
 
         // Information for "existing" Security Domain CAs
-        String initDaemon = "pki-cad";
         String instanceId = "&lt;security_domain_instance_name&gt;";
         String os = System.getProperty( "os.name" );
         if( os.equalsIgnoreCase( "Linux" ) ) {
-            context.put( "initCommand", "/sbin/service " + initDaemon );
-            context.put( "instanceId", instanceId );
+            context.put( "initCommand", "/sbin/service " + instanceId );
         } else {
             /* default case:  e. g. - ( os.equalsIgnoreCase( "SunOS" ) */
-            context.put( "initCommand", "/etc/init.d/" + initDaemon );
-            context.put( "instanceId", instanceId );
+            context.put( "initCommand", "/etc/init.d/" + instanceId );
         }
 
         context.put("title", "Security Domain");

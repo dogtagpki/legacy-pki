@@ -53,21 +53,24 @@ sub invalid_architecture()
 ##      search order this command uses to find shared libraries.             ##
 ###############################################################################
 
-my $OS=`uname -s`;
-my $ARCHITECTURE="";
+my $OS=`pkiname`;
+my $ARCHITECTURE=`pkiarch`;
 chop($OS);
+chop($ARCHITECTURE);
 
 
 if($OS eq "Linux")
 {
-	$ARCHITECTURE=`uname -i`;
-	chop($ARCHITECTURE);
 	if($ARCHITECTURE eq "i386")
 	{
 		$libpath="/usr/lib";
 
-		$ENV{LD_LIBRARY_PATH} = "/usr/lib/osutil:"
-					. "/usr/lib/jss:"
+		$ENV{LD_LIBRARY_PATH} = "/usr/lib/java::"
+					. "/usr/lib/${PRODUCT}:"
+					. "/usr/lib/dirsec:"
+					. "/usr/lib/java/dirsec:"
+					. "/usr/lib/jvm/jre-1.5.0-ibm/lib/i386/:"
+			. "/usr/lib/jvm/jre-1.5.0-ibm/lib/i386/native_threads:"
 					. "/usr/lib/:/lib/:" ;
 	}
 
@@ -75,12 +78,14 @@ if($OS eq "Linux")
 	{
 		$libpath="/usr/lib64";
 
-		$ENV{LD_LIBRARY_PATH} = "/usr/lib64/osutil:"
-					. "/usr/lib64/jss:"
-					. "/usr/lib64/:/lib64/:"
-					. "/usr/lib/osutil:"
-					. "/usr/lib/jss:"
-					. "/usr/lib/:/lib/:" ;
+		$ENV{LD_LIBRARY_PATH} = "/usr/lib/java:/usr/lib:/lib"
+					. "/usr/lib/${PRODUCT}:"
+					. "/usr/lib/dirsec:"
+					. "/usr/lib/java/dirsec:"
+				. "/usr/lib64/java:/usr/lib64:/lib64:"
+					. "/usr/lib64/${PRODUCT}:"
+					. "/usr/lib64/dirsec:"
+					. "/usr/lib64/java/dirsec:";
 	}
 	else
 	{
@@ -90,14 +95,6 @@ if($OS eq "Linux")
 }
 elsif (${OS} eq "SunOS")
 { 
-	$ARCHITECTURE=`uname -p`;
-	chop($ARCHITECTURE);
-
-    if( ( ${ARCHITECTURE} eq "sparc" ) &&
-        ( -d "/usr/lib/sparcv9/" ) ) {
-        $ARCHITECTURE="sparcv9";
-    }
-
 	if (${ARCHITECTURE} eq "sparc") 
 	{
 		$libpath="/usr/lib";
@@ -140,19 +137,17 @@ else
 
 print "libpath=$libpath\n";
 
-$ENV{CLASSPATH} = "/usr/share/java/${PRODUCT}/pki-silent.jar:"
-	. "/usr/share/java/${PRODUCT}/pki-certsrv.jar:"
-	. "/usr/share/java/${PRODUCT}/pki-cmscore.jar:"
-	. "/usr/share/java/${PRODUCT}/pki-nsutil.jar:"
-	. "/usr/share/java/${PRODUCT}/pki-cmsutil.jar:"
-	. "/usr/share/java/${PRODUCT}/pki-tools.jar:"
-	. "/usr/share/java/ldapjdk.jar:"
-	. "/usr/share/java/xerces-j2.jar:"
-	. "/usr/share/java/xml-commons-apis.jar:"
-	. "/usr/share/java/xml-commons-resolver.jar:"
-	. "/usr/lib/java/dirsec/jss4.jar:"
+$ENV{CLASSPATH} = "/usr/share/java/silent.jar:"
 	. "/usr/lib/java/jss4.jar:"
-	. "/usr/lib/java/dirsec/osutil.jar:"
+	. "/usr/share/java/ldapjdk.jar:"
+	. "/usr/share/java/${PRODUCT}/certsrv.jar:"
+	. "/usr/share/java/${PRODUCT}/cmscore.jar:"
+	. "/usr/share/java/${PRODUCT}/nsutil.jar:"
+	. "/usr/share/java/${PRODUCT}/cmsutil.jar:"
+	. "/usr/share/java/${PRODUCT}/cstools.jar:"
+	. "/usr/share/${PRODUCT}/classes:"
+	. "/usr/share/java/xml-commons-resolver.jar:"
+	. "/usr/share/java/xerces-j2.jar:"
 	. "/usr/lib/java/osutil.jar:";
 
 
@@ -173,3 +168,4 @@ if ($status != 0) {
 } else {
   exit(0);
 }
+
