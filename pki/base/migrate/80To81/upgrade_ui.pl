@@ -108,6 +108,7 @@ my $old_ui_dir                 = undef;
 # Command-line arguments (optional)
 my $username                   = undef;
 my $groupname                  = undef;
+my $common_ui                  = undef;
 
 # path to common subsystem ui pages
 my $pki_subsystem_ui_path      = undef;
@@ -159,6 +160,9 @@ perl upgrade_ui.pl
                                                    #
                                                    # [Default=pkiuser]
 
+          [-common_ui]                             # Update common-ui 
+                                                   # components
+
           [-verbose]                               # Print out liberal info
                                                    # during 'upgrade_ui.pl'.
                                                    # Specify multiple times
@@ -199,6 +203,7 @@ sub parse_arguments
                             "old_ui_dir=s"                 => \$old_ui_dir,
                             "user=s"                       => \$username,
                             "group=s"                      => \$groupname,
+                            "common_ui"                    => \$common_ui,
                             "verbose+"                     => \$verbose,
                             "overwrite"                    => \$overwrite,
                             "no_cleanup"                   => \$no_cleanup,
@@ -239,7 +244,11 @@ sub parse_arguments
         return 0;
     }
 
-    $pki_subsystem_ui_path = "${pki_subsystem_common_area}/${subsystem_type}-ui";
+    if (!$common_ui) {
+        $pki_subsystem_ui_path = "${pki_subsystem_common_area}/${subsystem_type}-ui";
+    } else {
+        $pki_subsystem_ui_path = "${pki_subsystem_common_area}/common-ui";
+    }
 
     if (!(-d $pki_subsystem_ui_path)) {
         usage();
@@ -389,7 +398,12 @@ sub main
     exit 255 if !find_changes($old_sum_file, $new_sum_file, 1, \%file_changes_hash);
 
     # populate changes hash with instance sums
-    exit 255 if !create_sums_file($inst_sum_file, $pki_instance_path);
+    if (! $common_ui) {
+        exit 255 if !create_sums_file($inst_sum_file, $pki_instance_path);
+    } else {
+        exit 255 if !create_sums_file($inst_sum_file, 
+                                      "${pki_instance_path}/webapps/${subsystem_type}");
+    }
     exit 255 if !populate_hash_values($inst_sum_file, 1, "inst_val", \%file_changes_hash);
 
     # create old substituted directory and populate the changes hash
@@ -404,8 +418,14 @@ sub main
 
     # check for customizations and perform file actions
     exit 255 if !check_for_customizations(\%file_changes_hash, \%file_actions, 1, \@ignore);
-    exit 255 if !perform_file_actions(\%file_actions, $pki_instance_path, 
-                                      $new_subs_dir, \%dir_changes_hash);
+    if (! $common_ui) {
+        exit 255 if !perform_file_actions(\%file_actions, $pki_instance_path, 
+                                          $new_subs_dir, \%dir_changes_hash);
+    } else {
+        exit 255 if !perform_file_actions(\%file_actions, 
+                                        "${pki_instance_path}/webapps/${subsystem_type}",
+                                          $new_subs_dir, \%dir_changes_hash);
+    }
 
     ################################
     # Cleanup
