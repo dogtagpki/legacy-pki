@@ -547,13 +547,40 @@ sub main
                                         \%registry_actions);
     }
 
-    ###############################
+    ###########################################
     # Miscellaneous actions for this migration
-    ###############################
+    # -- set permissions: these are the permissions explicitly set in pkicreate
+    ###########################################
+
     if (($subsystem_type eq $CA) || ($subsystem_type eq $KRA) || ($subsystem_type eq $OCSP) ||
         ($subsystem_type eq $TKS)) {
         set_permissions("/usr/bin/dtomcat5-${pki_instance_name}", $default_exe_permissions);
+    } else {
+        set_permissions("/var/lib/${pki_instance_name}/scripts/nss_pcache", 
+            $default_exe_permissions);
     }
+
+    if ($subsystem_type eq $TPS) {
+        my $cgibin_instance_path = "/var/lib/${pki_instance_name}/cgi-bin";
+        set_permissions("$cgibin_instance_path/demo", $default_dir_permissions);
+        set_permissions("$cgibin_instance_path/demo/*.cgi", $default_exe_permissions);
+        set_permissions("$cgibin_instance_path/demo/*.html",  $default_file_permissions);
+        set_permissions("$cgibin_instance_path/home", $default_dir_permissions);
+        set_permissions("$cgibin_instance_path/home/*.cgi", $default_exe_permissions);
+        set_permissions("$cgibin_instance_path/home/*.html", $default_file_permissions);
+        set_permissions("$cgibin_instance_path/so", $default_dir_permissions);
+        set_permissions("$cgibin_instance_path/so/*.cgi", $default_exe_permissions);
+        set_permissions("$cgibin_instance_path/so/*.html", $default_file_permissions);
+        set_permissions("$cgibin_instance_path/sow", $default_dir_permissions);
+        set_permissions("$cgibin_instance_path/sow/*.cgi", $default_exe_permissions);
+        set_permissions("$cgibin_instance_path/sow/*.html", $default_file_permissions);
+        set_permissions("$cgibin_instance_path/sow/*.pl", $default_exe_permissions);
+
+        set_permissions("/var/lib/${pki_instance_name}/bin/apachectl", 
+            $default_exe_permissions);
+    }
+
+   set_permissions("/etc/init.d/${pki_instance_name}", $default_exe_permissions);
 
     ################################
     # Cleanup

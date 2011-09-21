@@ -9,6 +9,7 @@ our @EXPORT = qw(
  $CA $KRA $OCSP $TKS $RA $TPS
  $config_separator $sums_separator
  $pki_user $pki_group $default_file_permissions $default_exe_permissions
+ $default_dir_permissions
  
  set_permissions
  check_for_root_UID 
@@ -39,6 +40,7 @@ our $config_separator = "=";
 our $sums_separator   = "  ";
 our $default_file_permissions = 00660;
 our $default_exe_permissions  = 00770;
+our $default_dir_permissions  = 00770;
 
 # Subsystem names
 our $CA   = "ca";
