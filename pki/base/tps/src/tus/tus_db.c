@@ -1343,7 +1343,7 @@ TPS_PUBLIC int update_user_db_entry(const char *agentid, char *uid, char *lastNa
     return rc;
 }
 
-TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *uid, char *keyInfo, const char *status, char *applet_version, const char *reason)
+TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *uid, char *keyInfo, const char *status, char *applet_version, const char *reason, const char* token_type)
 {
     char dn[256];
     int  len, k;
@@ -1356,10 +1356,12 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
     if (PR_snprintf(dn, 255, "cn=%s,%s", cn, baseDN) < 0)
         return -1;
 
-        if (keyInfo == NULL)
+        if (keyInfo == NULL && token_type == NULL)
             mods = allocate_modifications(5);
-        else
+        else if (keyInfo == NULL || token_type == NULL)
             mods = allocate_modifications(6);
+        else
+            mods = allocate_modifications(7);
         if (mods == NULL)
             return -1;
 
@@ -1473,6 +1475,30 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
         mods[k]->mod_values = v;
         k++;
     }
+
+    /* for token_type */
+    if (token_type != NULL) {
+        if (token_type != NULL && PL_strlen(token_type) > 0)
+            len = PL_strlen(token_type);
+        else
+            len = 0;
+        if ((v = allocate_values(1, len+1)) == NULL) {
+            if( mods != NULL ) {
+                free_modifications( mods, 0 );
+                mods = NULL;
+            }
+            return -1;
+        }
+        mods[k]->mod_op = LDAP_MOD_REPLACE;
+        mods[k]->mod_type = TOKEN_TYPE;
+        if (len > 0)
+            PL_strcpy(v[0], token_type);
+        else
+            v[0] = "";
+        mods[k]->mod_values = v;
+        k++;
+    }
+
         for (tries = 0; tries < MAX_RETRIES; tries++) {
             if ((rc = ldap_modify_ext_s(ld, dn, mods, NULL, NULL)) == LDAP_SUCCESS) {
                 break;
