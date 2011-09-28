@@ -42,7 +42,7 @@ import netscape.security.x509.X500Name;
 import com.netscape.cmsutil.ocsp.*;
 import com.netscape.cmsutil.ocsp.Request;
 
-import com.netscape.osutil.OSUtil;
+import com.netscape.osutil.*;
 
 public class ConfigureSubCA
 {
@@ -774,10 +774,8 @@ public class ConfigureSubCA
         hr = hc.sslConnect(cs_hostname,cs_port,admin_uri,query_string);
         
         // get response data
-        // String cert_to_import = 
-        //         new sun.misc.BASE64Encoder().encode(hr.getResponseData());
         String cert_to_import = 
-                OSUtil.BtoA(hr.getResponseData());
+                new sun.misc.BASE64Encoder().encode(hr.getResponseData());
         System.out.println("Imported Cert=" + cert_to_import);
 
         ComCrypto cCrypt = new ComCrypto(client_certdb_dir,

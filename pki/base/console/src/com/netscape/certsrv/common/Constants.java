@@ -523,6 +523,9 @@ public interface Constants {
     /* SSL Cipher Preferences */
     public final static String PR_CIPHER_PREF = "cipherpref";
 
+    /* SSL EC Type */
+    public final static String PR_ECTYPE = "ectype";
+
     /* values for SSL cipher preferences */
     public final static String 
         PR_SSL2_RC4_128_WITH_MD5 = "rc4";

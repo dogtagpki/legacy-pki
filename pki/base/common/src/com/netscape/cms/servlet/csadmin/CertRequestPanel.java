@@ -489,10 +489,8 @@ public class CertRequestPanel extends WizardPanelBase {
         } catch (Exception e) {
         }
 
-        if (isPanelDone()) {
-            context.put("updateStatus", "success");
+        if (isPanelDone())
             return;
-        }
 
         try {
             Enumeration c = mCerts.elements();
@@ -579,7 +577,8 @@ public class CertRequestPanel extends WizardPanelBase {
                             && !b64.startsWith("...")) {
                         String b64chain = HttpInput.getCertChain(request, certTag+"_cc");
                         CMS.debug(
-                                "CertRequestPanel: in update() process remote...import cert");
+                                "CertRequestPanel: in update() process remote...import cert: b64chain " + b64chain);
+
 
                         String input = HttpInput.getCert(request, cert.getCertTag());
 
@@ -737,11 +736,6 @@ public class CertRequestPanel extends WizardPanelBase {
                 }
             }  
         } catch (Exception e) {
-        }
-        if (!hasErr) { 
-            context.put("updateStatus", "success");
-        } else {
-            context.put("updateStatus", "failure");
         }
     }
 
