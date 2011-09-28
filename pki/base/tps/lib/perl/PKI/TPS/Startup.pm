@@ -87,6 +87,7 @@ sub handler {
   my $secureconn = $config->get("tokendb.ssl");
   my $pwdfile = $config->get("tokendb.bindPassPath");
   my $basedn = $config->get("tokendb.baseDN");
+  my $enforce_ldap_startup_test = $config->get("tokendb.enforceLdapStartupTest") || "false";
   my $certdir =  $config->get("service.instanceDir") . "/alias";
 
   my $status =0;
@@ -117,7 +118,11 @@ sub handler {
   if ($status != 0) {
     # something bad happened when connecting to the database. abort the startup.
     &debug_log("startup::post_config: test_ldap returns $status. Is the database up?");
-    return Apache2::Const::DONE;
+    if ($enforce_ldap_startup_test eq "true") {
+      return Apache2::Const::DONE;
+    } 
+
+    &debug_log("startup::post_config: test_ldap failed, starting up tps anyway because ldap test enforcement is disabled.");
   }
 
   return Apache2::Const::OK;
