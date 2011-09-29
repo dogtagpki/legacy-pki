@@ -1772,7 +1772,7 @@ public class LogAdminServlet extends AdminServlet {
                                 }
                             }
                         }
-/*
+/* setting expirationTime not alowed
                         if (key.equals("expirationTime")) {
                             String origVal = substore.getString(key);
 

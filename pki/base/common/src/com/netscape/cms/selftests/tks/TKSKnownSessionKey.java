@@ -297,6 +297,8 @@ extends ASelfTest
     throws ESelfTestException
     {
         String logMessage = null;
+        SymmetricKey unwrapped = null;
+        SymmetricKey transportKey = null;
         String keySet = "defKeySet";
 
         byte[] sessionKey = SessionKey.ComputeSessionKey (mToken, mKeyName,

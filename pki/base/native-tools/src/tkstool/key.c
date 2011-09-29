@@ -810,9 +810,7 @@ TKS_GenerateSessionKeyShare( char    *sessionKeyShareName,
     PRIntn       i                     = 0;
     PRIntn       KCVLen                = KCV_LENGTH;
     PRUint8     *KCV                   = NULL;
-    SECItem      hexSessionKeyShare    = { siBuffer,
-                                           NULL,
-                                           0 };
+    SECItem      hexSessionKeyShare;
     SECStatus    rvKCV                 = SECFailure;
     SECStatus    sessionKeyShareStatus = SECFailure;
     SECStatus    status                = SECFailure;

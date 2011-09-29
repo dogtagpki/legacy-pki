@@ -139,10 +139,7 @@ pki_host=`hostname`
 ca_subsystem_name="Certificate\ Authority"
 
 ##  PKI Subsystem Instance Names
-subca_instance_name="pki-subca"
-
-##  PKI Subsystem Init Script Names
-subca_init_script="pki-cad"
+subca_instance_name="pki-ca1"
 
 ##
 ##  NOTE:  Default PKI Instance Ports
@@ -161,7 +158,7 @@ subca_init_script="pki-cad"
 ##      semanage port -l | grep pki
 ##
 ##      pki_ca_port_t          tcp      9180, 9701, 9443, 9444, 9445
-##      pki_subca_port_t       tcp      9580, 9801, 9543, 9544, 9545
+##      pki_ca1_port_t         tcp      9580, 9801, 9543, 9544, 9545
 ##
 
 ## CA ports
@@ -440,7 +437,7 @@ subca_preop_pin=`cat /var/lib/${subca_instance_name}/conf/CS.cfg \
 ##############################################################################
 ##
 ##  For example, upon completion,
-##  execute '/sbin/service ${subca_init_script} status ${subca_instance_name}':
+##  execute '/sbin/service ${subca_instance_name} status':
 ##
 ##      ${subca_instance_name} (pid 7843) is running ...
 ##
@@ -507,7 +504,7 @@ pkisilent ConfigureSubCA \
 	| tee ${pki_silent_subca_log}
 
 ##  Restart Subordinate CA
-/sbin/service ${subca_init_script} restart ${subca_instance_name}
+/sbin/service ${subca_instance_name} restart
 
 exit 0
 
