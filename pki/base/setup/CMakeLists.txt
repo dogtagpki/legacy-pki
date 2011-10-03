@@ -4,6 +4,7 @@ install(
     FILES
         pkicreate
         pkiremove
+        pki-setup-proxy
     DESTINATION
         ${BIN_INSTALL_DIR}
     PERMISSIONS
