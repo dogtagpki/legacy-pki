@@ -1,6 +1,6 @@
 Name:             pki-core
 Version:          9.0.3
-Release:          19%{?dist}
+Release:          20%{?dist}
 Summary:          Certificate System - PKI Core Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -55,6 +55,7 @@ Patch20:          %{name}-%{version}-r2153.patch
 Patch21:          %{name}-%{version}-r2161.patch
 Patch22:          %{name}-%{version}-r2163.patch
 Patch23:          %{name}-%{version}-r2182.patch
+Patch24:          %{name}-%{version}-r2249.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -423,6 +424,7 @@ This package is a part of the PKI Core used by the Certificate System.
 %patch21 -b .p21
 %patch22 -b .p22
 %patch23 -b .p23
+%patch24 -b .p24
 
 
 %clean
@@ -509,6 +511,7 @@ fi
 %doc base/setup/LICENSE
 %{_bindir}/pkicreate
 %{_bindir}/pkiremove
+%{_bindir}/pki-setup-proxy
 %dir %{_datadir}/pki
 %dir %{_datadir}/pki/scripts
 %{_datadir}/pki/scripts/pkicommon.pm
@@ -643,8 +646,12 @@ fi
 
 
 %changelog
+* Fri Aug 26 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-20
+- Resolves #737179 - Need script to upgrade proxy configuration, r2249
+
 * Fri Aug 26 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-19
 - Resolves #730801 - Coverity issues in native-tools area, r2182
+
 * Tue Aug 23 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-18
 - Resolves #730801 - Coverity issues in native-tools area, r2163
 
@@ -653,6 +660,7 @@ fi
 
 * Mon Aug 22 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-16
 - Resolves #717643 - Fopen without NULL check and other Coverity issues
+
 * Mon Aug 22 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.3-15
 - Resolves #717643 - Fopen without NULL check and other Coverity issues
 
