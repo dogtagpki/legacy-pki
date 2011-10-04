@@ -175,8 +175,7 @@ public class ManageCertDialog extends JDialog implements ActionListener,
           "MANAGECERTDIALOG_BUTTON_HELP_LABEL"));
         mHelp.addActionListener(this);
 
-        //JButton[] buttons = {mClose, mEdit, mDelete, mHelp};
-        JButton[] buttons = {mClose, mEdit, mDelete};
+        JButton[] buttons = {mClose, mEdit, mDelete, mHelp};
         return CMSAdminUtil.makeJButtonPanel(buttons, true);
     }
 

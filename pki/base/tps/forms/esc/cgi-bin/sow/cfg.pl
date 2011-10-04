@@ -20,8 +20,11 @@
 # --- END COPYRIGHT BLOCK ---
 #
 
-use Mozilla::LDAP::Conn;
-use PKI::TPS::Common;
+#
+# Establish platform-dependent variables:
+#
+
+my $ldapsearch = "/usr/bin/ldapsearch";
 
 #
 # Feel free to modify the following parameters:
@@ -34,6 +37,11 @@ my $secure_port = "7889";
 my $host = "localhost";
 
 my $cfg = "/var/lib/pki-tps/conf/CS.cfg";
+
+sub get_ldapsearch()
+{
+  return $ldapsearch;
+}
 
 sub get_ldap_host()
 {
@@ -49,20 +57,6 @@ sub get_ldap_port()
   chomp($ldapport);
   my ($p, $ldapPort) = split(/:/, $ldapport);
   return $ldapPort;
-}
-
-sub get_ldap_secure()
-{
-  my $ldapsecure = `grep auth.instance.0.ssl $cfg | cut -c21-`;
-  chomp($ldapsecure);
-  return $ldapsecure;
-}
-
-sub get_ldap_certdir()
-{
-  my $ldapcertdir = `grep service.instanceDir $cfg | cut -c21-`;
-  chomp($ldapcertdir);
-  return $ldapcertdir . "/alias";
 }
 
 sub get_base_dn()
@@ -105,9 +99,6 @@ sub is_agent()
   my $x_hostport = `grep -e "^tokendb.hostport" $cfg | cut -c18-`;
   chomp($x_hostport);
   my ($x_host, $x_port) = split(/:/, $x_hostport);
-
-  my $x_secureconn = `grep -e "^tokendb.ssl" $cfg | cut -c13-`;
-  chomp($x_secureconn);
   my $x_basedn = `grep -e "^tokendb.userBaseDN" $cfg | cut -c20-`;
   chomp($x_basedn);
   my $x_binddn = `grep -e "^tokendb.bindDN" $cfg | cut -c16-`;
@@ -117,24 +108,24 @@ sub is_agent()
   my $x_bindpwd = `grep -e "^tokendbBindPass" $x_bindpwdpath | cut -c17-`;
   chomp($x_bindpwd);
 
-  my $ldap =  PKI::TPS::Common::make_connection(
-                  {host => $x_host, port => $x_port, pswd => $x_bindpwd, bind => $x_binddn, cert => $x_certdir},
-                  $x_secureconn);
+   my $cmd = $ldapsearch . " " .
+            "-x " .
+            "-D \"" . $x_binddn . "\" " .
+            "-w \"" . $x_bindpwd . "\" " .
+            "-b \"" . "cn=TUS Officers,ou=Groups,".$x_basedn . "\" " .
+            "-h \"" . $x_host . "\" " .
+            "-p \"" . $x_port ."\" " .
+            "member | grep \"uid=" . $uid . ",\" | wc -l";
 
-  return 0 if (! $ldap);
+  my $matched = `$cmd`;
 
-  my $entry = $ldap->search ( "cn=TUS Officers,ou=Groups,$x_basedn",
-                              "sub",
-                              "uid=$uid",
-                              0
-                            );
+  chomp($matched);
 
-  $ldap->close();
-
-  if ($entry) {
-     return 1;
+  if ($matched eq "0" || $matched eq "") {
+    return 0;
+  } else {
+    return 1;
   }
-  return 0;
 }
 
 sub is_user()
@@ -147,28 +138,33 @@ sub is_user()
   $uid = $1;
 
   my $x_host = get_ldap_host();
-  my $x_port = get_ldap_port();
-  my $x_secureconn = get_ldap_secure();
+  $x_port = get_ldap_port();
   my $x_basedn = get_base_dn();
-  my $x_certdir = get_ldap_certdir();
+  chomp($x_basedn);
+  my $x_binddn = `grep -e "^tokendb.bindDN" $cfg | cut -c16-`;
+  chomp($x_binddn);
+  my $x_bindpwdpath = `grep -e "^tokendb.bindPassPath" $cfg | cut -c22-`;
+  chomp($x_bindpwdpath);
+  my $x_bindpwd = `grep -e "^tokendbBindPass" $x_bindpwdpath | cut -c17-`;
+  chomp($x_bindpwd);
 
-  my $ldap = PKI::TPS::Common::make_connection(
-                  {host => $x_host, port => $x_port, cert => $x_certdir},
-                  $x_secureconn);
+   my $cmd = $ldapsearch . " " .
+            "-x " .
+            "-D \"" . $x_binddn . "\" " .
+            "-w \"" . $x_bindpwd . "\" " .
+            "-b \"" . "ou=people,".$x_basedn . "\" " .
+            "-h \"" . $x_host . "\" " .
+            "-p \"" . $x_port ."\" " .
+            "\"(uid=" . $uid . ")\" uid | grep \"uid:\" | wc -l";
 
-  return 0 if (! $ldap);
+  my $matched = `$cmd`;
 
-  my $entry = $ldap->search ( "ou=people,$x_basedn",
-                              "sub",
-                              "uid=$uid",
-                               0
-                            );
+  chomp($matched);
 
-  $ldap->close();
-
-  if ($entry) {
-     return 1;
+  if ($matched eq "0" || $matched eq "") {
+    return 0;
+  } else {
+    return 1;
   }
-  return 0;
 }
 

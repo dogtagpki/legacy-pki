@@ -1,5 +1,5 @@
 Name:             dogtag-pki-theme
-Version:          9.0.9
+Version:          9.0.1
 Release:          1%{?dist}
 Summary:          Certificate System - Dogtag PKI Theme Components
 URL:              http://pki.fedoraproject.org/
@@ -12,11 +12,7 @@ BuildRoot:        %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:    cmake
 BuildRequires:    java-devel >= 1:1.6.0
-%if 0%{?fedora} >= 16
-BuildRequires:    jpackage-utils >= 1.7.5-10
-%else
 BuildRequires:    jpackage-utils
-%endif
 
 Source0:          http://pki.fedoraproject.org/pki/sources/%{name}/%{name}-%{version}.tar.gz
 
@@ -274,7 +270,7 @@ This package is used by the Dogtag Certificate System.
 %build
 %{__mkdir_p} build
 cd build
-%cmake -DVAR_INSTALL_DIR:PATH=/var -DBUILD_DOGTAG_PKI_THEME:BOOL=ON -DJAVA_LIB_INSTALL_DIR=%{_jnidir} ..
+%cmake -DBUILD_DOGTAG_PKI_THEME:BOOL=ON ..
 %{__make} VERBOSE=1 %{?_smp_mflags}
 
 
@@ -350,131 +346,6 @@ chmod 755 %{buildroot}%{_datadir}/pki/tps-ui/cgi-bin/sow/cfg.pl
 
 
 %changelog
-* Thu Sep 22 2011 Andrew Wnuk <awnuk@redhat.com> 9.0.9-1
-- 'dogtag-pki-ca-theme'
--      Bugzilla Bug #737423 - Ability to view migrated policy requests
-       is very limited. (awnuk)
-- 'dogtag-pki-common-theme'
-- 'dogtag-pki-console-theme'
-- 'dogtag-pki-kra-theme'
-- 'dogtag-pki-ocsp-theme'
-- 'dogtag-pki-ra-theme'
-- 'dogtag-pki-tks-theme'
-- 'dogtag-pki-tps-theme'
--      Bugzilla Bug #737184 - TPS UI display admin user name as
-       "undefined TUS Administrator". (awnuk)
-
-* Mon Sep 12 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.8-1
-- 'dogtag-pki-ca-theme'
-- 'dogtag-pki-common-theme'
-- 'dogtag-pki-console-theme'
--      Bugzilla Bug #734590 - Refactor JNI libraries for Fedora 16+ . . .
-- 'dogtag-pki-kra-theme'
-- 'dogtag-pki-ocsp-theme'
-- 'dogtag-pki-ra-theme'
-- 'dogtag-pki-tks-theme'
-- 'dogtag-pki-tps-theme'
-
-* Tue Aug 23 2011 Ade Lee <alee@redhat.com> 9.0.7-1
-- 'dogtag-pki-ca-theme'
--      Bugzilla Bug #712931 - CS requires too many ports
-       to be open in the FW
-- 'dogtag-pki-common-theme'
-- 'dogtag-pki-console-theme'
-- 'dogtag-pki-kra-theme'
--      Bugzilla Bug #712931 - CS requires too many ports
-       to be open in the FW
-- 'dogtag-pki-ocsp-theme'
--      Bugzilla Bug #712931 - CS requires too many ports
-       to be open in the FW
-- 'dogtag-pki-ra-theme'
-- 'dogtag-pki-tks-theme'
--      Bugzilla Bug #712931 - CS requires too many ports
-       to be open in the FW
-- 'dogtag-pki-tps-theme'
-
-* Thu Jul 14 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.6-1
-- 'dogtag-pki-ca-theme'
--      Bugzilla Bug #695015 - Serial No. of a revoked certificate is not
-       populated in the CA signedAudit messages (alee)
--      Bugzilla Bug #694143 - CA Agent not returning specified request (awnuk)
--      Bugzilla Bug #704351 - remove help buttons in agent and ee UI in all
-       subsystems (alee)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'dogtag-pki-common-theme'
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'dogtag-pki-console-theme'
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'dogtag-pki-kra-theme'
--      Bugzilla Bug #694143 - CA Agent not returning specified request (awnuk)
--      Bugzilla Bug #704351 - remove help buttons in agent and ee UI in all
-       subsystems (alee)
--      Bugzilla Bug #714068 - KRA: remove monitor servlet from kra (alee)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'dogtag-pki-ocsp-theme'
--      Bugzilla Bug #704351 - remove help buttons in agent and ee UI in all
-       subsystems (alee)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'dogtag-pki-ra-theme'
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'dogtag-pki-tks-theme'
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- 'dogtag-pki-tps-theme'
--      Bugzilla Bug #491008 - Security Officer: Format Card, Set Home URL and
-       Format SO card has 'home phone URL' (jmagne)
--      Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-
-* Tue Apr 26 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.5-1
-- 'dogtag-pki-ca-theme'
--     Bugzilla Bug #695015 - Serial No. of a revoked certificate is not
-      populated in the CA signedAudit messages
--     Bugzilla Bug #694143 - CA Agent not returning specified request
-- 'dogtag-pki-common-theme'
-- 'dogtag-pki-console-theme'
-- 'dogtag-pki-kra-theme'
--     Bugzilla Bug #694143 - CA Agent not returning specified request
-- 'dogtag-pki-ocsp-theme'
-- 'dogtag-pki-ra-theme'
-- 'dogtag-pki-tks-theme'
-- 'dogtag-pki-tps-theme'
-
-* Tue Apr 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.4-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- 'dogtag-pki-ca-theme'
-- 'dogtag-pki-common-theme'
-- 'dogtag-pki-console-theme'
-- 'dogtag-pki-kra-theme'
-- 'dogtag-pki-ocsp-theme'
-- 'dogtag-pki-ra-theme'
-- 'dogtag-pki-tks-theme'
-- 'dogtag-pki-tps-theme'
--     Bugzilla Bug #691447 - TPS UI Admin tab 'Add new token' opens a
-      page with text 'Agent operations: Add new tokens'.
--     Bugzilla Bug #691867 - add ldaps support through perLDAP
-
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- 'dogtag-pki-ca-theme'
-- 'dogtag-pki-common-theme'
--     Bugzilla Bug #683581 - CA configuration with ECC(Default
-      EC curve-nistp521) CA fails with 'signing operation failed'
-- 'dogtag-pki-console-theme'
-- 'dogtag-pki-kra-theme'
-- 'dogtag-pki-ocsp-theme'
-- 'dogtag-pki-ra-theme'
-- 'dogtag-pki-tks-theme'
-- 'dogtag-pki-tps-theme'
--     Bugzilla Bug #684259 - wrong group used for tps operators
-
-* Thu Mar 17 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.2-1
-- Bugzilla Bug #688763 - Rebase updated Dogtag Packages for Fedora 15 (alpha)
-- Bugzilla Bug #676421 - CC: Remove unused TPS interface calls and add
-  audit logging
-- Bugzilla Bug #606944 - Convert TPS to use ldap utilities and API from
-  OpenLDAP instead of the Mozldap
-- Bugzilla Bug #678142 - Flakey JAR packaging encountered on Fedora 15
-  when using Mock
-
 * Fri Feb 4 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.1-1
 - Bugzilla Bug #606944 - Convert TPS to use ldap utilities and API from
   OpenLDAP instead of the Mozldap

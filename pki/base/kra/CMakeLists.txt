@@ -4,19 +4,6 @@ add_subdirectory(src)
 add_subdirectory(setup)
 add_subdirectory(shared/conf)
 
-# install systemd scripts
-install(
-    FILES
-        shared/lib/systemd/system/pki-krad.target
-        shared/lib/systemd/system/pki-krad@.service
-    DESTINATION
-        ${SYSTEMD_LIB_INSTALL_DIR}
-    PERMISSIONS
-        OWNER_EXECUTE OWNER_WRITE OWNER_READ
-        GROUP_EXECUTE GROUP_READ
-        WORLD_EXECUTE WORLD_READ
-)
-
 # install init script
 install(
     FILES
@@ -41,8 +28,6 @@ install(
         "etc/*" EXCLUDE
     PATTERN
         "conf/CS.cfg.in" EXCLUDE
-    PATTERN
-        "lib/*" EXCLUDE
 )
 
 # install empty directories
@@ -57,10 +42,3 @@ install(
     DESTINATION
         ${VAR_INSTALL_DIR}/run/pki/kra
 )
-
-install(
-    DIRECTORY
-    DESTINATION 
-        ${SYSTEMD_ETC_INSTALL_DIR}/pki-krad.target.wants
-)
-

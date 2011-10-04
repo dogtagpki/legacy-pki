@@ -291,7 +291,7 @@ public class ConfigureCA {
                     + URLEncoder.encode(token_name) + "&__uPasswd="
                     + URLEncoder.encode(token_pwd) + ""; 
                 hr = hc.sslConnect(cs_hostname, cs_port, wizard_uri, query_string);
-                if (! checkStatus(hr, "updateStatus", SUCCESS, "TokenChoicePanel()")) {
+                if (! checkStatus(hr, "updateStatus", SUCCESS,"TokenChoicePanel()")) {
                     return false;
                 }
 		

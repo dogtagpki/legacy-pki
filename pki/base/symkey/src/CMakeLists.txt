@@ -4,7 +4,7 @@ find_file(JSS_JAR
     NAMES
         jss4.jar
     PATHS
-    ${JAVA_LIB_INSTALL_DIR}
+    /usr/lib/java
     /usr/share/java
 )
 

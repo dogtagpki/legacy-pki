@@ -61,19 +61,6 @@ extern "C"
 #include "main/RollingLogFile.h"
 #include "selftests/SelfTest.h"
 
-typedef struct
-{
-    enum
-    {
-        PW_NONE = 0,
-        PW_FROMFILE = 1,
-        PW_PLAINTEXT = 2,
-        PW_EXTERNAL = 3
-    } source;
-    char *data;
-} secuPWData;
-
-
 static ConfigStore *m_cfg = NULL;
 static LogFile* m_debug_log = (LogFile *)NULL; 
 static LogFile* m_error_log = (LogFile *)NULL; 
@@ -249,7 +236,7 @@ void RA::do_free(char *p)
 int RA::InitializeSignedAudit()
 {
     // cfu
-    RA::Debug("RA:: InitializeSignedAudit", "begins pid: %d",getpid());
+    RA::Debug("RA:: InitializeSignedAudit", "begins");
     tpsConfigured = m_cfg->GetConfigAsBool("tps.configured", false);
     // During installation config, don't do this
     if (IsTpsConfigured() && (m_audit_signed == true) && (m_audit_signing_key == NULL)) {
@@ -393,6 +380,7 @@ TPS_PUBLIC int RA::Initialize(char *cfg_path, RA_Context *ctx)
 
 	m_verify_lock = PR_NewLock();
 	m_debug_log_lock = PR_NewLock();
+	m_audit_log_monitor = PR_NewMonitor();
 	m_error_log_lock = PR_NewLock();
 	m_selftest_log_lock = PR_NewLock();
 	m_config_lock = PR_NewLock();
@@ -418,8 +406,46 @@ TPS_PUBLIC int RA::Initialize(char *cfg_path, RA_Context *ctx)
 	}
 
         m_error_log_level = m_cfg->GetConfigAsInt(CFG_ERROR_LEVEL, (int) LL_PER_SERVER);
+        m_audit_log_level = m_cfg->GetConfigAsInt(CFG_AUDIT_LEVEL, (int) LL_PER_SERVER);
         m_debug_log_level = m_cfg->GetConfigAsInt(CFG_DEBUG_LEVEL, (int) LL_PER_SERVER);
         m_selftest_log_level = m_cfg->GetConfigAsInt(CFG_SELFTEST_LEVEL, (int) LL_PER_SERVER);
+
+        // get events for audit signing
+        m_signedAuditSelectedEvents = PL_strdup(m_cfg->GetConfigAsString(CFG_AUDIT_SELECTED_EVENTS, ""));
+        m_signedAuditSelectableEvents = PL_strdup(m_cfg->GetConfigAsString(CFG_AUDIT_SELECTABLE_EVENTS, ""));
+        m_signedAuditNonSelectableEvents= PL_strdup(m_cfg->GetConfigAsString(CFG_AUDIT_NONSELECTABLE_EVENTS, ""));
+        m_audit_enabled = m_cfg->GetConfigAsBool(CFG_AUDIT_ENABLE, false);
+        m_buffer_size = m_cfg->GetConfigAsInt(CFG_AUDIT_BUFFER_SIZE, 512);
+        m_flush_interval = m_cfg->GetConfigAsInt(CFG_AUDIT_FLUSH_INTERVAL, 5);
+
+	if (m_audit_enabled) {
+                // is audit logSigning on?
+                m_audit_signed = m_cfg->GetConfigAsBool(CFG_AUDIT_SIGNED, false);
+                RA::Debug("RA:: Initialize", "Audit signing is %s",
+                          m_audit_signed? "true":"false");
+
+                m_audit_log = GetLogFile(m_cfg->GetConfigAsString(CFG_AUDIT_FILE_TYPE, "LogFile"));
+                status = m_audit_log->startup(ctx, CFG_AUDIT_PREFIX,
+                             m_cfg->GetConfigAsString((m_audit_signed)? 
+                                 CFG_SIGNED_AUDIT_FILENAME:CFG_AUDIT_FILENAME,
+                                 "/tmp/audit.log"),
+                             m_audit_signed);
+                if (status != PR_SUCCESS) 
+                    goto loser;
+
+                status = m_audit_log->open();
+             
+                if (status != PR_SUCCESS)
+                    goto loser;
+
+                m_audit_log_buffer = (char *) PR_Malloc(m_buffer_size);
+                if (m_audit_log_buffer == NULL) {
+                    RA::Debug("RA:: Initialize", "Unable to allocate memory for audit log buffer ..");
+                    goto loser;
+                }
+                PR_snprintf((char *) m_audit_log_buffer, m_buffer_size, "");
+                m_bytes_unflushed = 0;
+	}
 
 	if (m_cfg->GetConfigAsBool(CFG_ERROR_ENABLE, 0)) {
                 m_error_log = GetLogFile(m_cfg->GetConfigAsString(CFG_ERROR_FILE_TYPE, "LogFile"));
@@ -540,8 +566,8 @@ int RA::InitializeInChild(RA_Context *ctx, int nSignedAuditInitCount) {
     int status = 0;
     char configname[256];
 
-    RA::Debug( LL_PER_SERVER, "RA::InitializeInChild", "begins: %d pid: %d ppid: %d",
-                nSignedAuditInitCount,getpid(),getppid());
+    RA::Debug( LL_PER_SERVER, "RA::InitializeInChild", "begins: %d",
+                 nSignedAuditInitCount);
     if (!NSS_IsInitialized()) {
 
         RA::Debug( LL_PER_SERVER, "RA::InitializeInChild", "Initializing NSS");
@@ -587,50 +613,6 @@ int RA::InitializeInChild(RA_Context *ctx, int nSignedAuditInitCount) {
         goto loser;
     } 
 
-    // open audit log
-    m_audit_log_monitor = PR_NewMonitor();
-    m_audit_log_level = m_cfg->GetConfigAsInt(CFG_AUDIT_LEVEL, (int) LL_PER_SERVER);
-
-    // get events for audit signing
-    m_signedAuditSelectedEvents = PL_strdup(m_cfg->GetConfigAsString(
-                                                CFG_AUDIT_SELECTED_EVENTS, ""));
-    m_signedAuditSelectableEvents = PL_strdup(m_cfg->GetConfigAsString(
-                                                CFG_AUDIT_SELECTABLE_EVENTS, ""));
-    m_signedAuditNonSelectableEvents= PL_strdup(m_cfg->GetConfigAsString(
-                                                CFG_AUDIT_NONSELECTABLE_EVENTS, ""));
-    m_audit_enabled = m_cfg->GetConfigAsBool(CFG_AUDIT_ENABLE, false);
-    m_buffer_size = m_cfg->GetConfigAsInt(CFG_AUDIT_BUFFER_SIZE, 512);
-    m_flush_interval = m_cfg->GetConfigAsInt(CFG_AUDIT_FLUSH_INTERVAL, 5);
-
-    if (m_audit_enabled  && (nSignedAuditInitCount > 1 )) {
-        // is audit logSigning on?
-        m_audit_signed = m_cfg->GetConfigAsBool(CFG_AUDIT_SIGNED, false);
-        RA::Debug("RA:: InitializeInChild", "Audit signing is %s",
-                   m_audit_signed? "true":"false");
-
-        m_audit_log = GetLogFile(m_cfg->GetConfigAsString(CFG_AUDIT_FILE_TYPE, "LogFile"));
-        status = m_audit_log->startup(ctx, CFG_AUDIT_PREFIX,
-                                      m_cfg->GetConfigAsString((m_audit_signed)? 
-                                      CFG_SIGNED_AUDIT_FILENAME:CFG_AUDIT_FILENAME,
-                                      "/tmp/audit.log"),
-                                      m_audit_signed);
-        if (status != PR_SUCCESS) 
-            goto loser;
-
-        status = m_audit_log->open();
-             
-        if (status != PR_SUCCESS)
-            goto loser;
-
-        m_audit_log_buffer = (char *) PR_Malloc(m_buffer_size);
-        if (m_audit_log_buffer == NULL) {
-            RA::Debug("RA:: Initialize", "Unable to allocate memory for audit log buffer ..");
-            goto loser;
-        }
-        PR_snprintf((char *) m_audit_log_buffer, m_buffer_size, "");
-        m_bytes_unflushed = 0;
-    }
-
     RA::Debug("RA::InitializeInChild", "nSignedAuditInitCount=%i",
              nSignedAuditInitCount); 
     if (NSS_IsInitialized() && (nSignedAuditInitCount >1)) {
@@ -666,20 +648,6 @@ int RA::InitializeInChild(RA_Context *ctx, int nSignedAuditInitCount) {
 
     rc =1;
 loser: 
-    // Log the status of this TPS plugin into the web server's log:
-    if( rc != 1 ) {
-        ctx->LogError( "RA::InitializeInChild",
-                       __LINE__,
-                       "The TPS plugin could NOT be "
-                       "initialized (rc = %d)!  See specific details in the "
-                       "TPS plugin log files.", rc );
-    } else {
-        ctx->LogInfo( "RA::InitializeInChild",
-                      __LINE__,
-                      "The TPS plugin was "
-                      "successfully initialized!" );
-    }
-
     return rc;
 }
 
@@ -786,10 +754,25 @@ int RA::IsTpsConfigured()
   return tpsConfigured;
 }
 
-TPS_PUBLIC int RA::Child_Shutdown()
+/**
+ * Shutdown RA.
+ */
+TPS_PUBLIC int RA::Shutdown()
 {
-    RA::Debug("RA::Child_Shutdown", "starts");
-    // clean up connections
+
+    tus_db_end();
+    tus_db_cleanup();
+
+    if( m_pod_lock != NULL ) {
+        PR_DestroyLock( m_pod_lock );
+        m_pod_lock = NULL;
+    }
+
+    if( m_auth_lock != NULL ) {
+        PR_DestroyLock( m_auth_lock );
+        m_auth_lock = NULL;
+    }
+
     if (m_caConnection != NULL) {
         for (int i=0; i<m_caConns_len; i++) {
             if( m_caConnection[i] != NULL ) {
@@ -816,7 +799,7 @@ TPS_PUBLIC int RA::Child_Shutdown()
         }
     }
 
-    /* log audit log shutdown */
+	/* close audit file if opened */
     PR_EnterMonitor(m_audit_log_monitor);
     if( (m_audit_log != NULL)  && (m_audit_log->isOpen())) {
         if (m_audit_log_buffer != NULL) {
@@ -835,47 +818,16 @@ TPS_PUBLIC int RA::Child_Shutdown()
                 FlushAuditLogBuffer();
         }
     }
-
     if (m_audit_log != NULL) {
         m_audit_log->shutdown();
         delete m_audit_log;
         m_audit_log = NULL;
     }
+    PR_ExitMonitor(m_audit_log_monitor);
 
     if (m_audit_log_buffer) {
         PR_Free(m_audit_log_buffer);
         m_audit_log_buffer = NULL;
-    }
-   
-    PR_ExitMonitor(m_audit_log_monitor);
-
-    if( m_audit_log_monitor != NULL ) {
-        PR_DestroyMonitor( m_audit_log_monitor );
-        m_audit_log_monitor = NULL;
-    }
-
-    return 1;
-}
-
-
-/**
- * Shutdown RA.
- */
-TPS_PUBLIC int RA::Shutdown()
-{
-    RA::Debug("RA::Shutdown", "starts");
-
-    tus_db_end();
-    tus_db_cleanup();
-
-    if( m_pod_lock != NULL ) {
-        PR_DestroyLock( m_pod_lock );
-        m_pod_lock = NULL;
-    }
-
-    if( m_auth_lock != NULL ) {
-        PR_DestroyLock( m_auth_lock );
-        m_auth_lock = NULL;
     }
 
     /* close debug file if opened */
@@ -907,6 +859,11 @@ TPS_PUBLIC int RA::Shutdown()
     if( m_debug_log_lock != NULL ) {
         PR_DestroyLock( m_debug_log_lock );
         m_debug_log_lock = NULL;
+    }
+
+    if( m_audit_log_monitor != NULL ) {
+        PR_DestroyMonitor( m_audit_log_monitor );
+        m_audit_log_monitor = NULL;
     }
 
     if( m_error_log_lock != NULL ) {
@@ -1514,10 +1471,6 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
                                   const char *connId)
 {
     PK11SymKey *symKey = NULL;
-    PK11SymKey *symKey24 = NULL;
-    PK11SymKey *encSymKey24 = NULL;
-    PK11SymKey *transportKey = NULL;
-    PK11SymKey *encSymKey16 = NULL;
     char body[MAX_BODY_LEN];
     char configname[256];
     char * cardc = NULL;
@@ -1528,8 +1481,6 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
     PSHttpResponse *response = NULL;
     HttpConnection *tksConn = NULL;
     RA_pblock *ra_pb = NULL;
-    SECItem *SecParam = PK11_ParamFromIV(CKM_DES3_ECB, NULL);
-    char* transportKeyName = NULL;
 
     RA::Debug(LL_PER_PDU, "Start ComputeSessionKey", "");
     tksConn = RA::GetTKSConn(connId);
@@ -1640,21 +1591,6 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
           }
 	}
 
-        // Now unwrap the session keys with shared secret transport key
-
-        PR_snprintf((char *)configname, 256, "conn.%s.tksSharedSymKeyName", connId);
-
-        transportKeyName = (char *)  m_cfg->GetConfigAsString(configname, TRANSPORT_KEY_NAME);
-
-        RA::Debug(LL_PER_PDU,"RA:ComputeSessionKey","Shared Secret key name: %s.", transportKeyName);
-
-        transportKey = FindSymKeyByName( slot,  transportKeyName);
-
-        if ( transportKey == NULL ) {
-            RA::Debug(LL_PER_PDU,"RA::ComputeSessionKey","fail getting transport key");
-            goto loser; 
-        }      
-
 	sessionKey_s = ra_pb->find_val_s(TKS_RESPONSE_SessionKey);
 	if (sessionKey_s == NULL) {
 	  RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "fail no sessionKey_b");
@@ -1666,24 +1602,21 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
 
 	RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "decodekey len=%d",decodeKey->size());
 
+	BYTE masterKeyData[24];
+	SECItem masterKeyItem = {siBuffer, masterKeyData, sizeof(masterKeyData)};
 	BYTE *keyData = (BYTE *)*decodeKey;
-        SECItem wrappeditem = {siBuffer , keyData, 16 };
+	memcpy(masterKeyData, (char*)keyData, 16);
+	memcpy(masterKeyData+16, (char*)keyData, 8);
 
-        symKey = PK11_UnwrapSymKey(transportKey,
-                          CKM_DES3_ECB,SecParam, &wrappeditem,
-                          CKM_DES3_ECB,
-                          CKA_UNWRAP,
-                          16);
-
-        if ( symKey ) {
-           symKey24 = CreateDesKey24Byte(slot, symKey);
-        }
+	symKey = PK11_ImportSymKeyWithFlags(slot, CKM_DES3_ECB,
+					    PK11_OriginGenerated, CKA_ENCRYPT, &masterKeyItem,
+					    CKF_ENCRYPT, PR_FALSE, 0);
 
 	if( decodeKey != NULL ) {
 	  delete decodeKey;
 	  decodeKey = NULL;
 	}
-	if (symKey24 == NULL)
+	if (symKey == NULL)
 	  RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "MAC Session key is NULL");
 
 
@@ -1699,29 +1632,26 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
 	RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey",
 		  "decodeEnckey len=%d",decodeEncKey->size());
 
+	BYTE masterEncKeyData[24];
+	SECItem masterEncKeyItem =
+	  {siBuffer, masterEncKeyData, sizeof(masterEncKeyData)};
 	BYTE *EnckeyData = (BYTE *)*decodeEncKey;
-        wrappeditem.data = (unsigned char *) EnckeyData;
-        wrappeditem.len = 16; 
+	memcpy(masterEncKeyData, (char*)EnckeyData, 16);
+	memcpy(masterEncKeyData+16, (char*)EnckeyData, 8);
 
-        encSymKey16 = PK11_UnwrapSymKey(transportKey,
-                          CKM_DES3_ECB,SecParam, &wrappeditem,
-                          CKM_DES3_ECB,
-                          CKA_UNWRAP,
-                          16);
-
-        if ( encSymKey16 ) {
-           encSymKey24 = CreateDesKey24Byte(slot, encSymKey16);
-        }
-
-        *encSymKey = encSymKey24;
+	*encSymKey =
+	  PK11_ImportSymKeyWithFlags(slot, CKM_DES3_ECB,
+				     PK11_OriginGenerated, CKA_ENCRYPT, &masterEncKeyItem,
+				     CKF_ENCRYPT, PR_FALSE, 0);
 
 	if( decodeEncKey != NULL ) {
 	  delete decodeEncKey;
 	  decodeEncKey = NULL;
 	}
 
-	if (encSymKey24 == NULL)
+	if (encSymKey == NULL)
 	  RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "encSessionKey is NULL");
+
 
 	if (serverKeygen) {
 	  char * tmp= NULL;
@@ -1801,28 +1731,13 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
         response = NULL;
     }
 
-    if ( SecParam != NULL ) {
-         SECITEM_FreeItem(SecParam, PR_TRUE);
-         SecParam = NULL;
-    }
-
     if (ra_pb != NULL) {
       delete ra_pb;
     }
-    
-    if ( symKey != NULL ) {
-        PK11_FreeSymKey( symKey );
-        symKey = NULL;
-    }
- 
-    if ( encSymKey16 != NULL ) {
-        PK11_FreeSymKey( encSymKey16 );
-        encSymKey16 = NULL;
-    }
-
 	// in production, if TKS is unreachable, symKey will be NULL,
 	// and this will signal error to the caller.
-	return symKey24;
+	return symKey;
+
 }
 
 Buffer *RA::ComputeHostCryptogram(Buffer &card_challenge, 
@@ -2011,7 +1926,6 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
                       "AuditThis: Failure to write to the audit log.  Shutting down ..."); 
                 _exit(APEXIT_CHILDFATAL);
             }
-            m_audit_log->setSigned(false);
 
             if (m_audit_signed) SignAuditLog(audit_msg);
         } else {
@@ -2044,7 +1958,6 @@ TPS_PUBLIC void RA::FlushAuditLogBuffer()
                   "RA::FlushAuditLogBuffer: Failure to write to the audit log.  Shutting down ...");
             _exit(APEXIT_CHILDFATAL);
         }
-        m_audit_log->setSigned(false);
         if (m_audit_signed) {
             SignAuditLog((NSSUTF8 *) m_audit_log_buffer);
         }
@@ -3151,7 +3064,7 @@ int RA::tdb_update(const char *userid, char* cuid, char* applet_version, char *k
       /* need code to modify things such as applet version ...*/
       /* ldap modify code to follow...*/
       rc =  update_tus_db_entry ("~tps", cuid, userid, key_info, state,
-                         applet_version, reason, token_type);
+                         applet_version, reason);
     }
 loser:
    if (ldapResult != NULL) {
@@ -3474,148 +3387,4 @@ TPS_PUBLIC bool RA::verifySystemCerts() {
     }
 
     return rv;
-}
-
-PK11SymKey *RA::FindSymKeyByName( PK11SlotInfo *slot, char *keyname) {
-char       *name       = NULL;
-    PK11SymKey *foundSymKey= NULL;
-    PK11SymKey *firstSymKey= NULL;
-    PK11SymKey *sk  = NULL;
-    PK11SymKey *nextSymKey = NULL;
-    secuPWData  pwdata;
-
-    pwdata.source   = secuPWData::PW_NONE;
-    pwdata.data     = (char *) NULL;
-    if (keyname == NULL)
-    {
-        goto cleanup;
-    }
-    if (slot== NULL)
-    {
-        goto cleanup;
-    }
-    /* Initialize the symmetric key list. */
-    firstSymKey = PK11_ListFixedKeysInSlot( slot , NULL, ( void *) &pwdata );
-    /* scan through the symmetric key list for a key matching our nickname */
-    sk = firstSymKey;
-    while( sk != NULL )
-    {
-        /* get the nickname of this symkey */
-        name = PK11_GetSymKeyNickname( sk );
-
-        /* if the name matches, make a 'copy' of it */
-        if ( name != NULL && !strcmp( keyname, name ))
-        {
-            if (foundSymKey == NULL)
-            {
-                foundSymKey = PK11_ReferenceSymKey(sk);
-            }
-            PORT_Free(name);
-        }
-
-        sk = PK11_GetNextSymKey( sk );
-    }
-
-    /* We're done with the list now, let's free all the keys in it
-       It's okay to free our key, because we made a copy of it */
-
-    sk = firstSymKey;
-    while( sk != NULL )
-    {
-        nextSymKey = PK11_GetNextSymKey(sk);
-        PK11_FreeSymKey(sk);
-        sk = nextSymKey;
-    }
-
-    cleanup:
-    return foundSymKey;
-}
-
-PK11SymKey *RA::CreateDesKey24Byte(PK11SlotInfo *slot, PK11SymKey *origKey)
-{
-    PK11SymKey *newKey = NULL;
-    PK11SymKey *firstEight = NULL;
-    PK11SymKey *concatKey = NULL;
-    PK11SymKey *internalOrigKey = NULL;
-    CK_ULONG bitPosition = 0;
-    SECItem paramsItem = { siBuffer, NULL, 0 };
-    CK_OBJECT_HANDLE keyhandle = 0;
-    RA::Debug("RA_Enroll_Processor::CreateDesKey24Byte",
-                "entering.");
-
-    PK11SlotInfo *internal = PK11_GetInternalSlot();
-    if ( slot == NULL || origKey == NULL || internal == NULL)
-        goto loser;
-
-    if( internal != slot ) {  //Make sure we do this on the NSS Generic Crypto services because concatanation
-                              // only works there.
-        internalOrigKey = PK11_MoveSymKey( internal, CKA_ENCRYPT, 0, PR_FALSE, origKey );
-    }
-    // Extract first eight bytes from generated key into another key.
-    bitPosition = 0;
-    paramsItem.data = (CK_BYTE *) &bitPosition;
-    paramsItem.len = sizeof bitPosition;
-
-    if ( internalOrigKey)
-        firstEight = PK11_Derive(internalOrigKey, CKM_EXTRACT_KEY_FROM_KEY, &paramsItem, CKA_ENCRYPT , CKA_DERIVE, 8);
-    else 
-        firstEight = PK11_Derive(origKey, CKM_EXTRACT_KEY_FROM_KEY, &paramsItem, CKA_ENCRYPT , CKA_DERIVE, 8);
-
-    if (firstEight  == NULL ) {
-         RA::Debug("RA_Enroll_Processor::CreateDesKey24Byte",
-                "error deriving 8 byte portion of key.");
-        goto loser;
-    }
-
-    //Concatenate 8 byte key to the end of the original key, giving new 24 byte key
-    keyhandle = PK11_GetSymKeyHandle(firstEight);
-
-    paramsItem.data=(unsigned char *) &keyhandle;
-    paramsItem.len=sizeof(keyhandle);
-
-    if ( internalOrigKey ) {
-        concatKey = PK11_Derive ( internalOrigKey , CKM_CONCATENATE_BASE_AND_KEY , &paramsItem ,CKM_DES3_ECB , CKA_DERIVE , 0);
-    } else {
-        concatKey = PK11_Derive ( origKey , CKM_CONCATENATE_BASE_AND_KEY , &paramsItem ,CKM_DES3_ECB , CKA_DERIVE , 0);
-    }
-
-    if ( concatKey == NULL ) {
-        RA::Debug("RA_Enroll_Processor::CreateDesKey24Byte",
-                "error concatenating 8 bytes on end of key.");
-        goto loser;
-    }
-
-    //Make sure we move this to the proper token, in case it got moved by NSS
-    //during the derive phase.
-
-    newKey =  PK11_MoveSymKey ( slot, CKA_ENCRYPT, 0, PR_FALSE, concatKey);
-
-    if ( newKey == NULL ) {
-        RA::Debug("RA_Enroll_Processor::CreateDesKey24Byte",
-                "error moving key to original slot.");
-    }
-
-loser:
-
-    if ( concatKey != NULL ) {
-        PK11_FreeSymKey( concatKey );
-        concatKey = NULL;
-    }
-
-    if ( firstEight != NULL ) {
-        PK11_FreeSymKey ( firstEight );
-        firstEight = NULL;
-    }
-
-    if ( internalOrigKey != NULL ) {
-       PK11_FreeSymKey ( internalOrigKey );
-       internalOrigKey = NULL;
-    }
-
-    if ( internal != NULL ) {
-       PK11_FreeSlot( internal); 
-       internal = NULL;
-    }
-
-    return newKey;
 }

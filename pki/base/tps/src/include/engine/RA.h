@@ -91,8 +91,6 @@ enum RA_Log_Level {
 /* status of RA::Initialize( char *cfg_path, RA_Context *ctx ).       */
 #define RA_INITIALIZATION_SUCCESS 1
 
-#define TRANSPORT_KEY_NAME "sharedSecret"
-
 typedef char NSSUTF8;
 
 class RA
@@ -110,7 +108,6 @@ class RA
 //	  TPS_PUBLIC static int InitializeInChild(RA_Context *ctx);
 	  TPS_PUBLIC static int InitializeInChild(RA_Context *ctx, int nSignedAuditInitCount);
 	  TPS_PUBLIC static int Shutdown();
-          TPS_PUBLIC static int Child_Shutdown();
   public:
 
  	  static PK11SymKey *ComputeSessionKey(RA_Session *session,
@@ -137,9 +134,6 @@ class RA
                              char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s);
 
 	  static Buffer *ComputeHostCryptogram(Buffer &card_challenge, Buffer &host_challenge);
-
-          static PK11SymKey *FindSymKeyByName( PK11SlotInfo *slot, char *keyname);
-          static PK11SymKey *CreateDesKey24Byte(PK11SlotInfo *slot, PK11SymKey *origKey);
   public:
 	  TPS_PUBLIC static ConfigStore *GetConfigStore();
           TPS_PUBLIC static bool match_comma_list(const char* item, char *list);

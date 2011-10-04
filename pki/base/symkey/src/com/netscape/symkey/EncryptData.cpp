@@ -41,25 +41,94 @@ extern "C"
 
 PRFileDesc *d = NULL;
 
+/**
+ *  Encrypt 'cc_len' bytes of data in 'input' with key kek_key.
+ *  Result goes into buffer 'output'
+ *  Returns PR_FAILURE if there was an error
+ */
+PRStatus EncryptData(const Buffer &kek_key, jbyte * input,int cc_len, Buffer &output)
+{
+    PRStatus rv = PR_FAILURE;
+
+    PK11SymKey *master = NULL;
+    PK11SlotInfo *slot = PK11_GetInternalKeySlot();
+    PK11Context *context = NULL;
+    int i;
+    SECStatus s = SECFailure;
+    int len;
+    static SECItem noParams = { siBuffer, 0, 0 };
+#ifdef DES2_WORKAROUND
+    unsigned char masterKeyData[24];
+#else
+    unsigned char masterKeyData[16];
+#endif
+    SECItem masterKeyItem = {siBuffer, masterKeyData, sizeof(masterKeyData) };
+    unsigned char result[8];
+
+// convert 16-byte to 24-byte triple-DES key
+    memcpy(masterKeyData, kek_key, 16);
+#ifdef DES2_WORKAROUND
+    memcpy(masterKeyData+16, kek_key, 8);
+#endif
+
+    master = PK11_ImportSymKeyWithFlags(slot, CKM_DES3_ECB,
+        PK11_OriginGenerated, CKA_ENCRYPT, &masterKeyItem,
+        CKF_ENCRYPT, PR_FALSE, 0);
+    if (master == NULL)
+    {
+        goto done;
+    }
+
+    context = PK11_CreateContextBySymKey(CKM_DES3_ECB, CKA_ENCRYPT, master,
+        &noParams);
+    if (context == NULL)
+    {
+        goto done;
+    }
+
+    for(i = 0;i < (int)cc_len;i += 8)
+    {
+        s = PK11_CipherOp(context, result, &len, 8,
+            (unsigned char *)(input+i), 8);
+
+        if (s != SECSuccess)
+        {
+            goto done;
+        }
+        output.replace(i, result, 8);
+    }
+
+    rv = PR_SUCCESS;
+
+done:
+    /* memset(masterKeyData, 0, sizeof masterKeyData); */
+    if (context != NULL)
+    {
+        PK11_DestroyContext(context, PR_TRUE);
+        context = NULL;
+    }
+    if (slot != NULL)
+    {
+        PK11_FreeSlot(slot);
+        slot = NULL;
+    }
+    if (master != NULL)
+    {
+        PK11_FreeSymKey(master);
+        master = NULL;
+    }
+
+    return rv;
+}
+
 void GetKeyName(jbyte *keyVersion, char *keyname)
 {
     int index=0;
-
-    if( !keyname || !keyVersion || 
-        (strlen(keyname) < KEYNAMELENGTH)) {
-       return;
-    }
-
     if(strlen(masterKeyPrefix)!=0)
     {
         index= strlen(masterKeyPrefix);
         strcpy(keyname,masterKeyPrefix);
     }
-
-    if( (index + 3) >= KEYNAMELENGTH) {
-        return;
-    }
-    
     keyname[index+0]='#';
     sprintf(keyname+index+1,"%.2d", keyVersion[0]);
     keyname[index+3]='#';
@@ -68,112 +137,55 @@ void GetKeyName(jbyte *keyVersion, char *keyname)
 
 
 extern "C"  JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_EncryptData
-(JNIEnv *, jclass, jstring, jstring, jbyteArray, jbyteArray, jbyteArray, jbyteArray, jstring, jstring);
+(JNIEnv *, jclass, jstring, jstring, jbyteArray, jbyteArray, jbyteArray, jbyteArray, jstring);
 
 extern "C" JNIEXPORT jbyteArray JNICALL
-Java_com_netscape_symkey_SessionKey_EncryptData(JNIEnv * env, jclass this2, jstring j_tokenName, jstring j_keyName, jbyteArray  j_in, jbyteArray keyInfo, jbyteArray CUID, jbyteArray kekKeyArray, jstring useSoftToken_s,jstring keySet)
+Java_com_netscape_symkey_SessionKey_EncryptData(JNIEnv * env, jclass this2, jstring j_tokenName, jstring j_keyName, jbyteArray  j_in, jbyteArray keyInfo, jbyteArray CUID, jbyteArray kekKeyArray, jstring useSoftToken_s)
 {
-    jbyte * kek_key =  NULL;
+    int status = PR_FAILURE;
+    jbyte * kek_key = (jbyte*)(env)->GetByteArrayElements(kekKeyArray, NULL);
+    jbyte * keyVersion = (jbyte*)(env)->GetByteArrayElements( keyInfo, NULL);
+    jbyte * cuidValue = (jbyte*)(env)->GetByteArrayElements( CUID, NULL);
+    jbyte *cc = (jbyte*)(env)->GetByteArrayElements( j_in, NULL);
+    int cc_len =  (env)->GetArrayLength(j_in);
 
-    PK11SymKey *masterKey = NULL;
-    PK11SymKey *kekKey =  NULL;
+    Buffer kek_buffer = Buffer((BYTE*)kek_key, 16);
+    Buffer out = Buffer(16, (BYTE)0);
 
-    Buffer out = Buffer(KEYLENGTH, (BYTE)0);
+    /* generate kek key */
+    /* identify the masterKey by KeyInfo in TKS */
     BYTE kekData[KEYLENGTH];
     char keyname[KEYNAMELENGTH];
-
-    int status = PR_FAILURE;
-
-    jbyte *cc = NULL;
-    int cc_len = 0;
-    jbyte * cuidValue = NULL;
-
-    if( kekKeyArray != NULL) {
-        kek_key = (jbyte*)(env)->GetByteArrayElements(kekKeyArray, NULL);
-    } else {
-        return NULL;
-    }
-
-    PK11SlotInfo *slot = NULL;
-    PK11SlotInfo *internal = PK11_GetInternalKeySlot();
-
-    Buffer kek_buffer = Buffer((BYTE*)kek_key, KEYLENGTH);
-    char *keySetStringChars = NULL;
-    if( keySet != NULL) {
-        keySetStringChars = (char *) (env)->GetStringUTFChars( keySet, NULL);
-    }
-
-    char *keySetString = keySetStringChars;
-
-    if ( keySetString == NULL ) {
-        keySetString = (char *) DEFKEYSET_NAME;
-    }
-
-    jbyte * keyVersion =  NULL; 
-    int keyVersion_len = 0;
-    if( keyInfo != NULL) {
-        keyVersion = (jbyte*)(env)->GetByteArrayElements( keyInfo, NULL);
-        if( keyVersion) {
-            keyVersion_len =  (env)->GetArrayLength(keyInfo);
-        }
-    }
-
-    if( !keyVersion || (keyVersion_len < 2) ) {
-        goto done;
-    }
-
-    if( CUID != NULL) {
-        cuidValue = (jbyte*)(env)->GetByteArrayElements( CUID, NULL);
-    }
-
-    if( cuidValue == NULL) {
-        goto done;
-    }
-
-    if( j_in != NULL) {
-        cc = (jbyte*)(env)->GetByteArrayElements( j_in, NULL);
-        cc_len = (env)->GetArrayLength(j_in);
-    }
-
-    if( cc == NULL) {
-        goto done;
-    }
-
     GetDiversificationData(cuidValue,kekData,kek);
 
-    PR_fprintf(PR_STDOUT,"In SessionKey: EncryptData! \n");
-
-    if(j_tokenName != NULL) {
+    PK11SlotInfo *slot = NULL;
+    if(j_tokenName != NULL)
+    {
         char *tokenNameChars = (char *)(env)->GetStringUTFChars(j_tokenName, NULL);
         slot = ReturnSlot(tokenNameChars);
         (env)->ReleaseStringUTFChars(j_tokenName, (const char *)tokenNameChars);
         tokenNameChars = NULL;
     }
 
-    if(j_keyName != NULL) {
+    if(j_keyName != NULL)
+    {
         char *keyNameChars= (char *)(env)->GetStringUTFChars(j_keyName, NULL);
         strcpy(keyname,keyNameChars);
         env->ReleaseStringUTFChars(j_keyName, (const char *)keyNameChars);
         keyNameChars = NULL;
     }
-    else {
+    else
+    {
         GetKeyName(keyVersion,keyname);
     }
 
-    if ( (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 && strcmp( keyname, "#01#01") == 0) ||
+    PK11SymKey *masterKey = NULL;
+
+    if (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 &&strcmp( keyname, "#01#01") == 0 ||
         (keyVersion[0] == -1  && strstr(keyname, "#FF") ))
     {
         /* default development keyset */
-        Buffer devInput = Buffer((BYTE*)cc, cc_len);
-        Buffer empty = Buffer();
-        
-        kekKey = ReturnDeveloperSymKey( internal, (char *) "kek", keySetString, empty); 
-
-        if ( kekKey ) {
-            status = EncryptData(Buffer(),kekKey,devInput, out);
-        } else { 
-            status = EncryptData(kek_buffer, NULL, devInput, out);
-        }
+        status = EncryptData(kek_buffer, cc, cc_len, out);
     }
     else
     {
@@ -186,45 +198,37 @@ Java_com_netscape_symkey_SessionKey_EncryptData(JNIEnv * env, jclass this2, jstr
              */
             if (masterKey != NULL)
             {
-                kekKey = ComputeCardKeyOnToken(masterKey,kekData);
+                PK11SymKey *kekKey = ComputeCardKeyOnToken(masterKey,kekData);
                 if (kekKey != NULL)
                 {
                     Buffer input = Buffer((BYTE*)cc, cc_len);
-                    status = EncryptData(Buffer(), kekKey, input, out);
+                    status = EncryptDataWithCardKey(kekKey, input, out);
+
+                    if (kekKey != NULL)
+                    {
+                        PK11_FreeSymKey( kekKey);
+                        kekKey = NULL;
+                    }
                 }
             }
         }
     }
 
-done:
-
-    if (masterKey != NULL) {
+    if (masterKey != NULL)
+    {
         PK11_FreeSymKey( masterKey);
         masterKey = NULL;
     }
 
-    if( slot != NULL ) {
-        PK11_FreeSlot( slot);
+    if( slot!= NULL )
+    {
+        PK11_FreeSlot( slot );
         slot = NULL;
     }
 
-    if( internal != NULL) {
-       PK11_FreeSlot( internal);
-       internal = NULL;
-    }
-
-    if ( kekKey != NULL) {
-        PK11_FreeSymKey( kekKey);
-        kekKey = NULL;
-    }
-
-    if( keySetStringChars ) {
-        (env)->ReleaseStringUTFChars(keySet, (const char *)keySetStringChars);
-        keySetStringChars = NULL;
-    }
-
     jbyteArray handleBA=NULL;
-    if (status != PR_FAILURE && (out.size()>0) ) {
+    if (status != PR_FAILURE && (out.size()>0) )
+    {
         jbyte *handleBytes=NULL;
         handleBA = (env)->NewByteArray( out.size());
         handleBytes = (env)->GetByteArrayElements(handleBA, NULL);
@@ -234,17 +238,9 @@ done:
         handleBytes=NULL;
     }
 
-    if( cc != NULL) {
-        env->ReleaseByteArrayElements(j_in, cc, JNI_ABORT);
-    }
-
-    if( keyVersion != NULL) {
-        env->ReleaseByteArrayElements(keyInfo, keyVersion, JNI_ABORT);
-    }
-
-    if( cuidValue != NULL) {
-        env->ReleaseByteArrayElements(CUID, cuidValue, JNI_ABORT);
-    }
+    env->ReleaseByteArrayElements(j_in, cc, JNI_ABORT);
+    env->ReleaseByteArrayElements(keyInfo, keyVersion, JNI_ABORT);
+    env->ReleaseByteArrayElements(CUID, cuidValue, JNI_ABORT);
 
     return handleBA;
 }

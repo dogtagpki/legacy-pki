@@ -1,6 +1,6 @@
 Name:             pki-kra
-Version:          9.0.8
-Release:          1%{?dist}
+Version:          9.0.0
+Release:          2%{?dist}
 Summary:          Certificate System - Data Recovery Manager
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -10,58 +10,30 @@ BuildArch:        noarch
 
 BuildRoot:        %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-# specify '_unitdir' macro for platforms that don't use 'systemd'
-%if 0%{?rhel} || 0%{?fedora} < 16
-%define           _unitdir /lib/systemd/system
-%endif
-
 BuildRequires:    cmake
 BuildRequires:    java-devel >= 1:1.6.0
+BuildRequires:    jpackage-utils
+BuildRequires:    jss >= 4.2.6-12
 BuildRequires:    nspr-devel
 BuildRequires:    nss-devel
-%if 0%{?fedora} >= 16
-BuildRequires:    jpackage-utils >= 0:1.7.5-10
-BuildRequires:    jss >= 4.2.6-19.1
-BuildRequires:    pki-common >= 9.0.15
-BuildRequires:    pki-util >= 9.0.15
-BuildRequires:    systemd-units
-%else
-BuildRequires:    jpackage-utils
-BuildRequires:    jss >= 4.2.6-17
 BuildRequires:    pki-common
 BuildRequires:    pki-util
-%endif
 
 Requires:         java >= 1:1.6.0
-Requires:         pki-kra-theme >= 9.0.0
-%if 0%{?fedora} >= 16
-Requires:         pki-common >= 9.0.15
-Requires:         pki-selinux >= 9.0.15
-Requires(post):   systemd-units
-Requires(preun):  systemd-units
-Requires(postun): systemd-units
-%else
-%if 0%{?fedora} >= 15
 Requires:         pki-common
+Requires:         pki-kra-theme
 Requires:         pki-selinux
 Requires(post):   chkconfig
 Requires(preun):  chkconfig
 Requires(preun):  initscripts
 Requires(postun): initscripts
+%if 0%{?fedora} >= 15
 # Details:
 #
 #     * https://fedoraproject.org/wiki/Features/var-run-tmpfs
 #     * https://fedoraproject.org/wiki/Tmpfiles.d_packaging_draft
 #
 Requires:         initscripts
-%else 
-Requires:         pki-common
-Requires:         pki-selinux
-Requires(post):   chkconfig
-Requires(preun):  chkconfig
-Requires(preun):  initscripts
-Requires(postun): initscripts
-%endif
 %endif
 
 Source0:          http://pki.fedoraproject.org/pki/sources/%{name}/%{name}-%{version}.tar.gz
@@ -122,7 +94,7 @@ Additionally, Certificate System requires ONE AND ONLY ONE of the following
 %build
 %{__mkdir_p} build
 cd build
-%cmake -DVAR_INSTALL_DIR:PATH=/var -DBUILD_PKI_KRA:BOOL=ON -DJAVA_LIB_INSTALL_DIR=%{_jnidir} ..
+%cmake -DVAR_INSTALL_DIR:PATH=/var -DBUILD_PKI_KRA:BOOL=ON ..
 %{__make} VERBOSE=1 %{?_smp_mflags}
 
 
@@ -145,14 +117,7 @@ echo "D /var/run/pki 0755 root root -"      >> %{buildroot}%{_sysconfdir}/tmpfil
 echo "D /var/run/pki/kra 0755 root root -"  >> %{buildroot}%{_sysconfdir}/tmpfiles.d/pki-kra.conf
 %endif
 
-%if 0%{?fedora} >= 16
-%{__rm} %{buildroot}%{_initrddir}/pki-krad
-%else
-%{__rm} -rf %{buildroot}%{_sysconfdir}/systemd/system/pki-krad.target.wants
-%{__rm} -rf %{buildroot}%{_unitdir}
-%endif
 
-%if 0%{?rhel} || 0%{?fedora} < 16
 %post
 # This adds the proper /etc/rc*.d links for the script
 /sbin/chkconfig --add pki-krad || :
@@ -169,54 +134,12 @@ fi
 if [ "$1" -ge "1" ] ; then
     /sbin/service pki-krad condrestart >/dev/null 2>&1 || :
 fi
-%else
-%post
-# Attempt to update ALL old "KRA" instances to "systemd"
-for inst in `ls /etc/sysconfig/pki/kra`; do
-    if [ ! -e "/etc/systemd/system/pki-krad.target.wants/pki-krad@${inst}.service" ]; then
-        ln -s "/lib/systemd/system/pki-krad@.service" \
-              "/etc/systemd/system/pki-krad.target.wants/pki-krad@${inst}.service"
-        [ -L /var/lib/${inst}/${inst} ] && unlink /var/lib/${inst}/${inst}
-        ln -s /usr/sbin/tomcat6-sysd /var/lib/${inst}/${inst}
 
-        if [ -e /var/run/${inst}.pid ]; then
-            kill -9 `cat /var/run/${inst}.pid` || :
-            rm -f /var/run/${inst}.pid
-            echo "pkicreate.systemd.servicename=pki-krad@${inst}.service" >> \
-                 /var/lib/${inst}/conf/CS.cfg || :
-            /bin/systemctl daemon-reload >/dev/null 2>&1 || :
-            /bin/systemctl restart pki-krad@${inst}.service || :
-        else 
-            echo "pkicreate.systemd.servicename=pki-krad@${inst}.service" >> \
-                 /var/lib/${inst}/conf/CS.cfg || :
-        fi
-    fi
-done
-/bin/systemctl daemon-reload >/dev/null 2>&1 || :
- 
-%preun 
-if [ $1 = 0 ] ; then
-    /bin/systemctl --no-reload disable pki-krad.target > /dev/null 2>&1 || :
-    /bin/systemctl stop pki-krad.target > /dev/null 2>&1 || :
-fi
-
-%postun 
-/bin/systemctl daemon-reload >/dev/null 2>&1 || :
-if [ "$1" -ge "1" ] ; then
-    /bin/systemctl try-restart pki-krad.target >/dev/null 2>&1 || :
-fi
-%endif
 
 %files
 %defattr(-,root,root,-)
 %doc base/kra/LICENSE
-%if 0%{?fedora} >= 16
-%dir %{_sysconfdir}/systemd/system/pki-krad.target.wants
-%{_unitdir}/pki-krad@.service
-%{_unitdir}/pki-krad.target
-%else 
 %{_initrddir}/pki-krad
-%endif
 %{_javadir}/pki/pki-kra-%{version}.jar
 %{_javadir}/pki/pki-kra.jar
 %dir %{_datadir}/pki/kra
@@ -236,50 +159,8 @@ fi
 
 
 %changelog
-* Thu Sep 22 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.8-1
-- Bugzilla Bug #734590 - Refactor JNI libraries for Fedora 16+ . . . (mharmsen)
-- Bugzilla Bug #699809 - Convert CS to use systemd (alee)
-- Bugzilla Bug #730146 - SSL handshake picks non-FIPS ciphers in FIPS mode (cfu)
-
-* Mon Sep 12 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.7-1
-- Bugzilla Bug #734590 - Refactor JNI libraries for Fedora 16+ . . .
-- Bugzilla Bug #699809 - Convert CS to use systemd (alee)
-
-* Tue Sep 6 2011 Ade Lee <alee@redhat.com> 9.0.6-1
-- Bugzilla Bug #699809 - Convert CS to use systemd (alee)
-
-* Tue Aug 23 2011 Ade Lee <alee@redhat.com> 9.0.5-1
-- Bugzilla Bug #712931 - CS requires too many ports
-  to be open in the FW
-
-* Thu Jul 14 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.4-1
-- Bugzilla Bug #693815 - /var/log/tomcat6/catalina.out owned by pkiuser
-  (jdennis)
-- Bugzilla Bug #699837 - service command is not fully backwards
-  compatible with Dogtag pki subsystems (mharmsen)
-- Bugzilla Bug #649910 - Console: an auditor or agent can be added to an
-  administrator group. (jmagne)
-- Bugzilla Bug #707416 - CC_LAB_EVAL: Security Domain: missing audit msgs
-  for modify/add (alee)
-- Bugzilla Bug #714068 - KRA: remove monitor servlet from kra (alee)
-- Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- Updated release of 'jss'
-
-* Tue Apr 26 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-1
-- Bugzilla Bug #693815 - /var/log/tomcat6/catalina.out owned by pkiuser
-- Bugzilla Bug #699837 - service command is not fully backwards compatible
-  with Dogtag pki subsystems
-
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.2-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #683581 - CA configuration with ECC(Default
-  EC curve-nistp521) CA fails with 'signing operation failed'
-- Bugzilla Bug #684381 - CS.cfg specifies incorrect type of comments
-- Require "jss >= 4.2.6-15" as a build and runtime requirement
-
-* Thu Mar 17 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.1-1
-- Bugzilla Bug #688763 - Rebase updated Dogtag Packages for Fedora 15 (alpha)
-- Bugzilla Bug #673638 - Installation within IPA hangs
+* Fri Aug 5 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-2
+- Bugzilla Bug #693835 - /var/log/tomcat6/catalina.out owned by pkiuser
 
 * Wed Dec 1 2010 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-1
 - Updated Dogtag 1.3.x --> Dogtag 2.0.0 --> Dogtag 9.0.0

@@ -1,5 +1,5 @@
 Name:             pki-console
-Version:          9.0.5
+Version:          9.0.0
 Release:          1%{?dist}
 Summary:          Certificate System - PKI Console
 URL:              http://pki.fedoraproject.org/
@@ -13,30 +13,18 @@ BuildRoot:        %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:    cmake
 BuildRequires:    idm-console-framework
 BuildRequires:    java-devel >= 1:1.6.0
+BuildRequires:    jpackage-utils
+BuildRequires:    jss >= 4.2.6-12
 BuildRequires:    ldapjdk
 BuildRequires:    nspr-devel
 BuildRequires:    nss-devel
-%if 0%{?fedora} >= 16
-BuildRequires:    jpackage-utils >= 1.7.5-10
-BuildRequires:    jss >= 4.2.6-19.1
-BuildRequires:    pki-util >= 9.0.15
-%else
-BuildRequires:    jpackage-utils
-BuildRequires:    jss >= 4.2.6-17
 BuildRequires:    pki-util
-%endif
 
 Requires:         idm-console-framework
 Requires:         java >= 1:1.6.0
+Requires:         jss >= 4.2.6-12
 Requires:         ldapjdk
-Requires:         pki-console-theme >= 9.0.0
-%if 0%{?fedora} >= 16
-Requires:         jpackage-utils >= 1.7.5-10
-Requires:         jss >= 4.2.6-19.1
-%else
-Requires:         jpackage-utils
-Requires:         jss >= 4.2.6-17
-%endif
+Requires:         pki-console-theme
 
 Source0:          http://pki.fedoraproject.org/pki/sources/%{name}/%{name}-%{version}.tar.gz
 
@@ -66,7 +54,7 @@ following "Mutually-Exclusive" PKI Theme packages:
 %build
 %{__mkdir_p} build
 cd build
-%cmake -DVAR_INSTALL_DIR:PATH=/var -DBUILD_PKI_CONSOLE:BOOL=ON -DJAVA_LIB_INSTALL_DIR=%{_jnidir} ..
+%cmake -DVAR_INSTALL_DIR:PATH=/var -DBUILD_PKI_CONSOLE:BOOL=ON ..
 %{__make} VERBOSE=1 %{?_smp_mflags}
 
 
@@ -84,30 +72,6 @@ cd build
 
 
 %changelog
-* Thu Sep 22 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.5-1
-- Bugzilla Bug #734590 - Refactor JNI libraries for Fedora 16+ . . . (mharmsen)
-- Bugzilla Bug #699809 - Convert CS to use systemd (alee)
-
-* Wed Aug 31 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.4-1
-- Bugzilla Bug #734590 - Refactor JNI libraries for Fedora 16+ . . .
-
-* Thu Jul 14 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-1
-- Bugzilla Bug #700462 - No action on clicking "Help" button of
-  pkiconsole's right pane (alee)
-- Bugzilla Bug #697939 - DRM signed audit log message - operation should
-  be read instead of modify (jmagne)
-- Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-- Updated release of 'jss'
-
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.2-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Require "jss >= 4.2.6-15" as a build and runtime requirement
-
-* Thu Mar 17 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.1-1
-- Bugzilla Bug #688763 - Rebase updated Dogtag Packages for Fedora 15 (alpha)
-- Bugzilla Bug #676682 - REGRESSION: Restore missing 'gif' files
-  to console . . .
-
 * Wed Dec 1 2010 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-1
 - Updated Dogtag 1.3.x --> Dogtag 2.0.0 --> Dogtag 9.0.0
 - Bugzilla Bug #607380 - CC: Make sure Java Console can configure

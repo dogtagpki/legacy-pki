@@ -9,19 +9,19 @@ find_file(LDAPJDK_JAR
 )
 
 
-# '${JAVA_LIB_INSTALL_DIR}' jars
+# '/usr/lib/java' jars
 find_file(JSS_JAR
     NAMES
         jss4.jar
     PATHS
-        ${JAVA_LIB_INSTALL_DIR}
+        /usr/lib/java
 )
 
 find_file(OSUTIL_JAR
     NAMES
         osutil.jar
     PATHS
-        ${JAVA_LIB_INSTALL_DIR}
+        /usr/lib/java
 )
 
 

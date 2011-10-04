@@ -1,6 +1,6 @@
 Name:             ipa-pki-theme
-Version:          9.0.5
-Release:          1%{?dist}
+Version:          9.0.3
+Release:          7%{?dist}
 Summary:          Certificate System - IPA PKI Theme Components
 URL:              http://pki.fedoraproject.org/
 License:          GPLv2
@@ -13,6 +13,9 @@ BuildRoot:        %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:    cmake
 
 Source0:          http://pki.fedoraproject.org/pki/sources/%{name}/%{name}-%{version}.tar.gz
+
+Patch0:           %{name}-%{version}-r1886.patch
+Patch1:           %{name}-%{version}-r2161.patch
 
 %if 0%{?rhel}
 ExcludeArch:      ppc ppc64 s390 s390x
@@ -95,6 +98,10 @@ This package is used by the Certificate System utilized by IPA.
 %setup -q
 
 
+%patch0 -b .p0
+%patch1 -b .p1
+
+
 %clean
 %{__rm} -rf %{buildroot}
 
@@ -126,22 +133,27 @@ cd build
 
 
 %changelog
-* Tue Aug 23 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.5-1
-- 'ipa-pki-ca-theme'
--      Bugzilla Bug #695015 - Serial No. of a revoked certificate is not
-       populated in the CA signedAudit messages (alee)
--      Bugzilla Bug #694143 - CA Agent not returning specified request (awnuk)
--      Bugzilla Bug #704351 - remove help buttons in agent and ee UI in all
-       subsystems (alee)
--      Bugzilla Bug #712931 - CS requires too many ports
-       to be open in the FW (alee)
-- 'ipa-pki-common-theme'
+* Tue Aug 23 2011 Ade Lee <alee@redhat.com> 9.0.3-7
+- Resolves #712931 - CS requires too many ports to be open in the FW, r2161
 
-* Thu Jul 14 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.4-1
-- 'ipa-pki-ca-theme'
--      Bugzilla Bug #669226 - Remove Legacy Build System
-- 'ipa-pki-common-theme'
--      Bugzilla Bug #669226 - Remove Legacy Build System
+* Wed Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-6
+- Resolves: #643543
+- update to the ipa-pki-theme-9.0.3-r1886.patch file
+
+* Wed Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-5
+- Resolves: #643543
+
+* Wed Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-4
+- Resolves #643543
+
+* Wed Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-3
+- Resolves 643543
+
+* Wed Mar 9 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-2
+- Resolves 643543
+- Resolves #683172 - pkisilent needs to provide option to set
+  nsDS5ReplicaTransportInfo to TLS in replication agreements
+  when creating a clone, r1886
 
 * Thu Jan 20 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-1
 - Augmented overview description.

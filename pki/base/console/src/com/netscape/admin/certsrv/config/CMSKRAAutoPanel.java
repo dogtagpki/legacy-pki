@@ -135,8 +135,7 @@ public class CMSKRAAutoPanel extends CMSBaseUGTab {
         //actionlister to this object
         mRefresh = makeJButton("REFRESH");
         mHelp = makeJButton("HELP");
-        //JButton[] buttons = { mRefresh, mHelp };
-        JButton[] buttons = { mRefresh };
+        JButton[] buttons = { mRefresh, mHelp };
         return makeJButtonPanel(buttons, true);
     }
 

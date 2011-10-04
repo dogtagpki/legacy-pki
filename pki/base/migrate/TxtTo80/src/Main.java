@@ -150,8 +150,6 @@ class CS80LdifParser
 				requestAttributes.addElement(
 					line.substring(1, line.length()));
 			} else {
-				// #737216 - skip unnecessary empty lines in attributes
-				if (line.trim().length() == 0) continue;
 				requestAttributes.setElementAt(
 					(String)
 					requestAttributes.lastElement() + 
@@ -418,22 +416,8 @@ class CS80LdifParser
 			// CMS 6.1:  created new "com.netscape.certsrv.base.IArgBlock" and
 			//           moved old "com.netscape.certsrv.base.ArgBlock"
 			//           to "com.netscape.cmscore.base.ArgBlock"
-
-			// Bugzilla Bug #737217 - adding proper "ext-data" array format
-			int secondEqual = data.indexOf('=');
-			if (secondEqual == -1) {
-			    if( mErrorPrintWriter != null ) {
-			        if( dn != null ) {
-			            mErrorPrintWriter.println( dn );
-			        }
-			        mErrorPrintWriter.println( "Skipped " + attr );
-			    }
-			    return;
-			}
-			String subKey = data.substring( 0, secondEqual );
-			String subKeyData = data.substring( secondEqual + 1 );
-			System.out.println( extAttrPrefix + encodeKey( key ) + ";" +
-								subKey + ": " + formatData( subKeyData ) );
+			System.out.println( extAttrPrefix + encodeKey( key ) + ": " +
+								formatData( data ) );
 		} else if( type.startsWith( "com.netscape.certsrv.authentication.AuthToken" ) ) {
             // Processes 'java.math.BigInteger[]':
             // 
@@ -444,26 +428,8 @@ class CS80LdifParser
             //     Bugzilla Bug #224763 (a.k.a - Raidzilla Bug #57949)
             //     Bugzilla Bug #252240
             // 
-
-			// Bugzilla Bug #737217 - adding proper "ext-data" array format
-			int secondColon = data.indexOf(':');
-			int secondEqual = data.indexOf('=');
-			if (secondEqual == -1 || secondColon >= secondEqual) {
-			    if( mErrorPrintWriter != null ) {
-			        if( dn != null ) {
-			            mErrorPrintWriter.println( dn );
-			        }
-			        mErrorPrintWriter.println( "Skipped " + attr );
-			    }
-			    return;
-			}
-			if (secondColon == -1) {
-			    secondColon = secondEqual;
-			}
-			String subKey = data.substring( 0, secondColon );
-			String subKeyData = data.substring( secondEqual + 1 );
-			System.out.println( extAttrPrefix + encodeKey( key ) + ";" +
-								subKey + ": " + formatData( subKeyData ) );
+			System.out.println( extAttrPrefix + encodeKey( key ) + ": " +
+								formatData( data ) );
 		} else if( type.startsWith( "java.math.BigInteger[" ) ) {
             // Bugzilla Bug #238779
 			System.out.println( extAttrPrefix + encodeKey( key ) + ": " +

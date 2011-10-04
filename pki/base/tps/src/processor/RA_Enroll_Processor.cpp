@@ -1187,7 +1187,6 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 		RA_Status &o_status, 
                 char **keyVersion )
 {
-        int rc = 0;
 	const char *FN = "RA_Enroll_Processor::CheckAndUpgradeApplet";
 	bool r = true;
 	const char *applet_dir=NULL;
@@ -1219,7 +1218,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 			/* upgrade applet */
 			PR_snprintf((char *)configname, 256, "%s.%s.update.applet.directory", OP_PREFIX, a_tokenType);
 			applet_dir = RA::GetConfigStore()->GetConfigAsString(configname);
-			if (applet_dir == NULL || strlen(applet_dir) == 0) {
+			if (applet_dir == NULL) {
 				RA::Error(LL_PER_CONNECTION, FN,
 						"Failed to read applet directory parameter %s", configname);
 				o_status = STATUS_ERROR_MISCONFIGURATION;		 
@@ -1231,7 +1230,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 			RA::Debug(FN, "TKS connection id =%s", connid);
 			//StatusUpdate(a_session, a_extensions, 5, "PROGRESS_UPGRADE_APPLET");
 
-			if (rc = UpgradeApplet(a_session, (char *) OP_PREFIX, (char*) a_tokenType,
+			if (UpgradeApplet(a_session, (char *) OP_PREFIX, (char*) a_tokenType,
 				o_major_version, o_minor_version, 
 				g_applet_target_version, 
 				applet_dir, security_level, 
@@ -1249,18 +1248,6 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 				o_status = STATUS_ERROR_UPGRADE_APPLET;		 
 				r = false;
 
-                                if (rc == -1) {
-                                    RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
-                                        a_userid, a_cuid, a_msn, "Failure", "enrollment",
-                                        *keyVersion != NULL? *keyVersion : "", o_current_applet_on_token, g_applet_target_version, "failed to setup secure channel");
-                                } else {
-
-                                    RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
-                                    a_userid, a_cuid, a_msn, "Success", "enrollment",
-                                    *keyVersion != NULL? *keyVersion : "", o_current_applet_on_token, g_applet_target_version, "setup secure channel");
-                                }
-
-
                                 RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                                   a_userid, a_cuid, a_msn, "Failure", "enrollment",
                                   *keyVersion != NULL? *keyVersion : "",
@@ -1274,11 +1261,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 			}
 
 			// Upgrade Applet reported success
-			
-                        RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
-                            a_userid, a_cuid, a_msn, "Success", "enrollment",
-                            *keyVersion != NULL? *keyVersion : "", o_current_applet_on_token, g_applet_target_version, "setup secure channel");
-
+                        
                         RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                           a_userid, a_cuid, a_msn, "Success", "enrollment",
                           *keyVersion != NULL? *keyVersion : "",
@@ -1606,11 +1589,6 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 	bool r = false;
 	Buffer key_data_set;
         char audit_msg[512] = "";
-        char curVer[10];
-        char newVer[10];
-
-        char *curKeyInfoStr = NULL;
-        char *newVersionStr = NULL;
 
 	// the TKS is responsible for doing much of the symmetric keys update
 	// so lets find which TKS we're talking about TKS now.
@@ -1742,29 +1720,10 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 					curIndex,
 					&key_data_set);
 
-
-                        curKeyInfoStr = Util::Buffer2String(curKeyInfo);
-                        newVersionStr = Util::Buffer2String(newVersion);
-
-                        if(curKeyInfoStr != NULL && strlen(curKeyInfoStr) >= 2) {
-                            curVer[0] = curKeyInfoStr[0]; curVer[1] = curKeyInfoStr[1]; curVer[2] = 0;
-                        }
-                        else {
-                            curVer[0] = 0;
-                        }
-
-                        if(newVersionStr != NULL && strlen(newVersionStr) >= 2) {
-                            newVer[0] = newVersionStr[0] ; newVer[1] = newVersionStr[1] ; newVer[2] = 0;
-                        }
-                        else {
-                            newVer[0] = 0;
-                        }
-
-
                         if (rc!=0) {
                             RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
-                              a_userid != NULL ? a_userid : "", a_cuid != NULL ? a_cuid : "",  a_msn != NULL ? a_msn : "", "Failure", "enrollment",
-                              a_applet_version != NULL ? a_applet_version : "", curVer, newVer,
+                              a_userid, a_cuid, a_msn, "Failure", "enrollment",
+                              a_applet_version, curVersion, ((BYTE*)newVersion)[0],
                               "key changeover");
 
                             if ((a_cuid != NULL) && (a_tokenType != NULL)) {
@@ -1779,8 +1738,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
                             goto loser;
                         } else {
                             RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
-                              a_userid != NULL ? a_userid : "", a_cuid != NULL ? a_cuid : "", a_msn != NULL ? a_msn : "", "Success", "enrollment",
-                              a_applet_version != NULL ? a_applet_version : "", curVer, newVer,
+                              a_userid, a_cuid, a_msn, "Success", "enrollment",
+                              a_applet_version, curVersion, ((BYTE*)newVersion)[0],
                               "key changeover");
                         }
 
@@ -1806,9 +1765,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 				r = true;  // Success!!
 
                                 RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
-                                  a_userid != NULL ? a_userid : "", a_cuid != NULL ? a_cuid : "", 
-                                  a_msn != NULL ? a_msn : "", "success", "enrollment", a_applet_version != NULL ? a_applet_version : "",
-                                  newVer, "enrollment processing, key upgrade completed");
+                                  a_userid, a_cuid, a_msn, "success", "enrollment", a_applet_version, 
+                                  ((BYTE*)newVersion)[0], "enrollment processing, key upgrade completed");
 			}
 
 		}
@@ -1834,17 +1792,6 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
                   "enrollment processing, key upgrade disabled");
 	}
 loser:
-    
-    if (curKeyInfoStr != NULL) {
-        PR_Free( (char *) curKeyInfoStr);
-        curKeyInfoStr = NULL;
-    }
-
-    if (newVersionStr != NULL) {
-        PR_Free( (char *) newVersionStr);
-        newVersionStr = NULL;
-    }
-
     if (strlen(audit_msg) > 0) { // a failure occurred
         RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
           a_userid != NULL ? a_userid : "",
@@ -3403,7 +3350,7 @@ bool RA_Enroll_Processor::isCertRenewable(CERTCertificate *cert, int graceBefore
  * o_cert - cert newly issued
  */
 bool RA_Enroll_Processor::DoRenewal(const char *connid, const char *profileId, CERTCertificate *i_cert,
-CERTCertificate **o_cert, char *error_msg, int *error_code)
+CERTCertificate **o_cert, char *error_msg)
 {
     RA_Status status = STATUS_NO_ERROR;
     bool r = true;
@@ -3411,18 +3358,12 @@ CERTCertificate **o_cert, char *error_msg, int *error_code)
     Buffer *cert = NULL;
     char *cert_string = NULL;
 
-    error_msg[0] =0;
-    *error_code=0; //assume undefined
-
     PRUint64 snum = DER_GetInteger(&(i_cert)->serialNumber);
     RA::Debug("RA_Enroll_Processor::DoRenewal", "begins renewal for serial number %u with profileId=%s", (int)snum, profileId);
 
     certRenewal = new CertEnroll();
     cert = certRenewal->RenewCertificate(snum, connid, profileId, error_msg);
 
-    if (error_msg[0] != 0) { // We can assume a non grace period error here.
-        *error_code = 1;
-    }
 // this is where renewal happens .. audit log for fail/ success here? 
     if (cert == NULL) {
         r = false;
@@ -3501,7 +3442,6 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
     int   maxCertUpdate = 25; 
     char  *renewedCertUpdateList[25];
     int   renewedCertUpdateCount = 0;
-    int renew_error = 0;
 
     int i = 0;
     const char *FN="RA_Enroll_Processor::ProcessRenewal";
@@ -3544,9 +3484,7 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
         ktypes[i] = NULL;
         origins[i] = NULL;
         tokenTypes[i] = NULL;
-    }
-    
-    for (i=0; i<keyTypeNum; i++) {
+
         bool renewable = true;
         // e.g. op.enroll.userKey.renewal.keyType.value.0=signing
         // e.g. op.enroll.userKey.renewal.keyType.value.1=encryption
@@ -3757,17 +3695,13 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
 
                         // send renewal request to CA
                         // o_cert is the cert gotten back
-                        r = DoRenewal(caconnid, profileId, certs[0], &o_cert, audit_msg, &renew_error);
+                        r = DoRenewal(caconnid, profileId, certs[0], &o_cert, audit_msg);
                         if (r == false) {
-			    RA::Debug("RA_Enroll_Processor::ProcessRenewal", "after DoRenewal failure. o_cert %p renew_error %d",o_cert,renew_error);
+			    RA::Debug("RA_Enroll_Processor::ProcessRenewal", "after DoRenewal failure. o_cert %p",o_cert);
                             o_status = STATUS_ERROR_MAC_ENROLL_PDU;
                             //Assume a renewal grace failure here since we can't obtain the reason.
                             //This is the most likely error and there is a chance the next renewal may succeed.
-                            if ( renew_error == 0) { //Assume undefined error is error coming from CA
-                                renewal_failure_found = RENEWAL_FAILURE_GRACE;
-                            } else {
-                                renewal_failure_found = RENEWAL_FAILURE;
-                            }
+                            renewal_failure_found = RENEWAL_FAILURE_GRACE;
                             char snum[2048];
                             RA::ra_tus_print_integer(snum, &(certs[0])->serialNumber);
                             RA::Audit(EV_RENEWAL, AUDIT_MSG_PROC_CERT_REQ, 
@@ -3777,9 +3711,7 @@ bool RA_Enroll_Processor::ProcessRenewal(AuthParams *login, RA_Session *session,
                             //Since this is merely a grace period or renewal failure for one cert
                             //let's keep it going
 
-                            if (renew_error == 0) { //undefined error means probably grace period, forgive that.
-                                r = true;
-                            }
+                            r = true;
                             goto rloser;
                         }
 

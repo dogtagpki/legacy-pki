@@ -137,7 +137,7 @@ static void
 Usage(const char *progName)
 {
     fprintf(stderr, 
-    	"Usage: %s [-n nickname] [-p password | -w pwfile ] [-d dbdir] \n"
+    	"Usage: %s -n nickname [-p password | -w pwfile ] [-d dbdir] \n"
 	"          [-e post] [-v] [-V] -r url hostname[:port]\n"
     "     -n  : nickname or hsm:nickname\n"
     "     -v  : verbose\n"
@@ -521,23 +521,7 @@ client_main(
     NSS_SetDomesticPolicy();
 
     /* all the SSL2 and SSL3 cipher suites are enabled by default. */
-
-    /* enable FIPS ciphers */
-    SSL_CipherPrefSetDefault(0xc004 /* TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0xc003 /* TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA */, PR_TRUE);
     SSL_CipherPrefSetDefault(0xC005 /* TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0xc00a /* TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0x2f /* TLS_RSA_WITH_AES_128_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0x35 /* TLS_RSA_WITH_AES_256_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0xc008 /* TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0xc009 /* TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0xc012 /* TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0xc013 /* TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0xc014 /* TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0x32 /* TLS_DHE_DSS_WITH_AES_128_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0x38 /* TLS_DHE_DSS_WITH_AES_256_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0x33 /* TLS_DHE_RSA_WITH_AES_128_CBC_SHA */, PR_TRUE);
-    SSL_CipherPrefSetDefault(0x39 /* TLS_DHE_RSA_WITH_AES_256_CBC_SHA */, PR_TRUE);
 
     /*
      *  Rifle through the values for the host
@@ -596,11 +580,9 @@ client_main(
 
     SSL_BadCertHook(model_sock, myBadCertHandler, NULL);
 
-    if( nickName) {
-    	SSL_GetClientAuthDataHook(model_sock, 
+    SSL_GetClientAuthDataHook(model_sock, 
                               (SSLGetClientAuthData)my_GetClientAuthData, 
                               nickName);
-    }
 
     /* I'm not going to set the HandshakeCallback function. */
 
@@ -741,8 +723,8 @@ main(int argc, char **argv)
      	port = (unsigned short)tmpI;
     }
 
-    if ( !url) {
-	fprintf( stderr, "ERROR:  Invalid url!\n" );
+    if (!nickName || !url) {
+	fprintf( stderr, "ERROR:  Invalid nickname or url!\n" );
 	Usage(progName);
     }
 
@@ -775,19 +757,18 @@ main(int argc, char **argv)
 	exit(1);
     }
 
-    if(nickName) {
-    	cert[kt_rsa] = PK11_FindCertFromNickname(nickName, passwd);
-    	if (cert[kt_rsa] == NULL) {
-		fprintf(stderr, "Can't find certificate %s\n", nickName);
-		exit(1);
-    	}
-    
-    	privKey[kt_rsa] = PK11_FindKeyByAnyCert(cert[kt_rsa], passwd);
-    	if (privKey[kt_rsa] == NULL) {
-		fprintf(stderr, "Can't find Private Key for cert %s (possibly incorrect password)\n", nickName);
-		exit(1);
-    	}
+    cert[kt_rsa] = PK11_FindCertFromNickname(nickName, passwd);
+    if (cert[kt_rsa] == NULL) {
+	fprintf(stderr, "Can't find certificate %s\n", nickName);
+	exit(1);
     }
+
+    privKey[kt_rsa] = PK11_FindKeyByAnyCert(cert[kt_rsa], passwd);
+    if (privKey[kt_rsa] == NULL) {
+	fprintf(stderr, "Can't find Private Key for cert %s (possibly incorrect password)\n", nickName);
+	exit(1);
+    }
+
 
     client_main(port, connections, privKey, cert, hostName, nickName);
 

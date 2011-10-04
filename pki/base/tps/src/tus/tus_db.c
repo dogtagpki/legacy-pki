@@ -712,7 +712,7 @@ TPS_PUBLIC char *tus_authenticate(char *cert)
 /*********
  * tus_authorize
  * parameters passed in: 
- *   char * group ("TUS Agents", "TUS Operators", "TUS Administrators") 
+ *   char * group ("TUS Agents", "TUS Officers", "TUS Administrators") 
  *   const char* userid
  * returns : 1 if userid is member of that group
  *           0 otherwise
@@ -1324,7 +1324,7 @@ TPS_PUBLIC int update_user_db_entry(const char *agentid, char *uid, char *lastNa
 
     a03.mod_op = LDAP_MOD_REPLACE;
     a03.mod_type = USER_GIVENNAME;
-    a03.mod_values = ((firstName != NULL && PL_strlen(firstName) > 0)? givenName_values: NULL);
+    a03.mod_values = givenName_values;
 
     mods[0] = &a01;
     mods[1] = &a02;
@@ -1372,7 +1372,7 @@ TPS_PUBLIC int update_user_db_entry(const char *agentid, char *uid, char *lastNa
     return rc;
 }
 
-TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *uid, char *keyInfo, const char *status, char *applet_version, const char *reason, const char* token_type)
+TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *uid, char *keyInfo, const char *status, char *applet_version, const char *reason)
 {
     char dn[256];
     int  len, k;
@@ -1385,12 +1385,10 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
     if (PR_snprintf(dn, 255, "cn=%s,%s", cn, baseDN) < 0)
         return -1;
 
-        if (keyInfo == NULL && token_type == NULL)
+        if (keyInfo == NULL)
             mods = allocate_modifications(5);
-        else if (keyInfo == NULL || token_type == NULL)
-            mods = allocate_modifications(6);
         else
-            mods = allocate_modifications(7);
+            mods = allocate_modifications(6);
         if (mods == NULL)
             return -1;
 
@@ -1504,30 +1502,6 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
         mods[k]->mod_values = v;
         k++;
     }
-
-    /* for token_type */
-    if (token_type != NULL) {
-        if (token_type != NULL && PL_strlen(token_type) > 0)
-            len = PL_strlen(token_type);
-        else
-            len = 0;
-        if ((v = allocate_values(1, len+1)) == NULL) {
-            if( mods != NULL ) {
-                free_modifications( mods, 0 );
-                mods = NULL;
-            }
-            return -1;
-        }
-        mods[k]->mod_op = LDAP_MOD_REPLACE;
-        mods[k]->mod_type = TOKEN_TYPE;
-        if (len > 0)
-            PL_strcpy(v[0], token_type);
-        else
-            v[0] = "";
-        mods[k]->mod_values = v;
-        k++;
-    }
-
         for (tries = 0; tries < MAX_RETRIES; tries++) {
             if ((rc = ldap_modify_ext_s(ld, dn, mods, NULL, NULL)) == LDAP_SUCCESS) {
                 break;
@@ -2309,9 +2283,7 @@ TPS_PUBLIC int add_user_db_entry(const char *agentid, char *userid, char *userPa
     mods[2]  = &a03;
     mods[3]  = &a04;
     mods[4]  = &a05;
-    if (givenName != NULL && PL_strlen(givenName) > 0) {
-        mods[5]  = &a06;
-    }
+    mods[5]  = &a06;
 
     // now handle certificate
     certlen = strlen(userCert);
@@ -2338,15 +2310,8 @@ TPS_PUBLIC int add_user_db_entry(const char *agentid, char *userid, char *userPa
         a07.mod_type = USER_CERT;
         a07.mod_bvalues = userCert_values;
         
-        if (givenName != NULL && PL_strlen(givenName) > 0) {
-            mods[6] = &a07;
-        } else {
-            mods[5] = &a07;
-        }
+        mods[6]  = &a07;
     } else {
-        if (givenName == NULL || PL_strlen(givenName) == 0) {
-            mods[5] = NULL;
-        }
         mods[6] = NULL;
     }
 
@@ -2371,7 +2336,7 @@ TPS_PUBLIC int add_user_db_entry(const char *agentid, char *userid, char *userPa
  * summary: adds user to be member of group (administrators, agents, operators)
  * params: agentid -user who is performing this change
  *       : userid - userid of user to be added to role
- *       : role - Operators, Agents or Administrators
+ *       : role - Officers, Agents or Administrators
  * returns: LDAP return code
  */
 TPS_PUBLIC int add_user_to_role_db_entry(const char *agentid, char *userid, const char *role) {
@@ -2412,7 +2377,7 @@ TPS_PUBLIC int add_user_to_role_db_entry(const char *agentid, char *userid, cons
  * summary: removes user from role group (administrators, agents, operators)
  * params: agentid -user who is performing this change
  *       : userid - userid of user to be removed from role
- *       : role - Operators, Agents or Administrators
+ *       : role - Officers, Agents or Administrators
  *  returns: LDAP return code
  */
 TPS_PUBLIC int delete_user_from_role_db_entry(const char *agentid, char *userid, const char *role) {

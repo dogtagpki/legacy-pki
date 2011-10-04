@@ -37,12 +37,11 @@ public class LDAPSecurityDomainSessionTable
         m_timeToLive = timeToLive;
     }
 
-    public int addEntry(String sessionId, String ip, 
+    public void addEntry(String sessionId, String ip, 
       String uid, String group) {
         IConfigStore cs = CMS.getConfigStore();
         LDAPConnection conn = null;
         boolean sessions_exists = true;
-        int status = FAILURE;
 
         String basedn = null;
         String sessionsdn = null;
@@ -51,7 +50,7 @@ public class LDAPSecurityDomainSessionTable
             sessionsdn = "ou=sessions,ou=Security Domain," + basedn;
         } catch (Exception e) {
             CMS.debug("SecurityDomainSessionTable: addEntry: failed to read basedn" + e);
-            return status;
+            return;
         }
 
         try {
@@ -92,31 +91,27 @@ public class LDAPSecurityDomainSessionTable
             entry = new LDAPEntry(entrydn, attrs);
             if (sessions_exists) {
                 conn.add(entry);
-                CMS.debug("SecurityDomainSessionTable: added session entry" + sessionId);
-                status = SUCCESS;
             }
+            CMS.debug("SecurityDomainSessionTable: added session entry" + sessionId);
         } catch(Exception e) {
             CMS.debug("SecurityDomainSessionTable: unable to create session entry" + sessionId + ": " + e);
-        } 
+        }
 
         try {
             conn.disconnect();
         } catch (Exception e) {
             CMS.debug("SecurityDomainSessionTable:addEntry: Error in disconnecting from database: " + e);
         }
-        return status;
     }
 
-    public int removeEntry(String sessionId) {
+    public void removeEntry(String sessionId) {
         IConfigStore cs = CMS.getConfigStore();
         LDAPConnection conn = null;
-        int status = FAILURE;
         try {
             String basedn = cs.getString("internaldb.basedn");
             String dn = "cn=" + sessionId + ",ou=sessions,ou=Security Domain," + basedn;
             conn = getLDAPConn();
             conn.delete(dn);
-            status = SUCCESS;
         } catch (Exception e) {
             if ((e instanceof LDAPException) && (((LDAPException) e).getLDAPResultCode() == LDAPException.NO_SUCH_OBJECT)) {
                 // continue
@@ -129,7 +124,6 @@ public class LDAPSecurityDomainSessionTable
         } catch (Exception e) {
             CMS.debug("SecurityDomainSessionTable: removeEntry: Error in disconnecting from database: " + e);
         }
-        return status;
     }
 
     public boolean isSessionIdExist(String sessionId) {

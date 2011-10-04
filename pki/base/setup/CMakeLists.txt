@@ -5,7 +5,6 @@ install(
         pkicreate
         pkiremove
         pki-setup-proxy
-        scripts/pkicontrol
     DESTINATION
         ${BIN_INSTALL_DIR}
     PERMISSIONS
@@ -17,8 +16,6 @@ install(
 install(
     FILES
         pkicommon.pm
-        scripts/functions
-        scripts/pki_apache_initscript
     DESTINATION
         ${DATA_INSTALL_DIR}/scripts/
     PERMISSIONS

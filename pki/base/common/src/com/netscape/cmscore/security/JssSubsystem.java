@@ -103,18 +103,11 @@ public final class JssSubsystem implements ICryptoSubsystem {
 
     /* default sslv2 and sslv3 cipher suites(all), set if no prefs in config.*/
     private static final String DEFAULT_CIPHERPREF = 
-        "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA," +
-        "TLS_RSA_WITH_AES_128_CBC_SHA," +
-        "TLS_RSA_WITH_AES_256_CBC_SHA," +
-        "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA," +
-        "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA," +
-//        "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA," +
-//        "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA," +
-//        "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA," +
-        "TLS_DHE_DSS_WITH_AES_128_CBC_SHA," +
-        "TLS_DHE_DSS_WITH_AES_256_CBC_SHA," +
-        "TLS_DHE_RSA_WITH_AES_128_CBC_SHA," +
-        "TLS_DHE_RSA_WITH_AES_256_CBC_SHA";
+        "rc4export,rc2export,rc4,rc2,des,desede3," +
+        "rsa_rc4_40_md5,rsa_rc2_40_md5,rsa_des_sha," +
+        "rsa_rc4_128_md5,rsa_3des_sha,rsa_fips_des_sha," +
+        "rsa_fips_3des_sha,fortezza,fortezza_rc4_128_sha," +
+        "fortezza_null,rsa_null_md5";
 
     /* list of all ciphers JSS supports */
     private static final int mJSSCipherSuites[] = {
@@ -410,7 +403,6 @@ public final class JssSubsystem implements ICryptoSubsystem {
                 }
             }
         }
-
     }
 	
     /**
@@ -856,13 +848,8 @@ public final class JssSubsystem implements ICryptoSubsystem {
             log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_SECURITY_IMPORT_CERT", e.toString()));
             throw new EBaseException(CMS.getUserMessage("CMS_BASE_CRYPTOMANAGER_UNINITIALIZED"));
         } catch (TokenException e) {
-            String eString = e.toString();
             log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_SECURITY_IMPORT_CERT", e.toString()));
-            if (eString.contains("Failed to find certificate that was just imported")) {
-                throw new EBaseException(eString);
-            } else {
-                throw new EBaseException(CMS.getUserMessage("CMS_BASE_TOKEN_NOT_FOUND", ""));
-            }
+            throw new EBaseException(CMS.getUserMessage("CMS_BASE_TOKEN_NOT_FOUND", ""));
         } catch (UserCertConflictException e) {
             log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_SECURITY_IMPORT_CERT", e.toString()));
             throw new EBaseException(CMS.getUserMessage("CMS_BASE_USERCERT_CONFLICT"));

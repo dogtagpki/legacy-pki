@@ -23,6 +23,7 @@ import java.util.Properties;
 
 import netscape.security.util.*;
 
+
 /**
  * This class identifies algorithms, such as cryptographic transforms, each
  * of which may be associated with parameters.  Instances of this base class
@@ -71,8 +72,6 @@ public class AlgorithmId implements Serializable, DerEncoder {
     protected DerValue		params = null;
 
 
-    protected   String paramsString = null;
-
     /**
      * Returns one of the algorithm IDs most commonly associated
      * with this algorithm name.
@@ -91,15 +90,6 @@ public class AlgorithmId implements Serializable, DerEncoder {
 	return this.algParams;
     }
 
-    public String getParametersString() {
-        return this.paramsString;
-    }
-
-    public void  setParametersString(String paramStr) {
-
-        this.paramsString = paramStr;
-    }
- 
     /**
      * Returns one of the algorithm IDs most commonly associated
      * with this algorithm name.
@@ -161,21 +151,6 @@ public class AlgorithmId implements Serializable, DerEncoder {
 	AlgorithmId alg = new AlgorithmId(algid, params);
         if (params != null)
 	alg.decodeParams();
-
-
-        /*
-         * Set the raw params string in case  
-         * higher level code might want the info
-        */
-
-        String paramStr = null;
-
-        if ( params != null ) {
-            paramStr = params.toString();
-        }
-
-        alg.setParametersString(paramStr);
-
 	return alg;
     }
 

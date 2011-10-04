@@ -182,24 +182,6 @@ int ssl3Suites[] = {
     0
 };
 
-int tlsSuites[] = {
-//    TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
-//    TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,
-//    TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
-    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-    TLS_RSA_WITH_AES_128_CBC_SHA,
-    TLS_RSA_WITH_AES_256_CBC_SHA,
-    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-//    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
-//    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-//    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-    TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
-    TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
-    TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
-    TLS_DHE_RSA_WITH_AES_256_CBC_SHA
-};
-
 void disableAllCiphersOnSocket(PRFileDesc* sock) {
     int i;
     int numsuites = SSL_NumImplementedCiphers;
@@ -214,13 +196,6 @@ void __EXPORT EnableAllSSL3Ciphers(PRFileDesc* sock) {
 	int i =0;
 	while (ssl3Suites[i]) {
         SSL_CipherPrefSet(sock, ssl3Suites[i], SSL_ALLOWED);
-	}
-}
- 
-void __EXPORT EnableAllTLSCiphers(PRFileDesc* sock) {
-	int i =0;
-	while (tlsSuites[i]) {
-        SSL_CipherPrefSet(sock, tlsSuites[i++], SSL_ALLOWED);
 	}
 }
  
@@ -529,18 +504,6 @@ void nodelay(PRFileDesc* fd) {
 }
 
 
-void __EXPORT setDefaultAllTLSCiphers() {
-	int i =0;
-    char alg[256];
-	while (tlsSuites[i]) {
-        PR_snprintf((char *)alg, 256, "%x", tlsSuites[i]);
-        RA::Debug( LL_PER_PDU,
-            "setDefaultAllTLSCiphers",
-            alg);
-        SSL_CipherPrefSetDefault(tlsSuites[i++], PR_TRUE);
-	}
-}
- 
 /**
  * Returns a file descriptor for I/O if the HTTP connection is successful
  * @param addr PRnetAddr structure which points to the server to connect to
@@ -558,7 +521,6 @@ PRFileDesc * Engine::_doConnect(PRNetAddr *addr, PRBool SSLOn,
 	PRFileDesc *sock = NULL;
 
     SSL_CipherPrefSetDefault(0xC005 /* TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA */, PR_TRUE);
-    setDefaultAllTLSCiphers();
 
     tcpsock = PR_OpenTCPSocket(addr->raw.family);
 
@@ -585,9 +547,6 @@ PRFileDesc * Engine::_doConnect(PRNetAddr *addr, PRBool SSLOn,
     nodelay(tcpsock);
 
     if (PR_TRUE == SSLOn) {
-        RA::Debug( LL_PER_PDU,
-                   "Engine::_doConnect: ",
-                   "SSL is ON" );
         sock=SSL_ImportFD(NULL, tcpsock);
         if (!sock) {
             //xxx log
@@ -676,15 +635,8 @@ PRFileDesc * Engine::_doConnect(PRNetAddr *addr, PRBool SSLOn,
             return NULL;
 		}
 
-        RA::Debug( LL_PER_PDU,
-                   "Engine::_doConnect: ",
-                   "end SSL is ON" );
-		//EnableAllTLSCiphers( sock);
 		//EnableAllSSL3Ciphers( sock);
     } else {
-        RA::Debug( LL_PER_PDU,
-                   "Engine::_doConnect: ",
-                   "SSL is OFF" );
         sock = tcpsock;
     }
 

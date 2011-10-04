@@ -31,7 +31,7 @@ our @EXPORT = qw(
  $verbose $dry_run $hostname $default_hardware_platform
  $default_system_binaries $default_lockdir $default_system_libraries $default_system_user_binaries
  $default_system_user_libraries
- $default_java_path $default_pki_java_path $default_x86_64_jni_java_path $default_system_jni_java_path @default_jar_path
+ $default_java_path $default_pki_java_path $default_system_jni_java_path @default_jar_path
  $default_security_libraries $default_certutil_command
  $default_ldapmodify_command $default_modutil_command
  $default_dir_permissions $default_exe_permissions $default_file_permissions
@@ -50,7 +50,7 @@ our @EXPORT = qw(
  parse_install_info parse_old_cleanup read_old_cleanup
  read_install_info read_install_info_from_dir write_install_info_to_dir uninstall
  is_Windows is_Linux is_Fedora is_RHEL is_RHEL4 setup_platform_dependent_parameters
- set_library_path get_library_path fedora_release
+ set_library_path get_library_path
  check_for_root_UID user_disallows_shell
  user_exists create_user
  group_exists create_group user_is_a_member_of_group add_user_as_a_member_of_group
@@ -175,7 +175,6 @@ our $default_system_user_binaries  = undef;
 our $default_system_user_libraries = undef;
 our $default_java_path             = undef;
 our $default_pki_java_path         = undef;
-our $default_x86_64_jni_java_path  = undef;
 our $default_system_jni_java_path  = undef;
 our @default_jar_path              = undef;
 our $default_security_libraries    = undef;
@@ -219,7 +218,6 @@ if ($^O eq "linux") {
         $default_java_path             = "/usr/share/java";
         $default_pki_java_path         = "/usr/share/java/pki";
         $default_system_jni_java_path  = "/usr/lib/java";
-        @default_jar_path = ($default_pki_java_path, $default_java_path, $default_system_jni_java_path);
     } elsif ($default_hardware_platform eq "x86_64") {
         # 64-bit Linux
         $default_system_binaries       = "/bin";
@@ -228,13 +226,13 @@ if ($^O eq "linux") {
         $default_system_user_libraries = "/usr/lib64";
         $default_java_path             = "/usr/share/java";
         $default_pki_java_path         = "/usr/share/java/pki";
-        $default_x86_64_jni_java_path  = "/usr/lib64/java";
         $default_system_jni_java_path  = "/usr/lib/java";
-        @default_jar_path = ($default_pki_java_path, $default_java_path, $default_x86_64_jni_java_path, $default_system_jni_java_path);
     } else {
         emit("Unsupported '$^O' hardware platform '$default_hardware_platform'!", "error");
         exit 255;
     }
+
+    @default_jar_path = ($default_pki_java_path, $default_java_path, $default_system_jni_java_path);
 
     # Retrieve hostname
     if (defined($ENV{'PKI_HOSTNAME'})) {
@@ -812,21 +810,6 @@ sub is_RHEL4 {
         }
     }
 
-    return 0;
-}
-
-# no args
-# return release_number
-# return 0 if not found
-sub fedora_release {
-    my $releasefd = new FileHandle;
-    if ($releasefd->open("< /etc/fedora-release")) {
-            while (defined(my $line = <$releasefd>)) {
-                if ($line =~ /Fedora release (\d*)/) {
-                    return $1;
-                }
-            }
-    }
     return 0;
 }
 
@@ -2146,7 +2129,7 @@ sub is_path_valid
     foreach $split_path (@pathname) {
         chomp($split_path);
 
-        if (!($split_path !~ /^[-_.a-zA-Z0-9\[\]\@]+$/)) {
+        if (!($split_path !~ /^[-_.a-zA-Z0-9\[\]]+$/)) {
             $valid = 1;
         } else {
             $valid = 0;

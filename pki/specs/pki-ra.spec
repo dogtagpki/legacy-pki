@@ -1,5 +1,5 @@
 Name:             pki-ra
-Version:          9.0.4
+Version:          9.0.0
 Release:          1%{?dist}
 Summary:          Certificate System - Registration Authority
 URL:              http://pki.fedoraproject.org/
@@ -18,7 +18,7 @@ Requires:         mod_nss >= 1.0.8
 Requires:         mod_perl >= 1.99_16
 Requires:         mod_revocator >= 1.0.3
 Requires:         pki-native-tools
-Requires:         pki-ra-theme >= 9.0.0
+Requires:         pki-ra-theme
 Requires:         pki-selinux
 Requires:         pki-setup
 Requires:         perl-DBD-SQLite
@@ -181,29 +181,6 @@ fi
 
 
 %changelog
-* Thu Sep 22 2011 Ade Lee <alee@redhat.com> 9.0.4-1
-- Bugzilla Bug #733065 - User enrollment with RA -- this fails with
-  CA Connection Error
-
-* Thu Jul 14 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.3-1
-- Bugzilla Bug #694569 - parameter used by pkiremove not updated (alee)
-- Bugzilla Bug #699364 - PKI-RA instance not created successfully (alee)
-- Bugzilla Bug #699837 - service command is not fully backwards
-  compatible with Dogtag pki subsystems (mharmsen)
-- Bugzilla Bug #717765 - TPS configuration: logging into security domain
-  from tps does not work with clientauth=want. (alee)
-- Bugzilla Bug #669226 - Remove Legacy Build System (mharmsen)
-
-* Tue Apr 26 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.2-1
-- Bugzilla Bug #694569 - parameter used by pkiremove not updated
-- Bugzilla Bug #699364 - PKI-RA instance not created successfully
-- Bugzilla Bug #699837 - service command is not fully backwards compatible
-  with Dogtag pki subsystems
-
-* Fri Mar 25 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.1-1
-- Bugzilla Bug #690950 - Update Dogtag Packages for Fedora 15 (beta)
-- Bugzilla Bug #684381 - CS.cfg specifies incorrect type of comments
-
 * Wed Dec 1 2010 Matthew Harmsen <mharmsen@redhat.com> 9.0.0-1
 - Updated Dogtag 1.3.x --> Dogtag 2.0.0 --> Dogtag 9.0.0
 - Bugzilla Bug #620925 - CC: auditor needs to be able to download audit logs

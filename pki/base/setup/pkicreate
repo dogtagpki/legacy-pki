@@ -305,7 +305,7 @@ my $TOMCAT_CFG                          = "TOMCAT_CFG";
 my $TOMCAT_SSL_OPTIONS                  = "TOMCAT_SSL_OPTIONS";
 my $TOMCAT_SSL2_CIPHERS                 = "TOMCAT_SSL2_CIPHERS";
 my $TOMCAT_SSL3_CIPHERS                 = "TOMCAT_SSL3_CIPHERS";
-my $TOMCAT_TLS_CIPHERS                  = "TOMCAT_TLS_CIPHERS";
+my $TOMCAT_TLS3_CIPHERS                 = "TOMCAT_TLS3_CIPHERS";
 my $TOMCAT_INSTANCE_COMMON_LIB          = "TOMCAT_INSTANCE_COMMON_LIB";
 my $TOMCAT_LOG_DIR                      = "TOMCAT_LOG_DIR";
 my $PKI_INSTANCE_INITSCRIPT             = "PKI_INSTANCE_INITSCRIPT";
@@ -332,7 +332,6 @@ my $PKI_AJP_REDIRECT_PORT_SLOT                         = "PKI_AJP_REDIRECT_PORT"
 my $PKI_AJP_PORT_SLOT                                  = "PKI_AJP_PORT";
 my $PROXY_SECURE_PORT_SLOT                             = "PKI_PROXY_SECURE_PORT";
 my $PROXY_UNSECURE_PORT_SLOT                           = "PKI_PROXY_UNSECURE_PORT";
-my $PKI_SYSTEMD_SERVICENAME_SLOT                       = "PKI_SYSTEMD_SERVICENAME";
 my $PKI_UNSECURE_PORT_NAME                  = "Unsecure";
 my $PKI_AGENT_SECURE_PORT_NAME              = "Agent";
 my $PKI_ADMIN_SECURE_PORT_NAME              = "Admin";
@@ -568,12 +567,6 @@ my $root_user                        = undef;
 my $root_group                       = undef;
 my $pki_instance_initscript_path     = undef;
 
-#systemd specific variables
-my $use_systemd                        = 0;
-my $pki_subsystem_systemd_wants_path   = undef;
-my $pki_subsystem_systemd_service_path = undef;
-my $pki_instance_systemd_service_name  = undef;
-
 
 ##############################################################
 # Platform-Dependent Data Initialization
@@ -584,16 +577,8 @@ if ($^O eq "linux") {
     $setup_config_area = "/usr/share/applications";
     $setup_config_name = "config.desktop";
 
-    if (is_Fedora() && (fedora_release() >= 16)) {
-        $use_systemd = 1;
-    }
-
     # Linux init scripts
-    if ($use_systemd) {
-        $tomcat6_initscript_path = "/usr/sbin/tomcat6-sysd";
-    } else {
-        $tomcat6_initscript_path = "${default_initscripts_path}/tomcat6";
-    }
+    $tomcat6_initscript_path = "${default_initscripts_path}/tomcat6";
 
     # Tomcat instance config directory
     $tomcat6_instance_config_path = "/etc/sysconfig";
@@ -675,10 +660,6 @@ pkicreate -pki_instance_root=<pki_instance_root>   # Instance root directory
 
           #####################################################################
           ###   OR SELECT a single secure port shared by AGENT,EE and ADMIN ###
-          ###                                                               ###
-          ###   WARNING:  Use of a single shared secure port has been       ###
-          ###             DEPRECATED!  Use 'port separation' in conjunction ###
-          ###             with 'port forwarding' to emulate this behavior.  ###
           #####################################################################
 
           -secure_port=<secure_port>               # Secure port
@@ -1437,13 +1418,6 @@ sub initialize_subsystem_paths
     $pki_registry_subsystem_file_path = $setup_subsystem_path
                                       . "/" . $registry_template_base_name;
 
-    $pki_registry_initscript = get_registry_initscript_name($subsystem_type);
-
-    ## systemd subsystem variables
-    $pki_subsystem_systemd_wants_path = 
-        "/etc/systemd/system/${pki_registry_initscript}.target.wants";
-    $pki_subsystem_systemd_service_path = 
-        "/lib/systemd/system/${pki_registry_initscript}\@.service";
 
     ## Initialize subsystem directory paths (CA subsystems)
     if ($subsystem_type eq $CA) {
@@ -1523,10 +1497,6 @@ sub initialize_instance_paths
     $tomcat6_instance_pid_file_path = $default_tomcat_pids_path
                                     . "/" . $pki_instance_name
                                     . ".pid";
-
-    ## systemd instance service name
-    $pki_instance_systemd_service_name =   
-        "${pki_registry_initscript}\@${pki_instance_name}.service";
 
     ## Initialize instance directory paths (RA, TPS instances)
     if ($subsystem_type eq $RA || $subsystem_type eq $TPS) {
@@ -1612,6 +1582,8 @@ sub initialize_subdirectory_paths
                                       . "-" . $setup_config_name;
     $setup_config_subsystem_file_path = $setup_subsystem_path
                                       . "/" . $setup_config_name;
+
+    $pki_registry_initscript = get_registry_initscript_name($subsystem_type);
 
     ## Initialize subdirectory paths (CA subsystems)
     if ($subsystem_type eq $CA) {
@@ -2415,12 +2387,6 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
         $slot_hash{$PKI_SERVER_XML_CONF}       = $server_xml_instance_file_path;
         $slot_hash{$PKI_UNSECURE_PORT_SLOT}    = $unsecure_port;
 
-        if ($use_systemd) {
-            $slot_hash{$PKI_SYSTEMD_SERVICENAME_SLOT} = $pki_instance_systemd_service_name;
-        } else {
-            $slot_hash{$PKI_SYSTEMD_SERVICENAME_SLOT} = "";
-        }
-
         # Define "Port Separation" (default) versus "Shared Ports" (legacy)
         if ($use_port_separation) {
             # Establish "Port Separation" Connector Names
@@ -2531,17 +2497,13 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
                                           . "-SSL_RSA_FIPS_WITH_DES_CBC_SHA,+SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA,"
                                           . "-SSL3_RSA_WITH_NULL_MD5,-TLS_RSA_EXPORT1024_WITH_RC4_56_SHA,"
                                           . "-TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,+TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA";
-        $slot_hash{$TOMCAT_TLS_CIPHERS}       = "-TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,-TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,"
-                                          . "+TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,+TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,"
-                                          . "+TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,-TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,"
-                                          . "+TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,+TLS_RSA_WITH_3DES_EDE_CBC_SHA,"
-                                          . "+TLS_RSA_WITH_AES_128_CBC_SHA,+TLS_RSA_WITH_AES_256_CBC_SHA,"
-                                          . "+TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,+TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,"
-                                          . "-TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,-TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,"
-                                          . "-TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,+TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,"
-                                          . "+TLS_DHE_DSS_WITH_AES_128_CBC_SHA,+TLS_DHE_DSS_WITH_AES_256_CBC_SHA,"
-                                          . "+TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,+TLS_DHE_RSA_WITH_AES_128_CBC_SHA,"
-                                          . "+TLS_DHE_RSA_WITH_AES_256_CBC_SHA";
+        $slot_hash{$TOMCAT_TLS3_CIPHERS}       = "-SSL3_FORTEZZA_DMS_WITH_NULL_SHA,-SSL3_FORTEZZA_DMS_WITH_RC4_128_SHA,"
+                                          . "+SSL3_RSA_WITH_RC4_128_SHA,-SSL3_RSA_EXPORT_WITH_RC4_40_MD5,"
+                                          . "+SSL3_RSA_WITH_3DES_EDE_CBC_SHA,+SSL3_RSA_WITH_DES_CBC_SHA,"
+                                          . "-SSL3_RSA_EXPORT_WITH_RC2_CBC_40_MD5,-SSL3_FORTEZZA_DMS_WITH_FORTEZZA_CBC_SHA,"
+                                          . "-SSL_RSA_FIPS_WITH_DES_CBC_SHA,+SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA,"
+                                          . "-SSL3_RSA_WITH_NULL_MD5,-TLS_RSA_EXPORT1024_WITH_RC4_56_SHA,"
+                                          . "-TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,+TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA";
         $slot_hash{$TOMCAT_INSTANCE_COMMON_LIB} = "$tomcat_instance_common_lib_path/*.jar";
         if (!$redirected_logs_path) {
             $slot_hash{$TOMCAT_LOG_DIR} = $logs_instance_path;
@@ -2823,16 +2785,6 @@ sub process_pki_files_and_symlinks
         # to find our tomcat6 configuration file in /etc/sysconfig
         return 0 if !create_symlink($pki_instance_initscript_path, $tomcat6_initscript_path,
                                     $root_user, $root_group);
-        if ($use_systemd) {
-            return 0 if !create_symlink(
-                "${pki_subsystem_systemd_wants_path}/${pki_instance_systemd_service_name}", 
-                "$pki_subsystem_systemd_service_path",
-                 $root_user, $root_group);
-            
-            # reload systemd configuration
-            run_command("/bin/systemctl --system daemon-reload"); 
-
-        }
 
         return 0 if !create_directory($webinf_lib_instance_path,
                                       $default_dir_permissions, $pki_user, $pki_group);
@@ -3311,13 +3263,7 @@ ASK_AGAIN:
 
     printf(STDOUT "Installation information recorded in %s.\n", get_logfile_path());
 
-    if ($use_systemd) {
-        $pki_registry_initscript_command = 
-            "/bin/systemctl restart $pki_instance_systemd_service_name";
-    } else {
-        $pki_registry_initscript_command = 
-            "/sbin/service $pki_registry_initscript restart $pki_instance_name";
-    }
+    $pki_registry_initscript_command = "/sbin/service $pki_registry_initscript restart $pki_instance_name";
 
     $command = "${pki_registry_initscript_command}";
     run_command($command);

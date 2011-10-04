@@ -173,14 +173,6 @@ public class CRSEnrollment extends HttpServlet
                   mTokenName = scepConfig.getString("tokenname", "");
                   mUseCA = false;
               }
-              if (!(mTokenName.equalsIgnoreCase(Constants.PR_INTERNAL_TOKEN) ||
-                    mTokenName.equalsIgnoreCase("Internal Key Storage Token") ||
-                    mTokenName.length() == 0)) {
-                  int i = mNickname.indexOf(':');
-                  if (!((i > -1) && (mTokenName.length() == i) && (mNickname.startsWith(mTokenName)))) {
-                      mNickname = mTokenName + ":" + mNickname;
-                  }
-              }
           }
       } catch (EBaseException e) {
           CMS.debug("CRSEnrollment: init: EBaseException: "+e);
@@ -1987,7 +1979,10 @@ throws EBaseException {
               } else {
                   keyStorageToken = cm.getTokenByName(mTokenName);
                   internalKeyStorageToken = null;
+                  mNickname = mTokenName + ":" + mNickname;
+                  CMS.debug("CRSEnrollment: CryptoContext: token name: "+mTokenName+"'");
               }
+              CMS.debug("CRSEnrollment: CryptoContext: mNickname: '"+mNickname+"'");
               if (!mUseCA && internalKeyStorageToken == null) {
                   PasswordCallback cb = CMS.getPasswordCallback(); 
                   keyStorageToken.login(cb); // ONE_TIME by default.
