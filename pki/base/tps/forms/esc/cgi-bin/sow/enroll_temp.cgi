@@ -32,7 +32,8 @@
 #    
 ########################################################################
 
-[REQUIRE_CFG_PL]
+no warnings qw(redefine);
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 use CGI;
 use Mozilla::LDAP::Conn;
@@ -192,7 +193,7 @@ sub GenerateEnrollmentPage
   my $secure_port = get_secure_port();
   my $certdir = get_ldap_certdir();
 
-  ExitError("Failed to load enrollment page!") if (!open(ENROLL_FILE, "< enroll_temp.html"));
+  ExitError("Failed to load enrollment page!") if (!open(ENROLL_FILE, "< [SERVER_ROOT]/cgi-bin/sow/enroll_temp.html"));
 
   print $gQuery->header();
 
@@ -202,7 +203,7 @@ sub GenerateEnrollmentPage
                   {host => $ldap_host, port => $ldap_port, cert => $certdir},
                   $secureconn);
 
-  ExitError("Failed to connect to the database. $msg") if (!$conn);
+  ExitError("Failed to connect to the database. $msg") if (!$conn); 
 
   my $entry = $conn->search ( $basedn,
                               "sub",
@@ -241,6 +242,7 @@ sub GenerateEnrollmentPage
   }
 
   close(ENROLL_FILE);
+  $conn->close();
 }
 
 &DoPage();

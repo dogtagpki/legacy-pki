@@ -20,6 +20,7 @@ package com.netscape.kra;
 
 import java.util.StringTokenizer;
 import java.util.Vector;
+import java.util.Arrays;
 import java.io.IOException;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
@@ -31,6 +32,7 @@ import java.security.cert.CertificateException;
 import netscape.security.util.*;
 import netscape.security.util.BigInt;
 import netscape.security.x509.*;
+import org.mozilla.jss.CryptoManager;
 import org.mozilla.jss.asn1.*;
 import org.mozilla.jss.pkix.cms.*;
 import org.mozilla.jss.pkix.cms.EnvelopedData;
@@ -69,7 +71,8 @@ import com.netscape.certsrv.apps.CMS;
  * in the internal database for long term storage.
  * <P>
  *
- * @author thomask
+ * @author thomask (original)
+ * @author cfu (partial RFC4211; non-RSA keys; private keys secure handling)
  * @version $Revision$, $Date$
  */
 public class EnrollmentService implements IService {
@@ -133,6 +136,17 @@ public class EnrollmentService implements IService {
      */
     public boolean serviceRequest(IRequest request) 
         throws EBaseException {
+        CryptoManager cm = null;
+        IConfigStore config = null;
+        Boolean allowEncDecrypt_archival = false;
+
+        try {
+            cm = CryptoManager.getInstance();
+            config = CMS.getConfigStore();
+            allowEncDecrypt_archival = config.getBoolean("kra.allowEncDecrypt.archival", false);
+        } catch (Exception e) {
+            throw new EBaseException(CMS.getUserMessage("CMS_BASE_CERT_ERROR", e.toString()));
+        }
 
         IStatsSubsystem statsSub = (IStatsSubsystem)CMS.getSubsystem("stats");
         if (statsSub != null) {
@@ -159,6 +173,7 @@ public class EnrollmentService implements IService {
         mKRA.log(ILogger.LL_INFO, "KRA services enrollment request");
         // unwrap user key with transport
         byte unwrapped[] = null;
+        byte tmp_unwrapped[] = null;
         PKIArchiveOptionsContainer aOpts[] = null;
 
         String profileId = request.getExtDataInString("profileId");
@@ -196,13 +211,14 @@ public class EnrollmentService implements IService {
         for (int i = 0; i < aOpts.length; i++) {
             ArchiveOptions opts = new ArchiveOptions(aOpts[i].mAO);
 
+          if (allowEncDecrypt_archival == true) {
             if (statsSub != null) {
               statsSub.startTiming("decrypt_user_key");
             }
             mKRA.log(ILogger.LL_INFO, "KRA decrypts external private");
             if (CMS.debugOn())
                CMS.debug("EnrollmentService::about to decryptExternalPrivate");
-            unwrapped = mTransportUnit.decryptExternalPrivate(
+            tmp_unwrapped = mTransportUnit.decryptExternalPrivate(
                         opts.getEncSymmKey(), 
                         opts.getSymmAlgOID(), 
                         opts.getSymmAlgParams(), 
@@ -212,7 +228,7 @@ public class EnrollmentService implements IService {
             }
             if (CMS.debugOn())
                CMS.debug("EnrollmentService::finished decryptExternalPrivate");
-            if (unwrapped == null) {
+            if (tmp_unwrapped == null) {
                 mKRA.log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_KRA_UNWRAP_USER_KEY"));
 
                 auditMessage = CMS.getLogMessage(
@@ -226,6 +242,17 @@ public class EnrollmentService implements IService {
                 throw new EKRAException(
                         CMS.getUserMessage("CMS_KRA_INVALID_PRIVATE_KEY"));
             }
+
+            /* making sure leading 0's are removed */
+            int first=0;
+            for (int j=0; (j< tmp_unwrapped.length) && (tmp_unwrapped[j]==0); j++) {
+                first++;
+            }
+            unwrapped = Arrays.copyOfRange(tmp_unwrapped, first, tmp_unwrapped.length);
+          } /*else {  allowEncDecrypt_archival != true
+               this is done below with unwrap()
+          }
+             */
 
             // retrieve pubic key
             X509Key publicKey = getPublicKey(request, aOpts[i].mReqPos);
@@ -248,30 +275,57 @@ public class EnrollmentService implements IService {
                         CMS.getUserMessage("CMS_KRA_INVALID_PUBLIC_KEY"));
             }
 
-            /* Bugscape #54948 - verify public and private key before archiving key */
+            String keyAlg = publicKey.getAlgorithm();
+            boolean isRSA = true;
+            if (!keyAlg.equals("RSA")) isRSA = false;
 
-            if (statsSub != null) {
-              statsSub.startTiming("verify_key");
-            }
-            if (verifyKeyPair(publicKeyData, unwrapped) == false) {
-                mKRA.log(ILogger.LL_FAILURE, 
-                    CMS.getLogMessage("CMSCORE_KRA_PUBLIC_NOT_FOUND"));
+            PublicKey pubkey = null;
+            org.mozilla.jss.crypto.PrivateKey entityPrivKey = null;
+            if ( allowEncDecrypt_archival == false) {
+                try {
+                    pubkey = X509Key.parsePublicKey (new DerValue(publicKeyData));
+                } catch (Exception e) {
+                    CMS.debug("EnrollmentService: parsePublicKey:"+e.toString());
+                    throw new EKRAException(
+                        CMS.getUserMessage("CMS_KRA_INVALID_PUBLIC_KEY"));
+                }
+                entityPrivKey =
+                    mTransportUnit.unwrap(
+                        opts.getEncSymmKey(),
+                        opts.getSymmAlgOID(),
+                        opts.getSymmAlgParams(),
+                        opts.getEncValue(),
+                        (PublicKey) pubkey);
+            } // !allowEncDecrypt_archival
+
+            if ((isRSA == true) && (allowEncDecrypt_archival == true)) {
+
+                /* Bugscape #54948 - verify public and private key before archiving key */
+
+                if (statsSub != null) {
+                  statsSub.startTiming("verify_key");
+                }
+                // verifyKeyPair() is RSA-centric
+                if (verifyKeyPair(publicKeyData, unwrapped) == false) {
+                    mKRA.log(ILogger.LL_FAILURE, 
+                        CMS.getLogMessage("CMSCORE_KRA_PUBLIC_NOT_FOUND"));
 
 
-                auditMessage = CMS.getLogMessage(
+                    auditMessage = CMS.getLogMessage(
                         LOGGING_SIGNED_AUDIT_PRIVATE_KEY_ARCHIVE_REQUEST,
                         auditSubjectID,
                         ILogger.FAILURE,
                         auditRequesterID,
                         auditArchiveID);
 
-                audit(auditMessage);
-                throw new EKRAException(
+                    audit(auditMessage);
+                    throw new EKRAException(
                         CMS.getUserMessage("CMS_KRA_INVALID_PUBLIC_KEY"));
-            }
-            if (statsSub != null) {
-              statsSub.endTiming("verify_key");
-            }
+                }
+                if (statsSub != null) {
+                  statsSub.endTiming("verify_key");
+                }
+              }
 
             /**
              mTransportKeyUnit.verify(pKey, unwrapped);
@@ -303,8 +357,15 @@ public class EnrollmentService implements IService {
             if (statsSub != null) {
               statsSub.startTiming("encrypt_user_key");
             }
-            byte privateKeyData[] = mStorageUnit.encryptInternalPrivate(
+            byte privateKeyData[] =  null;
+
+            if (allowEncDecrypt_archival == true) {
+                privateKeyData = mStorageUnit.encryptInternalPrivate(
                     unwrapped);
+            } else {
+                privateKeyData = mStorageUnit.wrap(entityPrivKey);
+            }
+
             if (statsSub != null) {
               statsSub.endTiming("encrypt_user_key");
             }
@@ -342,24 +403,29 @@ public class EnrollmentService implements IService {
                 throw new EKRAException(CMS.getUserMessage("CMS_KRA_INVALID_KEYRECORD"));
             }
 
-            // we deal with RSA key only
-            try {
-                RSAPublicKey rsaPublicKey = new RSAPublicKey(publicKeyData);
+            if (isRSA) {
+                // we deal with RSA key only
+                try {
+                    RSAPublicKey rsaPublicKey = new RSAPublicKey(publicKeyData);
 
-                rec.setKeySize(Integer.valueOf(rsaPublicKey.getKeySize()));
-            } catch (InvalidKeyException e) {
+                    rec.setKeySize(Integer.valueOf(rsaPublicKey.getKeySize()));
+                } catch (InvalidKeyException e) {
 
-                auditMessage = CMS.getLogMessage(
+                    auditMessage = CMS.getLogMessage(
                         LOGGING_SIGNED_AUDIT_PRIVATE_KEY_ARCHIVE_REQUEST,
                         auditSubjectID,
                         ILogger.FAILURE,
                         auditRequesterID,
                         auditArchiveID);
 
-                audit(auditMessage);
-                throw new EKRAException(CMS.getUserMessage("CMS_KRA_INVALID_KEYRECORD"));
+                    audit(auditMessage);
+                    throw new EKRAException(CMS.getUserMessage("CMS_KRA_INVALID_KEYRECORD"));
+                }
+            } else {
+                // this needs to be fixed in full implementation
+                if (keyAlg.equals("EC"))
+                    rec.setKeySize(256);
             }
-
             
             // if record alreay has a serial number, yell out.
             if (rec.getSerialNumber() != null) {
@@ -501,6 +567,9 @@ public class EnrollmentService implements IService {
         return true;
     }
 
+    /*
+     * verifyKeyPair() is RSA-centric
+     */
     public boolean verifyKeyPair(byte publicKeyData[],  byte privateKeyData[]) 
     {
       try {

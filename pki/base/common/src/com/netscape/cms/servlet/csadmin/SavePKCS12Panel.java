@@ -143,7 +143,6 @@ public class SavePKCS12Panel extends WizardPanelBase {
             Context context) throws IOException {
         context.put("title", "Save Keys and Certificates");
         context.put("panel", "admin/console/config/savepkcs12panel.vm");
-        context.put("updateStatus", "success");
     }
 
     /**

@@ -180,38 +180,19 @@ public class DonePanel extends WizardPanelBase {
         String type = "";
         String instanceId = "";
         String instanceRoot = "";
-        String systemdService = "";
         try {
             type = cs.getString("cs.type", "");
             instanceId = cs.getString("instanceId");
             instanceRoot = cs.getString("instanceRoot");
             select = cs.getString("preop.subsystem.select", "");
-            systemdService = cs.getString("pkicreate.systemd.servicename", "");
         } catch (Exception e) {}
 
-        String initDaemon = "";
-        if (type.equals("CA")) {
-			initDaemon = "pki-cad";
-        } else if (type.equals("KRA")) {
-			initDaemon = "pki-krad";
-        } else if (type.equals("OCSP")) {
-			initDaemon = "pki-ocspd";
-        } else if (type.equals("TKS")) {
-			initDaemon = "pki-tksd";
-        }
         String os = System.getProperty( "os.name" );
         if( os.equalsIgnoreCase( "Linux" ) ) {
-            if (! systemdService.equals("")) {
-                context.put( "initCommand", "/bin/systemctl");
-                context.put( "instanceId", systemdService );
-            } else {
-                context.put( "initCommand", "/sbin/service " + initDaemon );
-                context.put( "instanceId", instanceId );
-            }
+            context.put( "initCommand", "/sbin/service " + instanceId );
         } else {
             /* default case:  e. g. - ( os.equalsIgnoreCase( "SunOS" ) */
-            context.put( "initCommand", "/etc/init.d/" + initDaemon );
-            context.put( "instanceId", instanceId );
+            context.put( "initCommand", "/etc/init.d/" + instanceId );
         }
         context.put("title", "Done");
         context.put("panel", "admin/console/config/donepanel.vm");
@@ -338,10 +319,10 @@ public class DonePanel extends WizardPanelBase {
                               owneeclientauthsport));
                     }
                     attrs.add(new LDAPAttribute("UnSecurePort", ownport));
-                    attrs.add(new LDAPAttribute("Clone", "FALSE"));
+                    attrs.add(new LDAPAttribute("Clone", "false"));
                     attrs.add(new LDAPAttribute("SubsystemName", subsystemName));
                     attrs.add(new LDAPAttribute("cn", cn));
-                    attrs.add(new LDAPAttribute("DomainManager", "TRUE"));
+                    attrs.add(new LDAPAttribute("DomainManager", "true"));
                     entry = new LDAPEntry(dn, attrs);
                     conn.add(entry);
                 } catch (Exception e) {

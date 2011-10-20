@@ -137,44 +137,6 @@ public class AdminConnection {
 	}
 
     /*==========================================================
-     * private methods
-     *==========================================================*/
-
-    private String b64encode (byte[] data) {
-        int i, k, n;
-        int len = data.length;
-        byte b;
-        StringBuffer b64 = new StringBuffer();
-        String base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-        for (i = 0; i < len; i += 3) {
-            byte d0 = data[i];
-            byte d1 = (i+1<len)? data[i+1]: (byte)0;
-            byte d2 = (i+2<len)? data[i+2]: (byte)0;
-            b = (byte)((d0 & (byte)0xFC) >>> 2);
-            b64.append(base64.charAt((int)b));
-            b = (byte)(((d0 & 0x03) << 4) | ((d1 & 0xF0) >>> 4));
-            b64.append(base64.charAt((int)b));
-            b = (byte)(((d1 & 0x0F) << 2) | ((d2 & 0xC0) >>> 6));
-            if (i+1 < len) {
-                b64.append(base64.charAt((int)b));
-            } else {
-                b64.append('=');
-            }
-            b = (byte)(d2 & 0x3F);
-            if (i+2 < len) {
-                b64.append(base64.charAt((int)b));
-            } else {
-                b64.append('=');
-            }
-        }
-
-        b64.append('\n');
-
-        return b64.toString();
-    } 
-
-    /*==========================================================
 	 * public methods
      *==========================================================*/
 
@@ -744,12 +706,9 @@ public class AdminConnection {
  
         if (mAuthType.equals("") || mAuthType.equals("pwd")) {
             BasicAuthenticator auth = (BasicAuthenticator)mAuth;
-            // sun.misc.BASE64Encoder encoder = new sun.misc.BASE64Encoder();
-            // sb.append("Authorization: Basic " +
-            //          encoder.encodeBuffer((auth.getUserid() +
-            //                               ":" + auth.getPassword()).getBytes()) + "\n");
+            sun.misc.BASE64Encoder encoder = new sun.misc.BASE64Encoder();
             sb.append("Authorization: Basic " +
-                      b64encode((auth.getUserid() +
+                     encoder.encodeBuffer((auth.getUserid() +
                                           ":" + auth.getPassword()).getBytes()) + "\n");
         } else if (mAuthType.equals("sslclientauth")) {
             sb.append("\n");

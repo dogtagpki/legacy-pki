@@ -205,28 +205,20 @@ public class AdminPanel extends WizardPanelBase {
         context.put("admin_pwd_again", pwd_again);
         context.put("import", "true");
 
-        if (name == null || name.equals("")) {
-            context.put("updateStatus", "validate-failure");
+        if (name == null || name.equals(""))
             throw new IOException("Name is empty");
-        }
 
-        if (email == null || email.equals("")) {
-            context.put("updateStatus", "validate-failure");
+        if (email == null || email.equals(""))
             throw new IOException("Email is empty");
-        }
 
-        if (uid == null || uid.equals("")) {
-            context.put("updateStatus", "validate-failure");
+        if (uid == null || uid.equals(""))
             throw new IOException("Uid is empty");
-        }
 
         if (!pwd.equals(pwd_again)) {
-            context.put("updateStatus", "validate-failure");
             throw new IOException("Password and password again are not the same.");
         }
 
         if (email == null || email.length() == 0) {
-            context.put("updateStatus", "validate-failure");
             throw new IOException("Email address is empty string.");
         }
     }
@@ -274,7 +266,6 @@ public class AdminPanel extends WizardPanelBase {
             createAdmin(request);
         } catch (IOException e) {
             context.put("errorString", "Failed to create administrator.");
-            context.put("updateStatus", "failure");
             throw e;
         }
 
@@ -294,7 +285,6 @@ public class AdminPanel extends WizardPanelBase {
                 CMS.debug("AdminPanel update: Exception: " + e.toString());
                 context.put("errorString",
                         "Failed to create administrator certificate.");
-                context.put("updateStatus", "failure");
                 throw e;
             }
         } else {
@@ -332,8 +322,6 @@ public class AdminPanel extends WizardPanelBase {
         try {
             config.commit(false);
         } catch (Exception e) {}
-
-        context.put("updateStatus", "success");
     
     }
 

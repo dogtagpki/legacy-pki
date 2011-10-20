@@ -59,6 +59,7 @@ public class ProfileSubmitCMCServlet extends ProfileServlet {
     private String requestBinary = null;
     private String requestB64 = null;
 
+    private final static byte EOL[] = { Character.LINE_SEPARATOR };
     private final static String[]
         SIGNED_AUDIT_AUTOMATED_REJECTION_REASON = new String[] {
             
