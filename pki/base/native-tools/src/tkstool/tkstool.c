@@ -866,7 +866,7 @@ main( int argc, char **argv )
     /* Initialize NSS */
     /******************/
 
-    rvNSSinit = NSS_Initialize( DBDir,
+    rvNSSinit = NSS_Initialize( SECU_ConfigDirectory( NULL ),
                                 DBPrefix,
                                 DBPrefix,
                                 "secmod.db",

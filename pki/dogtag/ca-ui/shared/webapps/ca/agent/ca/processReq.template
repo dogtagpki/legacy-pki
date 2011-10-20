@@ -1156,7 +1156,7 @@ function renderFoot()
 
     // document.writeln('<INPUT TYPE="button" VALUE="Help" width="72"');
     // document.writeln('onClick="help(\'http://www.redhat.com/docs/manuals/cert-system#Approving Requests\')">');
-    document.writeln('</td></tr></table>');
+    document.writeln('&nbsp;</td></tr></table>');
 }
 
 
