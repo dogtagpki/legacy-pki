@@ -108,8 +108,8 @@ public class ProfileApproveServlet extends ProfileServlet {
                 CMS.debug("uid=" + authToken.getInString("userid"));
                 userid = authToken.getInString("userid");
             } catch (Exception e) {
-                auditSubjectID = auditSubjectID();
                 CMS.debug(e.toString());
+                auditSubjectID = auditSubjectID();
                 log(ILogger.LL_FAILURE,
                     CMS.getLogMessage("ADMIN_SRVLT_AUTH_FAILURE",
                         e.toString()));

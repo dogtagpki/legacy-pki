@@ -677,7 +677,6 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 	int start_pos = 0, done = 0;
 	unsigned int end_pos = 0;
 	const char *cuid_x = NULL;
-        int rc=0;
 
 	cuid_x = cuid;
 
@@ -780,7 +779,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 			}
 
 			char *pend = NULL;
-			rc = strtol((const char *) tokenCUIDStart, &pend, 16);
+			strtol((const char *) tokenCUIDStart, &pend, 16);
 
 			if(*pend != '\0')
 			{
@@ -813,7 +812,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 			}
 
 			char *pend = NULL;
-			rc = strtol((const char *) tokenCUIDEnd, &pend, 16);
+			strtol((const char *) tokenCUIDEnd, &pend, 16);
 
 			if(*pend != '\0')
 			{
@@ -1352,10 +1351,11 @@ Buffer *RA_Processor::GetAppletVersion(RA_Session *session)
     /* Sample: 3FBAB4BF9000 */
     if (data.size() != 6) {
 	   RA::Error(LL_PER_PDU, "Secure_Channel::GetAppletVersion", 
-		"Invalid Applet Version");
-            RA::DebugBuffer(LL_PER_PDU, "RA_Processor::GetAppletVersion",
-                 "Bad Applet Version: ",
-            &data);
+		"Invalid Applet Version data.size %d",data.size());
+           RA::DebugBuffer(LL_PER_PDU, "RA_Processor::GetAppletVersion",
+                "Bad Applet Version: ",
+           &data);
+
 	    goto loser;
     }
 
@@ -1879,7 +1879,7 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
     bool serverKeygen = RA::GetConfigStore()->GetConfigAsBool(configname, false);
 
     if (serverKeygen) {
-      if ((drm_desKey_s == NULL) || (strcmp(drm_desKey_s, "")==0)) {
+      if ((drm_desKey_s == "") || (drm_desKey_s == NULL)) {
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - did not get drm_desKey_s");
 	return NULL;
@@ -1887,7 +1887,7 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - drm_desKey_s = %s", drm_desKey_s);
       }
-      if ((kek_desKey_s == NULL) || (strcmp(kek_desKey_s,"")==0))  {
+      if ((kek_desKey_s == "") || (kek_desKey_s == NULL)) {
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - did not get kek_desKey_s");
 	return NULL;
@@ -1895,7 +1895,7 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - kek_desKey_s = %s", kek_desKey_s);
       }
-      if ((keycheck_s == NULL) || (strcmp(keycheck_s,"")==0)) {
+      if ((keycheck_s == "") || (keycheck_s == NULL)) {
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - did not get keycheck_s");
 	return NULL;
@@ -2342,6 +2342,7 @@ int RA_Processor::ComputeRandomData(Buffer &data_out, int dataSize,  const char 
     } else {
         int tks_curr = RA::GetCurrentIndex(tksConn);
         int currRetries = 0;
+        char *data = NULL;
 
         PR_snprintf((char *)body, 5000, "dataNumBytes=%d"
           , dataSize );
@@ -2377,6 +2378,7 @@ int RA_Processor::ComputeRandomData(Buffer &data_out, int dataSize,  const char 
             response = tksConn->getResponse(tks_curr, servletID, body);
         }
 
+        Buffer *randomData = NULL;
         status = 0;
         if (response != NULL) {
             RA::Debug(LL_PER_PDU, "RA_Processor::ComputeRandomData Response is not ","NULL");
@@ -2451,7 +2453,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                                         char *userid,
                                         RA_Status &status )
 {
-        const char *OP_PREFIX = "op.format";
+        char *OP_PREFIX = "op.format";
         char *statusString = NULL;
         char configname[256];
         char filter[512];
@@ -2478,6 +2480,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                     rc = RA::ra_delete_certificate_entry(e);
                     continue;
                 }
+
                 char *attr_serial= RA::ra_get_cert_serial(e);
                 /////////////////////////////////////////////////
                 // Raidzilla Bug #57803:
@@ -2541,7 +2544,6 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                     }
                     statusNum = certEnroll->RevokeCertificate("1", serial, connid, statusString);
                     RA::Debug("RA_Processor::RevokeCertificates", "Revoke cert %s status %d",serial,statusNum);
-
                     if (statusNum == 0) {
                         RA::Audit(EV_FORMAT, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
                                       "Success", "revoke", serial, connid, "");
@@ -2589,6 +2591,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
 
         rc = 0;
         if (keyVersion != NULL) {
+            //Do this in format case only, could be called from a re-enroll operation
             rc = RA::tdb_update("", cuid, (char *)final_applet_version, keyVersion, "uninitialized", "", tokenType);
         }
 
@@ -2646,7 +2649,10 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     LDAPMessage *ldapResult = NULL;
     LDAPMessage *e = NULL;
     LDAPMessage  *result = NULL;
+    char serial[100];
+    char *statusString = NULL;
     char filter[512];
+    int statusNum;
     Buffer curKeyInfo;
     BYTE curVersion;
     char *curKeyInfoStr = NULL;
@@ -3092,7 +3098,7 @@ locale),
         SelectApplet(session, 0x04, 0x00, NetKeyAID);
         RA::tdb_activity(session->GetRemoteIP(), cuid, "format", "failure", "applet upgrade error", "", tokenType);
         // rc = -1 denotes Secure Channel Failure
-        
+
         if (rc == -1) {
              RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                userid, cuid, msn, "Failure", "format",
@@ -3103,7 +3109,7 @@ locale),
                userid, cuid, msn, "Success", "format",
                keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "setup secure channel");
         }
-    
+
         RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE, 
           userid, cuid, msn, "Failure", "format", 
           keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "applet upgrade");
@@ -3114,6 +3120,7 @@ locale),
     RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
             userid, cuid, msn, "Success", "format",
             keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "setup secure channel");
+
 
     RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE, 
       userid, cuid, msn, "Success", "format", 
@@ -3257,10 +3264,10 @@ locale),
 
             curKeyInfoStr = Util::Buffer2String(curKeyInfo);
             newVersionStr = Util::Buffer2String(newVersion);
-
+    
             char curVer[10];
             char newVer[10];
-
+            
             if(curKeyInfoStr != NULL && strlen(curKeyInfoStr) >= 2) {
                 curVer[0] = curKeyInfoStr[0]; curVer[1] = curKeyInfoStr[1]; curVer[2] = 0;
             }
@@ -3272,16 +3279,16 @@ locale),
                 newVer[0] = newVersionStr[0] ; newVer[1] = newVersionStr[1] ; newVer[2] = 0;
             }
             else {
-                newVer[0] = 0;
+                newVer[0] = 0; 
             }
 
             if (rc != 0) {
                 RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
-                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "Failure", "format",
-                    final_applet_version != NULL ? final_applet_version : "", curVer, newVer,
+                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "Failure", "format", 
+                    final_applet_version != NULL ? final_applet_version : "", curVer, newVer, 
                     "key changeover failed");
                 // do we goto loser here?
-            }
+            } 
 
              finalKeyVersion = ((int) ((BYTE *)newVersion)[0]);
             /**

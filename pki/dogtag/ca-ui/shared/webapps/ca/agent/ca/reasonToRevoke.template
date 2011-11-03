@@ -440,17 +440,12 @@ function revokeCert(serialNumber)
         <input type="hidden" name="op" value="doRevoke">
         <input type="hidden" name="templateType" value="RevocationSuccess">
         <input type="reset" value="Reset" name="reset" width="72">&nbsp;&nbsp;
-        <!-- <input type="button" value="Help" width="72"
-            onClick="help('http://www.redhat.com/docs/manuals/cert-system#Confirming a Revocation')"> -->
+        <input type="button" value="Help" width="72"
+            onClick="help('http://www.redhat.com/docs/manuals/cert-system#Confirming a Revocation')">
 <SCRIPT type="text/javascript">
 //<!--
-
-        for (var i = 0; i < result.recordSet.length; i++) {
-            if (result.recordSet[i].serialNumber != null) {
-                document.writeln("<INPUT TYPE=hidden name=serialNumber value=\"" +
-                         result.recordSet[i].serialNumber +"\">");
-            }
-        }
+        document.writeln("<INPUT TYPE=hidden name=serialNumber value=\"" +
+                         result.header.serialNumber +"\">");
         document.writeln("<INPUT TYPE=hidden name=revokeAll value=\"" +
                          result.header.revokeAll +"\">");
         document.writeln("<INPUT TYPE=hidden name=totalRecordCount value=\"" +

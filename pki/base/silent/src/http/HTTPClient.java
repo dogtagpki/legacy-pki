@@ -22,9 +22,8 @@ import java.nio.*;
 import java.util.*;
 import java.net.URLEncoder;
 
-//import sun.misc.BASE64Encoder;
-//import sun.misc.BASE64Decoder;
-import com.netscape.osutil.OSUtil;
+import sun.misc.BASE64Encoder;
+import sun.misc.BASE64Decoder;
 
 
 import org.mozilla.jss.*;
@@ -1323,12 +1322,10 @@ public class HTTPClient implements SSLCertificateApprovalCallback
 		// set basic auth if needed
 		if(auth_type != null && auth_type.equalsIgnoreCase("BASIC"))
 		{
-        	// BASE64Encoder encoder = new BASE64Encoder();
+        	BASE64Encoder encoder = new BASE64Encoder();
 
-			// String temp = encoder.encodeBuffer((user_id + 
-			// 			":" + user_password).getBytes());
-			String temp = OSUtil.BtoA((user_id + 
-			 			":" + user_password).getBytes());
+			String temp = encoder.encodeBuffer((user_id + 
+						":" + user_password).getBytes());
 
 			// note: temp already contains \r and \n. 
 			// remove \r and \n from the base64 encoded string. 

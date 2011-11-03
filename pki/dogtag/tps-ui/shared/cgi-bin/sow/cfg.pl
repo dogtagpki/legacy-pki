@@ -1,19 +1,20 @@
 #! /usr/bin/perl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation;
+# 
+# This library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-#
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+# 
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301  USA 
+# 
 # Copyright (C) 2007 Red Hat, Inc.
 # All rights reserved.
 # --- END COPYRIGHT BLOCK ---
@@ -22,7 +23,23 @@
 #
 # Establish platform-dependent variables:
 #
-my $ldapsearch="/usr/bin/ldapsearch";
+my $default_hardware_platform="";
+my $ldapsearch="";
+$default_hardware_platform=`pkiarch`;
+chomp($default_hardware_platform);
+if( $^O eq "linux" ) {
+	if( $default_hardware_platform eq "i386" ) {
+		$ldapsearch = "/usr/lib/mozldap/ldapsearch";
+	} elsif( $default_hardware_platform eq "x86_64" ) {
+		$ldapsearch = "/usr/lib64/mozldap/ldapsearch";
+	}
+} elsif( $^O eq "solaris" ) {
+	if( $default_hardware_platform eq "sparc" ) {
+		$ldapsearch = "/usr/lib/mozldap6/ldapsearch";
+	} elsif( $default_hardware_platform eq "sparcv9" ) {
+		$ldapsearch = "/usr/lib/sparcv9/mozldap6/ldapsearch";
+	}
+}
 
 #
 # Feel free to modify the following parameters:
@@ -107,13 +124,12 @@ sub is_agent()
   chomp($x_bindpwd);
 
    my $cmd = $ldapsearch . " " .
-            "-x" .
             "-D \"" . $x_binddn . "\" " .
             "-w \"" . $x_bindpwd . "\" " .
             "-b \"" . "cn=TUS Officers,ou=Groups,".$x_basedn . "\" " .
             "-h \"" . $x_host . "\" " .
             "-p \"" . $x_port ."\" " .
-            "-LLL \"(uid=" . $uid . "*)\" | wc -l";
+            "-1 \"(uid=" . $uid . "*)\" | wc -l";
 
   my $matched = `$cmd`;
 
@@ -147,13 +163,12 @@ sub is_user()
   chomp($x_bindpwd);
 
    my $cmd = $ldapsearch . " " .
-            "-x" .
             "-D \"" . $x_binddn . "\" " .
             "-w \"" . $x_bindpwd . "\" " .
             "-b \"" . "ou=people,".$x_basedn . "\" " .
             "-h \"" . $x_host . "\" " .
             "-p \"" . $x_port ."\" " .
-            "-LLL \"(uid=" . $uid . "*)\" | wc -l";
+            "-1 \"(uid=" . $uid . "*)\" | wc -l";
 
 
   my $matched = `$cmd`;

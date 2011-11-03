@@ -94,6 +94,7 @@ import com.netscape.cmscore.usrgrp.UGSubsystem;
 import com.netscape.cmscore.request.RequestSubsystem;
 import com.netscape.cmscore.jobs.JobsScheduler;
 import com.netscape.osutil.*;
+import com.redhat.nuxwdog.*;
 
 import com.netscape.cmscore.cert.OidLoaderSubsystem;
 import com.netscape.cmscore.cert.X500NameSubsystem;
@@ -123,6 +124,7 @@ public class CMSEngine implements ICMSEngine {
     private ISubsystem mOwner = null; 
     private long mStartupTime = 0;
     private boolean isStarted = false;
+    private boolean startedByWD = false;
     private StringBuffer mWarning = new StringBuffer();
     private ITimeSource mTimeSource = null;
     private IPasswordStore mPasswordStore = null;
@@ -187,6 +189,12 @@ public class CMSEngine implements ICMSEngine {
             {null, null, null} //ssl_clientauth_EE
         };
 
+    private static final int PW_OK =0;
+    private static final int PW_BAD_SETUP = 1;
+    private static final int PW_INVALID_PASSWORD = 2;
+    private static final int PW_CANNOT_CONNECT = 3;
+    private static final int PW_NO_USER = 4;
+
     /**
      * private constructor.
      */
@@ -214,7 +222,7 @@ public class CMSEngine implements ICMSEngine {
         return instanceDir;
     }
 
-    public synchronized IPasswordStore getPasswordStore() {
+    public IPasswordStore getPasswordStore() {
         // initialize the PasswordReader and PasswordWriter
       try {
         String pwdPath = mConfig.getString("passwordFile");
@@ -225,6 +233,8 @@ public class CMSEngine implements ICMSEngine {
           if (pwdClass != null) {
             try {
                 mPasswordStore = (IPasswordStore)Class.forName(pwdClass).newInstance();
+                mPasswordStore.init(pwdPath); 
+                CMS.debug("CMSEngine: getPasswordStore(): password store initialized.");
             } catch (Exception e) {
                 CMS.debug("CMSEngine: getPasswordStore(): password store initialization failure:" + e.toString());
             }
@@ -233,9 +243,15 @@ public class CMSEngine implements ICMSEngine {
           CMS.debug("CMSEngine: getPasswordStore(): password store initialized before.");
         }
 
-        // have to initialize it because other places don't always
-        mPasswordStore.init(pwdPath); 
-        CMS.debug("CMSEngine: getPasswordStore(): password store initialized.");
+        // the password store may need to be re-initialized during configuration to capture 
+        // passwords added to the DatabasePanel (for instance).  We always expect the password
+        // file to be present during configuration.
+
+        File pFile = new File(pwdPath);
+        if (pFile.canRead()) {
+            mPasswordStore.init(pwdPath); 
+            CMS.debug("CMSEngine: getPasswordStore(): password store initialized from file:" + pwdPath);
+        }
       } catch (Exception e) {
         CMS.debug("CMSEngine: getPasswordStore(): failure:" + e.toString());
       }
@@ -274,6 +290,117 @@ public class CMSEngine implements ICMSEngine {
             // do not check session domain table
         } else {
             mSDTimer.schedule(timertask, 5, (new Long(secdomain_check_interval)).longValue());
+        }
+
+        // get the list of passwords 
+        String passwordList = config.getString("cms.passwordlist", "internaldb,replicationdb");
+
+        // initialize the PasswordReader and PasswordWriter
+        String pwdPath = config.getString("passwordFile");
+        String pwdClass = config.getString("passwordClass");
+
+        // check if started by the nuxwdog
+        String wdPipeName = OSUtil.getenv("WD_PIPE_NAME");
+        if ((wdPipeName != null) && (! wdPipeName.equals(""))) {
+            WatchdogClient.init();
+            startedByWD = true;
+        }
+
+        if (pwdClass != null) {
+            try {
+                mPasswordStore = (IPasswordStore)Class.forName(pwdClass).newInstance();
+                try {
+                    mPasswordStore.init(pwdPath);
+                } catch (IOException io) {
+                    // Error in reading file at pwdPath
+                    // This might be because the file has been removed for security reasons.
+                }
+            } catch (Exception e) {
+                System.out.println("CMSEngine: init(): Error instantiating password store for " + pwdClass);
+                throw  new EBaseException("Cannot instantiate password store for " + pwdClass + ": " + e);
+            }
+        } else {
+           System.out.println("CMSEngine: init(): pwdClass is NULL! ");
+           throw new EBaseException("CMSEngine: init(): pwdClass is NULL! ");
+        }
+
+        // test each password in passwordList
+        String tags[] = passwordList.split(",");
+        if (tags == null) { 
+            System.out.println("CMSEngine: init(): tags is null!");
+        } else {
+            String skipPublishingCheck = config.getString("cms.password.ignore.publishing.failure", "true");
+            for (int i=0; i < tags.length; i++) {
+                if (state != 1) break;
+                System.out.println("CMSEngine: init(): testing for password for " + tags[i]);
+                int iteration = 0;
+                int result = PW_INVALID_PASSWORD;
+                String host;
+                String port;
+                String binddn;
+                String secure;
+                String authType; 
+                String clientNick;
+
+                if (tags[i].equals("internaldb")) {
+                    host = config.getString("internaldb.ldapconn.host");
+                    port = config.getString("internaldb.ldapconn.port");
+                    binddn = config.getString("internaldb.ldapauth.bindDN");
+                    secure = config.getString("internaldb.ldapconn.secureConn");
+                    authType = config.getString("internaldb.ldapauth.authtype", "BasicAuth");
+                    clientNick = config.getString("internaldb.ldapauth.clientCertNickname", "");
+                } else if (tags[i].equals("replicationdb")) {
+                    // replication only uses simple bind for now
+                    host = config.getString("internaldb.ldapconn.host");
+                    port = config.getString("internaldb.ldapconn.port");
+                    binddn = "cn=Replication Manager masterAgreement1-"+ config.getString("machineName", "") +  "-" + 
+                        config.getString("instanceId", "") + ",cn=config";
+                    secure = config.getString("internaldb.ldapconn.secureConn");
+                    authType = config.getString("internaldb.ldapauth.authtype", "BasicAuth");
+                    clientNick = config.getString("internaldb.ldapauth.clientCertNickname", "");
+                } else if (tags[i].equals("CA LDAP Publishing")) {
+                    host = config.getString("ca.publish.ldappublish.ldap.ldapconn.host");
+                    port = config.getString("ca.publish.ldappublish.ldap.ldapconn.port");
+                    binddn = config.getString("ca.publish.ldappublish.ldap.ldapauth.bindDN");
+                    secure = config.getString("ca.publish.ldappublish.ldap.ldapconn.secureConn");
+                    authType = config.getString("ca.publish.ldappublish.ldap.ldapauth.authtype", "BasicAuth");
+                    clientNick = config.getString("ca.publish.ldappublish.ldap.ldapauth.clientCertNickname", "");
+                } else {
+                    // ignore any others for now
+                    continue;
+                }
+
+                do {
+                    // get password
+                    String pwd = mPasswordStore.getPassword(tags[i]);
+                    if ((pwd == null) || (pwd.equals("")) || (iteration >0)) {
+                        if (! startedByWD) {
+                            System.out.println("CMSEngine: init(): Cannot prompt for password " + tags[i] + " as server has not been started by nuxwdog");
+                            throw new EBaseException("Not started by nuxwdog");
+                        }
+                        pwd =  WatchdogClient.getPassword("Please provide password for " + tags[i] + ": ", iteration);
+                        mPasswordStore.putPassword(tags[i], pwd);
+                    }
+
+                    // test password
+                    result = testLDAPConnection(tags[i], host, port, pwd, binddn, secure, authType, clientNick);
+                    iteration++;
+                 } while (result == PW_INVALID_PASSWORD);
+
+                 if (result != PW_OK) {
+                     if ((result == PW_NO_USER) && (tags[i].equals("replicationdb"))) {
+                         System.out.println("CMSEngine: init(): password test execution failed for replicationdb with NO_SUCH_USER.  This may not be a latest instance.  Ignoring ..");
+                     } else if ((skipPublishingCheck.equals("true")) && (result == PW_CANNOT_CONNECT) && (tags[i].equals("CA LDAP Publishing"))) {
+                         System.out.println("Unable to connect to the publishing database to check password, but continuing to start up.  Please check if publishing is operational.");
+                         WatchdogClient.printMessage(
+                            "Unable to connect to the publishing database to check password, but continuing to start up.  Please check if publishing is operational.");
+                     } else {
+                         // password test failed
+                         System.out.println("CMSEngine: init(): password test execution failed: " + result);
+                         throw new EBaseException("Password test execution failed. Is the database up?");
+                     }
+                 }
+            }
         }
 
         String tsClass = config.getString("timeSourceClass", null);
@@ -323,7 +450,68 @@ public class CMSEngine implements ICMSEngine {
             }
         }
         parseServerXML();
-        fixProxyPorts();
+
+        if (startedByWD) {
+            WatchdogClient.sendEndInit(0);
+        }
+    }
+
+    public int testLDAPConnection(String name, String host, String port, String pwd, String binddn, String secure, String authType, String clientNick) {
+        int p = -1;
+        int ret = PW_OK;
+
+        try {
+            p = Integer.parseInt(port);
+        } catch (Exception e) {
+            System.out.println("testLDAPConnection: Invalid port :" + e.toString());
+            return PW_BAD_SETUP; 
+        }
+
+        LDAPConnection conn = null;
+        if (authType.equals("SslClientAuth")) {
+            System.out.println("testLDAPConnection: creating client auth connection for " + name + " with cert: " + clientNick);
+            conn = new LDAPConnection(CMS.getLdapJssSSLSocketFactory(clientNick));
+        } else if (secure.equals("true")) {
+            System.out.println("testLDAPConnection: creating secure (SSL) connection for " + name );
+            conn = new LDAPConnection(CMS.getLdapJssSSLSocketFactory());
+        } else {
+            System.out.println("testLDAPConnection: creating non-secure (non-SSL) connection for " + name);
+            conn = new LDAPConnection();
+        }
+
+        System.out.println("testLDAPConnection connecting to " + host + ":" + p);
+        try {
+            if ((pwd == null) || (pwd.equals(""))) {
+                ret = PW_INVALID_PASSWORD;
+            } else {
+                if (authType.equals("SslClientAuth")) {
+                    conn.connect(host, p);
+                } else {
+                    conn.connect(host, p, binddn, pwd);
+                }
+            }
+        } catch (LDAPException e) {
+            switch (e.getLDAPResultCode()) {
+                case LDAPException.NO_SUCH_OBJECT:
+                    System.out.println("testLDAPConnection: The specified user " + binddn + " does not exist");
+                    ret = PW_NO_USER;
+                    break;
+                case LDAPException.INVALID_CREDENTIALS:
+                    System.out.println("testLDAPConnection: Invalid Password");
+                    ret = PW_INVALID_PASSWORD;
+                    break;
+                default:
+                    System.out.println("testLDAPConnection: Unable to connect to " + name + ": " + e);
+                    ret = PW_CANNOT_CONNECT;
+                    break;
+            } 
+        } finally {
+            try {
+                if (conn != null)
+                   conn.disconnect();
+            } catch (Exception e) {}
+        }
+        return ret;
     }
 
     /**
@@ -543,27 +731,6 @@ public class CMSEngine implements ICMSEngine {
                CMS.debug("CMSEngine: parseServerXML exception: " + e.toString());
            }
     }
-
-    private void fixProxyPorts() throws EBaseException {
-        try {
-            String port = mConfig.getString("proxy.securePort", "");
-            if (!port.equals("")) {
-                info[EE_SSL][PORT] = port;
-                info[ADMIN][PORT] = port;
-                info[AGENT][PORT] = port;
-                info[EE_CLIENT_AUTH_SSL][PORT] = port;
-            }
-
-            port = mConfig.getString("proxy.unsecurePort", "");
-            if (!port.equals("")) {
-                info[EE_NON_SSL][PORT] = port;
-            }
-        } catch (EBaseException e) {
-            CMS.debug("CMSEngine: fixProxyPorts exception: " + e.toString());
-            throw e;
-        }   
-    }
-
 
     public IConfigStore createFileConfigStore(String path) throws EBaseException {
         try {
@@ -862,7 +1029,7 @@ public class CMSEngine implements ICMSEngine {
         mSSReg.put(id, ss);
         CMS.debug("CMSEngine: initialized " + id);
 
-        if(id.equals("ca") || id.equals("ocsp") ||
+        if(id.equals("ca") || id.equals("ocsp") || 
             id.equals("kra") || id.equals("tks")) {
             CMS.debug("CMSEngine::initSubsystem " + id + " Java subsytem about to calculate serverCertNickname. ");
             // get SSL server nickname

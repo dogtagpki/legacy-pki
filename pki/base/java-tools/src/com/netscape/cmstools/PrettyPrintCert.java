@@ -213,7 +213,7 @@ public class PrettyPrintCert {
         } else {
             try {
                 outputCert = new FileOutputStream(outputfile);
-            } catch (Exception e) {
+            } catch (IOException e) {
                 System.out.println("PrettyPrintCert:  unable to open file " +
                     argv[1] + " for writing:\n" + e);
                 return;
@@ -221,13 +221,6 @@ public class PrettyPrintCert {
 
             try {
                 outputCert.write(pp.getBytes());
-            } catch (IOException e) {
-                System.out.println("PrettyPrintCert:  Unexpected error " +
-                    "encountered while attempting to write() " +
-                    outputfile + ":\n" + e);
-            }
-
-            try {
                 outputCert.close();
             } catch (IOException e) {
                 System.out.println("PrettyPrintCert:  Unexpected error " +

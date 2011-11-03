@@ -40,8 +40,6 @@ import netscape.security.util.ObjectIdentifier;
 import netscape.ldap.LDAPSSLSocketFactoryExt;
 import netscape.ldap.LDAPConnection;
 import netscape.ldap.LDAPException;
-
-import org.mozilla.jss.CryptoManager.CertificateUsage;
 import org.mozilla.jss.util.PasswordCallback;
 
 /**
@@ -539,35 +537,4 @@ public String getFingerPrints(byte[] certDer) throws NoSuchAlgorithmException {
     public String getConfigSDSessionId() {
         return null;
     }
-
-	@Override
-	public String getEEClientAuthSSLPort() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public boolean verifySystemCerts() {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
-	public boolean verifySystemCertByTag(String tag) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
-	public boolean verifySystemCertByNickname(String nickname,
-			String certificateUsage) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
-	public CertificateUsage getCertificateUsage(String certusage) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 }

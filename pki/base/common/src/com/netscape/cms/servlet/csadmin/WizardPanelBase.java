@@ -1113,7 +1113,7 @@ public class WizardPanelBase implements IWizardPanel {
                         portType);
                 Vector v_admin_port = parser.getValuesFromContainer(nodeList.item(i),
                         "SecureAdminPort");
-
+              
                 if (v_host.elementAt(0).equals(hostname) && v_admin_port.elementAt(0).equals(new Integer(httpsadminport).toString())) {
                     // add security domain CA to the beginning of list
                     v.add( 0, v_name.elementAt(0)

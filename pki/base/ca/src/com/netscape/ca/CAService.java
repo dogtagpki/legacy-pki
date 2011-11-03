@@ -643,7 +643,7 @@ public class CAService implements ICAService, IService {
                     Enumeration e = exts.getElements();
 
                     while (e.hasMoreElements()) {
-                        netscape.security.x509.Extension ext = (netscape.security.x509.Extension) e.nextElement();
+                        Extension ext = (Extension) e.nextElement();
 
                         if (ext.getExtensionId().toString().equals(PKIXExtensions.BasicConstraints_Id.toString())) {
                             bc_ext = (BasicConstraintsExtension) ext;
