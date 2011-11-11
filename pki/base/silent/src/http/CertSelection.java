@@ -16,9 +16,19 @@
 // All rights reserved.
 // --- END COPYRIGHT BLOCK ---
 
-import java.util.Vector;
+import java.io.*;
+import java.net.*;
+import java.nio.*;
+import java.util.*;
 
-import org.mozilla.jss.ssl.SSLClientCertificateSelectionCallback;
+import org.mozilla.jss.*;
+import org.mozilla.jss.CryptoManager;
+import org.mozilla.jss.util.*;
+import org.mozilla.jss.ssl.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.CertDatabaseException;
+import org.mozilla.jss.pkcs11.*;
+import org.mozilla.jss.pkcs11.PK11Token;
 
 
 public class CertSelection implements SSLClientCertificateSelectionCallback

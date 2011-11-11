@@ -18,13 +18,11 @@
 package netscape.security.x509;
 
 import java.io.IOException;
-import java.util.Enumeration;
+import java.io.StringReader;
 import java.util.Vector;
+import java.util.Enumeration;
 
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.ObjectIdentifier;
+import netscape.security.util.*;
 
 
 /**

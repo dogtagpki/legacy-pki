@@ -18,6 +18,7 @@
 package com.netscape.certsrv.usrgrp;
 
 
+import com.netscape.certsrv.base.*;
 
 
 /**

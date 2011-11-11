@@ -18,8 +18,14 @@
 package com.netscape.cmscore.ldap;
 
 
-import netscape.security.x509.X509CRLImpl;
-import netscape.security.x509.X509CertImpl;
+import java.security.*;
+import java.security.cert.*;
+import netscape.security.x509.*;
+import netscape.security.util.*;
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.ldap.*;
 
 
 /**

@@ -18,9 +18,11 @@
 package com.netscape.cmsutil.radius;
 
 
-import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.util.*;
+import java.math.*;
+import java.security.*;
+import java.net.*;
+import java.io.*;
 
 
 public class UserPasswordAttribute extends Attribute {

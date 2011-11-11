@@ -16,13 +16,8 @@
 // All rights reserved.
 // --- END COPYRIGHT BLOCK ---
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.net.URLEncoder;
+import java.net.*;
+import java.io.*;
 
 
 public class CMSInstance {

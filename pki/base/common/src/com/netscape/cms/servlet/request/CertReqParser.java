@@ -18,48 +18,23 @@
 package com.netscape.cms.servlet.request;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.lang.reflect.Array;
-import java.math.BigInteger;
+import com.netscape.cms.servlet.common.*;
+
+import java.io.*;
+import java.util.*;
+import java.math.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Locale;
-import java.util.Vector;
+import java.lang.reflect.Array;
+import netscape.security.x509.*;
+import netscape.security.extensions.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.apps.*;
 
-import netscape.security.extensions.NSCertTypeExtension;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.BasicConstraintsExtension;
-import netscape.security.x509.CRLExtensions;
-import netscape.security.x509.CRLReasonExtension;
-import netscape.security.x509.CertificateAlgorithmId;
-import netscape.security.x509.CertificateChain;
-import netscape.security.x509.CertificateExtensions;
-import netscape.security.x509.CertificateSubjectName;
-import netscape.security.x509.CertificateValidity;
-import netscape.security.x509.CertificateX509Key;
-import netscape.security.x509.Extension;
-import netscape.security.x509.RevocationReason;
-import netscape.security.x509.RevokedCertImpl;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
-import netscape.security.x509.X509Key;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.base.IPrettyPrintFormat;
-import com.netscape.certsrv.profile.IEnrollProfile;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.RequestStatus;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.RawJS;
+import com.netscape.certsrv.request.*;
 
 
 /**
@@ -237,22 +212,6 @@ public class CertReqParser extends ReqParser {
                     // hack
                     String parami = 
                         IRequest.SERVER_ATTRS + LB + String.valueOf(saCounter++) + RB;
-
-                    if (name.equalsIgnoreCase(IRequest.ISSUED_CERTS) && mDetails &&
-                        (req.getRequestStatus().toString().equals(RequestStatus.COMPLETE_STRING) ||
-                            req.getRequestType().equals(IRequest.GETREVOCATIONINFO_REQUEST))) {
-                        X509CertImpl issuedCert[] =
-                            req.getExtDataInCertArray(IRequest.ISSUED_CERTS);
-                        if (issuedCert != null && issuedCert[0] != null) {
-                            val = "<pre>"+CMS.getCertPrettyPrint(issuedCert[0]).toString(l)+"</pre>";
-                        }
-                    } else if (name.equalsIgnoreCase(IRequest.CERT_INFO) && mDetails) {
-                        X509CertInfo[] certInfo =
-                            req.getExtDataInCertInfoArray(IRequest.CERT_INFO);
-                        if (certInfo != null && certInfo[0] != null) {
-                            val = "<pre>"+certInfo[0].toString()+"</pre>";
-                        }
-                    }
 
                     valstr = expandValue(prefix + parami + ".value", val);
                     String rawJS = "new Object;\n\r" +

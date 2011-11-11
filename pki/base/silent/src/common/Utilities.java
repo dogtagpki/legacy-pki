@@ -16,17 +16,15 @@
 // All rights reserved.
 // --- END COPYRIGHT BLOCK ---
 
-import java.io.DataInputStream;
-import java.io.FileInputStream;
-import java.util.Enumeration;
+import java.util.*;
+import java.io.*;
+import java.net.*;
 
-import netscape.security.x509.CertificateSerialNumber;
-import netscape.security.x509.CertificateSubjectName;
-import netscape.security.x509.RDN;
-import netscape.security.x509.SerialNumber;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
+import java.security.*;
+import java.security.cert.*;
+import sun.misc.*;
+import netscape.security.x509.*;
+import netscape.security.util.*;
 
 import com.netscape.osutil.OSUtil;
 

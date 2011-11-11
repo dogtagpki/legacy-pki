@@ -16,11 +16,9 @@
 // All rights reserved.
 // --- END COPYRIGHT BLOCK ---
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileReader;
-import java.net.InetAddress;
-import java.util.StringTokenizer;
+import java.net.*;
+import java.io.*;
+import java.util.*;
 
 
 /**

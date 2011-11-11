@@ -18,41 +18,38 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.Principal;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.pkcs.PKCS10;
-import netscape.security.util.CertPrettyPrint;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509Key;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.crypto.InternalCertificate;
-import org.mozilla.jss.crypto.PrivateKey;
-import org.mozilla.jss.crypto.X509Certificate;
-
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.util.*;
+import java.io.*;
+import java.security.*;
+import java.math.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.security.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.CryptoUtil;
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.request.*;
+
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.crypto.PrivateKey;
+import org.mozilla.jss.pkcs11.*;
+
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class CertRequestPanel extends WizardPanelBase {
     private Vector mCerts = null;

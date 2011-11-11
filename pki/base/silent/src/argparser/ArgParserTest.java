@@ -29,8 +29,8 @@
   * software.
   */
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
+import java.io.*;
+
 import java.lang.reflect.Array;
 import java.util.Vector;
 

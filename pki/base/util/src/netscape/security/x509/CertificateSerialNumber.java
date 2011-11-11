@@ -23,9 +23,7 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.Enumeration;
 
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * This class defines the SerialNumber attribute for the Certificate.

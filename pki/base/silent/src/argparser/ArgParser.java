@@ -29,14 +29,15 @@
   * software.
   */
 
-import java.io.File;
-import java.io.FileReader;
+import java.io.PrintStream;
 import java.io.IOException;
 import java.io.LineNumberReader;
-import java.io.PrintStream;
+import java.io.File;
+import java.io.FileReader;
 import java.io.Reader;
-import java.lang.reflect.Array;
 import java.util.Vector;
+
+import java.lang.reflect.Array;
 
 /**
  * ArgParser is used to parse the command line arguments for a java

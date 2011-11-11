@@ -19,7 +19,9 @@
 package com.netscape.symkey;
 
 
-import org.mozilla.jss.pkcs11.PK11SymKey;
+import java.io.*;
+import java.util.*;
+import org.mozilla.jss.pkcs11.*;
 
 
 /**

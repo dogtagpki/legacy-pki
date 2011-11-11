@@ -17,10 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.authentication;
 
-import java.util.Enumeration;
-import java.util.Hashtable;
-
-import com.netscape.certsrv.base.IArgBlock;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authentication.*;
 
 /**
  * Authentication Credentials as input to the authMgr. It contains all the 

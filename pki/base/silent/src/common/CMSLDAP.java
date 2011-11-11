@@ -16,19 +16,10 @@
 // All rights reserved.
 // --- END COPYRIGHT BLOCK ---
 
-import java.io.ByteArrayInputStream;
-import java.security.cert.CertificateFactory;
+import netscape.ldap.*;
+import java.io.*;
 import java.security.cert.X509Certificate;
-
-import netscape.ldap.LDAPAttribute;
-import netscape.ldap.LDAPAttributeSet;
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPEntry;
-import netscape.ldap.LDAPException;
-import netscape.ldap.LDAPModification;
-import netscape.ldap.LDAPModificationSet;
-import netscape.ldap.LDAPSearchResults;
-import netscape.ldap.LDAPv2;
+import java.security.cert.*;
 
 
 /**
