@@ -18,32 +18,36 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.math.BigInteger;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.ldap.LDAPException;
-import netscape.security.x509.X509CertImpl;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.certsrv.template.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import java.io.*;
+import java.math.*;
+import java.util.*;
+import java.security.*;
+import java.security.cert.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.ldap.*;
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.usrgrp.IUGSubsystem;
-import com.netscape.certsrv.usrgrp.IUser;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.CryptoUtil;
+import org.mozilla.jss.asn1.*;
+import com.netscape.cms.servlet.wizard.*;
 
 public class ImportAdminCertPanel extends WizardPanelBase {
 
@@ -225,7 +229,6 @@ public class ImportAdminCertPanel extends WizardPanelBase {
             } catch (Exception e) {
                 CMS.debug(
                         "ImportAdminCertPanel update: Failed to get request id.");
-                context.put("updateStatus", "failure");
                 throw new IOException("Failed to get request id.");
             }
 
@@ -291,14 +294,12 @@ public class ImportAdminCertPanel extends WizardPanelBase {
         } catch (LDAPException e) {
             CMS.debug("ImportAdminCertPanel update: failed to add certificate to the internal database. Exception: "+e.toString());
             if (e.getLDAPResultCode() != LDAPException.ATTRIBUTE_OR_VALUE_EXISTS) {
-                context.put("updateStatus", "failure");
                 throw new IOException(e.toString());
             }
         } catch (Exception e) {
             CMS.debug(
                     "ImportAdminCertPanel update: failed to add certificate. Exception: "
                             + e.toString());
-            context.put("updateStatus", "failure");
             throw new IOException(e.toString());
         }
 
@@ -306,7 +307,6 @@ public class ImportAdminCertPanel extends WizardPanelBase {
         context.put("info", "");
         context.put("title", "Import Administrator Certificate");
         context.put("panel", "admin/console/config/importadmincertpanel.vm");
-        context.put("updateStatus", "success");
     }
 
     public boolean shouldSkip() {

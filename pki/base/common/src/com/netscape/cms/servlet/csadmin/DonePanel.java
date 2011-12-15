@@ -18,40 +18,34 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.net.URLEncoder;
-import java.security.cert.X509Certificate;
-import java.util.StringTokenizer;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.ldap.LDAPAttribute;
-import netscape.ldap.LDAPAttributeSet;
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPEntry;
-import netscape.ldap.LDAPException;
-import netscape.ldap.LDAPModification;
-import netscape.security.x509.X509CertImpl;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.dbs.crldb.ICRLIssuingPointRecord;
-import com.netscape.certsrv.ocsp.IDefStore;
-import com.netscape.certsrv.ocsp.IOCSPAuthority;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.usrgrp.IGroup;
-import com.netscape.certsrv.usrgrp.IUGSubsystem;
-import com.netscape.certsrv.usrgrp.IUser;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.password.IPasswordStore;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import com.netscape.cmsutil.xml.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.dbs.crldb.*;
+import com.netscape.certsrv.ocsp.*;
+import com.netscape.certsrv.logging.*;
 import com.netscape.cmsutil.util.Cert;
-import com.netscape.cmsutil.util.Utils;
+import com.netscape.cmsutil.util.*;
+import com.netscape.cmsutil.password.*;
+import netscape.security.x509.*;
+import netscape.ldap.*;
+import java.net.*;
+import java.io.*;
+import java.math.*;
+import java.security.cert.*;
+import org.w3c.dom.*;
+import java.util.*;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class DonePanel extends WizardPanelBase {
 
@@ -186,38 +180,19 @@ public class DonePanel extends WizardPanelBase {
         String type = "";
         String instanceId = "";
         String instanceRoot = "";
-        String systemdService = "";
         try {
             type = cs.getString("cs.type", "");
             instanceId = cs.getString("instanceId");
             instanceRoot = cs.getString("instanceRoot");
             select = cs.getString("preop.subsystem.select", "");
-            systemdService = cs.getString("pkicreate.systemd.servicename", "");
         } catch (Exception e) {}
 
-        String initDaemon = "";
-        if (type.equals("CA")) {
-			initDaemon = "pki-cad";
-        } else if (type.equals("KRA")) {
-			initDaemon = "pki-krad";
-        } else if (type.equals("OCSP")) {
-			initDaemon = "pki-ocspd";
-        } else if (type.equals("TKS")) {
-			initDaemon = "pki-tksd";
-        }
         String os = System.getProperty( "os.name" );
         if( os.equalsIgnoreCase( "Linux" ) ) {
-            if (! systemdService.equals("")) {
-                context.put( "initCommand", "/bin/systemctl");
-                context.put( "instanceId", systemdService );
-            } else {
-                context.put( "initCommand", "/sbin/service " + initDaemon );
-                context.put( "instanceId", instanceId );
-            }
+            context.put( "initCommand", "/sbin/service " + instanceId );
         } else {
             /* default case:  e. g. - ( os.equalsIgnoreCase( "SunOS" ) */
-            context.put( "initCommand", "/etc/init.d/" + initDaemon );
-            context.put( "instanceId", instanceId );
+            context.put( "initCommand", "/etc/init.d/" + instanceId );
         }
         context.put("title", "Done");
         context.put("panel", "admin/console/config/donepanel.vm");
@@ -344,10 +319,10 @@ public class DonePanel extends WizardPanelBase {
                               owneeclientauthsport));
                     }
                     attrs.add(new LDAPAttribute("UnSecurePort", ownport));
-                    attrs.add(new LDAPAttribute("Clone", "FALSE"));
+                    attrs.add(new LDAPAttribute("Clone", "false"));
                     attrs.add(new LDAPAttribute("SubsystemName", subsystemName));
                     attrs.add(new LDAPAttribute("cn", cn));
-                    attrs.add(new LDAPAttribute("DomainManager", "TRUE"));
+                    attrs.add(new LDAPAttribute("DomainManager", "true"));
                     entry = new LDAPEntry(dn, attrs);
                     conn.add(entry);
                 } catch (Exception e) {

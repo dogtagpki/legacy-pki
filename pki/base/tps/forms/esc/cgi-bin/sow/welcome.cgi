@@ -22,23 +22,22 @@
 #
 
 use CGI;
+no warnings qw(redefine);
 
-[REQUIRE_CFG_PL]
-
-
-my $host = get_host();
-my $secure_port = get_secure_port();
-my $port = get_port();
-
-my $q = new CGI;
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 sub DoPage
 {
 
+  my $host = get_host();
+  my $secure_port = get_secure_port();
+  my $port = get_port();
+  my $q = new CGI;
+
   my $error = $q->param('error');
   $error = "" if !defined $error;
 
-  open(FILE, "< welcome.html");
+  open(FILE, "< [SERVER_ROOT]/cgi-bin/sow/welcome.html");
 
   print $q->header();
 

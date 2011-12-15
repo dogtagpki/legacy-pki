@@ -17,11 +17,12 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.util;
 
-import java.io.IOException;
 import java.io.InputStream;
+import java.io.IOException;
+import java.io.EOFException;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.Date;
 import java.util.TimeZone;
 import java.util.Vector;
 

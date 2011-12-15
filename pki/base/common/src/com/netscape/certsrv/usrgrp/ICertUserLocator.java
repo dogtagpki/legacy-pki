@@ -18,9 +18,9 @@
 package com.netscape.certsrv.usrgrp;
 
 
-import netscape.ldap.LDAPException;
-
-import com.netscape.certsrv.ldap.ELdapException;
+import netscape.ldap.*;
+import java.util.*;
+import com.netscape.certsrv.ldap.*;
 
 
 /**

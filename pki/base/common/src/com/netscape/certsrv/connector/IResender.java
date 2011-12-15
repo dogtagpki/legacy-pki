@@ -18,7 +18,17 @@
 package com.netscape.certsrv.connector;
 
 
-import com.netscape.certsrv.request.IRequest;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.connector.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.cmsutil.http.*;
+
+import java.util.Vector;
+import java.util.Enumeration;
+import java.io.*;
 
 
 /**

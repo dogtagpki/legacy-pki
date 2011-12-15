@@ -19,8 +19,7 @@ package com.netscape.cmscore.base;
 
 
 import java.util.Hashtable;
-
-import com.netscape.certsrv.base.ISubsystem;
+import com.netscape.certsrv.base.*;
 
 
 public class SubsystemRegistry extends Hashtable {

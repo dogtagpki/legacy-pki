@@ -18,21 +18,12 @@
 package netscape.security.extensions;
 
 
-import java.io.IOException;
+import netscape.security.x509.*;
 import java.math.BigInteger;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.util.Date;
-
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.CertificateAlgorithmId;
-import netscape.security.x509.CertificateIssuerName;
-import netscape.security.x509.CertificateSerialNumber;
-import netscape.security.x509.CertificateSubjectName;
-import netscape.security.x509.CertificateValidity;
-import netscape.security.x509.CertificateVersion;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X509CertInfo;
+import java.security.*;
+import java.security.cert.*;
+import java.io.*;
 
 
 /**

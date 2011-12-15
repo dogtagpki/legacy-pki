@@ -55,7 +55,7 @@ TPS_PUBLIC RA_Pin_Reset_Processor::~RA_Pin_Reset_Processor()
  */
 TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameValueSet *extensions)
 {
-    struct berval **tokenOwner=NULL;
+    char **tokenOwner=NULL;
     char configname[256];
     const char *tokenType = NULL;
     char *cuid = NULL;
@@ -320,7 +320,7 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
               security_level = SECURE_MSG_MAC;
             PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
             connid = RA::GetConfigStore()->GetConfigAsString(configname);
-            int upgrade_rc = UpgradeApplet(session, (char *) OP_PREFIX, (char*)tokenType, major_version, minor_version, 
+            int upgrade_rc = UpgradeApplet(session, OP_PREFIX, (char*)tokenType, major_version, minor_version, 
                 expected_version, applet_dir, security_level, connid, extensions, 30, 70, &keyVersion);
 	    if (upgrade_rc != 1) {
                RA::Error("RA_Pin_Reset_Processor::Process", 
@@ -342,13 +342,13 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
                   keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "setup secure channel");
              }
 
+
               RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                 userid, cuid, msn, "Failure", "pin_reset", 
                 keyVersion != NULL? keyVersion : "", 
                 appletVersion, expected_version, "applet upgrade");
               goto loser;
 	    }
-
 
             RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                   userid, cuid, msn, "Success", "pin_reset",
@@ -423,7 +423,6 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
             goto loser;
         }
 
-
 	 BYTE curVersion = ((BYTE*)curKeyInfo)[0];
          BYTE curIndex = ((BYTE*)curKeyInfo)[1];
          rc = channel->PutKeys(session,
@@ -480,7 +479,7 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
                 final_applet_version != NULL ? final_applet_version : "", curVer, newVer,
                 "key changeover");
         key_change_over_success = 1;
-      } else { key_change_over_success = 1; }
+      }  else { key_change_over_success = 1; }
     } else {
       PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
       connId = RA::GetConfigStore()->GetConfigAsString(configname);
@@ -621,9 +620,8 @@ locale),
         for (e = RA::ra_get_first_entry(ldapResult); e != NULL;
           e = RA::ra_get_next_entry(e)) {
             tokenOwner = RA::ra_get_attribute_values(e, "tokenUserID");
-            if ((tokenOwner != NULL) && (tokenOwner[0] != NULL) &&
-                (tokenOwner[0]->bv_val != NULL) && (strlen(tokenOwner[0]->bv_val) > 0) &&
-                (strcmp(userid, tokenOwner[0]->bv_val) != 0)) {
+            if (tokenOwner[0] != NULL && strlen(tokenOwner[0]) > 0 &&
+                strcmp(userid, tokenOwner[0]) != 0) {
                 status = STATUS_ERROR_NOT_TOKEN_OWNER;
                 PR_snprintf(audit_msg, 512, "token owner mismatch, status = STATUS_ERROR_NOT_TOKEN_OWNER");
                 goto loser;
@@ -827,8 +825,8 @@ locale),
         PR_snprintf(audit_msg, 512, "Failed to close channel, status = STATUS_ERROR_CONNECTION");
         goto loser;
     }
-    
 
+    
     //Update the KeyInfo in case of successful key changeover
     if (key_change_over_success != 0) {
         RA::tdb_update( userid  != NULL ? userid : (char *) "",
@@ -996,7 +994,7 @@ loser:
     }
 
     if (tokenOwner != NULL) {
-        ldap_value_free_len(tokenOwner);
+        ldap_value_free(tokenOwner);
         tokenOwner = NULL;
     }
 

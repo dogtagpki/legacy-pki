@@ -17,11 +17,13 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.base;
 
-import java.io.Serializable;
+import java.util.*;
+import java.io.*;
+import netscape.security.pkcs.*;
+import java.security.*;
 import java.math.BigInteger;
-import java.util.Enumeration;
-
-import netscape.security.pkcs.PKCS10;
+import com.netscape.certsrv.base.EBaseException;
+import com.netscape.certsrv.base.BaseResources;
 
 
 /**

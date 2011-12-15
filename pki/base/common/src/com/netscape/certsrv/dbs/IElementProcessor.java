@@ -18,7 +18,7 @@
 package com.netscape.certsrv.dbs;
 
 
-import com.netscape.certsrv.base.EBaseException;
+import com.netscape.certsrv.base.*;
 
 
 /**
