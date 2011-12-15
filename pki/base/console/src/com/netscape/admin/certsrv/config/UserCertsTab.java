@@ -44,6 +44,7 @@ public class UserCertsTab extends CMSBaseUGTab {
      * variables
      *==========================================================*/
     private static final String PANEL_NAME = "USERCERTS";
+    private static final String INTERNAL_TOKEN_NAME = "internal";
   
     private AdminConnection mConnection;
     private String mDestination;
@@ -310,7 +311,12 @@ public class UserCertsTab extends CMSBaseUGTab {
                     v.addElement(nickname.substring(colonindex+1));
                     v.addElement(entry.substring(lastindex+1));
                     v.addElement(value);
-                    v.addElement(nickname.substring(0, colonindex));
+                    if(colonindex == -1) {
+                        colonindex = 0;
+                        v.addElement(INTERNAL_TOKEN_NAME);
+                    } else {
+                        v.addElement(nickname.substring(0, colonindex));
+                    }
                     mDataModel.addRow(v);
                 }
             }
