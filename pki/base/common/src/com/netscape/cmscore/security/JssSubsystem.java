@@ -484,7 +484,7 @@ public final class JssSubsystem implements ICryptoSubsystem {
     public boolean isTokenLoggedIn(String name) throws EBaseException {
         try {
             if (name.equals(Constants.PR_INTERNAL_TOKEN_NAME))
-                name = Constants.PR_FULL_INTERNAL_TOKEN_NAME;
+                name = getInternalTokenName();
             CryptoToken ctoken = mCryptoManager.getTokenByName(name);
 
             return ctoken.isLoggedIn();
@@ -740,7 +740,7 @@ public final class JssSubsystem implements ICryptoSubsystem {
 
         String t = tokenName;
         if (tokenName.equals(Constants.PR_INTERNAL_TOKEN))
-            t = Constants.PR_FULL_INTERNAL_TOKEN_NAME;
+            t = getInternalTokenName();
         CryptoToken token = null;
 
         try {
