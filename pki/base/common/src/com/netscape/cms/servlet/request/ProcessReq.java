@@ -128,7 +128,7 @@ public class ProcessReq extends CMSServlet {
      * @param cmsReq the object holding the request and response information
      */
     public void process(CMSRequest cmsReq) throws EBaseException {
-        int seqNum = -1;
+        BigInteger seqNum = BigInteger.ONE.negate();
 
         HttpServletRequest req = cmsReq.getHttpReq();
         HttpServletResponse resp = cmsReq.getHttpResp();
@@ -156,11 +156,11 @@ public class ProcessReq extends CMSServlet {
 
         try {
             if (req.getParameter(SEQNUM) != null) {
-                seqNum = Integer.parseInt(req.getParameter(SEQNUM));
+                seqNum = new BigInteger(req.getParameter(SEQNUM));
             }
             doAssign = req.getParameter(DO_ASSIGN);
 
-            if (seqNum > -1) {
+            if (seqNum.compareTo(BigInteger.ONE.negate()) > 0) {
                 // start authorization
                 AuthzToken authzToken = null;
 
@@ -235,15 +235,15 @@ public class ProcessReq extends CMSServlet {
      * returns whether there was an error or not.
      */
     private void process(CMSTemplateParams argSet, IArgBlock header,
-        int seqNum, HttpServletRequest req,
+        BigInteger seqNum, HttpServletRequest req,
         HttpServletResponse resp, 
         String doAssign, Locale locale)
         throws EBaseException {
 
-        header.addIntegerValue("seqNum", seqNum);
+        header.addBigIntegerValue("seqNum", seqNum, 10);
 
         IRequest r = 
-            mQueue.findRequest(new RequestId(Integer.toString(seqNum)));
+            mQueue.findRequest(new RequestId(seqNum.toString()));
 
         if (r != null) {
             if (doAssign != null) {
@@ -322,10 +322,9 @@ public class ProcessReq extends CMSServlet {
 
             mParser.fillRequestIntoArg(locale, r, argSet, header);
         } else {
-            log(ILogger.LL_FAILURE, "Invalid sequence number " + seqNum);
+            log(ILogger.LL_FAILURE, "Invalid sequence number " + seqNum.toString());
             throw new ECMSGWException(
-                  CMS.getUserMessage("CMS_GW_INVALID_REQUEST_ID",
-                    String.valueOf(seqNum)));
+                  CMS.getUserMessage("CMS_GW_INVALID_REQUEST_ID", seqNum.toString()));
         }
 
         return;
