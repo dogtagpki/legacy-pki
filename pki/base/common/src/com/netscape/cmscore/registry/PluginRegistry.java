@@ -18,18 +18,10 @@
 package com.netscape.cmscore.registry;
 
 
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Locale;
-import java.util.StringTokenizer;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.registry.ERegistryException;
-import com.netscape.certsrv.registry.IPluginInfo;
-import com.netscape.certsrv.registry.IPluginRegistry;
+import java.util.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.registry.*;
 
 
 public class PluginRegistry implements IPluginRegistry {

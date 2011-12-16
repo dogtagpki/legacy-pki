@@ -17,23 +17,19 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.security.InvalidKeyException;
+import java.io.*;
+import java.util.Properties;
 import java.security.Key;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.Provider;
 import java.security.PublicKey;
+import java.security.KeyFactory;
 import java.security.Security;
+import java.security.Provider;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.Properties;
 
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * Holds an X.509 key, for example a public key found in an X.509

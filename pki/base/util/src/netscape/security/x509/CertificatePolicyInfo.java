@@ -18,9 +18,7 @@
 package netscape.security.x509;
 
 import java.io.IOException;
-
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
  
 /**
  * Represent the CertificatePolicyInformation ASN.1 object.

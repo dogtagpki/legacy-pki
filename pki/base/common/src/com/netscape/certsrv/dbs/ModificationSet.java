@@ -18,8 +18,7 @@
 package com.netscape.certsrv.dbs;
 
 
-import java.util.Enumeration;
-import java.util.Vector;
+import java.util.*;
 
 
 /**

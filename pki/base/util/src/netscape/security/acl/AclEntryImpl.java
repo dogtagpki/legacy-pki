@@ -17,12 +17,10 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.acl;
 
+import java.util.*;
+import java.io.*;
 import java.security.Principal;
-import java.security.acl.AclEntry;
-import java.security.acl.Group;
-import java.security.acl.Permission;
-import java.util.Enumeration;
-import java.util.Vector;
+import java.security.acl.*;
 
 /**
  * This is a class that describes one entry that associates users 

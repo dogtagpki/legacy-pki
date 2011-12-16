@@ -18,55 +18,30 @@
 package com.netscape.cms.servlet.admin;
 
 
-import java.io.IOException;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPException;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authority.IAuthority;
-import com.netscape.certsrv.authority.ICertAuthority;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.ExtendedPluginInfo;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.IExtendedPluginInfo;
-import com.netscape.certsrv.base.Plugin;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.common.ConfigConstants;
-import com.netscape.certsrv.common.Constants;
-import com.netscape.certsrv.common.NameValuePairs;
-import com.netscape.certsrv.common.OpDef;
-import com.netscape.certsrv.common.ScopeDef;
-import com.netscape.certsrv.ldap.ELdapException;
-import com.netscape.certsrv.ldap.ILdapAuthInfo;
-import com.netscape.certsrv.ldap.ILdapBoundConnFactory;
-import com.netscape.certsrv.ldap.ILdapConnInfo;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.publish.EMapperNotFound;
-import com.netscape.certsrv.publish.EMapperPluginNotFound;
-import com.netscape.certsrv.publish.EPublisherNotFound;
-import com.netscape.certsrv.publish.EPublisherPluginNotFound;
-import com.netscape.certsrv.publish.ERuleNotFound;
-import com.netscape.certsrv.publish.ERulePluginNotFound;
-import com.netscape.certsrv.publish.ILdapMapper;
-import com.netscape.certsrv.publish.ILdapPublisher;
-import com.netscape.certsrv.publish.ILdapRule;
-import com.netscape.certsrv.publish.IPublisherProcessor;
-import com.netscape.certsrv.publish.MapperPlugin;
-import com.netscape.certsrv.publish.MapperProxy;
-import com.netscape.certsrv.publish.PublisherPlugin;
-import com.netscape.certsrv.publish.PublisherProxy;
-import com.netscape.certsrv.publish.RulePlugin;
-import com.netscape.certsrv.security.ICryptoSubsystem;
-import com.netscape.cmsutil.password.IPasswordStore;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
+import java.security.cert.X509Certificate;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.security.util.*;
+import netscape.ldap.*;
+import org.mozilla.jss.ssl.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.security.*;
+import com.netscape.certsrv.apps.*; 
+import com.netscape.certsrv.ca.*; 
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.publish.*;
+import com.netscape.cmsutil.password.*;
 
 
 /**
@@ -499,6 +474,7 @@ public class PublisherAdminServlet extends AdminServlet {
         NameValuePairs params = new NameValuePairs();
 
         //Save New Settings to the config file
+        IConfigStore mconfig = CMS.getConfigStore();
         IConfigStore config = mAuth.getConfigStore();
         IConfigStore publishcfg = config.getSubStore(IPublisherProcessor.PROP_PUBLISH_SUBSTORE);
         IConfigStore ldapcfg = publishcfg.getSubStore(IPublisherProcessor.PROP_LDAP_PUBLISH_SUBSTORE);
@@ -577,8 +553,34 @@ public class PublisherAdminServlet extends AdminServlet {
         IPasswordStore pwdStore = CMS.getPasswordStore();
         CMS.debug("PublisherAdminServlet: setLDAPDest(): saving password for "+            prompt + " to password file");
         pwdStore.putPassword(prompt, pwd);
-        pwdStore.commit();
-        CMS.debug("PublisherAdminServlet: setLDAPDest(): password saved");
+
+        /* store the password name in cms.passwordlist for prompting on future startup just in case*/
+        
+        String passwordList = mconfig.getString("cms.passwordlist", "internaldb,replicationdb");
+        String tags[] = passwordList.split(",");
+        boolean foundPWD = false;
+        for (int i=0; i < tags.length; i++) {
+            if (prompt.equals(tags[i])) foundPWD = true;
+        }
+        if (!foundPWD) {
+            passwordList = passwordList + "," + prompt;
+            mconfig.putString("cms.passwordlist", passwordList);
+            mconfig.commit(true);
+        }
+
+        String pwdPath = mconfig.getString("passwordFile");
+        File pwFile = new File(pwdPath);
+        if (pwFile.exists()) { 
+            // do not create a new password file, as the file may have been removed for security reasons. 
+            try { 
+                pwdStore.commit();
+                CMS.debug("PublisherAdminServlet: setLDAPDest(): password saved");
+            } catch (Exception ex) {
+                CMS.debug("PublisherAdminServlet: setLDAPDest(): unable to store password for " + prompt + 
+                    " to the password file.");
+            }
+        } 
+ 
 
 /* we'll shut down and restart the PublisherProcessor instead
         // what a hack to  do this without require restart server
@@ -618,6 +620,7 @@ public class PublisherAdminServlet extends AdminServlet {
 
         CMS.debug("PublisherAdmineServlet: in testSetLDAPDest");
         //Save New Settings to the config file
+        IConfigStore mconfig = CMS.getConfigStore();
         IConfigStore config = mAuth.getConfigStore();
         IConfigStore publishcfg = config.getSubStore(IPublisherProcessor.PROP_PUBLISH_SUBSTORE);
         IConfigStore ldapcfg = publishcfg.getSubStore(IPublisherProcessor.PROP_LDAP_PUBLISH_SUBSTORE);
@@ -884,8 +887,33 @@ public class PublisherAdminServlet extends AdminServlet {
             CMS.debug("PublisherAdminServlet: testSetLDAPDest(): saving password for "+
                 prompt + " to password file");
             pwdStore.putPassword(prompt, pwd);
-            pwdStore.commit();
-            CMS.debug("PublisherAdminServlet: testSetLDAPDest(): password saved");
+
+            /* store the password name in cms.passwordlist for prompting on future startup just in case*/
+            String passwordList = mconfig.getString("cms.passwordlist", "internaldb,replicationdb");
+            String tags[] = passwordList.split(",");
+            boolean foundPWD = false;
+            for (int i=0; i < tags.length; i++) {
+                if (prompt.equals(tags[i])) foundPWD = true;
+            }
+            if (!foundPWD) {
+                passwordList = passwordList + "," + prompt;
+                mconfig.putString("cms.passwordlist", passwordList);
+                mconfig.commit(true);
+            }
+
+            String pwdPath = mconfig.getString("passwordFile");
+            File pwFile = new File(pwdPath);
+            if (pwFile.exists()) {    
+                // do not create a new password file, as the file may have been removed for security reasons.
+                try {
+                    pwdStore.commit();
+                    CMS.debug("PublisherAdminServlet: setLDAPDest(): password saved");
+                } catch (Exception ex) {
+                    CMS.debug("PublisherAdminServlet: setLDAPDest(): unable to store password for " + prompt +
+                        " to the password file.");
+                }
+            } 
+
 /* we'll shut down and restart the PublisherProcessor instead
              // what a hack to  do this without require restart server
 //        ILdapAuthInfo authInfo = CMS.getLdapAuthInfo();
@@ -1510,7 +1538,7 @@ public class PublisherAdminServlet extends AdminServlet {
                 String kv = (String) oldConfigParms.elementAt(i);
                 int index = kv.indexOf('=');
 
-                saveParams.add(kv.substring(0, index),
+                saveParams.add(kv.substring(0, index), 
                     kv.substring(index + 1));
             }
         }

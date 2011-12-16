@@ -17,23 +17,21 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
-import java.io.IOException;
+import java.io.Serializable;
 import java.io.InputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serializable;
-import java.math.BigInteger;
 import java.security.cert.CRLException;
+import java.security.cert.CertificateException;
+import java.math.BigInteger;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.Set;
 
-import netscape.security.util.ArraySet;
-import netscape.security.util.BigInt;
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.ObjectIdentifier;
+import netscape.security.util.*;
+import java.io.ByteArrayOutputStream;
 
 /**
  * <p>Abstract class for a revoked certificate in a CRL.

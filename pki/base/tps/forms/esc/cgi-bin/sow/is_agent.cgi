@@ -22,13 +22,8 @@
 #
 
 use CGI;
-
-[REQUIRE_CFG_PL]
-
-
-my $ldapHost = get_ldap_host();
-my $ldapPort = get_ldap_port();
-my $basedn = get_base_dn();
+no warnings qw(redefine);
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 my $q = new CGI;
 
@@ -50,6 +45,7 @@ sub DoIsAgent
   print "Content-type: text/xml\n\n";
   
   if (!&authorize()) {
+    print "<response>not authorized</response>\n";
     return;
   }
 

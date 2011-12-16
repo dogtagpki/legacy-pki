@@ -106,7 +106,7 @@ Java_com_netscape_symkey_SessionKey_EncryptData(JNIEnv * env, jclass this2, jstr
     char *keySetString = keySetStringChars;
 
     if ( keySetString == NULL ) {
-        keySetString = (char *) DEFKEYSET_NAME;
+        keySetString = DEFKEYSET_NAME;
     }
 
     jbyte * keyVersion =  NULL; 
@@ -160,14 +160,14 @@ Java_com_netscape_symkey_SessionKey_EncryptData(JNIEnv * env, jclass this2, jstr
         GetKeyName(keyVersion,keyname);
     }
 
-    if ( (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 && strcmp( keyname, "#01#01") == 0) ||
+    if (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 &&strcmp( keyname, "#01#01") == 0 ||
         (keyVersion[0] == -1  && strstr(keyname, "#FF") ))
     {
         /* default development keyset */
         Buffer devInput = Buffer((BYTE*)cc, cc_len);
         Buffer empty = Buffer();
         
-        kekKey = ReturnDeveloperSymKey( internal, (char *) "kek", keySetString, empty); 
+        kekKey = ReturnDeveloperSymKey( internal, "kek", keySetString, empty); 
 
         if ( kekKey ) {
             status = EncryptData(Buffer(),kekKey,devInput, out);

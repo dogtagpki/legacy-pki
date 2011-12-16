@@ -18,11 +18,15 @@
 package com.netscape.certsrv.security;
 
 
-import java.security.PublicKey;
-
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.security.*;
+import java.security.cert.X509Certificate;
+import netscape.security.x509.*;
+import netscape.security.util.*;
+import com.netscape.certsrv.base.*;
 import org.mozilla.jss.crypto.PrivateKey;
-
-import com.netscape.certsrv.base.EBaseException;
 
 
 /**

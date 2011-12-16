@@ -17,52 +17,37 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.csadmin;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.math.BigInteger;
-import java.util.Date;
-
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.ldap.LDAPException;
-import netscape.security.pkcs.PKCS10;
-import netscape.security.x509.CertificateExtensions;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
-import netscape.security.x509.X509Key;
-
-import org.apache.velocity.context.Context;
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.crypto.PrivateKey;
+import java.security.*;
+import java.security.cert.*;
+import java.net.*;
+import java.util.*;
+import java.math.*;
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.cmsutil.http.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.usrgrp.*;
+import netscape.security.x509.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
 import org.mozilla.jss.crypto.X509Certificate;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.MetaInfo;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.certdb.ICertRecord;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.profile.CertInfoProfile;
-import com.netscape.certsrv.profile.IEnrollProfile;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.certsrv.request.RequestId;
-import com.netscape.certsrv.request.RequestStatus;
-import com.netscape.certsrv.usrgrp.IGroup;
-import com.netscape.certsrv.usrgrp.IUGSubsystem;
-import com.netscape.certsrv.usrgrp.IUser;
-import com.netscape.cmsutil.crypto.CryptoUtil;
-import com.netscape.cmsutil.http.HttpClient;
-import com.netscape.cmsutil.http.HttpRequest;
-import com.netscape.cmsutil.http.HttpResponse;
-import com.netscape.cmsutil.http.JssSSLSocketFactory;
-import com.netscape.cmsutil.xml.XMLObject;
+import org.mozilla.jss.crypto.PrivateKey;
+import com.netscape.cmsutil.xml.*;
+import org.mozilla.jss.crypto.KeyPairGenerator;
+import netscape.security.pkcs.*;
+import netscape.ldap.*;
+import org.apache.velocity.context.Context;
+import org.xml.sax.*;
 
 
 public class CertUtil {
@@ -73,7 +58,6 @@ public class CertUtil {
       throws IOException {
         HttpClient httpclient = new HttpClient();
         String c = null;
-        CMS.debug("CertUtil createRemoteCert: content " + content);
         try {
             JssSSLSocketFactory factory = new JssSSLSocketFactory();
 
@@ -88,6 +72,7 @@ public class CertUtil {
             httprequest.setHeader("content-type",
                     "application/x-www-form-urlencoded");
             httprequest.setContent(content);
+            CMS.debug("CertUtil createRemoteCert: content " + content);
             HttpResponse httpresponse = httpclient.send(httprequest);
 
             c = httpresponse.getContent();

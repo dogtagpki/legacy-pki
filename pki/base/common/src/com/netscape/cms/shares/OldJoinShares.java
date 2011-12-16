@@ -17,10 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.shares;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-
-import com.netscape.certsrv.kra.IJoinShares;
+import java.lang.reflect.*;
+import com.netscape.certsrv.kra.*;
+import com.netscape.certsrv.apps.*;
 
 /**
  * Use Java's reflection API to leverage CMS's
