@@ -24,6 +24,7 @@ import java.util.Date;
 import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Vector;
+import java.math.BigInteger;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -914,9 +915,7 @@ public class DoRevokeTPS extends CMSServlet {
             serialNumber = eeSerialNumber.trim();
 
             // convert it to hexadecimal
-            serialNumber = "0x"
-                    + Integer.toHexString(
-                        Integer.valueOf(serialNumber).intValue());
+            serialNumber = "0x" + (new BigInteger(serialNumber)).toString(16);
         } else {
             serialNumber = ILogger.SIGNED_AUDIT_EMPTY_VALUE;
         }
