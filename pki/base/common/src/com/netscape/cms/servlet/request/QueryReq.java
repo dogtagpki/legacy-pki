@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Vector;
+import java.math.BigInteger;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;

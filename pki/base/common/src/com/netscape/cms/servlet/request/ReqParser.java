@@ -19,6 +19,7 @@ package com.netscape.cms.servlet.request;
 
 
 import java.util.Locale;
+import java.math.BigInteger;
 
 import com.netscape.certsrv.base.EBaseException;
 import com.netscape.certsrv.base.IArgBlock;

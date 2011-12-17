@@ -20,6 +20,7 @@ package com.netscape.cms.servlet.request;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.math.BigInteger;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
