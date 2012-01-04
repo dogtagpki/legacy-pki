@@ -95,13 +95,13 @@ AC_ARG_ENABLE(debug, [  --enable-debug         Enable debug features],
 ])
 AC_SUBST([debug_defs])
 
-AC_PREFIX_DEFAULT([/opt/tps])
+AC_PREFIX_DEFAULT([/])
 
 # installation paths - by default, configure will just
 # use /usr as the prefix for everything, which means
 # /usr/etc, /usr/opt, and /usr/var.  FHS sez to use
 # /etc, /opt, and /var.
-ac_default_prefix=/opt/tps
+ac_default_prefix=/
 prefix=$ac_default_prefix
 exec_prefix=$prefix
 dnl as opposed to the default $prefix/etc
@@ -195,7 +195,7 @@ case $host in
     # For historical reasons, establish various "DEFINES" for TPS . . .
     AC_DEFINE([_BSD_SOURCE], [1], [_BSD_SOURCE])
     AC_DEFINE([_POSIX_SOURCE], [1], [_POSIX_SOURCE])
-    AC_DEFINE([_POSIX_C_SOURCE], [199506L], [_POSIX_C_SOURCE])
+    AC_DEFINE([_POSIX_C_SOURCE], [200112L], [_POSIX_C_SOURCE])
     AC_DEFINE([_PR_NEED_FAKE_POLL], [], [_PR_NEED_FAKE_POLL])
     AC_DEFINE([_REENTRANT], [], [_REENTRANT])
     AC_DEFINE([_SVID_SOURCE], [1], [_SVID_SOURCE])
@@ -220,7 +220,7 @@ case $host in
     AC_DEFINE([HPUX11_23], [1], [HP-UX 11.23])
     AC_DEFINE([CPU_ia64], [], [cpu type ia64])
     AC_DEFINE([OS_hpux], [1], [OS HP-UX])
-    AC_DEFINE([_POSIX_C_SOURCE], [199506L], [POSIX revision])
+    AC_DEFINE([_POSIX_C_SOURCE], [200112L], [POSIX revision])
     AC_DEFINE([_HPUX_SOURCE], [], [_HPUX_SOURCE])
     platform="hpux"
     ;;
@@ -233,7 +233,7 @@ case $host in
     AC_DEFINE([hppa], [], [HP-UX pa-risc])
     AC_DEFINE([CPU_hppa], [], [cpu type pa-risc])
     AC_DEFINE([OS_hpux], [1], [OS HP-UX])
-    AC_DEFINE([_POSIX_C_SOURCE], [199506L], [POSIX revision])
+    AC_DEFINE([_POSIX_C_SOURCE], [200112L], [POSIX revision])
     AC_DEFINE([_HPUX_SOURCE], [], [_HPUX_SOURCE])
     # For historical reasons, establish various "DEFINES" for TPS . . .
     AC_DEFINE([HPUX_SOURCE], [], [HPUX_SOURCE])
