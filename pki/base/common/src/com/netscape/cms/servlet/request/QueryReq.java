@@ -373,7 +373,6 @@ public class QueryReq extends CMSServlet {
     {
     	CMSTemplateParams ctp = null;
     	if (direction.equals("previous")) {
-    		top = top.subtract(BigInteger.ONE);
     		ctp = doSearch(l, filter, -count, top);
     	} else if (direction.equals("next")) {
     		bottom = bottom.add(BigInteger.ONE);
@@ -429,7 +428,7 @@ public class QueryReq extends CMSServlet {
     				id,
     				jumptoend,
     				filter, 
-    				count+1,
+    				((count < 0)?count-1:count+1),
     		"requestId");
     		
     		int totalCount = list.getSize() - list.getCurrentIndex();
@@ -438,7 +437,7 @@ public class QueryReq extends CMSServlet {
     		
     		int numEntries = list.getSize() - list.getCurrentIndex();
     		
-    		Vector v = fetchRecords(list,Math.abs(count));
+    		Vector v = fetchRecords(list,((count < 0)?(-count+1):count));
     		v = normalizeOrder(v);
     		trim(v,id);
     		
@@ -499,7 +498,7 @@ public class QueryReq extends CMSServlet {
      */
 	private void trim(Vector v, RequestId marker) {
 		int i = v.size()-1;
-		if (((IRequest)v.elementAt(i)).getRequestId().equals(marker)) {
+		if (((IRequest)v.elementAt(i)).getRequestId().toString().equals(marker.toString())) {
 			v.remove(i);
 		}
 		
