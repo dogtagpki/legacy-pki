@@ -971,8 +971,8 @@ public class CertUtils {
         String auditMessage = null;
         IConfigStore config = CMS.getConfigStore();
         String certlsit = "";
-        boolean r = true;
-        boolean rr = true; /* the final return value */
+        boolean verifyResult = true;
+        boolean r = true; /* the final return value */
         try {
             String subsysType = config.getString("cs.type", "");
             if (subsysType.equals("")) {
@@ -984,8 +984,7 @@ public class CertUtils {
                             "");
 
                 audit(auditMessage);
-                rr = false;
-                return rr;
+                return false;
             }
             subsysType = toLowerCaseSubsystemType(subsysType);
             if (subsysType == null) {
@@ -997,8 +996,7 @@ public class CertUtils {
                             "");
 
                 audit(auditMessage);
-                rr = false;
-                return rr;
+                return false;
             }
             String certlist = config.getString(subsysType+".cert.list", "");
             if (certlist.equals("")) {
@@ -1010,17 +1008,16 @@ public class CertUtils {
                             "");
 
                 audit(auditMessage);
-                rr = false;
-                return rr;
+                return false;
             }
             StringTokenizer tokenizer = new StringTokenizer(certlist, ",");
             while (tokenizer.hasMoreTokens()) {
                 String tag = tokenizer.nextToken();
                 tag = tag.trim();
                 CMS.debug("CertUtils: verifySystemCerts() cert tag=" + tag);
-                r = verifySystemCertByTag(tag);
-                if (r == false)
-                    rr = false; //rr captures the value for final return
+                verifyResult = verifySystemCertByTag(tag);
+                if (verifyResult == false)
+                    r = false; //r captures the value for final return
             }
         } catch (Exception e) {
             // audit here
@@ -1031,10 +1028,10 @@ public class CertUtils {
                         "");
 
                     audit(auditMessage);
-            rr = false;
+            r = false;
             CMS.debug("CertUtils: verifySystemCerts():" + e.toString());
         }
-        return rr;
+        return r;
     }
 
     public static String toLowerCaseSubsystemType(String s) {
