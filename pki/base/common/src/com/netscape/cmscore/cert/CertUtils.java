@@ -972,6 +972,7 @@ public class CertUtils {
         IConfigStore config = CMS.getConfigStore();
         String certlsit = "";
         boolean r = true;
+        boolean rr = true; /* the final return value */
         try {
             String subsysType = config.getString("cs.type", "");
             if (subsysType.equals("")) {
@@ -983,8 +984,8 @@ public class CertUtils {
                             "");
 
                 audit(auditMessage);
-                r = false;
-                return r;
+                rr = false;
+                return rr;
             }
             subsysType = toLowerCaseSubsystemType(subsysType);
             if (subsysType == null) {
@@ -996,8 +997,8 @@ public class CertUtils {
                             "");
 
                 audit(auditMessage);
-                r = false;
-                return r;
+                rr = false;
+                return rr;
             }
             String certlist = config.getString(subsysType+".cert.list", "");
             if (certlist.equals("")) {
@@ -1009,8 +1010,8 @@ public class CertUtils {
                             "");
 
                 audit(auditMessage);
-                r = false;
-                return r;
+                rr = false;
+                return rr;
             }
             StringTokenizer tokenizer = new StringTokenizer(certlist, ",");
             while (tokenizer.hasMoreTokens()) {
@@ -1018,6 +1019,8 @@ public class CertUtils {
                 tag = tag.trim();
                 CMS.debug("CertUtils: verifySystemCerts() cert tag=" + tag);
                 r = verifySystemCertByTag(tag);
+                if (r == false)
+                    rr = false; //rr captures the value for final return
             }
         } catch (Exception e) {
             // audit here
@@ -1028,10 +1031,10 @@ public class CertUtils {
                         "");
 
                     audit(auditMessage);
-            r = false;
+            rr = false;
             CMS.debug("CertUtils: verifySystemCerts():" + e.toString());
         }
-        return r;
+        return rr;
     }
 
     public static String toLowerCaseSubsystemType(String s) {
