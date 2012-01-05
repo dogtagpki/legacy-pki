@@ -3391,8 +3391,8 @@ TPS_PUBLIC bool RA::verifySystemCertByNickname(const char *nickname, const char 
  * tps.cert.audit_signing.certusage=ObjectSigner
  */
 TPS_PUBLIC bool RA::verifySystemCerts() {
-    bool rv = false;
-    bool rrv = true; /* final return value */
+    bool verifyResult = false;
+    bool rv = true; /* final return value */
     char configname[256];
     char configname_nn[256];
     char configname_cu[256];
@@ -3428,7 +3428,7 @@ TPS_PUBLIC bool RA::verifySystemCerts() {
                 PR_snprintf(audit_msg, 512, "%s undefined in CS.cfg", configname_nn);
                 RA::Audit(EV_CIMC_CERT_VERIFICATION, AUDIT_MSG_FORMAT, "System", "Failure", audit_msg);
                 sresult = PL_strtok_r(NULL, ",", &lasts);
-                rrv = false;
+                rv = false;
                 continue;
             }
             PR_snprintf((char *)configname_cu, 256, "tps.cert.%s.certusage",
@@ -3445,15 +3445,15 @@ TPS_PUBLIC bool RA::verifySystemCerts() {
                 "Verifying cert tag: %s, nickname:%s, certificate usage:%s"
                     , sresult, nn, (cu!=NULL)? cu: "");
 
-            rv = verifySystemCertByNickname(nn, cu);
-            if (rv == true) {
+            verifyResult = verifySystemCertByNickname(nn, cu);
+            if (verifyResult == true) {
                 RA::Debug(LL_PER_SERVER, "RA::verifySystemCerts", 
                     "cert verification passed on cert nickname:%s", nn);
                 PR_snprintf(audit_msg, 512, "Certificate verification succeeded:%s",
                     nn);
                 RA::Audit(EV_CIMC_CERT_VERIFICATION, AUDIT_MSG_FORMAT, "System", "Success", audit_msg);
             } else {
-                rrv = false;
+                rv = false;
                 RA::Debug(LL_PER_SERVER, "RA::verifySystemCerts", 
                     "cert verification failed on cert nickname:%s", nn);
                 PR_snprintf(audit_msg, 512, "Certificate verification failed:%s",
@@ -3468,7 +3468,7 @@ TPS_PUBLIC bool RA::verifySystemCerts() {
         }
     }
 
-    return rrv;
+    return rv;
 }
 
 PK11SymKey *RA::FindSymKeyByName( PK11SlotInfo *slot, char *keyname) {
