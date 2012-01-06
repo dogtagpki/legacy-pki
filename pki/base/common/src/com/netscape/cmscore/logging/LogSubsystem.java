@@ -18,19 +18,12 @@
 package com.netscape.cmscore.logging;
 
 
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Vector;
-
+import java.io.*;
+import java.util.*;
+import java.text.MessageFormat;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.logging.ELogException;
-import com.netscape.certsrv.logging.ILogEventListener;
-import com.netscape.certsrv.logging.ILogQueue;
-import com.netscape.certsrv.logging.ILogSubsystem;
-import com.netscape.certsrv.logging.LogPlugin;
 import com.netscape.cmscore.util.Debug;
 
 
@@ -142,6 +135,10 @@ public class LogSubsystem implements ILogSubsystem {
             } catch (Throwable e) {
                 e.printStackTrace();
                 throw new EBaseException(insName + ":Failed to instantiate class " + className + " error: " + e.getMessage());
+            }
+
+            if (logInst == null) {
+                throw new EBaseException("Failed to instantiate class " + className);
             }
 
             if (insName == null) {

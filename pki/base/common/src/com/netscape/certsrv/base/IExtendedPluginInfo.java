@@ -18,7 +18,10 @@
 package com.netscape.certsrv.base;
 
 
-import java.util.Locale;
+import com.netscape.certsrv.base.*;
+import java.util.*;
+import java.lang.*;
+import com.netscape.certsrv.common.*;
 
 
 /**

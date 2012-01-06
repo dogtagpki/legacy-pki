@@ -18,11 +18,12 @@
 package com.netscape.certsrv.ocsp;
 
 
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.common.NameValuePairs;
-import com.netscape.cmsutil.ocsp.OCSPRequest;
-import com.netscape.cmsutil.ocsp.OCSPResponse;
+import java.util.*;
+import java.math.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.dbs.crldb.*;
+import com.netscape.cmsutil.ocsp.*;
 
 
 /**

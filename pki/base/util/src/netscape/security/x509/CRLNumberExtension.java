@@ -24,9 +24,7 @@ import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.util.Enumeration;
 
-import netscape.security.util.BigInt;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * Represent the CRL Number Extension.

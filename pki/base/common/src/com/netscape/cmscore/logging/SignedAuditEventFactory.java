@@ -18,13 +18,9 @@
 package com.netscape.cmscore.logging;
 
 
-import java.util.Properties;
-
-import com.netscape.certsrv.logging.IBundleLogEvent;
-import com.netscape.certsrv.logging.ILogEvent;
-import com.netscape.certsrv.logging.ILogEventFactory;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.logging.SignedAuditEvent;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
 import com.netscape.cmscore.util.Debug;
 
 

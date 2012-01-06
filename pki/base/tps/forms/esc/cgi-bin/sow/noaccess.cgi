@@ -20,24 +20,22 @@
 # All rights reserved.
 # --- END COPYRIGHT BLOCK ---
 #
-
 use CGI;
+no warnings qw(redefine);
 
-[REQUIRE_CFG_PL]
-
-
-my $host = get_host();
-my $secure_port = get_secure_port();
-my $port = get_port();
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 my $q = new CGI;
 
 sub DoPage
 {
+  my $host = get_host();
+  my $secure_port = get_secure_port();
+  my $port = get_port();
 
   my $error = $q->param('error');
 
-  open(FILE, "< noaccess.html");
+  open(FILE, "< [SERVER_ROOT]/cgi-bin/sow/noaccess.html");
 
   print $q->header();
 

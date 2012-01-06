@@ -18,7 +18,9 @@
 package com.netscape.certsrv.notification;
 
 
-import com.netscape.certsrv.base.EBaseException;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
 
 
 /**

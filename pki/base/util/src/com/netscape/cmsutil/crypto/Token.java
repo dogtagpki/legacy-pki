@@ -17,7 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cmsutil.crypto;
 
-import org.mozilla.jss.crypto.CryptoToken;
+import java.util.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
 
 public class Token {
     CryptoToken mToken;
