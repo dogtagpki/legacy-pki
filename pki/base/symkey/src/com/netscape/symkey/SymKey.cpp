@@ -962,7 +962,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Dive
     char *keySetString = keySetStringChars;   
  
     if ( keySetString == NULL ) {
-        keySetString =  (char *) DEFKEYSET_NAME;
+        keySetString = DEFKEYSET_NAME;
     }
 
     jbyteArray handleBA=NULL;
@@ -1098,19 +1098,19 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Dive
     {
         Buffer empty = Buffer();
 
-        encKey  = ReturnDeveloperSymKey(internal,(char *) "auth", keySetString, empty);
+        encKey  = ReturnDeveloperSymKey(internal, "auth", keySetString, empty);
 
         if ( encKey == NULL ) {
             goto done; 
         }
         PR_fprintf(PR_STDOUT, "Special case dev key set for DiversifyKey!\n");
 
-        macKey = ReturnDeveloperSymKey(internal, (char *) "mac", keySetString, empty);
+        macKey = ReturnDeveloperSymKey(internal, "mac", keySetString, empty);
         if ( macKey == NULL ) {
             goto done;
         }
 
-        kekKey = ReturnDeveloperSymKey(internal, (char *) "kek", keySetString, empty);
+        kekKey = ReturnDeveloperSymKey(internal, "kek", keySetString, empty);
 
         if ( kekKey == NULL ) {
             goto done;
@@ -1152,7 +1152,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Dive
             kekKey,
             output); }
     else {
-        old_kek_sym_key =  ReturnDeveloperSymKey(slot, (char *) "kek", keySetString, old_kek_key_buff);
+        old_kek_sym_key =  ReturnDeveloperSymKey(slot, "kek", keySetString, old_kek_key_buff);
         CreateKeySetDataWithSymKeys(newMasterKeyBuffer, Buffer(),
             old_kek_sym_key,
             encKey,

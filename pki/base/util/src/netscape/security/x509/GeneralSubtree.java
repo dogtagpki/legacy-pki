@@ -17,12 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
-import java.io.IOException;
+import java.io.*;
 
-import netscape.security.util.BigInt;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.PrettyPrintFormat;
+import netscape.security.util.*;
 
 /**
  * Represent the GeneralSubtree ASN.1 object, whose syntax is:

@@ -17,13 +17,10 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.net;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.net.URL;
 
 /**
  * This is the base class for network clients.

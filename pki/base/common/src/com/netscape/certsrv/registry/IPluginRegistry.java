@@ -18,10 +18,8 @@
 package com.netscape.certsrv.registry;
 
 
-import java.util.Enumeration;
-
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
+import java.util.*;
+import com.netscape.certsrv.base.*;
 
 
 /**

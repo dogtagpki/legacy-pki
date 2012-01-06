@@ -18,20 +18,14 @@
 package com.netscape.cmsutil.http;
 
 
-import java.io.IOException;
-import java.net.Socket;
-import java.net.SocketException;
-import java.net.UnknownHostException;
-
+import java.net.*;
+import java.io.*;
+import netscape.ldap.*;
+import org.mozilla.jss.ssl.*;
 import org.mozilla.jss.CryptoManager;
 import org.mozilla.jss.crypto.X509Certificate;
-import org.mozilla.jss.ssl.SSLCertificateApprovalCallback;
-import org.mozilla.jss.ssl.SSLClientCertificateSelectionCallback;
-import org.mozilla.jss.ssl.SSLHandshakeCompletedEvent;
-import org.mozilla.jss.ssl.SSLHandshakeCompletedListener;
-import org.mozilla.jss.ssl.SSLSocket;
 
-import com.netscape.cmsutil.net.ISocketFactory;
+import com.netscape.cmsutil.net.*;
 
 /**
  * Uses NSS ssl socket.

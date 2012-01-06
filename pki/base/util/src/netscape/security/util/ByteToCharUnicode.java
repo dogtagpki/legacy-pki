@@ -16,9 +16,11 @@
 // All rights reserved.
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.util;
-import sun.io.ByteToCharUnicodeBig;
-import sun.io.ByteToCharUnicodeLittle;
+import java.io.*;
+
+import sun.io.ByteToCharConverter;
 import sun.io.ConversionBufferFullException;
+import sun.io.UnknownCharacterException;
 import sun.io.MalformedInputException;
 
 /**

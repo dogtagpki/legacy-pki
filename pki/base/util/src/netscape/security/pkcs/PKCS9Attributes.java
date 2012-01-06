@@ -20,11 +20,10 @@ package netscape.security.pkcs;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Hashtable;
-
 import netscape.security.util.DerEncoder;
+import netscape.security.util.DerValue;
 import netscape.security.util.DerInputStream;
 import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
 import netscape.security.util.ObjectIdentifier;
 
 

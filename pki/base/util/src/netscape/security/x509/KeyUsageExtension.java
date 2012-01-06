@@ -23,9 +23,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.util.Enumeration;
 
-import netscape.security.util.BitArray;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * Represent the Key Usage Extension.

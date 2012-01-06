@@ -17,11 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
-import java.io.IOException;
-
-import netscape.security.util.ASN1CharStrConvMap;
-import netscape.security.util.DerValue;
+import java.io.*;
 import sun.io.CharToByteConverter;
+import netscape.security.util.*;
 
 /**
  * A DirStrConverter converts a string to a DerValue of ASN.1 Directory String,

@@ -18,26 +18,18 @@
 package com.netscape.cms.servlet.common;
 
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
+import java.lang.*;
+import java.io.*;
+import java.util.*;
 import java.math.BigInteger;
-import java.util.Date;
-import java.util.Enumeration;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.StringWriter;
+import java.io.PrintWriter;
 
-import javax.servlet.ServletOutputStream;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.logging.ILogger;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.apps.*;
 
 
 /**

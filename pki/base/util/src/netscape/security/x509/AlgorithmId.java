@@ -17,17 +17,11 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.Serializable;
-import java.security.AlgorithmParameters;
-import java.security.NoSuchAlgorithmException;
+import java.io.*;
+import java.security.*;
+import java.util.Properties;
 
-import netscape.security.util.DerEncoder;
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.ObjectIdentifier;
+import netscape.security.util.*;
 
 /**
  * This class identifies algorithms, such as cryptographic transforms, each

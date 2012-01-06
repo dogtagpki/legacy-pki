@@ -17,7 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.usrgrp;
 
-import netscape.ldap.LDAPException;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import netscape.ldap.*;
 
 /**
  * This interface defines the basic capabilities of

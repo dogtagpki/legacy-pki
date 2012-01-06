@@ -18,33 +18,29 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
-import java.security.interfaces.RSAPublicKey;
-import java.util.Enumeration;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.NoSuchTokenException;
-import org.mozilla.jss.crypto.TokenException;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.CryptoUtil;
+import java.io.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.cmsutil.crypto.*;
+
+import java.security.interfaces.RSAPublicKey;
+import java.util.*;
+import java.security.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.crypto.KeyPairGenerator;
+import org.mozilla.jss.pkcs11.PK11KeyPairGenerator;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class SizePanel extends WizardPanelBase {
     private Vector mCerts = null;
@@ -390,16 +386,13 @@ public class SizePanel extends WizardPanelBase {
             if (hasChanged || (val1 != null && !val1.equals(""))) {
                 mServlet.cleanUpFromPanel(mServlet.getPanelNo(request));
             } else if (isPanelDone()) {
-                context.put("updateStatus", "success");
                 return;
             }
         } catch (IOException e) { 
             CMS.debug("SizePanel: update() IOException caught: " + e.toString());
-            context.put("updateStatus", "failure");
             throw e;
         } catch (NumberFormatException e) {
             CMS.debug("SizePanel: update() NumberFormatException caught: " + e.toString());
-            context.put("updateStatus", "failure");
             throw e;
         } catch (Exception e) { 
             CMS.debug("SizePanel: update() Exception caught: " + e.toString());
@@ -440,7 +433,6 @@ public class SizePanel extends WizardPanelBase {
             } catch (Exception e) {
                 CMS.debug(e);
                 CMS.debug("SizePanel: key generation failure: " + e.toString());
-                context.put("updateStatus", "failure");
                 throw new IOException("key generation failure for the certificate: " + friendlyName + 
                                       ".  See the logs for details.");
             }
@@ -457,7 +449,6 @@ public class SizePanel extends WizardPanelBase {
 	  }
 	}
         CMS.debug("SizePanel: update() done");
-        context.put("updateStatus", "success");
 
     }
 

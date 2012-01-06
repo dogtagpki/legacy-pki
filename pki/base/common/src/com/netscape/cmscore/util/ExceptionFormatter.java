@@ -18,9 +18,7 @@
 package com.netscape.cmscore.util;
 
 
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.io.PrintWriter;
+import java.io.*;
 
 
 public class ExceptionFormatter {

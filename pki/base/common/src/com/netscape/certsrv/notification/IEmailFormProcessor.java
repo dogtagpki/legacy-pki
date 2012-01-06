@@ -18,8 +18,10 @@
 package com.netscape.certsrv.notification;
 
 
-import java.util.Hashtable;
-import java.util.Vector;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.notification.*;
+import java.util.*;
+import java.lang.*;
 
 
 /**

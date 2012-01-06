@@ -25,8 +25,9 @@ use CGI;
 use Mozilla::LDAP::Conn;
 use PKI::TPS::Common;
 
-[REQUIRE_CFG_PL]
+no warnings qw(redefine);
 
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 sub authorize
 {
@@ -62,6 +63,7 @@ sub DoPage
     print $q->redirect("/cgi-bin/sow/search.cgi?error=Name cannot be empty");
     return;
   }
+
 
   my $conn =  PKI::TPS::Common::make_connection(
                   {host => $host, port => $port, cert => $certdir},
@@ -99,7 +101,7 @@ sub DoPage
     return;
   }
 
-  open(FILE, "< read_temp.html");
+  open(FILE, "< [SERVER_ROOT]/cgi-bin/sow/read_temp.html");
 
   print $q->header();
 
