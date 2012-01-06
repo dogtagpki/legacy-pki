@@ -464,7 +464,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_default_prefix=/opt/tps
+ac_default_prefix=/
 ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT build build_cpu build_vendor build_os host host_cpu host_vendor host_os CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CXXDEPMODE am__fastdepCXX_TRUE am__fastdepCXX_FALSE CC CFLAGS ac_ct_CC CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE SED EGREP LN_S ECHO AR ac_ct_AR RANLIB ac_ct_RANLIB CPP CXXCPP F77 FFLAGS ac_ct_F77 LIBTOOL LIBOBJS debug_defs aliasdir apache_modulesdir appletsdir cgibin_demodir cgibin_homedir cgibin_sodir cgibin_sowdir confdir docrootdir docroot_demodir docroot_homedir docroot_sodir docroot_sowdir docroot_sow_cssdir docroot_sow_imagesdir docroot_sow_jsdir docroot_tokendbdir docroot_tps_configdir docroot_tps_cssdir docroot_tps_imgdir docroot_tps_jsdir initddir licensedir logsdir perl_basedir perl_modulesdir perl_servicedir perl_templatesdir samplesdir scriptsdir setupdir templatesdir WINNT_TRUE WINNT_FALSE LIBSOCKET LIBNSL LIBDL LIBCSTD LIBCRUN LINUX_TRUE LINUX_FALSE HPUX_TRUE HPUX_FALSE SOLARIS_TRUE SOLARIS_FALSE PKG_CONFIG nspr_inc nspr_lib nspr_libdir nss_inc nss_lib nss_libdir ldapsdk_inc ldapsdk_lib ldapsdk_libdir ldapsdk_bindir sasl_inc sasl_lib sasl_libdir svrcore_inc svrcore_lib APRDIR apr_inc apr_lib apr_lib_version apr_libdir apr_bindir LTLIBOBJS'
 ac_subst_files=''
 
@@ -22898,7 +22898,7 @@ fi;
 # use /usr as the prefix for everything, which means
 # /usr/etc, /usr/opt, and /usr/var.  FHS sez to use
 # /etc, /opt, and /var.
-ac_default_prefix=/opt/tps
+ac_default_prefix=/
 prefix=$ac_default_prefix
 exec_prefix=$prefix
 #sysconfdir='/etc'
@@ -23041,7 +23041,7 @@ _ACEOF
 
 
 cat >>confdefs.h <<\_ACEOF
-#define _POSIX_C_SOURCE 199506L
+#define _POSIX_C_SOURCE 200112L
 _ACEOF
 
 
@@ -23154,7 +23154,7 @@ _ACEOF
 
 
 cat >>confdefs.h <<\_ACEOF
-#define _POSIX_C_SOURCE 199506L
+#define _POSIX_C_SOURCE 200112L
 _ACEOF
 
 
@@ -23207,7 +23207,7 @@ _ACEOF
 
 
 cat >>confdefs.h <<\_ACEOF
-#define _POSIX_C_SOURCE 199506L
+#define _POSIX_C_SOURCE 200112L
 _ACEOF
 
 

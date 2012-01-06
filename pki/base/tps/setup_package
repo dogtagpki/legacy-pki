@@ -220,7 +220,7 @@ cp -p ${PKI_STAGING_PATH}/libexec/tpsclient* ${PKI_EXECUTABLES}
 ## Libraries
 ##
 
-cp -p ${PKI_STAGING_PATH}/${LIB_DIR}/*.so     ${SYSTEM_LIBRARIES}
+cp -p ${PKI_STAGING_PATH}/usr/${LIB_DIR}/*.so ${SYSTEM_LIBRARIES}
 cp -p ${PKI_STAGING_PATH}/apache/modules/*.so ${APACHE_MODULES}
 
 
