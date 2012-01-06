@@ -609,7 +609,7 @@ apache_modules_LTLIBRARIES = mod_tps.la \
 #------------------------
 # create an empty 'alias' directory
 alias_DATA = 
-applets_DATA = 	$(srcdir)/applets/1.4.4d40a449.ijc \
+applets_DATA = $(srcdir)/applets/1.4.4d40a449.ijc \
 		$(srcdir)/applets/1.4.499dc06c.ijc \
 		$(srcdir)/applets/1.3.44724DDE.ijc
 
@@ -833,7 +833,7 @@ libtps_la_SOURCES = src/main/Buffer.cpp                        \
 					src/processor/RA_Unblock_Processor.cpp     \
 					src/processor/RA_Format_Processor.cpp      \
 					src/selftests/SelfTest.cpp                 \
-					src/selftests/TPSSystemCertsVerification.cpp \
+					src/selftests/TPSSystemCertsVerification.cpp  \
 					src/selftests/TPSPresence.cpp              \
 					src/selftests/TPSValidity.cpp
 
@@ -1332,7 +1332,8 @@ src/selftests/$(DEPDIR)/$(am__dirstamp):
 	@: > src/selftests/$(DEPDIR)/$(am__dirstamp)
 src/selftests/libtps_la-SelfTest.lo: src/selftests/$(am__dirstamp) \
 	src/selftests/$(DEPDIR)/$(am__dirstamp)
-src/selftests/libtps_la-TPSSystemCertsVerification.lo: src/selftests/$(am__dirstamp) \
+src/selftests/libtps_la-TPSSystemCertsVerification.lo:  \
+	src/selftests/$(am__dirstamp) \
 	src/selftests/$(DEPDIR)/$(am__dirstamp)
 src/selftests/libtps_la-TPSPresence.lo: src/selftests/$(am__dirstamp) \
 	src/selftests/$(DEPDIR)/$(am__dirstamp)
@@ -1970,10 +1971,10 @@ mostlyclean-compile:
 	-rm -f src/processor/libtps_la-RA_Unblock_Processor.lo
 	-rm -f src/selftests/libtps_la-SelfTest.$(OBJEXT)
 	-rm -f src/selftests/libtps_la-SelfTest.lo
-	-rm -f src/selftests/libtps_la-TPSSystemCertsVerification.$(OBJEXT)
-	-rm -f src/selftests/libtps_la-TPSSystemCertsVerification.lo
 	-rm -f src/selftests/libtps_la-TPSPresence.$(OBJEXT)
 	-rm -f src/selftests/libtps_la-TPSPresence.lo
+	-rm -f src/selftests/libtps_la-TPSSystemCertsVerification.$(OBJEXT)
+	-rm -f src/selftests/libtps_la-TPSSystemCertsVerification.lo
 	-rm -f src/selftests/libtps_la-TPSValidity.$(OBJEXT)
 	-rm -f src/selftests/libtps_la-TPSValidity.lo
 	-rm -f src/tus/libtokendb_la-tus_db.$(OBJEXT)
@@ -2123,8 +2124,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/processor/$(DEPDIR)/libtps_la-RA_Renew_Processor.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/processor/$(DEPDIR)/libtps_la-RA_Unblock_Processor.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/selftests/$(DEPDIR)/libtps_la-SelfTest.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@src/selftests/$(DEPDIR)/libtps_la-TPSSystemCertsVerification.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/selftests/$(DEPDIR)/libtps_la-TPSPresence.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/selftests/$(DEPDIR)/libtps_la-TPSSystemCertsVerification.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/selftests/$(DEPDIR)/libtps_la-TPSValidity.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/tus/$(DEPDIR)/libtokendb_la-tus_db.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@tools/raclient/$(DEPDIR)/tpsclient-RA_Client.Po@am__quote@
