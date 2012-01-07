@@ -1,5 +1,5 @@
 Name:             pki-core
-Version:          9.0.16
+Version:          9.0.17
 Release:          1%{?dist}
 Summary:          Certificate System - PKI Core Components
 URL:              http://pki.fedoraproject.org/
@@ -721,6 +721,29 @@ fi
 
 
 %changelog
+* Thu Jan  5 2012 Matthew Harmsen <mharmsen@redhat.com> 9.0.17-1
+- 'pki-setup'
+- 'pki-symkey'
+- 'pki-native-tools'
+-      Bugzilla Bug #771357 - sslget does not work after FEDORA-2011-17400
+       update, breaking FreeIPA install
+- 'pki-util'
+- 'pki-java-tools'
+-      Bugzilla Bug #757848 - DRM re-key tool: introduces a blank line in the
+       middle of an ldif entry.
+- 'pki-common'
+-      Bugzilla Bug #747019 - Migrated policy requests from 7.1->8.1 displays
+       issuedcerts and cert_Info params as base 64 blobs.
+-      Bugzilla Bug #756133 - Some DRM components are not referring properly
+       to DRM's request and key records.
+-      Bugzilla Bug #758505 - DRM's request list breaks after migration of
+       request records with big IDs.
+-      Bugzilla Bug #768138 - Make sure that paging works correctly in CA and
+       DRM
+- 'pki-selinux'
+- 'pki-ca'
+- 'pki-silent'
+
 * Fri Oct 28 2011 Matthew Harmsen <mharmsen@redhat.com> 9.0.16-1
 - 'pki-setup'
 - 'pki-symkey'
