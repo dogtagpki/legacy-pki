@@ -439,13 +439,21 @@ public class QueryReq extends CMSServlet {
     				((count < 0)?count-1:count+1),
     		"requestId");
     		
-    		int totalCount = list.getSize() - list.getCurrentIndex();
+    		int maxCount = 0;
+    		if (count < 0 && jumptoend) {
+    		    maxCount = -count;
+    		} else if (count < 0) {
+    		    maxCount = -count+1;
+    		} else {
+    		    maxCount = count;
+    		}
+    		int totalCount = (jumptoend)? maxCount : (list.getSize() - list.getCurrentIndex());
     		header.addIntegerValue(OUT_TOTALCOUNT, totalCount);
     		header.addIntegerValue(OUT_CURRENTCOUNT, list.getSize());
     		
     		int numEntries = list.getSize() - list.getCurrentIndex();
     		
-    		Vector v = fetchRecords(list,((count < 0)?(-count+1):count));
+    		Vector v = fetchRecords(list,maxCount);
     		v = normalizeOrder(v);
     		trim(v,id);
     		
