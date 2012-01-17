@@ -435,8 +435,7 @@ if (result.header.queryFilterHash != null) {
 }
 
 var disabledDown = ((result.header.querySentinelDown == null) ||
-                    (result.fixed.maxCount > result.header.currentRecordCount) ||
-                    (result.fixed.maxCount+1 == result.header.currentRecordCount)) ? "disabled='true'" : "";
+                    (result.fixed.maxCount+1 >= result.header.currentRecordCount)) ? "disabled='true'" : "";
 var disabledUp = (result.header.querySentinelUp != null && result.header.querySentinelUp <= 1) ? "disabled='true'" : "";
 
 document.write(
