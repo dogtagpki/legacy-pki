@@ -17,7 +17,6 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.kra;
 
-
 import java.util.StringTokenizer;
 import java.util.Vector;
 import java.util.Arrays;
@@ -33,7 +32,11 @@ import netscape.security.util.*;
 import netscape.security.util.BigInt;
 import netscape.security.x509.*;
 import org.mozilla.jss.CryptoManager;
+import org.mozilla.jss.pkcs11.PK11ECPublicKey;
+import org.mozilla.jss.pkcs11.PK11ParameterSpec;
+import org.mozilla.jss.crypto.*;
 import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.asn1.OBJECT_IDENTIFIER;
 import org.mozilla.jss.pkix.cms.*;
 import org.mozilla.jss.pkix.cms.EnvelopedData;
 //import org.mozilla.jss.pkcs7.*;
@@ -42,6 +45,7 @@ import org.mozilla.jss.pkix.crmf.EncryptedKey;
 import org.mozilla.jss.pkix.crmf.EncryptedKey.Type;
 import org.mozilla.jss.pkix.primitive.*;
 import org.mozilla.jss.pkix.primitive.AVA;
+import com.netscape.certsrv.dbs.keydb.IKeyRecord;
 import com.netscape.certsrv.util.*;
 import com.netscape.certsrv.logging.*;
 import com.netscape.certsrv.security.*;
@@ -55,6 +59,7 @@ import com.netscape.certsrv.dbs.keydb.*;
 import com.netscape.certsrv.request.*;
 import com.netscape.certsrv.authentication.*;
 import com.netscape.certsrv.apps.CMS;
+import com.netscape.cms.servlet.key.KeyRecordParser;
 
 
 /**
@@ -276,8 +281,7 @@ public class EnrollmentService implements IService {
             }
 
             String keyAlg = publicKey.getAlgorithm();
-            boolean isRSA = true;
-            if (!keyAlg.equals("RSA")) isRSA = false;
+            CMS.debug("EnrollmentService: algorithm of key to archive is: "+ keyAlg);
 
             PublicKey pubkey = null;
             org.mozilla.jss.crypto.PrivateKey entityPrivKey = null;
@@ -298,7 +302,7 @@ public class EnrollmentService implements IService {
                         (PublicKey) pubkey);
             } // !allowEncDecrypt_archival
 
-            if ((isRSA == true) && (allowEncDecrypt_archival == true)) {
+            if (keyAlg.equals("RSA") && (allowEncDecrypt_archival == true)) {
 
                 /* Bugscape #54948 - verify public and private key before archiving key */
 
@@ -325,7 +329,7 @@ public class EnrollmentService implements IService {
                 if (statsSub != null) {
                   statsSub.endTiming("verify_key");
                 }
-              }
+            }
 
             /**
              mTransportKeyUnit.verify(pKey, unwrapped);
@@ -403,8 +407,7 @@ public class EnrollmentService implements IService {
                 throw new EKRAException(CMS.getUserMessage("CMS_KRA_INVALID_KEYRECORD"));
             }
 
-            if (isRSA) {
-                // we deal with RSA key only
+            if (keyAlg.equals("RSA")) {
                 try {
                     RSAPublicKey rsaPublicKey = new RSAPublicKey(publicKeyData);
 
@@ -421,10 +424,37 @@ public class EnrollmentService implements IService {
                     audit(auditMessage);
                     throw new EKRAException(CMS.getUserMessage("CMS_KRA_INVALID_KEYRECORD"));
                 }
-            } else {
-                // this needs to be fixed in full implementation
-                if (keyAlg.equals("EC"))
-                    rec.setKeySize(256);
+            } else if (keyAlg.equals("EC")) {
+                String oidDescription = "UNDETERMINED";
+                // for KeyRecordParser
+                MetaInfo metaInfo = new MetaInfo();
+
+                try {
+                    byte curve[] =
+                    ASN1Util.getECCurveBytesByX509PublicKeyBytes(publicKeyData,
+                        false /* without tag and size */);
+                    if (curve.length != 0) {
+                        oidDescription = ASN1Util.getOIDdescription(curve);
+                    } else {
+                        /* this is to be used by derdump */
+                        byte curveTS[] =
+                          ASN1Util.getECCurveBytesByX509PublicKeyBytes(publicKeyData,
+                              true /* with tag and size */);
+                        if (curveTS.length != 0) {
+                            oidDescription = CMS.BtoA(curveTS);
+                        }
+                    }
+                } catch (Exception e) {
+                    CMS.debug("EnrollmentService: ASN1Util.getECCurveBytesByX509PublicKeyByte() throws exception: "+ e.toString());
+                    CMS.debug("EnrollmentService: exception alowed. continue");
+                }
+
+                metaInfo.set(KeyRecordParser.OUT_KEY_EC_CURVE,
+                    oidDescription);
+
+                rec.set(IKeyRecord.ATTR_META_INFO, metaInfo);
+                // key size does not apply to EC; 
+                rec.setKeySize(-1);
             }
             
             // if record alreay has a serial number, yell out.
