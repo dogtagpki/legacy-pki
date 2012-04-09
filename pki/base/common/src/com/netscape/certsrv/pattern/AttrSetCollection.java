@@ -18,9 +18,8 @@
 package com.netscape.certsrv.pattern;
 
 
-import java.util.Hashtable;
-
-import com.netscape.certsrv.base.IAttrSet;
+import java.util.*;
+import com.netscape.certsrv.base.*;
 
 /**
  * This class represents a collection of attribute

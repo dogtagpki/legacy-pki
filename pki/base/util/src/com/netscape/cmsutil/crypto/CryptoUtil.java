@@ -18,86 +18,44 @@
 package com.netscape.cmsutil.crypto;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.CharConversionException;
-import java.io.FilterOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.math.BigInteger;
-import java.security.InvalidKeyException;
-import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.PublicKey;
-import java.security.SignatureException;
-import java.security.cert.CertificateEncodingException;
+import java.net.*;
+import java.io.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+
+import java.security.*;
 import java.security.cert.CertificateException;
-import java.security.interfaces.DSAParams;
-import java.security.interfaces.DSAPublicKey;
+import java.security.cert.CertificateEncodingException;
+import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPublicKey;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.StringTokenizer;
-import java.util.Vector;
+import java.security.interfaces.DSAPublicKey;
+import java.security.interfaces.DSAParams;
+import java.security.cert.*;
 
-import netscape.security.pkcs.PKCS10;
-import netscape.security.pkcs.PKCS7;
-import netscape.security.util.BigInt;
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.ObjectIdentifier;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.CertificateAlgorithmId;
-import netscape.security.x509.CertificateChain;
-import netscape.security.x509.CertificateExtensions;
-import netscape.security.x509.CertificateIssuerName;
-import netscape.security.x509.CertificateSerialNumber;
-import netscape.security.x509.CertificateSubjectName;
-import netscape.security.x509.CertificateValidity;
-import netscape.security.x509.CertificateVersion;
-import netscape.security.x509.CertificateX509Key;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X500Signer;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
-import netscape.security.x509.X509Key;
-
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.NoSuchTokenException;
-import org.mozilla.jss.asn1.ASN1Util;
-import org.mozilla.jss.asn1.InvalidBERException;
-import org.mozilla.jss.asn1.OBJECT_IDENTIFIER;
-import org.mozilla.jss.asn1.SEQUENCE;
-import org.mozilla.jss.crypto.Algorithm;
-import org.mozilla.jss.crypto.CryptoStore;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.crypto.DigestAlgorithm;
-import org.mozilla.jss.crypto.InternalCertificate;
-import org.mozilla.jss.crypto.InvalidKeyFormatException;
-import org.mozilla.jss.crypto.KeyGenAlgorithm;
-import org.mozilla.jss.crypto.KeyGenerator;
-import org.mozilla.jss.crypto.KeyPairAlgorithm;
+//import sun.misc.BASE64Encoder;
+//import sun.misc.BASE64Decoder;
+import org.mozilla.jss.*;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.util.*;
+import org.mozilla.jss.pkix.primitive.*;
+import org.mozilla.jss.pkix.crmf.*;
+import org.mozilla.jss.pkcs7.ContentInfo;
+import org.mozilla.jss.pkcs7.*;
+import org.mozilla.jss.pkcs11.*;
+import org.mozilla.jss.pkcs11.PK11KeyPairGenerator;
+import org.mozilla.jss.crypto.*;
 import org.mozilla.jss.crypto.KeyPairGenerator;
-import org.mozilla.jss.crypto.NoSuchItemOnTokenException;
-import org.mozilla.jss.crypto.ObjectNotFoundException;
 import org.mozilla.jss.crypto.PrivateKey;
 import org.mozilla.jss.crypto.Signature;
-import org.mozilla.jss.crypto.SignatureAlgorithm;
-import org.mozilla.jss.crypto.SymmetricKey;
-import org.mozilla.jss.crypto.TokenException;
 import org.mozilla.jss.crypto.X509Certificate;
-import org.mozilla.jss.pkcs11.PK11ECPublicKey;
-import org.mozilla.jss.pkix.crmf.CertReqMsg;
-import org.mozilla.jss.pkix.crmf.CertRequest;
-import org.mozilla.jss.pkix.crmf.CertTemplate;
-import org.mozilla.jss.pkix.primitive.Name;
-import org.mozilla.jss.pkix.primitive.SubjectPublicKeyInfo;
 import org.mozilla.jss.util.Base64OutputStream;
 
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
 import com.netscape.cmsutil.util.Cert;
-import com.netscape.osutil.OSUtil;
+
 
 public class CryptoUtil {
 
@@ -116,7 +74,7 @@ public class CryptoUtil {
             return
                     "-----BEGIN CERTIFICATE-----\n"
                 //  + mEncoder.encodeBuffer(cert.getEncoded())
-                    + OSUtil.BtoA( cert.getEncoded() )
+                    + com.netscape.osutil.OSUtil.BtoA( cert.getEncoded() )
                     + "-----END CERTIFICATE-----\n";
         } catch (Exception e) {}
         return null;
@@ -201,15 +159,43 @@ public class CryptoUtil {
                 NoSuchTokenException,
                 NoSuchAlgorithmException,
                 TokenException {
+        return generateECCKeyPair(token, keysize, usage_ops, usage_mask,
+            false, -1, -1);
+    }
+
+    /*
+     * temporary, sensitive, and extractable usages are per defined in
+     * JSS pkcs11/PK11KeyPairGenerator.java
+     */
+    public static KeyPair generateECCKeyPair(String token, int keysize,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_ops,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_mask,
+           boolean temporary, int sensitive, int extractable)
+        throws CryptoManager.NotInitializedException,
+                NoSuchTokenException,
+                NoSuchAlgorithmException,
+                TokenException {
         CryptoToken t = getTokenByName(token);
 
         KeyPairAlgorithm alg = KeyPairAlgorithm.EC;
-        KeyPairGenerator g = t.getKeyPairGenerator(alg);
+        KeyPairGenerator keygen = t.getKeyPairGenerator(alg);
 
-        g.setKeyPairUsages(usage_ops, usage_mask);
-        g.initialize(keysize);
+        keygen.setKeyPairUsages(usage_ops, usage_mask);
+        keygen.temporaryPairs(temporary);
 
-        KeyPair pair = g.genKeyPair();
+        if (sensitive == 1 )
+            keygen.sensitivePairs(true);
+        else if (sensitive == 0)
+            keygen.sensitivePairs(false);
+
+        if (extractable == 1 )
+            keygen.extractablePairs(true);
+        else if (extractable == 0)
+            keygen.extractablePairs(false);
+
+        keygen.initialize(keysize);
+
+        KeyPair pair = keygen.genKeyPair();
 
         return pair;
     }
@@ -244,6 +230,19 @@ public class CryptoUtil {
         return generateECCKeyPair(t, curveName, usage_ops, usage_mask);
     }
 
+    public static KeyPair generateECCKeyPair(String token, String curveName,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_ops,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_mask,
+           boolean temporary, int sensitive, int extractable)
+        throws CryptoManager.NotInitializedException,
+                NoSuchTokenException,
+                NoSuchAlgorithmException,
+                TokenException {
+        CryptoToken t = getTokenByName(token);
+        return generateECCKeyPair(t, curveName, usage_ops, usage_mask,
+            temporary, sensitive, extractable);
+    }
+
     public static KeyPair generateECCKeyPair(CryptoToken token, String curveName,
            org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_ops,
            org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_mask)
@@ -251,23 +250,51 @@ public class CryptoUtil {
                 NoSuchTokenException,
                 NoSuchAlgorithmException,
                 TokenException {
-        KeyPairAlgorithm alg = KeyPairAlgorithm.EC;
-        KeyPairGenerator g = token.getKeyPairGenerator(alg);
+        return generateECCKeyPair(token, curveName, usage_ops, usage_mask,
+            false, -1, -1);
+    }
 
-        g.setKeyPairUsages(usage_ops, usage_mask);
+    /*
+     * temporary, sensitive, and extractable usages are per defined in
+     * JSS pkcs11/PK11KeyPairGenerator.java
+     */
+    public static KeyPair generateECCKeyPair(CryptoToken token, String curveName,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_ops,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_mask,
+           boolean temporary, int sensitive, int extractable)
+        throws CryptoManager.NotInitializedException,
+                NoSuchTokenException,
+                NoSuchAlgorithmException,
+                TokenException {
+        KeyPairAlgorithm alg = KeyPairAlgorithm.EC;
+        KeyPairGenerator keygen = token.getKeyPairGenerator(alg);
+
+        keygen.setKeyPairUsages(usage_ops, usage_mask);
+        keygen.temporaryPairs(temporary);
+
+        if (sensitive == 1 )
+            keygen.sensitivePairs(true);
+        else if (sensitive == 0)
+            keygen.sensitivePairs(false);
+
+        if (extractable == 1 )
+            keygen.extractablePairs(true);
+        else if (extractable == 0)
+            keygen.extractablePairs(false);
+
 
         System.out.println("CryptoUtil: generateECCKeyPair: curve = "+ curveName);
         int curveCode = 0;
         try {
-            curveCode = g.getCurveCodeByName(curveName);
+            curveCode = keygen.getCurveCodeByName(curveName);
         } catch (Exception e) {
             System.out.println("CryptoUtil: generateECCKeyPair: "+ e.toString());
             throw new NoSuchAlgorithmException();
         }
-        g.initialize(curveCode);
+        keygen.initialize(curveCode);
 
         System.out.println("CryptoUtil: generateECCKeyPair: after KeyPairGenerator initialize with:"+ curveName);
-        KeyPair pair = g.genKeyPair();
+        KeyPair pair = keygen.genKeyPair();
 
         return pair;
     }
@@ -303,7 +330,7 @@ public class CryptoUtil {
     public static byte[] base64Decode(String s) throws IOException {
      // BASE64Decoder base64 = new BASE64Decoder();
      // byte[] d = base64.decodeBuffer(s);
-        byte[] d = OSUtil.AtoB( s );
+        byte[] d = com.netscape.osutil.OSUtil.AtoB( s );
                                                                                 
         return d;
     }

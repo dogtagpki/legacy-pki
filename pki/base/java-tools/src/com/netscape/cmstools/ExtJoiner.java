@@ -18,11 +18,10 @@
 package com.netscape.cmstools;
 
 
-import java.io.FileInputStream;
-import java.io.IOException;
-
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import java.io.*;
+import java.net.*;
+import netscape.security.x509.*;
+import netscape.security.util.*;
 
 
 /**
@@ -93,11 +92,7 @@ public class ExtJoiner {
         FileInputStream fis = new FileInputStream(fileName);
 
         byte data[] = new byte[fis.available()];
-        try {
-            fis.read(data);
-        } finally {
-            fis.close();
-        }
+        fis.read(data);
         return  com.netscape.osutil.OSUtil.AtoB(new String(data));
     }
 }

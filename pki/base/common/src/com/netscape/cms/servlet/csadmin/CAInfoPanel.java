@@ -18,24 +18,32 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.net.URL;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import org.xml.sax.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.certsrv.template.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.cmsutil.xml.*;
+import com.netscape.cmsutil.crypto.*;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.ldap.*;
+import com.netscape.cmsutil.http.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.asn1.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.cms.servlet.wizard.WizardServlet;
+import com.netscape.cms.servlet.wizard.*;
 
 public class CAInfoPanel extends WizardPanelBase {
 

@@ -18,15 +18,11 @@
 package com.netscape.cmsutil.radius;
 
 
-import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.Properties;
+import java.util.*;
+import java.math.*;
+import java.security.*;
+import java.net.*;
+import java.io.*;
 
 
 /**

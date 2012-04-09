@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This program is free software; you can redistribute it and/or modify
@@ -395,7 +395,7 @@ $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sen
                     $::config->put("conn.ca1.clientNickname", "$nickname");
                     $::config->put("conn.drm1.clientNickname", "$nickname");
                     $::config->put("conn.tks1.clientNickname", "$nickname");
-                    $::config->put("ra.cert.subsystem.nickname", "$nickname");
+                    $::config->put( "ra.cert.subsystem.nickname", "$nickname");
                 }
                 $::config->commit();
             }

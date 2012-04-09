@@ -18,8 +18,7 @@
 package com.netscape.certsrv.property;
 
 
-import java.util.Enumeration;
-import java.util.Locale;
+import java.util.*;
 
 
 /**

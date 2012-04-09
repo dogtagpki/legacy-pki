@@ -18,10 +18,12 @@
 package com.netscape.certsrv.common;
 
 
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.StringTokenizer;
-import java.util.Vector;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
 
 
 /**
