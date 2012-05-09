@@ -163,7 +163,8 @@ public class GetCertFromRequest extends CMSServlet {
         } catch (NumberFormatException e) {
             log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSGW_INVALID_REQ_ID_FORMAT", requestId));
             throw new EBaseException(
-                    CMS.getUserMessage(getLocale(httpReq), "CMS_BASE_INVALID_NUMBER_FORMAT_1", requestId));
+                    CMS.getUserMessage(getLocale(httpReq), "CMS_BASE_INVALID_NUMBER_FORMAT_1",
+                                       CMSTemplate.escapeJavaScriptStringHTML(requestId)));
         }
 
         IRequest r = mQueue.findRequest(new RequestId(requestId));
