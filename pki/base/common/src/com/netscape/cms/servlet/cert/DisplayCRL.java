@@ -227,7 +227,8 @@ public class DisplayCRL extends CMSServlet {
         }
         if (crlIssuingPointId == null) {
             header.addStringValue("error",
-                "Request to unspecified or non-existing CRL issuing point: "+ipId);
+                "Request to unspecified or non-existing CRL issuing point: "+
+                CMSTemplate.escapeJavaScriptStringHTML(ipId));
             return;
         }
 

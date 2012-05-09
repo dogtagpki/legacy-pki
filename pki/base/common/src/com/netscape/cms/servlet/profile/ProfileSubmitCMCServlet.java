@@ -317,7 +317,7 @@ profile, IRequest req) {
             seq.addElement(new INTEGER(0));
             UTF8String s = null;
             try {
-                s = new UTF8String(CMS.getUserMessage(locale, "CMS_PROFILE_NOT_FOUND", profileId));
+                s = new UTF8String(CMS.getUserMessage(locale, "CMS_PROFILE_NOT_FOUND", escapeJavaScriptString(profileId)));
             } catch (Exception ee) {
             }
             template.createFullResponseWithFailedStatus(response, seq,
@@ -333,7 +333,7 @@ profile, IRequest req) {
             seq.addElement(new INTEGER(0));
             UTF8String s = null;
             try {
-                s = new UTF8String(CMS.getUserMessage(locale, "CMS_PROFILE_NOT_FOUND", profileId));
+                s = new UTF8String(CMS.getUserMessage(locale, "CMS_PROFILE_NOT_FOUND", escapeJavaScriptString(profileId)));
             } catch (Exception ee) {
             }
             template.createFullResponseWithFailedStatus(response, seq,
