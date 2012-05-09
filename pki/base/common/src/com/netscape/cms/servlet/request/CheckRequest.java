@@ -260,7 +260,8 @@ public class CheckRequest extends CMSServlet {
         } catch (NumberFormatException e) {
             log(ILogger.LL_FAILURE, CMS.getLogMessage("BASE_INVALID_NUMBER_FORMAT_1", requestId));
             throw new EBaseException(
-                    CMS.getUserMessage(getLocale(req), "CMS_BASE_INVALID_NUMBER_FORMAT_1", requestId));
+                    CMS.getUserMessage(getLocale(req), "CMS_BASE_INVALID_NUMBER_FORMAT_1",
+                                       CMSTemplate.escapeJavaScriptStringHTML(requestId)));
         } 
 
         IRequest r = mQueue.findRequest(new RequestId(requestId));
