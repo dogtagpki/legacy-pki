@@ -273,7 +273,7 @@ public class ProfileReviewServlet extends ProfileServlet {
             args.set(ARG_REQUEST_NOTES, "");
         } else {
             args.set(ARG_REQUEST_NOTES, 
-                req.getExtDataInString("requestNotes"));
+                escapeJavaScriptString(req.getExtDataInString("requestNotes")));
         }
 
         args.set(ARG_RECORD, list);
