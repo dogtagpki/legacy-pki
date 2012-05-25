@@ -324,7 +324,7 @@ public class ProfileServlet extends CMSServlet {
     protected String escapeJavaScriptString(String v) {
         int l = v.length();
         char in[] = new char[l];
-        char out[] = new char[l * 4];
+        char out[] = new char[l * 8];
         int j = 0;
 
         v.getChars(0, l, in, 0);
@@ -333,7 +333,7 @@ public class ProfileServlet extends CMSServlet {
             char c = in[i];
 
             /* presumably this gives better performance */
-            if ((c > 0x23) && (c!= 0x5c) && (c!= 0x3c) && (c!= 0x3e)) { 
+            if ((c > 0x27) && (c!= 0x5c) && (c!= 0x3c) && (c!= 0x3e) && (c!= 0x3b)) { 
                 out[j++] = c;
                 continue;
             }
@@ -343,6 +343,7 @@ public class ProfileServlet extends CMSServlet {
             if ((c == 0x5c) && ((i+1)<l) && (in[i+1] == 'n' ||
                  in[i+1] == 'r' || in[i+1] == 'f' || in[i+1] == 't' ||
                  in[i+1] == '<' || in[i+1] == '>' ||
+                 in[i+1] == 'x' || in[i+1] == ';' ||
                  in[i+1] == '\"' || in[i+1] == '\'' || in[i+1] == '\\')) {
                 if (in[i+1] == 'x' && ((i+3)<l) && in[i+2] == '3' &&
                     (in[i+3] == 'c' || in[i+3] == 'e')) {
@@ -351,12 +352,32 @@ public class ProfileServlet extends CMSServlet {
                     out[j++] = in[i+2];
                     out[j++] = in[i+3];
                     i += 3;
+                    continue;
+                } else if (in[i+1] == '<' || in[i+1] == '>') {
+                    c = in[i+1];
+                    i++;
+                } else if (in[i+1] == ';') {
+                    out[j++] = in[i+1];
+                    i++;
+                    continue;
                 } else { 
                     out[j++] = '\\';
                     out[j++] = in[i+1];
                     i++;
+                    continue;
                 }
-                continue;
+            }
+            if (c == '&') {
+                int k;
+                for (k = 0; k < 8 && (i+k) < l; k++) {
+                    out[j+k] = in[i+k];
+                    if (in[i+k] == ';') break;
+                }
+                if (k < 8) {
+                    i += k;
+                    j += k + 1;
+                    continue;
+                }
             }
 
             switch (c) {
@@ -391,17 +412,25 @@ public class ProfileServlet extends CMSServlet {
                 break;
 
             case '<':
-                out[j++] = '\\';
-                out[j++] = 'x';
-                out[j++] = '3';
-                out[j++] = 'c';
+                out[j++] = '&';
+                out[j++] = 'l';
+                out[j++] = 't';
+                out[j++] = ';';
                 break;
 
             case '>':
-                out[j++] = '\\';
-                out[j++] = 'x';
-                out[j++] = '3';
-                out[j++] = 'e';
+                out[j++] = '&';
+                out[j++] = 'g';
+                out[j++] = 't';
+                out[j++] = ';';
+                break;
+
+            case '&':
+                out[j++] = '&';
+                out[j++] = 'a';
+                out[j++] = 'm';
+                out[j++] = 'p';
+                out[j++] = ';';
                 break;
 
             default:

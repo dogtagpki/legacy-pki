@@ -301,7 +301,7 @@ public class CheckRequest extends CMSServlet {
         header.addLongValue(CREATE_ON, r.getCreationTime().getTime() / 1000);
         header.addLongValue(UPDATE_ON, r.getModificationTime().getTime() / 1000);
         if (note != null && note.length() > 0) 
-            header.addStringValue("requestNotes", note);
+            header.addStringValue("requestNotes", CMSTemplate.escapeJavaScriptStringHTML(note));
 
         String type = r.getRequestType();
         Integer result = r.getExtDataInInteger(IRequest.RESULT);
