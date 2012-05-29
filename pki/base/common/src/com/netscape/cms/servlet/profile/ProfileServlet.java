@@ -372,6 +372,10 @@ public class ProfileServlet extends CMSServlet {
                 for (k = 0; k < 8 && (i+k) < l; k++) {
                     out[j+k] = in[i+k];
                     if (in[i+k] == ';') break;
+                    if (in[i+k] == '<' || in[i+k] == '>') {
+                        k = 8;
+                        break;
+                    }
                 }
                 if (k < 8) {
                     i += k;
