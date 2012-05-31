@@ -324,7 +324,7 @@ public class ProfileServlet extends CMSServlet {
     protected String escapeJavaScriptString(String v) {
         int l = v.length();
         char in[] = new char[l];
-        char out[] = new char[l * 8];
+        char out[] = new char[l * 5];
         int j = 0;
 
         v.getChars(0, l, in, 0);
