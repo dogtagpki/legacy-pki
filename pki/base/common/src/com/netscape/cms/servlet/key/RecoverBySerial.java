@@ -18,20 +18,6 @@
 package com.netscape.cms.servlet.key;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.util.Hashtable;
-import java.util.Locale;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.x509.X509CertImpl;
-
 import com.netscape.certsrv.apps.CMS;
 import com.netscape.certsrv.authentication.IAuthToken;
 import com.netscape.certsrv.authorization.AuthzToken;
@@ -48,6 +34,18 @@ import com.netscape.cms.servlet.common.CMSTemplate;
 import com.netscape.cms.servlet.common.CMSTemplateParams;
 import com.netscape.cms.servlet.common.ECMSGWException;
 import com.netscape.cmsutil.util.Cert;
+import netscape.security.x509.X509CertImpl;
+
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.util.Hashtable;
+import java.util.Locale;
+import java.util.Vector;
 
 /**
  * A class representing a recoverBySerial servlet.
@@ -268,7 +266,7 @@ public class RecoverBySerial extends CMSServlet {
         }
         X509CertImpl x509cert = null;
 
-        if (cert == null || cert.trim().length() == 0) {
+        if (cert == null) {
             header.addStringValue(OUT_ERROR, "certificate not found");
             return;
         } else {
@@ -332,7 +330,7 @@ public class RecoverBySerial extends CMSServlet {
         }
         X509CertImpl x509cert = null;
 
-        if (cert == null || cert.trim().length() == 0) {
+        if (cert == null) {
             // perform recovery
             header.addStringValue(OUT_ERROR, "certificate not found");
             return null;
@@ -404,8 +402,8 @@ public class RecoverBySerial extends CMSServlet {
 
             header.addStringValue(OUT_OP,
                 req.getParameter(OUT_OP));
-            header.addBigIntegerValue(OUT_SERIALNO,
-                new BigInteger(seq), 10);
+            header.addIntegerValue(OUT_SERIALNO, 
+                Integer.parseInt(seq));
             header.addStringValue(OUT_SERVICE_URL,
                 req.getRequestURI());
             byte pkcs12[] = mService.doKeyRecovery(

@@ -17,16 +17,15 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.util;
 
+import java.io.FilterOutputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Calendar;
+import java.util.*;
+
 import java.util.Comparator;
-import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.TimeZone;
+import java.util.Arrays;
 
 import sun.io.CharToByteConverter;
 

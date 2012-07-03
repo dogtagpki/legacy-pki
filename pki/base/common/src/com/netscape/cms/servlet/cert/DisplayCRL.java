@@ -18,37 +18,31 @@
 package com.netscape.cms.servlet.cert;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
 import java.security.cert.CRLException;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.Vector;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.dbs.crldb.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.x509.X509CRLImpl;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.base.ICRLPrettyPrint;
-import com.netscape.certsrv.ca.ICRLIssuingPoint;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.crldb.ICRLIssuingPointRecord;
-import com.netscape.certsrv.dbs.crldb.ICRLRepository;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
+import com.netscape.cms.servlet.*;
 
 
 /**
@@ -149,7 +143,7 @@ public class DisplayCRL extends CMSServlet {
         try {
             ServletOutputStream out = resp.getOutputStream();
 
-            {
+            if (error == null) {
                 String xmlOutput = req.getParameter("xml");
                 if (xmlOutput != null && xmlOutput.equals("true")) {
                   outputXML(resp, argSet);
@@ -158,6 +152,9 @@ public class DisplayCRL extends CMSServlet {
                   form.renderOutput(out, argSet);
                   cmsReq.setStatus(CMSRequest.SUCCESS);
                 }
+            } else {
+                cmsReq.setStatus(CMSRequest.ERROR);
+                cmsReq.setError(error);
             }
         } catch (IOException e) {
             log(ILogger.LL_FAILURE, 
@@ -230,7 +227,8 @@ public class DisplayCRL extends CMSServlet {
         }
         if (crlIssuingPointId == null) {
             header.addStringValue("error",
-                "Request to unspecified or non-existing CRL issuing point: "+ipId);
+                "Request to unspecified or non-existing CRL issuing point: "+
+                CMSTemplate.escapeJavaScriptStringHTML(ipId));
             return;
         }
 

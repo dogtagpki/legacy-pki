@@ -17,7 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cmsutil.ocsp;
 
-import org.mozilla.jss.asn1.ASN1Value;
+import java.io.OutputStream;
+import org.mozilla.jss.pkix.primitive.*;
+import org.mozilla.jss.asn1.*;
 
 
 /**

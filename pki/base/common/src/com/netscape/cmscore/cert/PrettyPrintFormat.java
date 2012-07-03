@@ -18,7 +18,10 @@
 package com.netscape.cmscore.cert;
 
 
-import com.netscape.certsrv.base.IPrettyPrintFormat;
+import java.io.*;
+import java.util.*;
+import java.text.*;
+import com.netscape.certsrv.base.*;
 
 
 /**

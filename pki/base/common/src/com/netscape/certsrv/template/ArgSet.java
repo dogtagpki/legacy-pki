@@ -17,8 +17,7 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.template;
 
-import java.util.Enumeration;
-import java.util.Hashtable;
+import java.util.*;
 
 /**
  * This class represents a set of arguments.

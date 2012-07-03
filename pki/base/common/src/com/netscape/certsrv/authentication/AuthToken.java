@@ -17,25 +17,25 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.authentication;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.util.Hashtable;
+import java.util.Date;
+import java.util.Enumeration;
 import java.math.BigInteger;
+import java.io.IOException;
+import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
 
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.x509.CertificateExtensions;
-import netscape.security.x509.X509CertImpl;
-
+import com.netscape.certsrv.base.*;
 import com.netscape.certsrv.apps.CMS;
 import com.netscape.certsrv.usrgrp.Certificates;
+import netscape.security.util.DerOutputStream;
+import netscape.security.util.DerValue;
+import netscape.security.util.DerInputStream;
+import netscape.security.x509.X509CertImpl;
+import netscape.security.x509.CertificateExtensions;
 
 /**
  * Authentication token returned by Authentication Managers.
