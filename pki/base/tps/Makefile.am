@@ -323,6 +323,7 @@ libtps_la_SOURCES =	src/main/Buffer.cpp                        \
 					src/apdu/Get_Data_APDU.cpp                 \
 					src/apdu/External_Authenticate_APDU.cpp    \
 					src/apdu/Generate_Key_APDU.cpp             \
+					src/apdu/Generate_Key_ECC_APDU.cpp         \
 					src/apdu/Read_Buffer_APDU.cpp              \
 					src/apdu/Read_Object_APDU.cpp              \
 					src/apdu/Write_Object_APDU.cpp             \
@@ -444,6 +445,7 @@ tpsclient_SOURCES =	tools/raclient/RA_Client.cpp               \
 					src/apdu/External_Authenticate_APDU.cpp    \
 					src/apdu/Format_Muscle_Applet_APDU.cpp     \
 					src/apdu/Generate_Key_APDU.cpp             \
+					src/apdu/Generate_Key_ECC_APDU.cpp         \
 					src/apdu/Get_Data_APDU.cpp                 \
 					src/apdu/Get_Status_APDU.cpp               \
 					src/apdu/Get_Version_APDU.cpp              \
