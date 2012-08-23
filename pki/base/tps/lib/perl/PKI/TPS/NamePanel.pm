@@ -175,7 +175,7 @@ sub update
         if ($keytype eq "rsa") {
             $keysize = 2048;
         } elsif ($keytype eq "ecc") {
-            $keysize = 256;
+            $keysize = "nistp256";
         }
 
         if (($select eq "") || ($select eq "default")) {
@@ -188,14 +188,10 @@ sub update
             if ($size ne "") {
                 $keysize = $size;
             }
-            if (($keytype eq "ecc") && ($keysize ne 256)) {
-                &PKI::TPS::Wizard::debug_log("NamePanel: update got keysize from config= $keysize changing to 256, the only supported ECC strength");
-                $keysize = 256;
-            }
         }
 
         &PKI::TPS::Wizard::debug_log("NamePanel: update got key type $keytype");
-        my $req;
+        my $req = "";
         my $debug_req;
         my $filename = "/tmp/random.$$";
         `dd if\=/dev/urandom of\=\"$filename\" count\=256 bs\=1`;
@@ -207,10 +203,24 @@ sub update
             $req = `cat $tmpfile`;
             system("rm $tmpfile");
         } elsif ($keytype eq "ecc") {
-            #only support curve nistp256 for now
             my $tmpfile = "/tmp/req$$";
-            system("certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -R -s \"$cert_dn\" -k ec -q nistp256 -a -z $filename> $tmpfile");
+            # try first without specific flags
+            system("certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -R -s \"$cert_dn\" -k ec -q $keysize -a -z $filename> $tmpfile");
             $req = `cat $tmpfile`;
+
+            # try the flags that work with nethsm
+            if ($req eq "") {
+                system("certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -R --keyAttrFlags \"token,private,sensitive,unextractable\" --keyOpFlagsOff derive -s \"$cert_dn\" -k ec -q $keysize -a -z $filename> $tmpfile");
+                $req = `cat $tmpfile`;
+            }
+            # try the flags that work with lunasa
+            if ($req eq "") {
+                system("certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -R --keyAttrFlags \"private,unextractable\" --keyOpFlagsOff derive -s \"$cert_dn\" -k ec -q $keysize -a -z $filename> $tmpfile");
+                $req = `cat $tmpfile`;
+            }
+            if ($req eq "") {
+                &PKI::TPS::Wizard::debug_log("NamePanel: key generation failed on $tokenname.  Please check to see if this is a supported hardware.");
+            }
             system("rm $tmpfile");
         } else {
             &PKI::TPS::Wizard::debug_log("NamePanel: update unsupported keytype $keytype");
@@ -294,9 +304,11 @@ GEN_CERT:
                     $https_ee_port = $sdom_url->port;
                 }
                 if ($changed eq "true") {
+                # nickname changed is true, using token passwd for calling sslget
 $req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
 $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
                 } else {
+                # nickname changed is false, using internal passwd for calling sslget
 $req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
 $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
                 }
