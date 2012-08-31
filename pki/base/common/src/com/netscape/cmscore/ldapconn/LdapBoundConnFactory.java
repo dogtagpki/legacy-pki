@@ -78,7 +78,7 @@ public class LdapBoundConnFactory implements ILdapBoundConnFactory {
         return mTotal;
     }
 
-    public int freeConn() {
+    public synchronized int freeConn() {
         return mNumConns;
     }
 
