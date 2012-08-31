@@ -334,20 +334,20 @@ public class CertUtil {
             ca = (ICertificateAuthority) CMS.getSubsystem(
                     ICertificateAuthority.ID);
             cr = (ICertificateRepository) ca.getCertificateRepository();
-            BigInteger serialNo = cr.getNextSerialNumber();
-            if (type.equals("selfsign")) {
-                CMS.debug("Creating local certificate... issuerdn=" + dn);
-                CMS.debug("Creating local certificate... dn=" + dn);
-                info = CryptoUtil.createX509CertInfo(x509key, serialNo.intValue(), dn, dn, date,
-                        date, keyAlgorithm);
-            } else { 
-                String issuerdn = config.getString("preop.cert.signing.dn", "");
-                CMS.debug("Creating local certificate... issuerdn=" + issuerdn);
-                CMS.debug("Creating local certificate... dn=" + dn);
+			BigInteger serialNo = cr.getNextSerialNumber();
+			if (type.equals("selfsign")) {
+				CMS.debug("Creating local certificate... issuerdn=" + dn);
+				CMS.debug("Creating local certificate... dn=" + dn);
+				info = CryptoUtil.createX509CertInfo(x509key, serialNo, dn, dn,
+						date, date, keyAlgorithm);
+			} else {
+				String issuerdn = config.getString("preop.cert.signing.dn", "");
+				CMS.debug("Creating local certificate... issuerdn=" + issuerdn);
+				CMS.debug("Creating local certificate... dn=" + dn);
 
-                info = CryptoUtil.createX509CertInfo(x509key,
-                        serialNo.intValue(), issuerdn, dn, date, date, keyAlgorithm);
-            }
+				info = CryptoUtil.createX509CertInfo(x509key, serialNo,
+						issuerdn, dn, date, date, keyAlgorithm);
+			}
             CMS.debug("Cert Template: " + info.toString());
 
             String instanceRoot = config.getString("instanceRoot");

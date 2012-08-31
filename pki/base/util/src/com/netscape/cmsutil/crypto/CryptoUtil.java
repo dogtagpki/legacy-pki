@@ -637,32 +637,26 @@ public class CryptoUtil {
     /**
      * Creates a Certificate template.
      */
-    public static X509CertInfo createX509CertInfo(KeyPair pair,
-            int serialno, String issuername, String subjname, 
-            Date notBefore, Date notAfter)
-        throws IOException, 
-                CertificateException, 
-                InvalidKeyException {
+	public static X509CertInfo createX509CertInfo(KeyPair pair,
+			BigInteger serialno, String issuername, String subjname,
+			Date notBefore, Date notAfter) throws IOException,
+			CertificateException, InvalidKeyException {
         return createX509CertInfo(convertPublicKeyToX509Key(pair.getPublic()), 
                 serialno, issuername, subjname, notBefore, notAfter);
     }
 
-    public static X509CertInfo createX509CertInfo(PublicKey publickey,
-            int serialno, String issuername, String subjname, 
-            Date notBefore, Date notAfter)
-        throws IOException, 
-                CertificateException, 
-                InvalidKeyException {
+	public static X509CertInfo createX509CertInfo(PublicKey publickey,
+			BigInteger serialno, String issuername, String subjname,
+			Date notBefore, Date notAfter) throws IOException,
+			CertificateException, InvalidKeyException {
         return createX509CertInfo(convertPublicKeyToX509Key(publickey), serialno,
                 issuername, subjname, notBefore, notAfter);
     }
 
-    public static X509CertInfo createX509CertInfo(X509Key x509key,
-            int serialno, String issuername, String subjname, 
-            Date notBefore, Date notAfter)
-        throws IOException, 
-                CertificateException, 
-                InvalidKeyException {
+	public static X509CertInfo createX509CertInfo(X509Key x509key,
+			BigInteger serialno, String issuername, String subjname,
+			Date notBefore, Date notAfter) throws IOException,
+			CertificateException, InvalidKeyException {
         // set default; use the other call with "alg" to set algorithm
         String alg = "SHA256withRSA";
         try {
@@ -673,13 +667,10 @@ public class CryptoUtil {
         }
     }
 
-    public static X509CertInfo createX509CertInfo(X509Key x509key,
-            int serialno, String issuername, String subjname, 
-            Date notBefore, Date notAfter, String alg)
-        throws IOException, 
-                CertificateException, 
-                InvalidKeyException,
-                NoSuchAlgorithmException {
+	public static X509CertInfo createX509CertInfo(X509Key x509key,
+			BigInteger serialno, String issuername, String subjname,
+			Date notBefore, Date notAfter, String alg) throws IOException,
+			CertificateException, InvalidKeyException, NoSuchAlgorithmException {
         X509CertInfo info = new X509CertInfo();
 
         info.set(X509CertInfo.VERSION, new
