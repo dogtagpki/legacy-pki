@@ -4197,12 +4197,18 @@ TPS_PUBLIC int is_update_pin_resetable_policy(char *cn)
     return resetable;
 }
 
+/*
+ Return true if the token is NOT one of the following states:
+
+  uninitialized
+  active
+*/
 TPS_PUBLIC int is_tus_db_entry_disabled(char *cn)
 {
     LDAPMessage *result = NULL;
     LDAPMessage *e = NULL;
     char **v = NULL;
-    int disabled = 0;
+    int disabled = 1;
     int rc = -1;
 
     if (cn != NULL && PL_strlen(cn) > 0) {
@@ -4211,8 +4217,9 @@ TPS_PUBLIC int is_tus_db_entry_disabled(char *cn)
             if (e != NULL) {
                 if ((v = ldap_get_values(ld, e, TOKEN_STATUS)) != NULL) {
                     if (v[0] != NULL && PL_strlen(v[0]) > 0) {
-                        if (!PL_strcasecmp(v[0], STATE_DISABLED)) {
-                            disabled = 1;
+                        if (!PL_strcasecmp(v[0], STATE_ACTIVE) ||
+                            !PL_strcasecmp(v[0], STATE_UNINITIALIZED)) {
+                            disabled = 0;
                         }
                     }
                     if( v != NULL ) {
