@@ -271,26 +271,6 @@ public class CMSEngine implements ICMSEngine {
         mOwner = owner;
         mConfig = config;
         int state = mConfig.getInteger("cs.state");
-        String sd = mConfig.getString("securitydomain.select", "");
-        // my default is 1 day
-        String flush_timeout = config.getString("securitydomain.flushinterval", "86400000");
-        String secdomain_source = config.getString("securitydomain.source", "memory");
-        String secdomain_check_interval = config.getString("securitydomain.checkinterval", "5000");
-
-        if (secdomain_source.equals("ldap")) {
-            mSecurityDomainSessionTable = new LDAPSecurityDomainSessionTable((new Long(flush_timeout)).longValue());
-        } else {
-            mSecurityDomainSessionTable = new SecurityDomainSessionTable((new Long(flush_timeout)).longValue());
-        }
-
-        mSDTimer = new Timer();
-        SessionTimer timertask = new SessionTimer(mSecurityDomainSessionTable);
-        if ((state != 1) || (sd.equals("existing"))) {
-            // for non-security domain hosts or if not yet configured, 
-            // do not check session domain table
-        } else {
-            mSDTimer.schedule(timertask, 5, (new Long(secdomain_check_interval)).longValue());
-        }
 
         // get the list of passwords 
         String passwordList = config.getString("cms.passwordlist", "internaldb,replicationdb");
@@ -450,6 +430,27 @@ public class CMSEngine implements ICMSEngine {
             }
         }
         parseServerXML();
+
+        String sd = mConfig.getString("securitydomain.select", "");
+        if ((state == 1) && (!sd.equals("existing"))) {
+            // check session domain table only if this is a
+            // configured security domain host
+
+            String flush_timeout = config.getString("securitydomain.flushinterval", "86400000");
+            String secdomain_source = config.getString("securitydomain.source", "memory");
+            String secdomain_check_interval = config.getString("securitydomain.checkinterval", "5000");
+
+            if (secdomain_source.equals("ldap")) {
+                mSecurityDomainSessionTable = new LDAPSecurityDomainSessionTable((new Long(flush_timeout)).longValue());
+            } else {
+                mSecurityDomainSessionTable = new SecurityDomainSessionTable((new Long(flush_timeout)).longValue());
+            }
+
+            mSDTimer = new Timer();
+            SessionTimer timertask = new SessionTimer(mSecurityDomainSessionTable);
+
+            mSDTimer.schedule(timertask, 5, (new Long(secdomain_check_interval)).longValue());
+        }
 
         if (startedByWD) {
             WatchdogClient.sendEndInit(0);
