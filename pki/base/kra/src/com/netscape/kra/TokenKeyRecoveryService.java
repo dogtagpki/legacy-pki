@@ -42,7 +42,6 @@ import com.netscape.certsrv.dbs.repository.*;
 import com.netscape.certsrv.dbs.keydb.*;
 import com.netscape.cmscore.cert.*;
 import com.netscape.cmscore.dbs.*;
-import com.netscape.cmscore.dbs.*;
 import com.netscape.certsrv.request.*;
 import com.netscape.certsrv.authentication.*;
 import com.netscape.cmsutil.util.*;
