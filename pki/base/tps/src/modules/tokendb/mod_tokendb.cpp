@@ -56,6 +56,7 @@ extern "C"
 #include "cert.h"
 #include "regex.h"
 #include "nss3/base64.h"
+#include "prprf.h"
 
 #include "httpd/httpd.h"
 #include "httpd/http_config.h"
@@ -87,9 +88,10 @@ extern TOKENDB_PUBLIC char *nss_var_lookup( apr_pool_t *p, server_rec *s,
 #define JS_STOP  "//-->\n</SCRIPT>\n"
 #define CMS_TEMPLATE_TAG "<CMS_TEMPLATE>"
 
-#define MAX_INJECTION_SIZE 5120
+#define MAX_INJECTION_SIZE 10240 
+
 #define MAX_OVERLOAD       20
-#define LOW_INJECTION_SIZE 2048
+#define LOW_INJECTION_SIZE 4096 
 #define SHORT_LEN          256
 
 #define BASE64_HEADER "-----BEGIN CERTIFICATE-----\n"
@@ -519,14 +521,14 @@ bool transition_allowed(int oldState, int newState)
     return RA::match_comma_list(search, transitionList);
 }
 
-void add_allowed_token_transitions(int token_ui_state, char *injection) 
+void add_allowed_token_transitions(int token_ui_state, char *injection, int injection_size) 
 {
     bool first = true;
     int i=1;
     char state[128];
 
     sprintf(state, "var allowed_transitions=\"", token_ui_state);
-    PL_strcat(injection, state);
+    PR_snprintf( injection, injection_size , "%s%s", injection,   state );
     for (i=1; i<=MAX_TOKEN_UI_STATE; i++) {
         if (transition_allowed(token_ui_state, i)) {
             if (first) {
@@ -535,10 +537,11 @@ void add_allowed_token_transitions(int token_ui_state, char *injection)
             } else {
                sprintf(state, ",%d", i);
             }
-            PL_strcat(injection, state);
+            PR_snprintf( injection, injection_size , "%s%s", injection,   state );
         }
     }
-    PL_strcat(injection, "\";\n");
+
+    PR_snprintf( injection, injection_size , "%s%s", injection,   "\";\n" );
 }
 
 char *getTemplateFile( char *fileName, int *injectionTagOffset )
@@ -712,7 +715,7 @@ char *escapeSpecialChars(char* src)
     return ret;   
 }
 
-void getCertificateFilter( char *filter, char *query )
+void getCertificateFilter( char *filter, int filterSize,  char *query )
 {
     char *uid  = NULL;
     char *tid  = NULL;
@@ -734,16 +737,16 @@ void getCertificateFilter( char *filter, char *query )
     filter[0] = '\0';
 
     if( tid == NULL && uid == NULL && cn == NULL ) {
-      PL_strcat( filter, "(tokenID=*)" );
+      PR_snprintf( filter, filterSize, "%s%s", filter, "(tokenID=*)");
       return;
     }
 
     if( tid != NULL && uid != NULL &&  view != NULL ) {
-        PL_strcat( filter, "(&" );
+        PR_snprintf( filter, filterSize, "%s%s", filter, "(&");
     }
 
     if( tid != NULL ) {
-        PL_strcat( filter, "(tokenID=" );
+        PR_snprintf( filter, filterSize, "%s%s", filter, "(tokenID=");
         end = PL_strchr( tid, '&' );
         len = PL_strlen( filter );
         if( end != NULL ) {
@@ -754,17 +757,17 @@ void getCertificateFilter( char *filter, char *query )
             }
             filter[len+i] = '\0';
         } else {
-            PL_strcat( filter, tid+4 );
+            PR_snprintf( filter, filterSize, "%s%s", filter, tid+4);
         }
         if( view != NULL ) {
-            PL_strcat( filter, "*)" );
+            PR_snprintf( filter, filterSize, "%s%s", filter, "*)");
         } else {
-            PL_strcat( filter, ")" );
+            PR_snprintf( filter, filterSize, "%s%s", filter, ")");
         }
     }
 
     if( uid != NULL && view != NULL ) {
-        PL_strcat( filter, "(tokenUserID=" );
+        PR_snprintf( filter, filterSize, "%s%s", filter, "(tokenUserID=");
         end = PL_strchr( uid, '&' );
         len = PL_strlen( filter );
         if( end != NULL ) {
@@ -775,15 +778,14 @@ void getCertificateFilter( char *filter, char *query )
 
             filter[len+i] = '\0';
         } else {
-            PL_strcat( filter, uid+4 );
+            PR_snprintf( filter, filterSize, "%s%s", filter, uid+4);
         }
 
-        PL_strcat( filter, "*)" );
-        /* PL_strcat( filter, ")" ); */
+        PR_snprintf( filter, filterSize, "%s%s", filter, "*)");
     }
 
     if( cn != NULL ) {
-        PL_strcat( filter, "(cn=" );
+        PR_snprintf( filter, filterSize, "%s%s", filter, "(cn=" );
         end = PL_strchr( cn, '&' );
         len = PL_strlen( filter );
         if( end != NULL ) {
@@ -794,20 +796,19 @@ void getCertificateFilter( char *filter, char *query )
 
             filter[len+i] = '\0';
         } else {
-            PL_strcat( filter, cn+3 );
+            PR_snprintf( filter, filterSize, "%s%s", filter, cn+3);
         }
 
-        PL_strcat( filter, "*)" );
-        /* PL_strcat( filter, ")" ); */
+        PR_snprintf( filter, filterSize, "%s%s", filter, "*)");
     }
 
     if(tid != NULL && uid != NULL && view != NULL) {
-        PL_strcat( filter, ")" );
+        PR_snprintf( filter, filterSize, "%s%s", filter, ")");
     }
 }
 
 
-void getActivityFilter( char *filter, char *query )
+void getActivityFilter( char *filter, int filterSize, char *query )
 {
     char *uid  = NULL;
     char *tid  = NULL;
@@ -822,15 +823,15 @@ void getActivityFilter( char *filter, char *query )
     filter[0] = '\0';
 
     if( tid == NULL && uid == NULL ) {
-      PL_strcat( filter, "(tokenID=*)" );
+      PR_snprintf( filter, filterSize, "%s%s", filter, "(tokenID=*)");
     }
 
     if( tid != NULL && uid != NULL && view != NULL ) {
-        PL_strcat( filter, "(&" );
+         PR_snprintf( filter, filterSize, "%s%s", filter, "(&");
     }
 
     if( tid != NULL ) {
-        PL_strcat( filter, "(tokenID=" );
+         PR_snprintf( filter, filterSize, "%s%s", filter, "(tokenID=");
         end = PL_strchr( tid, '&' );
         len = PL_strlen( filter );
 
@@ -841,18 +842,18 @@ void getActivityFilter( char *filter, char *query )
             }
             filter[len+i] = '\0';
         } else {
-            PL_strcat( filter, tid+4 );
+             PR_snprintf( filter, filterSize, "%s%s", filter, tid+4);
         }
 
         if( view != NULL ) {
-            PL_strcat( filter, "*)" );
+             PR_snprintf( filter, filterSize, "%s%s", filter, "*)" );
         } else {
-            PL_strcat( filter, ")" );
+             PR_snprintf( filter, filterSize, "%s%s", filter, ")");
         }
     }
 
     if( uid != NULL && view != NULL ) {
-        PL_strcat( filter, "(tokenUserID=" );
+         PR_snprintf( filter, filterSize, "%s%s", filter, "(tokenUserID=" );
         end = PL_strchr( uid, '&' );
         len = PL_strlen( filter );
         if( end != NULL ) {
@@ -863,15 +864,14 @@ void getActivityFilter( char *filter, char *query )
 
             filter[len+i] = '\0';
         } else {
-            PL_strcat( filter, uid+4 );
+             PR_snprintf( filter, filterSize, "%s%s", filter, uid+4);
         }
 
-        PL_strcat( filter, "*)" );
-        /* PL_strcat( filter, ")" ); */
+         PR_snprintf( filter, filterSize, "%s%s", filter, "*)");
     }
 
     if( tid != NULL && uid != NULL && view != NULL) {
-        PL_strcat( filter, ")" );
+         PR_snprintf( filter, filterSize, "%s%s", filter, ")");
     }
 }
 
@@ -882,7 +882,7 @@ void getActivityFilter( char *filter, char *query )
  * params: filter - ldap search filter.  Resu;t returned here.
  *         query  - query string passed in
  */
-void getUserFilter (char *filter, char *query) {
+void getUserFilter (char *filter, int filterSize,  char *query) {
     char *uid        = NULL;
     char *firstName  = NULL;
     char *lastName   = NULL;
@@ -894,30 +894,38 @@ void getUserFilter (char *filter, char *query) {
     filter[0] = '\0';
 
     if ((uid == NULL) && (firstName == NULL) && (lastName ==NULL)) {
-        PL_strcat(filter, "(objectClass=Person");
+         PR_snprintf( filter, filterSize, "%s%s", filter, "(objectClass=Person");
     } else {
-        PL_strcat(filter, "(&(objectClass=Person)");
+         PR_snprintf( filter, filterSize, "%s%s", filter,  "(&(objectClass=Person)");
     }
 
     if (uid != NULL) {
-        PL_strcat(filter, "(uid=");
-        PL_strcat(filter, uid);
-        PL_strcat(filter,")");
+         PR_snprintf( filter, filterSize, "%s%s", filter, "(uid=" );
+
+         PR_snprintf( filter, filterSize, "%s%s", filter,uid);
+
+         PR_snprintf( filter, filterSize, "%s%s", filter, ")" );
     }
 
     if (lastName != NULL) {
-        PL_strcat(filter, "(sn=");
-        PL_strcat(filter, lastName);
-        PL_strcat(filter,")");
+
+         PR_snprintf( filter, filterSize, "%s%s", filter, "(sn=" );
+
+         PR_snprintf( filter, filterSize, "%s%s", filter, lastName);
+
+         PR_snprintf( filter, filterSize, "%s%s", filter, ")");
     }
 
     if (firstName != NULL) {
-        PL_strcat(filter, "(givenName=");
-        PL_strcat(filter, firstName);
-        PL_strcat(filter,")");
+
+         PR_snprintf( filter, filterSize, "%s%s", filter, "(givenName=" );
+
+         PR_snprintf( filter, filterSize, "%s%s", filter, firstName);
+
+         PR_snprintf( filter, filterSize, "%s%s", filter, ")");
     }
 
-    PL_strcat(filter, ")");
+     PR_snprintf( filter, filterSize, "%s%s", filter, ")");
 
     do_free(uid);
     do_free(firstName);
@@ -955,7 +963,7 @@ char *add_profile_filter( char *filter, char *auth_filter)
 }
            
 
-void getFilter( char *filter, char *query )
+void getFilter( char *filter, int filterSize,  char *query )
 {
     char *uid  = NULL;
     char *tid  = NULL;
@@ -970,15 +978,15 @@ void getFilter( char *filter, char *query )
     filter[0] = '\0';
 
     if( tid == NULL && uid == NULL ) {
-      PL_strcat( filter, "(cn=*)" );
+      PR_snprintf( filter, filterSize, "%s%s", filter, "(cn=*)" );
     }
 
     if( tid != NULL && uid != NULL && view != NULL ) {
-        PL_strcat( filter, "(&" );
+        PR_snprintf( filter, filterSize, "%s%s", filter, "(&" );
     }
 
     if( tid != NULL ) {
-        PL_strcat( filter, "(cn=" );
+        PR_snprintf( filter, filterSize, "%s%s", filter, "(cn=" );
         end = PL_strchr( tid, '&' );
         len = PL_strlen( filter );
 
@@ -990,18 +998,18 @@ void getFilter( char *filter, char *query )
 
             filter[len+i] = '\0';
         } else {
-            PL_strcat( filter, tid+4 );
+            PR_snprintf( filter, filterSize, "%s%s", filter, tid+4);
         }
 
         if (view != NULL) {
-            PL_strcat( filter, "*)" );
+            PR_snprintf( filter, filterSize, "%s%s", filter, "*)");
         } else {
-            PL_strcat( filter, ")" );
+            PR_snprintf( filter, filterSize, "%s%s", filter, ")" );
         }
     }
 
     if( uid != NULL && view != NULL ) {
-        PL_strcat( filter, "(tokenUserID=" );
+        PR_snprintf( filter, filterSize, "%s%s", filter, "(tokenUserID=" );
         end = PL_strchr( uid, '&' );
         len = PL_strlen( filter );
         if( end != NULL ) {
@@ -1012,20 +1020,19 @@ void getFilter( char *filter, char *query )
 
             filter[len+i] = '\0';
         } else {
-            PL_strcat( filter, uid+4 );
+            PR_snprintf( filter, filterSize, "%s%s", filter, uid+4);
         }
 
-        PL_strcat( filter, "*)" );
-        /* PL_strcat( filter, ")" ); */
+        PR_snprintf( filter, filterSize, "%s%s", filter, "*)" );
     }
 
     if( tid != NULL && uid != NULL && view != NULL ) {
-        PL_strcat( filter, ")" );
+        PR_snprintf( filter, filterSize, "%s%s", filter, ")" );
     }
 }
 
 
-void getCN( char *cn, char *query )
+void getCN( char *cn, int cnSize,  char *query )
 {
     char *tid = NULL;
     char *end = NULL;
@@ -1045,13 +1052,13 @@ void getCN( char *cn, char *query )
 
             cn[i] = '\0';
         } else {
-            PL_strcat( cn, tid+4 );
+            PR_snprintf( cn, cnSize, "%s%s", cn, tid+4);
         }
     }
 }
 
 
-void getTemplateName( char *cn, char *query )
+void getTemplateName( char *cn, int cnSize,  char *query )
 {
     char *tid = NULL;
     char *end = NULL;
@@ -1072,7 +1079,7 @@ void getTemplateName( char *cn, char *query )
 
             cn[i] = '\0';
         } else {
-            PL_strcat( cn, tid+4 );
+            PR_snprintf( cn, cnSize, "%s%s", cn, tid+4);
         }
     }
 }
@@ -2648,24 +2655,6 @@ static int read_post(request_rec *r, apr_table_t **tab)
     return OK;
 }
 
-/**
- * add_authorization_data
- * writes variable that describe whether the user is an admin, agent or operator to the 
- * injection data.  Used by templates to determine which tabs to display
- */
-void add_authorization_data(const char *userid, int is_admin, int is_operator, int is_agent, char *injection)
-{
-    if (is_agent) {
-        PL_strcat(injection, "var agentAuth = \"true\";\n");
-    }
-    if (is_operator) {
-        PL_strcat(injection, "var operatorAuth = \"true\";\n");
-    }
-    if (is_admin) {
-        PL_strcat(injection, "var adminAuth = \"true\";\n");
-    }
-}
-
 /** 
  * check_injection_size
  * Used when the injection size can become large - as in the case where lists of tokens, certs or activities are being returned.
@@ -2676,6 +2665,8 @@ void add_authorization_data(const char *userid, int is_admin, int is_operator, i
  */
 int check_injection_size(char **injection, int *psize, char *fixed_injection)
 {
+
+   tokendbDebug("In check_injection_size");
    char *new_ptr = NULL;
    if (((*psize) - PL_strlen(*injection)) <= LOW_INJECTION_SIZE) {
        if ((*psize) > MAX_OVERLOAD * MAX_INJECTION_SIZE) {
@@ -2693,6 +2684,7 @@ int check_injection_size(char **injection, int *psize, char *fixed_injection)
                 return 1;
             }
        } else {
+            tokendbDebug("check_injection_size about to realloc the injection buffer");
             new_ptr = (char *) PR_Realloc(*injection, (*psize) + MAX_INJECTION_SIZE);
             if (new_ptr != NULL) {
                 //allocation successful
@@ -2705,6 +2697,84 @@ int check_injection_size(char **injection, int *psize, char *fixed_injection)
        }
    }
    return 0;
+}
+
+/**
+ * safe_injection_strcat
+ * try not to over write our buffer any more
+ * this routine will try to detect if we are going over the limit
+ * if so, attempt to alter the buffer.
+*/
+int  safe_injection_strcat(char ** injection, int *injection_size , char *catData, char * fixed_injection )
+{
+    int result = 0;
+
+    int current_len = strlen(*injection);
+    int cat_data_len = strlen(catData);
+
+    if ( cat_data_len == 0) {
+        return result;
+    }
+    int expected_len = current_len + cat_data_len;
+
+    if ( expected_len >= *injection_size ) {
+
+        RA::Debug( "safe_injection_strcat, about to truncate, resize injection buffer:  ", "current len: %d expected_len %d data_len: %d cur_injection_size %d",current_len, expected_len, cat_data_len, *injection_size );
+
+        /* We are going to get truncated!
+           Let's try to update the size of the buffer.
+        */
+
+        /* This will always return a bigger buffer, because we are passing in the full
+           current size of the buffer, not the current length of the string in the buffer.
+        */
+
+        int check_res = check_injection_size(injection, injection_size, fixed_injection);
+
+        RA::Debug( "safe_injection_strcat, done  resizing injection buffer:  ", " new injection size: %d ",*injection_size );
+
+        if (check_res == 1) {
+            return result;
+        }
+        /* let's check it one more time for truncation*/
+
+        if ( expected_len >= *injection_size ) {
+             RA::Debug( "safe_injection_strcat, about to truncate, second attempt after first try. resize injection buffer:  ", "current len: %d expected_len %d data_len: %d cur_injection_size %d",current_len, expected_len, cat_data_len, *injection_size );
+
+            check_res = check_injection_size(injection, injection_size, fixed_injection);
+        }
+
+        if ( check_res == 1 || (expected_len >= *injection_size)) {
+            return result;
+        }
+    }
+
+    PRUint32 sLen = PR_snprintf( *injection, *injection_size , "%s%s", *injection,   catData );
+
+    if (sLen == expected_len)
+       result = 0;
+    else
+       result = 1;
+
+    return result;
+}
+
+/**
+ * add_authorization_data
+ * writes variable that describe whether the user is an admin, agent or operator to the
+ * injection data.  Used by templates to determine which tabs to display
+ */
+void add_authorization_data(const char *userid, int is_admin, int is_operator, int is_agent, char **injection, int *injectionSize, char * fixed_injection)
+{
+    if (is_agent) {
+        safe_injection_strcat(injection, injectionSize ,"var agentAuth = \"true\";\n", fixed_injection );
+    }
+    if (is_operator) {
+        safe_injection_strcat(injection, injectionSize ,"var operatorAuth = \"true\";\n", fixed_injection );
+    }
+    if (is_admin) {
+        safe_injection_strcat(injection, injectionSize ,"var adminAuth = \"true\";\n", fixed_injection );
+    }
 }
 
 /*
@@ -3375,11 +3445,12 @@ mod_tokendb_handler( request_rec *rq )
     int status = LDAP_SUCCESS;
     int size, tagOffset, statusNum;
     char fixed_injection[MAX_INJECTION_SIZE];
+    int injection_size = MAX_INJECTION_SIZE;
     char pString[512] = "";
     char oString[512] = "";
     char pLongString[4096] = "";
     char configname[512] ="";
-    char filter[512] = "";
+    char filter[2048] = "";
     char msg[512] = "";
     char question_no[100] ="";
     char cuid[256] = "";
@@ -3441,7 +3512,7 @@ mod_tokendb_handler( request_rec *rq )
                              "var error = \"", error,
                              "\";\n", JS_STOP );
 
-                buf = getData( errorTemplate, injection );
+                buf = getData( errorTemplate, injection);
 
                 ( void ) ap_rwrite( ( const void * ) buf,
                                     PL_strlen( buf ), rq );
@@ -3582,7 +3653,7 @@ mod_tokendb_handler( request_rec *rq )
 
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "index", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n", 
                      "var userid = \"", userid, "\";\n",
@@ -3591,8 +3662,8 @@ mod_tokendb_handler( request_rec *rq )
                      "var target_list = \"", 
                       RA::GetConfigStore()->GetConfigAsString("target.configure.list", ""), "\";\n" );
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size , JS_STOP, fixed_injection );
 
         buf = getData( itemplate, injection );
         itemplate = NULL;
@@ -3607,13 +3678,13 @@ mod_tokendb_handler( request_rec *rq )
             return DONE;
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "index_operator", "Success", "Tokendb user authorization");
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n", 
                      "var userid = \"", userid,
                      "\";\n" );
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size , JS_STOP, fixed_injection );
 
         buf = getData( indexOperatorTemplate, injection );
     } else if( ( PL_strstr( query, "op=index_admin" ) ) ) {
@@ -3628,14 +3699,15 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "index_admin", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n", 
                      "var userid = \"", userid, "\";\n", 
                      "var target_list = \"", RA::GetConfigStore()->GetConfigAsString("target.configure.list", ""), "\";\n" );
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+
+        safe_injection_strcat(&injection, &injection_size , JS_STOP, fixed_injection );
 
         buf = getData( indexAdminTemplate, injection );
     } else if( ( PL_strstr( query, "op=do_token" ) ) ) {
@@ -4736,16 +4808,17 @@ mod_tokendb_handler( request_rec *rq )
         
         tokendbDebug( "do_token: rc = 0\n" );
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%d%s%s%s%s%s%s%s", JS_START,
                      "var rc = \"", rc, "\";\n",
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid,
                      "\";\n" );
 
-        add_allowed_token_transitions(token_ui_state, injection);
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_allowed_token_transitions(token_ui_state, injection, injection_size);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+
+        safe_injection_strcat(&injection, &injection_size , JS_STOP, fixed_injection );
 
         buf = getData( doTokenTemplate, injection );
 /* currently not used - alee
@@ -4763,13 +4836,13 @@ mod_tokendb_handler( request_rec *rq )
 
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "revoke", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s", JS_START,
                     "var uriBase = \"", uri, "\";\n",
                     "var userid = \"", userid,
                     "\";\n" );
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size , JS_STOP, fixed_injection );
 
         buf = getData( revokeTemplate, injection );
 */
@@ -4787,14 +4860,14 @@ mod_tokendb_handler( request_rec *rq )
 
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search_activity_admin", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid,
                      "\";\n" );
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size , JS_STOP, fixed_injection );
 
         buf = getData( searchActivityAdminTemplate, injection );
     } else if( ( PL_strstr( query, "op=search_activity" ) ) ) {
@@ -4810,7 +4883,7 @@ mod_tokendb_handler( request_rec *rq )
         } 
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search_activity", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid,
@@ -4818,11 +4891,11 @@ mod_tokendb_handler( request_rec *rq )
 
         topLevel = get_field(query, "top=", SHORT_LEN);
         if ((topLevel != NULL) && (PL_strstr(topLevel, "operator"))) {
-            PL_strcat(injection, "var topLevel = \"operator\";\n");
+            safe_injection_strcat(&injection, &injection_size , "var topLevel = \"operator\";\n", fixed_injection );
         }
         do_free(topLevel);
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size , JS_STOP, fixed_injection );
 
         buf = getData( searchActivityTemplate, injection );
     } else if( ( PL_strstr( query, "op=search_admin" ) ) || 
@@ -4840,13 +4913,13 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search_admin,search_users", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid,
                      "\";\n" );
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size , JS_STOP, fixed_injection );
 
         if ( PL_strstr( query, "op=search_admin" ) ) {
             buf = getData( searchAdminTemplate, injection );
@@ -4865,7 +4938,7 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search_certificate", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid,
@@ -4873,11 +4946,11 @@ mod_tokendb_handler( request_rec *rq )
 
         topLevel = get_field(query, "top=", SHORT_LEN);
         if ((topLevel != NULL) && (PL_strstr(topLevel, "operator"))) {
-            PL_strcat(injection, "var topLevel = \"operator\";\n");
+            safe_injection_strcat(&injection, &injection_size , "var topLevel = \"operator\";\n", fixed_injection );
         }
         do_free(topLevel);
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size , JS_STOP, fixed_injection );
 
         buf = getData( searchCertificateTemplate, injection );
     } else if( ( PL_strstr( query, "op=search" ) ) ) {
@@ -4892,7 +4965,7 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "search", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid,
@@ -4900,11 +4973,11 @@ mod_tokendb_handler( request_rec *rq )
         
         topLevel = get_field(query, "top=", SHORT_LEN);
         if ((topLevel != NULL) && (PL_strstr(topLevel, "operator"))) {
-            PL_strcat(injection, "var topLevel = \"operator\";\n");
+            safe_injection_strcat(&injection, &injection_size ,"var topLevel = \"operator\";\n" , fixed_injection );
         }
         do_free(topLevel);
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
 
         buf = getData( searchTemplate, injection );
     } else if( ( PL_strstr( query, "op=new" ) ) ) {
@@ -4920,13 +4993,13 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "new", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n", 
                      "var userid = \"", userid,
                      "\";\n" );
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection,&injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP , fixed_injection );
 
         buf = getData( newTemplate,injection );
     } else if ( ( PL_strstr( query, "op=add_user" ) ) ) {
@@ -4942,13 +5015,13 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "add_user", "Success", "Tokendb user authorization");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid,
                      "\";\n");
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP , fixed_injection );
 
         buf = getData( newUserTemplate,injection );
 
@@ -4982,8 +5055,9 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf( ( char * ) configname, 256, "target.%s.displayname", ptype ); 
         disp_conf_type = (char *) RA::GetConfigStore()->GetConfigAsString( configname );
 
-        large_injection = (char *) PR_Malloc(PL_strlen(pvalues) + MAX_INJECTION_SIZE);
-        PR_snprintf( large_injection, PL_strlen(pvalues) + MAX_INJECTION_SIZE,
+        int large_injection_size = PL_strlen(pvalues) + MAX_INJECTION_SIZE; 
+        large_injection = (char *) PR_Malloc(large_injection_size);
+        PR_snprintf( large_injection, large_injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
@@ -4995,8 +5069,9 @@ mod_tokendb_handler( request_rec *rq )
                      "var agent_must_approve = \"", agent_must_approve(ptype)? "true": "false", "\";\n",
                      "var conf_values= \"", pvalues, "\";\n");
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, large_injection); 
-        PL_strcat(large_injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &large_injection, &large_injection_size, NULL); 
+
+        safe_injection_strcat(&large_injection, &large_injection_size ,JS_STOP , NULL); 
 
         buf = getData( confirmDeleteConfigTemplate, large_injection );
 
@@ -5077,7 +5152,7 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf(pLongString, 4096, "%s;;%s", configname, new_value);
         RA::Audit(EV_CONFIG, AUDIT_MSG_CONFIG, userid, "Admin", "Success", oString, pLongString, "config item deleted");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
@@ -5086,8 +5161,8 @@ mod_tokendb_handler( request_rec *rq )
                       RA::GetConfigStore()->GetConfigAsString("target.agent_approve.list", ""), "\";\n",
                      "var target_list = \"", RA::GetConfigStore()->GetConfigAsString("target.configure.list", ""), "\";\n");
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP , fixed_injection );
 
         buf = getData( indexTemplate, injection );
     delete_config_parameter_cleanup:
@@ -5158,7 +5233,7 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf( ( char * ) configname, 256, "target.%s.displayname", ptype );
         disp_conf_type = (char *) RA::GetConfigStore()->GetConfigAsString( configname );
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n", 
@@ -5167,8 +5242,8 @@ mod_tokendb_handler( request_rec *rq )
                      "var conf_name = \"", pname, "\";\n",
                      "var conf_pattern = \"", pattern, "\";\n");
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection); //needed?
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection); //needed?
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP , fixed_injection );
 
         buf = getData( addConfigTemplate, injection );
     add_config_parameter_cleanup:
@@ -5246,7 +5321,7 @@ mod_tokendb_handler( request_rec *rq )
             tokendbDebug(error_msg);
         }
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
@@ -5255,8 +5330,8 @@ mod_tokendb_handler( request_rec *rq )
                      RA::GetConfigStore()->GetConfigAsString("target.agent_approve.list", ""), "\";\n",
                      "var target_list = \"", RA::GetConfigStore()->GetConfigAsString("target.configure.list", ""), "\";\n");
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection); 
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection); 
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP , fixed_injection );
 
         buf = getData( indexTemplate, injection );
     agent_change_config_state_cleanup:
@@ -5293,6 +5368,7 @@ mod_tokendb_handler( request_rec *rq )
 
         char *key_values = NULL;
         char *large_injection = NULL;
+        int  large_injection_size = 0;
         char *escaped = NULL;
         ConfigStore *store = NULL;
 
@@ -5330,8 +5406,9 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf( ( char * ) configname, 256, "target.%s.displayname", ptype );
         disp_conf_type = (char *) RA::GetConfigStore()->GetConfigAsString( configname );
 
-        large_injection = (char *) PR_Malloc(PL_strlen(key_values) + MAX_INJECTION_SIZE);
-        PR_snprintf( large_injection, PL_strlen(key_values) + MAX_INJECTION_SIZE,
+        large_injection_size = PL_strlen(key_values) + MAX_INJECTION_SIZE; 
+        large_injection = (char *) PR_Malloc(large_injection_size);
+        PR_snprintf( large_injection, large_injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n", 
@@ -5342,8 +5419,8 @@ mod_tokendb_handler( request_rec *rq )
                      "var conf_tstamp = \"", ptimestamp,  "\";\n",
                      "var conf_values= \"", escaped, "\";\n");
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, large_injection); //needed?
-        PL_strcat(large_injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &large_injection, &large_injection_size, NULL); //needed?
+        safe_injection_strcat(&large_injection, &large_injection_size ,JS_STOP , NULL );
 
         buf = getData( agentViewConfigTemplate, large_injection );
     agent_view_config_cleanup:
@@ -5387,6 +5464,7 @@ mod_tokendb_handler( request_rec *rq )
         char *escaped = NULL;
         ConfigStore *store = NULL;
         char *large_injection = NULL;
+        int  large_injection_size = 0;
         char *pattern = NULL;
         char *disp_conf_type = NULL;
         int return_done = 0;
@@ -5422,9 +5500,10 @@ mod_tokendb_handler( request_rec *rq )
 
         PR_snprintf( ( char * ) configname, 256, "target.%s.displayname", ptype ); 
         disp_conf_type = (char *) RA::GetConfigStore()->GetConfigAsString( configname );
- 
-        large_injection = (char *) PR_Malloc(PL_strlen(key_values) + MAX_INJECTION_SIZE);
-        PR_snprintf( large_injection, PL_strlen(key_values) + MAX_INJECTION_SIZE,
+
+        large_injection_size = PL_strlen(key_values) + MAX_INJECTION_SIZE; 
+        large_injection = (char *) PR_Malloc(large_injection_size);
+        PR_snprintf( large_injection, large_injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n", 
@@ -5437,8 +5516,8 @@ mod_tokendb_handler( request_rec *rq )
                      "var conf_pattern = \"", pattern, "\";\n",
                      "var conf_values= \"", escaped, "\";\n");
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, large_injection); //needed?
-        PL_strcat(large_injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &large_injection, &large_injection_size, NULL); //needed?
+        safe_injection_strcat(&large_injection, &large_injection_size ,JS_STOP , NULL );
 
         buf = getData( editConfigTemplate, large_injection );
     edit_config_parameter_cleanup:
@@ -5479,6 +5558,7 @@ mod_tokendb_handler( request_rec *rq )
         char *pvalues = NULL;
 
         char *large_injection = NULL;
+        int  large_injection_size = 0;
         char *pattern = NULL;
         char *disp_conf_type = NULL;
         int return_done = 0;
@@ -5501,9 +5581,9 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf( ( char * ) configname, 256, "target.%s.displayname", ptype ); 
         disp_conf_type = (char *) RA::GetConfigStore()->GetConfigAsString( configname );
 
- 
-        large_injection = (char *) PR_Malloc(PL_strlen(pvalues) + MAX_INJECTION_SIZE);
-        PR_snprintf( large_injection, PL_strlen(pvalues) + MAX_INJECTION_SIZE,
+        large_injection_size = PL_strlen(pvalues) + MAX_INJECTION_SIZE; 
+        large_injection = (char *) PR_Malloc(large_injection_size);
+        PR_snprintf( large_injection, large_injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n", 
@@ -5516,8 +5596,8 @@ mod_tokendb_handler( request_rec *rq )
                      "var conf_pattern = \"", pattern, "\";\n",
                      "var conf_values= \"", pvalues, "\";\n");
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, large_injection); //needed?
-        PL_strcat(large_injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &large_injection, &large_injection_size, NULL); //needed?
+        safe_injection_strcat(&large_injection, &large_injection_size ,JS_STOP , NULL );
 
         buf = getData( editConfigTemplate, large_injection );
     return_to_edit_config_parameter_cleanup:
@@ -5664,11 +5744,11 @@ mod_tokendb_handler( request_rec *rq )
         disp_conf_type = (char *) RA::GetConfigStore()->GetConfigAsString( configname );
 
         if ((PL_strlen(escaped_added_str) + PL_strlen(escaped_changed_str) + PL_strlen(escaped_deleted_str))!=0) {
-            int injection_size = PL_strlen(escaped_deleted_str) + PL_strlen(escaped_pvalues) + PL_strlen(escaped_added_str) + 
+            int large_injection_size = PL_strlen(escaped_deleted_str) + PL_strlen(escaped_pvalues) + PL_strlen(escaped_added_str) + 
                 PL_strlen(escaped_changed_str) + MAX_INJECTION_SIZE;
-            char * large_injection = (char *) PR_Malloc(injection_size);
+            char * large_injection = (char *) PR_Malloc(large_injection_size);
 
-            PR_snprintf( large_injection, injection_size,
+            PR_snprintf( large_injection, large_injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n", 
@@ -5683,8 +5763,8 @@ mod_tokendb_handler( request_rec *rq )
                      "var conf_approval_requested = \"", (PL_strcmp(choice, "Save") == 0) ? "FALSE" : "TRUE", "\";\n",
                      "var deleted_str= \"", escaped_deleted_str, "\";\n");
 
-            add_authorization_data(userid, is_admin, is_operator, is_agent, large_injection); //needed?
-            PL_strcat(large_injection, JS_STOP);
+            add_authorization_data(userid, is_admin, is_operator, is_agent, &large_injection, &large_injection_size, NULL); //needed?
+            safe_injection_strcat(&large_injection, &large_injection_size ,JS_STOP , NULL );
 
             buf = getData( confirmConfigChangesTemplate, large_injection );
 
@@ -5711,7 +5791,7 @@ mod_tokendb_handler( request_rec *rq )
                 PR_snprintf(flash, 512, "The data displayed is up-to-date.  No changes need to be saved.");
             }
 
-            PR_snprintf( injection, MAX_INJECTION_SIZE,
+            PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
@@ -5720,8 +5800,8 @@ mod_tokendb_handler( request_rec *rq )
                       RA::GetConfigStore()->GetConfigAsString("target.agent_approve.list", ""), "\";\n",
                      "var target_list = \"", RA::GetConfigStore()->GetConfigAsString("target.configure.list", ""), "\";\n");
 
-            add_authorization_data(userid, is_admin, is_operator, is_agent, injection); 
-            PL_strcat(injection, JS_STOP);
+            add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+            safe_injection_strcat(&injection, &injection_size ,JS_STOP , fixed_injection ); 
             buf = getData( indexTemplate, injection );
         }
 
@@ -5871,7 +5951,7 @@ mod_tokendb_handler( request_rec *rq )
             }
         }
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
@@ -5880,8 +5960,8 @@ mod_tokendb_handler( request_rec *rq )
                      RA::GetConfigStore()->GetConfigAsString("target.agent_approve.list", ""), "\";\n",
                      "var target_list = \"", RA::GetConfigStore()->GetConfigAsString("target.configure.list", ""), "\";\n");
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection); 
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP , fixed_injection );
 
         buf = getData( indexTemplate, injection );
     save_config_changes_cleanup:
@@ -5983,17 +6063,17 @@ mod_tokendb_handler( request_rec *rq )
 
         if ((PL_strstr( query, "op=view_activity_admin")) || 
             (PL_strstr( query, "op=view_activity" ) )) {
-            getActivityFilter( filter, query );
+            getActivityFilter( filter, 2048, query );
         } else if( PL_strstr( query, "op=view_certificate" ) ) {
-            getCertificateFilter( filter, query );
+            getCertificateFilter( filter, 2048, query );
         } else if( PL_strstr( query, "op=show_certificate" ) ) {
-            getCertificateFilter( filter, query );
+            getCertificateFilter( filter, 2048,  query );
         } else if ((PL_strstr( query, "op=view_users" ) ) ||
                    (PL_strstr( query, "op=user_delete_confirm")) ||
                    (PL_strstr( query, "op=edit_user" ) )) {
-            getUserFilter( filter, query );
+            getUserFilter( filter, 2048, query );
         } else {
-            getFilter( filter, query );
+            getFilter( filter, 2048, query );
         }
 
         auth_filter = get_authorized_profiles(userid, is_admin);
@@ -6093,12 +6173,18 @@ mod_tokendb_handler( request_rec *rq )
         size = 0;
 
         PL_strcpy( injection, JS_START );
-        PL_strcat( injection, "var userid = \"" );
-        PL_strcat( injection, userid );
-        PL_strcat( injection, "\";\n" );
-        PL_strcat( injection, "var uriBase = \"" );
-        PL_strcat( injection, uri );
-        PL_strcat( injection, "\";\n" );
+
+        safe_injection_strcat(&injection, &injection_size ,"var userid = \"" , fixed_injection );
+
+        safe_injection_strcat(&injection, &injection_size , userid , fixed_injection );
+
+        safe_injection_strcat(&injection, &injection_size , "\";\n" , fixed_injection ); 
+
+        safe_injection_strcat(&injection, &injection_size , "var uriBase = \"" , fixed_injection );
+
+        safe_injection_strcat(&injection, &injection_size ,uri , fixed_injection );
+
+        safe_injection_strcat(&injection, &injection_size , "\";\n" , fixed_injection );
 
         if( nEntries > 1 ) {
             if( sendInPieces && PL_strstr( query, "op=view_activity_admin" ) ) {
@@ -6137,35 +6223,36 @@ mod_tokendb_handler( request_rec *rq )
                 }
             }
 
-            PL_strcat( injection, "var total = \"" );
+            safe_injection_strcat(&injection, &injection_size , "var total = \"" , fixed_injection );
 
             len = PL_strlen( injection );
 
-            PR_snprintf( &injection[len], ( MAX_INJECTION_SIZE-len ),
+            PR_snprintf( &injection[len], ( injection_size-len ),
                          "%d", nEntries );
 
-            PL_strcat( injection, "\";\n" );
+            safe_injection_strcat(&injection, &injection_size , "\";\n" , fixed_injection );
         } else {
             if( ( vals = get_token_states() ) != NULL ) {
-                PL_strcat( injection, "var tokenStates = \"" );
+                safe_injection_strcat(&injection, &injection_size , "var tokenStates = \"" , fixed_injection );
                 for( i = 0; vals[i] != NULL; i++ ) {
                     if( i > 0 ) {
-                        PL_strcat( injection, "," );
+                        safe_injection_strcat(&injection, &injection_size , "," , fixed_injection );
                     }
 
-                    PL_strcat( injection, vals[i] );
+                    safe_injection_strcat(&injection, &injection_size , vals[i] , fixed_injection );
                 }
 
                 if( i > 0 ) {
-                    PL_strcat( injection, "\";\n" );
+                    safe_injection_strcat(&injection, &injection_size , "\";\n" , fixed_injection );
                 } else {
-                    PL_strcat( injection, "null;\n" );
+                    safe_injection_strcat(&injection, &injection_size , "null;\n" , fixed_injection );
                 }
             }
         }
 
-        PL_strcat( injection, "var results = new Array();\n" );
-        PL_strcat( injection, "var item = 0;\n" );
+        safe_injection_strcat(&injection, &injection_size , "var results = new Array();\n" , fixed_injection );
+
+        safe_injection_strcat(&injection, &injection_size , "var item = 0;\n" , fixed_injection );
 
         if( PL_strstr( query, "op=do_confirm_token" ) ) {
                 question = PL_strstr( query, "question=" );
@@ -6174,9 +6261,11 @@ mod_tokendb_handler( request_rec *rq )
 
                 PR_snprintf( question_no, 256, "%d", q );
 
-                PL_strcat( injection, "var question = \"" );
-                PL_strcat( injection, question_no );
-                PL_strcat( injection, "\";\n" );
+                safe_injection_strcat(&injection, &injection_size , "\"" , fixed_injection );
+
+                safe_injection_strcat(&injection, &injection_size , "question_no" , fixed_injection ); 
+
+                safe_injection_strcat(&injection, &injection_size , "\";\n" , fixed_injection );
         }
 
         if (PL_strstr( query, "op=do_confirm_token" ) ||
@@ -6217,16 +6306,19 @@ mod_tokendb_handler( request_rec *rq )
         if (PL_strstr(query, "op=edit_user") ) {
            char *flash = get_field(query, "flash=", SHORT_LEN);
            if (flash != NULL) {
-              PL_strcat(injection, "var flash = \"");
-              PL_strcat(injection, flash);
-              PL_strcat(injection, "\";\n");
+              
+              safe_injection_strcat(&injection, &injection_size , "\"" , fixed_injection );
+
+              safe_injection_strcat(&injection, &injection_size , flash , fixed_injection );
+           
+              safe_injection_strcat(&injection, &injection_size , "\";\n" , fixed_injection ); 
               do_free(flash);
            }
            PR_snprintf(msg, 256, "var num_profiles_to_display = %d ;\n", NUM_PROFILES_TO_DISPLAY);
-           PL_strcat(injection, msg);
+           safe_injection_strcat(&injection, &injection_size , msg , fixed_injection );
         }
 
-        int injection_size = MAX_INJECTION_SIZE;
+        //int injection_size = MAX_INJECTION_SIZE;
         /* start_entry_val is used for pagination of entries on all other pages */
         int start_entry_val;
         int end_entry_val;
@@ -6243,7 +6335,7 @@ mod_tokendb_handler( request_rec *rq )
 
         if( (maxReturns > 0) && (maxReturns < nEntries)) {
             PR_snprintf(msg, 256, "var limited = %d ;\n", maxReturns);
-            PL_strcat( injection, msg);
+            safe_injection_strcat(&injection, &injection_size , msg , fixed_injection );
         }
 
         for( e = get_first_entry( result );
@@ -6254,29 +6346,35 @@ mod_tokendb_handler( request_rec *rq )
 
             if ((entryNum < start_entry_val) || (entryNum >= end_entry_val)) {
                 if (one_time == 1) {
-                    PL_strcat(injection, "var my_query = \"");
-                    PL_strcat(injection, query);
-                    PL_strcat(injection, "\";\n");
+
+                    safe_injection_strcat(&injection, &injection_size , "var my_query = \"" , fixed_injection );
+
+                    safe_injection_strcat(&injection, &injection_size , query , fixed_injection );
+ 
+                    safe_injection_strcat(&injection, &injection_size , "\";\n" , fixed_injection ); 
                     one_time =0;
                 }
                 // skip values not within the page range
                 if (entryNum == end_entry_val) {
-                    PL_strcat( injection, "var has_more_entries = 1;\n"); 
+                    safe_injection_strcat(&injection, &injection_size , "var has_more_entries = 1;\n" , fixed_injection );
                     break;
                 } 
                 continue;
             }
 
-            PL_strcat( injection, "var o = new Object();\n" );
+            safe_injection_strcat(&injection, &injection_size ,"var o = new Object();\n"  , fixed_injection );
 
             for( n = 0; attrs[n] != NULL; n++ ) {
                 /* Get the values of the attribute. */
                 if( ( vals = get_attribute_values( e, attrs[n] ) ) != NULL ) {
                     int v_start =0;
                     int v_end = MAX_INJECTION_SIZE;
-                    PL_strcat( injection, "o." );
-                    PL_strcat( injection, attrs[n] );
-                    PL_strcat( injection, " = " );
+
+                    safe_injection_strcat(&injection, &injection_size ,"o."  , fixed_injection );
+
+                    safe_injection_strcat(&injection, &injection_size , attrs[n] , fixed_injection );
+
+                    safe_injection_strcat(&injection, &injection_size , " = "  , fixed_injection );
 
                     if (PL_strstr(attrs[n], PROFILE_ID)) {
                         v_start = start_val;
@@ -6285,23 +6383,23 @@ mod_tokendb_handler( request_rec *rq )
 
                     for( i = v_start; (vals[i] != NULL) && (i < v_end); i++ ) {
                         if( i > start_val ) {
-                            PL_strcat( injection, "#" );
+                            safe_injection_strcat(&injection, &injection_size , "#"  , fixed_injection );
                         } else {
-                            PL_strcat( injection, "\"" );
+                            safe_injection_strcat(&injection, &injection_size ,"\""  , fixed_injection );
                         }
 
                         // make sure to escape any special characters
                         char *escaped = escapeSpecialChars(vals[i]);
-                        PL_strcat( injection, escaped );
+                        safe_injection_strcat(&injection, &injection_size ,escaped  , fixed_injection );
                         if (escaped != NULL) {
                             PL_strfree(escaped);
                         }
                     }
 
                     if( i > v_start ) {
-                        PL_strcat( injection, "\";\n" );
+                        safe_injection_strcat(&injection, &injection_size ,"\";\n"  , fixed_injection );
                     } else {
-                        PL_strcat( injection, "null;\n" );
+                        safe_injection_strcat(&injection, &injection_size ,"null;\n"  , fixed_injection );
                     }
 
                     if ((PL_strcmp(attrs[n], TOKEN_STATUS)==0) && show_token_ui_state) {
@@ -6314,13 +6412,14 @@ mod_tokendb_handler( request_rec *rq )
 
                     if (PL_strstr(attrs[n], PROFILE_ID))  {
                         if (vals[i] != NULL) { 
-                            PL_strcat( injection, "var has_more_profile_vals = \"true\";\n");
+                            safe_injection_strcat(&injection, &injection_size ,"var has_more_profile_vals = \"true\";\n"  , fixed_injection );
                         } else {
-                            PL_strcat( injection, "var has_more_profile_vals = \"false\";\n");
+                            safe_injection_strcat(&injection, &injection_size ,"var has_more_profile_vals = \"false\";\n"  , fixed_injection );
                         }
                         PR_snprintf(msg, 256, "var start_val = %d ;\n var end_val = %d ;\n", 
                             start_val, i);
-                        PL_strcat( injection, msg);
+
+                        safe_injection_strcat(&injection, &injection_size ,msg  , fixed_injection );
                     }
 
                     /* Free the attribute values from memory when done. */
@@ -6331,19 +6430,15 @@ mod_tokendb_handler( request_rec *rq )
                 }
             }
 
-            PL_strcat( injection, "results[item++] = o;\n" );
-
-            if (check_injection_size(&injection, &injection_size, fixed_injection) != 0) {
-                // failed to allocate more space to injection, truncating output
-                break;
-            }
+            safe_injection_strcat(&injection, &injection_size ,"results[item++] = o;\n"  , fixed_injection );
 
             if( first_pass == 1 && nEntries > 1 && sendPieces == 0 ) {
                 first_pass=0;
 
 		PR_snprintf(msg, 256, "var start_entry_val = %d ; \nvar num_entries_per_page= %d ; \n", 
                             start_entry_val, NUM_ENTRIES_PER_PAGE);
-                PL_strcat( injection, msg);
+
+                safe_injection_strcat(&injection, &injection_size ,msg  , fixed_injection );
             }
 
             if( sendPieces ) {
@@ -6385,19 +6480,19 @@ mod_tokendb_handler( request_rec *rq )
                 } 
             }
             if (officer) {
-                 PL_strcat( injection, "var operator = \"CHECKED\"\n");
+                 safe_injection_strcat(&injection, &injection_size, "var operator = \"CHECKED\"\n"  , fixed_injection );
             } else {
-                 PL_strcat( injection, "var operator = \"\"\n");
+                 safe_injection_strcat(&injection, &injection_size ,"var operator = \"\"\n"  , fixed_injection );
             }
             if (agent) {
-                 PL_strcat( injection, "var agent = \"CHECKED\"\n");
+                 safe_injection_strcat(&injection, &injection_size ,"var agent = \"CHECKED\"\n"  , fixed_injection );
             } else {
-                 PL_strcat( injection, "var agent = \"\"\n");
+                 safe_injection_strcat(&injection, &injection_size ,"var agent = \"\"\n"  , fixed_injection );
             }
             if (admin) {
-                 PL_strcat( injection, "var admin = \"CHECKED\"\n");
+                 safe_injection_strcat(&injection, &injection_size ,"var admin = \"CHECKED\"\n"  , fixed_injection );
             } else {
-                 PL_strcat( injection, "var admin = \"\"\n");
+                 safe_injection_strcat(&injection, &injection_size ,"var admin = \"\"\n"  , fixed_injection );
             }
 
             if( result != NULL ) {
@@ -6417,47 +6512,49 @@ mod_tokendb_handler( request_rec *rq )
 
                 char *pList = PL_strdup(profileList);
                 char *sresult = NULL;
-                
-                PL_strcat( injection, "var profile_list = new Array(");
+                safe_injection_strcat(&injection, &injection_size ,"var profile_list = new Array("  , fixed_injection );
                 sresult = strtok(pList, ",");
                 n_profiles++;
                 while (sresult != NULL) {
                     n_profiles++;
                     l_profiles  += PL_strlen(sresult);
                     if ((n_profiles > NUM_PROFILES_TO_DISPLAY) || (l_profiles > MAX_LEN_PROFILES_TO_DISPLAY)) {
-                        PL_strcat(injection, "\"Other Profiles\",");
+                        safe_injection_strcat(&injection, &injection_size ,"\"Other Profiles\"," , fixed_injection );
                         more_profiles = true;
                         break;
                     }
 
-                    PL_strcat(injection, "\"");
-                    PL_strcat(injection, sresult);
-                    PL_strcat(injection, "\",");
+                    safe_injection_strcat(&injection, &injection_size ,"\"" , fixed_injection );
+
+                    safe_injection_strcat(&injection, &injection_size ,sresult , fixed_injection );
+
+                    safe_injection_strcat(&injection, &injection_size ,"\"," , fixed_injection );
                     sresult = strtok(NULL, ",");
                 }
                 do_free(pList);
-                PL_strcat(injection, "\"All Profiles\")\n");
+                safe_injection_strcat(&injection, &injection_size ,"\"All Profiles\")\n" , fixed_injection );
+
                 if (more_profiles) {
-                    PL_strcat(injection, "var more_profiles=\"true\";\n");
+                    safe_injection_strcat(&injection, &injection_size ,"var more_profiles=\"true\";\n"  , fixed_injection );
                 } else {
-                    PL_strcat(injection, "var more_profiles=\"false\";\n");
+                    safe_injection_strcat(&injection, &injection_size ,"var more_profiles=\"false\";\n" , fixed_injection );
                 }
             }
         }
         topLevel = get_field(query, "top=", SHORT_LEN);
         if ((topLevel != NULL) && (PL_strstr(topLevel, "operator"))) {
-            PL_strcat(injection, "var topLevel = \"operator\";\n");
+            safe_injection_strcat(&injection, &injection_size ,"var topLevel = \"operator\";\n", fixed_injection );
         }
         do_free(topLevel);
 
         /* populate the authorized token transitions */
         if (show_token_ui_state) {
             token_ui_state = get_token_ui_state(tokenStatus, tokenReason);
-            add_allowed_token_transitions(token_ui_state, injection);
+            add_allowed_token_transitions(token_ui_state, injection, injection_size);
         }
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat( injection, JS_STOP );
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
 
         if( sendPieces ) {
             ( void ) ap_rwrite( ( const void * ) injection,
@@ -6628,7 +6725,7 @@ mod_tokendb_handler( request_rec *rq )
         if ((test_user != NULL) && (strcmp(test_user, uid) == 0)) {
             // cert did not change
         } else {
-            if (strlen(pLongString) > 0)  PL_strcat(pLongString, "+");
+            if (strlen(pLongString) > 0)  PL_strncat(pLongString, "+", 4096);
             PR_snprintf(pLongString, 4096, "%suserCertificate;;%s", pLongString, userCert);
         }
 
@@ -6793,7 +6890,7 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "save", "Success", "Tokendb user authorization");
 
-        getCN( filter, query );
+        getCN( filter, 512, query );
         mNum = parse_modification_number( query );
         mods = getModifications( query );
 
@@ -6813,11 +6910,11 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf(pLongString, 4096, "");
         int first_item = 1;
         for (cc = 0; mods[cc] != NULL; cc++) {
-           if (! first_item) PL_strcat(pLongString, "+");
+           if (! first_item) PL_strncat(pLongString, "+",4096);
            if (mods[cc]->mod_type != NULL) { 
-               PL_strcat(pLongString, mods[cc]->mod_type);
-               PL_strcat(pLongString, ";;");
-               PL_strcat(pLongString, *mods[cc]->mod_values);
+               PL_strncat(pLongString, mods[cc]->mod_type, 4096);
+               PL_strncat(pLongString, ";;", 4096);
+               PL_strncat(pLongString, *mods[cc]->mod_values, 4096);
                first_item =0;
            } 
         }
@@ -6841,13 +6938,13 @@ mod_tokendb_handler( request_rec *rq )
         RA::tdb_activity(rq->connection->remote_ip, cuid, "save", "success",
             msg, cuidUserId, tokenType);
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
                      "var tid = \"", filter, "\";\n");
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size, JS_STOP, fixed_injection );
 
         buf = getData( editResultTemplate, injection );
 
@@ -6949,14 +7046,14 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf(oString, 512, "uid;;%s", uid);
         RA::Audit(EV_CONFIG_ROLE, AUDIT_MSG_CONFIG, userid, "Admin", "success", oString, "", "tokendb user deleted"); 
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
                      "var tid = \"",     uid, "\";\n",
                      "var deleteType = \"user\";\n");
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
 
         do_free(uid);
         
@@ -7106,14 +7203,14 @@ mod_tokendb_handler( request_rec *rq )
         do_free(opAgent);
         do_free(userCert);
        
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
                      "var tid = \"",     uid, "\";\n", 
                      "var addType = \"user\";\n");
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
 
         do_free(uid);
         
@@ -7132,7 +7229,7 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "add", "Success", "Tokendb user authorization");
 
-        getCN( filter, query );
+        getCN( filter, 512,  query );
 
         if (m_processor.GetTokenType(OP_PREFIX, 0, 0, filter, (const char*) NULL, (NameValueSet*) NULL,
                 token_type_status, tokentype)) {
@@ -7169,15 +7266,14 @@ mod_tokendb_handler( request_rec *rq )
             "'%s' has created new token", userid);
         RA::tdb_activity(rq->connection->remote_ip, filter, "add", "token", msg, "success", tokenType);
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection,injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
                      "var tid = \"",    filter, "\";\n", 
                      "var addType = \"token\";\n");
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
-
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
 
         buf = getData( addResultTemplate, injection );
     } else if( PL_strstr( query, "op=delete" ) ) {
@@ -7195,7 +7291,7 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "delete", "Success", "Tokendb user authorization");
 
-        getCN( filter, query );
+        getCN( filter, 512,  query );
 
         if (m_processor.GetTokenType(OP_PREFIX, 0, 0, filter, (const char*) NULL, (NameValueSet*) NULL,
                 token_type_status, tokentype)) {
@@ -7224,14 +7320,14 @@ mod_tokendb_handler( request_rec *rq )
 
         RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Admin", "Success", oString, "",  "token record deleted");
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
                      "var tid = \"", filter, "\";\n", 
                      "var deleteType = \"token\";\n");
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
 
         buf = getData( deleteResultTemplate, injection );
     } else if ( PL_strstr( query, "op=audit_admin") ) {
@@ -7248,7 +7344,7 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "audit_admin", "Success", "Tokendb user authorization");
 
-        PR_snprintf (injection, MAX_INJECTION_SIZE,
+        PR_snprintf (injection, injection_size,
              "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s%s%d%s%s%s%s%s%s%s%s%s%s", JS_START,
              "var uriBase = \"", uri, "\";\n",
              "var userid = \"", userid, "\";\n",
@@ -7272,14 +7368,16 @@ mod_tokendb_handler( request_rec *rq )
          
         char *flash = get_field(query, "flash=", SHORT_LEN);
         if (flash != NULL) {
-            PL_strcat(injection, "var flash = \"");
-            PL_strcat(injection, flash);
-            PL_strcat(injection, "\";\n");
+            safe_injection_strcat(&injection, &injection_size ,"var flash = \"", fixed_injection );
+
+            safe_injection_strcat(&injection, &injection_size ,flash, fixed_injection );
+          
+            safe_injection_strcat(&injection, &injection_size ,"\";\n", fixed_injection ); 
             do_free(flash);
         }
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size,fixed_injection);
+        safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
         buf = getData(auditAdminTemplate, injection);
     } else if (PL_strstr( query, "op=update_audit_admin") ) {
         tokendbDebug( "authorization for op=audit_admin\n" );
@@ -7319,8 +7417,8 @@ mod_tokendb_handler( request_rec *rq )
             if (o_signing != n_signing) {
                 PR_snprintf(pString, 512, "logging.audit.logSigning;;%s", (n_signing)? "true":"false");
                 if (o_enable != n_enable) {
-                    PL_strcat(pString, "+logging.audit.enable;;");
-                    PL_strcat(pString, (n_enable)? "true" : "false");
+                    PL_strncat(pString, "+logging.audit.enable;;", 512);
+                    PL_strncat(pString, (n_enable)? "true" : "false", 512);
                 }
             } else {
                 PR_snprintf(pString, 512, "logging.audit.enable;;%s", (n_enable)? "true":"false");
@@ -7395,10 +7493,10 @@ mod_tokendb_handler( request_rec *rq )
             char *event = get_post_field(post, e_name, SHORT_LEN);
             if ((event != NULL) && RA::IsValidEvent(event)) {
                 if (first_match != 1) {
-                    PL_strcat(new_selected, ",");
+                    PL_strncat(new_selected, ",", MAX_INJECTION_SIZE);
                 }
                 first_match = 0;
-                PL_strcat(new_selected, event);
+                PL_strncat(new_selected, event, MAX_INJECTION_SIZE);
             }
             do_free(event);
         }
@@ -7450,7 +7548,7 @@ mod_tokendb_handler( request_rec *rq )
         }
         RA::Audit(EV_AUTHZ_SUCCESS, AUDIT_MSG_AUTHZ, userid, "self_test", "Success", "Tokendb user authorization");
 
-        PR_snprintf (injection, MAX_INJECTION_SIZE,
+        PR_snprintf (injection, injection_size,
              "%s%s%s%s%s%s%s%s%d%s%s%d%s", JS_START,
              "var uriBase = \"", uri, "\";\n",
              "var userid = \"", userid, "\";\n",
@@ -7458,20 +7556,23 @@ mod_tokendb_handler( request_rec *rq )
              "var critical = ", SelfTest::isOnDemandCritical(), ";\n");
 
         if (SelfTest::nTests > 0)
-            PL_strcat(injection, "var test_list = [");
+             safe_injection_strcat(&injection, &injection_size ,"var test_list = [", fixed_injection );
         for (int i = 0; i < SelfTest::nTests; i++) {
             RA::Debug( "mod_tokendb::mod_tokendb_handler", "test name: %s", SelfTest::TEST_NAMES[i]);
             if (i > 0)
-                PL_strcat(injection, ", ");
-            PL_strcat(injection, "\"");
-            PL_strcat(injection, SelfTest::TEST_NAMES[i]);
-            PL_strcat(injection, "\"");
+                 safe_injection_strcat(&injection, &injection_size ,", ", fixed_injection );
+
+             safe_injection_strcat(&injection, &injection_size ,"\"", fixed_injection );
+           
+             safe_injection_strcat(&injection, &injection_size , (char *) SelfTest::TEST_NAMES[i], fixed_injection ); 
+            
+             safe_injection_strcat(&injection, &injection_size ,"\"", fixed_injection );
         }
         if (SelfTest::nTests > 0)
-            PL_strcat(injection, "];\n");
+             safe_injection_strcat(&injection, &injection_size ,"];\n", fixed_injection );
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+         safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
         buf = getData(selfTestTemplate, injection);
     } else if ( PL_strstr( query, "op=run_self_test" ) ) {
         tokendbDebug( "authorization for run_self_test\n" );
@@ -7489,7 +7590,7 @@ mod_tokendb_handler( request_rec *rq )
 
         rc = SelfTest::runOnDemandSelfTests();
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%d%s%s%d%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
@@ -7497,20 +7598,23 @@ mod_tokendb_handler( request_rec *rq )
                      "var result = \"", rc, "\";\n");
 
         if (SelfTest::nTests > 0)
-            PL_strcat(injection, "var test_list = [");
+            safe_injection_strcat(&injection, &injection_size , "var test_list = [", fixed_injection );
         for (int i = 0; i < SelfTest::nTests; i++) {
             RA::Debug( "mod_tokendb::mod_tokendb_handler", "test name: %s", SelfTest::TEST_NAMES[i]);
             if (i > 0)
-                PL_strcat(injection, ", ");
-            PL_strcat(injection, "\"");
-            PL_strcat(injection, SelfTest::TEST_NAMES[i]);
-            PL_strcat(injection, "\"");
+                 safe_injection_strcat(&injection, &injection_size ,", ", fixed_injection );
+
+             safe_injection_strcat(&injection, &injection_size ,"\"", fixed_injection ); 
+ 
+             safe_injection_strcat(&injection, &injection_size , (char *) SelfTest::TEST_NAMES[i], fixed_injection );
+
+             safe_injection_strcat(&injection, &injection_size ,"\"", fixed_injection );
         }
         if (SelfTest::nTests > 0)
-            PL_strcat(injection, "];\n");
+             safe_injection_strcat(&injection, &injection_size , "];\n", fixed_injection );
 
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection);
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection);
+         safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
 
         buf = getData( selfTestResultsTemplate, injection );
     } else if( ( PL_strstr( query, "op=agent_select_config" ) ) ) {
@@ -7553,7 +7657,7 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf( ( char * ) configname, 256, "target.%s.displayname", conf_type ); 
         disp_conf_type = (char *) RA::GetConfigStore()->GetConfigAsString( configname );
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
@@ -7562,8 +7666,8 @@ mod_tokendb_handler( request_rec *rq )
                      "var conf_list = \"", (conf_list != NULL)? conf_list : "", "\";\n");
 
         do_free(conf_type);
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection); //needed?
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection); //needed?
+         safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
 
         buf = getData( agentSelectConfigTemplate, injection );
     } else if( ( PL_strstr( query, "op=select_config_parameter" ) ) ) {
@@ -7596,7 +7700,7 @@ mod_tokendb_handler( request_rec *rq )
         PR_snprintf( ( char * ) configname, 256, "target.%s.displayname", conf_type ); 
         const char *disp_conf_type = (char *) RA::GetConfigStore()->GetConfigAsString( configname );
 
-        PR_snprintf( injection, MAX_INJECTION_SIZE,
+        PR_snprintf( injection, injection_size,
                      "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", JS_START,
                      "var uriBase = \"", uri, "\";\n",
                      "var userid = \"", userid, "\";\n",
@@ -7606,8 +7710,8 @@ mod_tokendb_handler( request_rec *rq )
 
         do_free(conf_type);
         // do_free(conf_list);
-        add_authorization_data(userid, is_admin, is_operator, is_agent, injection); //needed?
-        PL_strcat(injection, JS_STOP);
+        add_authorization_data(userid, is_admin, is_operator, is_agent, &injection, &injection_size, fixed_injection); //needed?
+         safe_injection_strcat(&injection, &injection_size ,JS_STOP, fixed_injection );
 
         buf = getData( selectConfigTemplate, injection );
     }
