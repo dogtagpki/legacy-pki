@@ -131,7 +131,11 @@ public class ProfileProcessServlet extends ProfileServlet {
             String requestNonce = request.getParameter(ARG_REQUEST_NONCE);
             boolean nonceVerified = false;
             if (requestNonce != null) {
-                long nonce = Long.parseLong(requestNonce.trim());
+                long nonce = 0L;
+                try {
+                    nonce = Long.parseLong(requestNonce.trim());
+                } catch (NumberFormatException e) {
+                }
                 X509Certificate cert1 = mNonces.getCertificate(nonce);
                 X509Certificate cert2 = getSSLClientCertificate(request);
                 if (cert1 == null) {

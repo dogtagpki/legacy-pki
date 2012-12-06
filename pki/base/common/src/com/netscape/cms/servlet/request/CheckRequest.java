@@ -256,7 +256,7 @@ public class CheckRequest extends CMSServlet {
             throw new ECMSGWException(CMS.getUserMessage("CMS_GW_NO_REQUEST_ID_PROVIDED"));
         }
         try {
-            Integer.parseInt(requestId);
+            new BigInteger(requestId);
         } catch (NumberFormatException e) {
             log(ILogger.LL_FAILURE, CMS.getLogMessage("BASE_INVALID_NUMBER_FORMAT_1", requestId));
             throw new EBaseException(
@@ -296,7 +296,7 @@ public class CheckRequest extends CMSServlet {
         String note = r.getExtDataInString("requestNotes");
 
         header.addStringValue("authority", mAuthorityId);
-        header.addLongValue(REQ_ID, Long.parseLong(r.getRequestId().toString()));
+        header.addStringValue(REQ_ID, r.getRequestId().toString());
         header.addStringValue(STATUS, status.toString());
         header.addLongValue(CREATE_ON, r.getCreationTime().getTime() / 1000);
         header.addLongValue(UPDATE_ON, r.getModificationTime().getTime() / 1000);
