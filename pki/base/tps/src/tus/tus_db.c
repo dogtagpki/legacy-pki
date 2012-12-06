@@ -3504,7 +3504,7 @@ char **get_attribute_values(LDAPMessage *entry, const char *attribute)
        for (i = 0; bvals[i] != NULL; i++ ) {
 	 c++;
        }  
-       ret = (char **) malloc ((sizeof (char *) * c) + 1);
+       ret = (char **) calloc (sizeof (char *), (c + 1));
        c = 0;
        for (i = 0; bvals[i] != NULL; i++ ) {
          char *tmp = BTOA_DataToAscii((unsigned char *)bvals[i]->bv_val,
