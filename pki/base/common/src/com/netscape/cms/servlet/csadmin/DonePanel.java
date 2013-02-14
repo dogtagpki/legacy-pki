@@ -381,19 +381,29 @@ public class DonePanel extends WizardPanelBase {
                 if (owneeclientauthsport != null) 
                     eecaStr="&eeclientauthsport=" + owneeclientauthsport;
 
-                updateDomainXML( sd_host, sd_agent_port_int, true,
-                                 "/ca/agent/ca/updateDomainXML", 
-                                 "list=" + s
+                String url = "/ca/admin/ca/updateDomainXML";
+                String content = "list=" + s
                                + "&type=" + type
                                + "&host=" + ownhost
                                + "&name=" + subsystemName
                                + "&sport=" + ownsport
-                               + domainMasterStr 
+                               + domainMasterStr
                                + cloneStr
                                + "&agentsport=" + ownagentsport
                                + "&adminsport=" + ownadminsport
-                               + eecaStr 
-                               + "&httpport=" + ownport );
+                               + eecaStr
+                               + "&httpport=" + ownport;
+
+                try {
+                    content += "&sessionID="+ CMS.getConfigSDSessionId();
+                    updateDomainXML(sd_host, sd_admin_port_int, true, url, content, false);
+                } catch (Exception e) {
+                    CMS.debug("DonePanel: failed to update security domain using admin port "
+                        + sd_admin_port + ": " + e);
+                    CMS.debug("updateSecurityDomain: now trying agent port with client auth");
+                    url =  "/ca/agent/ca/updateDomainXML";
+                    updateDomainXML(sd_host, sd_agent_port_int, true, url, content, true);
+                }
 
                 // Fetch the "updated" security domain and display it
                 CMS.debug( "Dump contents of updated Security Domain . . ." );

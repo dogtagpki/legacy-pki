@@ -693,7 +693,7 @@
              <init-param><param-name>  ID          </param-name>
                          <param-value> kraUpdateNumberRange </param-value> </init-param>
              <init-param><param-name>  interface   </param-name>
-                         <param-value> ee          </param-value> </init-param>
+                         <param-value> admin          </param-value> </init-param>
              <init-param><param-name>  AuthMgr     </param-name>
                          <param-value> TokenAuth </param-value> </init-param>
              <init-param><param-name>  AuthzMgr    </param-name>
@@ -724,18 +724,6 @@
    </servlet>
 
     <!-- ================= PKI Installation Wizard Footer ================= -->
-   <servlet>
-      <servlet-name>  kraGetTokenInfo  </servlet-name>
-      <servlet-class> com.netscape.cms.servlet.csadmin.GetTokenInfo  </servlet-class>
-             <init-param><param-name>  GetClientCert  </param-name>
-                         <param-value> false       </param-value> </init-param>
-             <init-param><param-name>  authority   </param-name>
-                         <param-value> kra          </param-value> </init-param>
-             <init-param><param-name>  ID          </param-name>
-                         <param-value> kraGetTokenInfo </param-value> </init-param>
-             <init-param><param-name>  interface   </param-name>
-                         <param-value> ee          </param-value> </init-param>
-   </servlet>
 
 [PKI_OPEN_SEPARATE_PORTS_WEB_COMMENT]
    <filter-mapping>
@@ -998,7 +986,7 @@
 
    <servlet-mapping>
       <servlet-name>  kraUpdateNumberRange </servlet-name>
-      <url-pattern>   /ee/kra/updateNumberRange  </url-pattern>
+      <url-pattern>   /admin/kra/updateNumberRange  </url-pattern>
    </servlet-mapping>
 
     <!-- ================= PKI Installation Wizard Header ================= -->
@@ -1009,10 +997,6 @@
    </servlet-mapping>
 
     <!-- ================= PKI Installation Wizard Footer ================= -->
-   <servlet-mapping>
-      <servlet-name>  kraGetTokenInfo </servlet-name>
-      <url-pattern>   /ee/kra/getTokenInfo </url-pattern>
-   </servlet-mapping>
 
    <!-- ==================== Default Session Configuration =============== -->
    <!-- You can set the default session timeout (in minutes) for all newly -->

@@ -308,18 +308,6 @@
                          <param-value> certServer.clone.configuration.GetConfigEntries </param-value> </init-param>
    </servlet>
 
-   <servlet>
-      <servlet-name>  tksGetTokenInfo  </servlet-name>
-      <servlet-class> com.netscape.cms.servlet.csadmin.GetTokenInfo  </servlet-class>
-             <init-param><param-name>  GetClientCert  </param-name>
-                         <param-value> false       </param-value> </init-param>
-             <init-param><param-name>  authority   </param-name>
-                         <param-value> tks          </param-value> </init-param>             <init-param><param-name>  ID          </param-name>
-                         <param-value> tksGetTokenInfo </param-value> </init-param>
-             <init-param><param-name>  interface   </param-name>
-                         <param-value> ee          </param-value> </init-param>
-   </servlet>
-
 [PKI_OPEN_SEPARATE_PORTS_WEB_COMMENT]
    <filter-mapping>
       <filter-name>  AgentRequestFilter  </filter-name>
@@ -472,10 +460,6 @@
    </servlet-mapping>
 
     <!-- ================= PKI Installation Wizard Footer ================= -->
-   <servlet-mapping>
-      <servlet-name>  tksGetTokenInfo </servlet-name>
-      <url-pattern>   /ee/tks/getTokenInfo </url-pattern>
-   </servlet-mapping>
 
    <!-- ==================== Default Session Configuration =============== -->
    <!-- You can set the default session timeout (in minutes) for all newly -->

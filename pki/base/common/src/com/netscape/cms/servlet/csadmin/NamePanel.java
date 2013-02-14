@@ -434,7 +434,7 @@ public class NamePanel extends WizardPanelBase {
          */
 
         // for system certs verification
-	    if (!token.equals("Internal Key Storage Token") && !token.equals("")) {
+	if (!token.equals("Internal Key Storage Token") && !token.equals("")) {
             config.putString(subsystem + ".cert." + certTag + ".nickname",
                 token + ":" +  nickname);
         } else {
@@ -870,7 +870,6 @@ public class NamePanel extends WizardPanelBase {
             config.commit(false);
         } catch (Exception e) {}
 
-
         CMS.debug("NamePanel: update() done");
     }
 
@@ -928,14 +927,11 @@ public class NamePanel extends WizardPanelBase {
                                                        httpsPortStr,
                                                        "CA" );
 
-        int httpsport = -1;
-
+        int admin_port = -1;
         try {
-             httpsport = Integer.parseInt(httpsPortStr);
+             admin_port = Integer.parseInt(https_admin_port);
         } catch (Exception e) {
-            CMS.debug(
-                    "NamePanel update: Https port is not valid. Exception: "
-                            + e.toString());
+            CMS.debug("NamePanel update: Https port is not valid. Exception: " + e.toString());
             throw new IOException("Https Port is not valid.");
         }
 
@@ -943,9 +939,9 @@ public class NamePanel extends WizardPanelBase {
         config.putString("preop.ca.httpsport", httpsPortStr);
         config.putString("preop.ca.httpsadminport", https_admin_port);
         ConfigCertApprovalCallback certApprovalCallback = new ConfigCertApprovalCallback();
-        updateCertChainUsingSecureEEPort( config, "ca", hostname,
-                                          httpsport, true, context,
-                                          certApprovalCallback );
+        updateCertChain(config, "ca", hostname, admin_port,
+                        true, context, certApprovalCallback );
+
         try {
            CMS.debug("Importing CA chain");
            importCertChain("ca");

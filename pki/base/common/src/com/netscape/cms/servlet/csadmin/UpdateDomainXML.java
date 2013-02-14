@@ -107,8 +107,8 @@ public class UpdateDomainXML extends CMSServlet {
        return status;
     }
 
-    private String modify_ldap(String dn, LDAPModification mod) {
-        CMS.debug("UpdateDomainXML: modify_ldap: starting dn: " + dn);
+    private String remove_attribute(String dn, LDAPModification mod) {
+        CMS.debug("UpdateDomainXML: remove_attribute: starting dn: " + dn);
         String status = SUCCESS;
         ILdapConnFactory connFactory = null;
         LDAPConnection conn = null;
@@ -121,7 +121,8 @@ public class UpdateDomainXML extends CMSServlet {
             conn = connFactory.getConn();
             conn.modify(dn, mod);
         } catch (LDAPException e) {
-            if (e.getLDAPResultCode() != LDAPException.NO_SUCH_OBJECT) {
+            int errorCode = e.getLDAPResultCode();
+            if ((errorCode != LDAPException.NO_SUCH_OBJECT)&& (errorCode != LDAPException.NO_SUCH_ATTRIBUTE)) {
                 status = FAILED;
                 CMS.debug("Failed to modify entry" + e.toString());
             }
@@ -380,7 +381,7 @@ public class UpdateDomainXML extends CMSServlet {
                             dn = "cn=Subsystem Group, ou=groups," + basedn;
                             LDAPModification mod = new LDAPModification(LDAPModification.DELETE, 
                                 new LDAPAttribute("uniqueMember", adminUserDN));
-                            status2 = modify_ldap(dn, mod);
+                            status2 = remove_attribute(dn, mod);
                             if (status2.equals(SUCCESS)) {
                                 auditMessage = CMS.getLogMessage(
                                                    LOGGING_SIGNED_AUDIT_CONFIG_ROLE,
