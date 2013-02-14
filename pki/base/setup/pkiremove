@@ -19,6 +19,11 @@
 # --- END COPYRIGHT BLOCK ---
 #
 
+use strict;
+use LWP::UserAgent;
+use HTTP::Request::Common qw(POST);
+use URI::Escape;
+
 ##############################################################
 # This script is used to remove an existing PKI instance.
 #
@@ -30,6 +35,11 @@
 #               -pki_instance_name=<pki_instance_id>   # Unique PKI subsystem
 #                                                      # instance name
 #                                                      # (e. g. - pki-pki1)
+#                       
+#               -security_domain_user=<user_id>        # Security domain user
+#                                                      # (e. g. - admin)
+#                       
+#               -security_domain_pwd=<password>        # Security domain password
 #                       
 #               [-token_pwd=<token pwd>]               # Password of token containing
 #                                                      # subsystem certificate
@@ -155,6 +165,9 @@ my $pki_instance_root = "";
 my $pki_instance_name = "";
 my $force             = 0;
 my $token_pwd         = "";
+my $sec_user          = "";
+my $sec_pass          = "";
+my $sec_token         = "";
 
 my $pki_instance_path = "";
 my $subsystem_type = "";
@@ -193,6 +206,16 @@ sub usage()
          . "# instance name\n"
          . "                                                         "
          . "# (e. g. - pki-pki1)\n\n"
+         . "                  -security_domain_user=<user_id>        "
+         . "# Security domain\n"
+         . "                                                         "
+         . "# user id\n"
+         . "                                                         "
+         . "# (e. g. - admin)\n\n"
+         . "                  -security_domain_pwd=<password>        "
+         . "# Secuity domain\n"
+         . "                                                         "
+         . "# password\n\n"
          . "                  [-token_pwd=<token password>]          "
          . "# Password for\n"
          . "                                                         "
@@ -214,8 +237,67 @@ sub usage()
     return;
 }
 
+sub get_install_token()
+{
+    my ($secuser, $secpass) = @_;
+    my $token;
+
+    my $conf_file = $pki_instance_path . "/conf/CS.cfg";
+    my $sechost;
+    my $secadminport;
+    my $adminsport;
+    my $typeval;
+    my $machinename;
+
+    if (!defined($secuser) || ($secuser eq "") ||
+        !defined($secpass) || ($secpass eq "")) {
+        return undef;
+    }
+
+    open(DAT, $conf_file) or die "Could not open CS.cfg file to update security domain";
+    my @conf_data=<DAT>;
+    foreach my $line (@conf_data) {
+        chomp($line);
+        (my $varname, my $valname) = split(/=/, $line);
+        if ($varname eq "cs.type") { $typeval = $valname; }
+        if ($varname eq "service.machineName") { $machinename = $valname; }
+        if ($varname eq "pkicreate.admin_secure_port") { $adminsport = $valname; }
+        if ($varname eq "securitydomain.host") { $sechost = $valname; }
+        if ($varname eq "securitydomain.httpsadminport") { $secadminport = $valname; }
+    }
+
+    my $subca_url = "https://" . $machinename  . ":" . $adminsport .
+        "/ca/admin/console/config/wizard?p=5&subsystem=" . $typeval;
+    my $loginURL = "https://" . $sechost . ":" . $secadminport . "/ca/admin/ca/getCookie";
+
+    my $ua = LWP::UserAgent->new;
+    $ua->agent('Mozilla/8.0');
+
+    my $req = POST $loginURL,
+        [ uid => $secuser, pwd => $secpass, url => $subca_url ];
+
+    $req->header('Accept' => 'text/html');
+
+    # send request
+    my $res = $ua->request($req);
+    # check the outcome
+    if ($res->is_success) {
+       if ($res->decoded_content =~ m/header.session_id = \"(.*)\";/) {
+           $token = $1;
+       } else {
+           if ($res->decoded_content =~m/header.errorString = \"(.*)\";/) {
+               print $1;
+           }
+       }
+    } else {
+       print "Error: " . $res->status_line . "\n";
+    }
+    return $token;
+}
+
 sub update_domain()
 {
+    my ($install_token,) = @_;
     my $conf_file = $pki_instance_path . "/conf/CS.cfg";
     my $sport;
     my $ncsport;
@@ -226,9 +308,10 @@ sub update_domain()
     my $adminsport;
     my $agentsport;
     my $secselect;
+    my $sechost;
     my $typeval;
     my $machinename;
-    my $subsytemnick;
+    my $status;
 
     open(DAT, $conf_file) or die "Could not open CS.cfg file to update security domain";
     my @conf_data=<DAT>;
@@ -250,19 +333,7 @@ sub update_domain()
         if ($varname eq "pkicreate.agent_secure_port") { $agentsport = $valname; }
     }
 
-    my $subsystemnick_param = lc($typeval) . ".cert.subsystem.nickname";
-
-    foreach my $line (@conf_data) {
-        chomp($line);
-        (my $varname, my $valname) = split(/=/, $line);
-        if ($varname eq $subsystemnick_param) { $subsystemnick = $valname; }
-    }
     close(DAT);
-
-    (my $token_name, my $nick) = split(/:/, $subsystemnick, 2);
-    if ((!defined($nick)) || ($nick eq "")) {
-        $token_name = "internal";
-    } 
 
     # NOTE:  Don't check for the existence of "$httpport", as this will
     #        be undefined for a Security Domain that has been migrated!
@@ -275,59 +346,130 @@ sub update_domain()
         return;
     }
 
-    if ($secselect ne "new") {
-        # This is not a domain master, so we need to update the master
-        print (STDOUT "Contacting the security domain master to update the security domain\n");
-        my $listval = $typeval . "List";
-        my $updateURL = "/ca/agent/ca/updateDomainXML";   
+    my $listval = $typeval . "List";
+    my %params = ( name => $pki_instance_name,
+                   type => $typeval,
+                   list => $listval,
+                   host => $machinename,
+                   sport => $sport,
+                   ncsport => $ncsport,
+                   adminsport => $adminsport,
+                   agentsport => $agentsport,
+                   operation => "remove" );
 
-        if ($token_pwd eq "") {
-            my $pwfile = $pki_instance_path . "/conf/password.conf";
-            if (-r $pwfile) {
-                open(DAT, $pwfile) or die "Could not open password.conf file to generate pk12 files.";
-                my @pw_data=<DAT>;
-                foreach my $line (@pw_data) {
-                    chomp($line);
-                    if (($typeval eq "CA")   ||
-                        ($typeval eq "KRA")  ||
-                        ($typeval eq "OCSP") ||
-                        ($typeval eq "TKS")) {
-                        (my $varname, my $valname) = split(/=/, $line);
-                        if ($varname eq $token_name) { $token_pwd = $valname; }
-                        if ($varname eq "hardware-$token_name") { $token_pwd = $valname; }
-                    } else {  # TPS, RA
-                        (my $varname, my $valname) = split(/:/, $line);
-                        if ($varname eq $token_name) { $token_pwd = $valname; }
-                        if ($varname eq "hardware-$token_name") { $token_pwd = $valname; }
-                    }
+    my $param_string = "";
+    while (my ($k, $v) = each %params) {
+        $param_string = $param_string . $k . "=" . uri_escape($v) . "&";
+    }
+    chop($param_string);     # remove last &
+
+    if ($install_token ne "") {
+        print STDOUT "Contacting the security domain master to update the security domain\n";
+
+        my $updateURL = "https://" . $sechost . ":" . $secadminport . "/ca/admin/ca/updateDomainXML";
+        $params{"sessionID"} = $install_token;
+
+        my $ua = LWP::UserAgent->new;
+        $ua->agent('Mozilla/8.0');
+
+        my $req = POST $updateURL, [%params];
+        $req->header('Accept' => 'text/html');
+        my $res = $ua->request($req);
+
+        if ($res->is_success) {
+            $res->decoded_content =~/\<Status\>(.*?)\<\/Status\>/;
+            $status = $1;
+        } else {
+            print "Warning: unable to update domain using admin port. " . $res->status_line . "\n";
+            $status = &update_domain_using_agent_port($param_string);
+        }
+
+        # these next lines are here to account for new clones of existing instances
+        # the new clones will have the updateDomainXML servlet on the admin interface
+        # but - because acls are replicated from the master - may not have the updated
+        # acl to allow enterprise users to update the domain.  In this case, try the old
+        # interface.
+
+        if ($status ne "0") {
+            $status = &update_domain_using_agent_port($param_string);
+        }
+    } else {
+        $status = &update_domain_using_agent_port($param_string);
+    }
+
+    die ("Security Domain returns non-zero status for updateDomainXML.") if ($status ne "0"); 
+}
+
+sub update_domain_using_agent_port()
+{
+    my ($param_string, ) = @_;
+    my $conf_file = $pki_instance_path . "/conf/CS.cfg";
+    my $typeval;
+    my $sechost;
+    my $secagentport;
+    my $subsystemnick;
+
+    open(DAT, $conf_file) or die "Could not open CS.cfg file to update security domain";
+    my @conf_data=<DAT>;
+    foreach my $line (@conf_data) {
+        chomp($line);
+        (my $varname, my $valname) = split(/=/, $line);
+
+        if ($varname eq "cs.type") { $typeval = $valname; }
+        if ($varname eq "securitydomain.host") { $sechost = $valname; }
+        if ($varname eq "securitydomain.httpsagentport") { $secagentport = $valname; }
+    }
+
+    my $subsystemnick_param = lc($typeval) . ".cert.subsystem.nickname";
+
+    foreach my $line (@conf_data) {
+        chomp($line);
+        (my $varname, my $valname) = split(/=/, $line);
+        if ($varname eq $subsystemnick_param) { $subsystemnick = $valname; }
+    }
+    close(DAT);
+
+    (my $token_name, my $nick) = split(/:/, $subsystemnick, 2);
+    if ((!defined($nick)) || ($nick eq "")) {
+        $token_name = "internal";
+    }
+
+    my $updateURL = "/ca/agent/ca/updateDomainXML";
+
+    if ($token_pwd eq "") {
+        my $pwfile = $pki_instance_path . "/conf/password.conf";
+        if (-r $pwfile) {
+            open(DAT, $pwfile) or die "Could not open password.conf file to get token pssword.";
+            my @pw_data=<DAT>;
+            foreach my $line (@pw_data) {
+                chomp($line);
+                if (($typeval eq "CA")   ||
+                    ($typeval eq "KRA")  ||
+                    ($typeval eq "OCSP") ||
+                    ($typeval eq "TKS")) {
+                    (my $varname, my $valname) = split(/=/, $line);
+                    if ($varname eq $token_name) { $token_pwd = $valname; }
+                    if ($varname eq "hardware-$token_name") { $token_pwd = $valname; }
+                } else {  # TPS, RA
+                    (my $varname, my $valname) = split(/:/, $line);
+                    if ($varname eq $token_name) { $token_pwd = $valname; }
+                    if ($varname eq "hardware-$token_name") { $token_pwd = $valname; }
                 }
-                close($pwfile);
             }
+            close($pwfile);
         }
 
         while ($token_pwd eq "") {
             $token_pwd  = prompt( "No password found for $token_name. What is the password for this token?");
         }
+    }
 
-        my $params = "name=$pki_instance_name" .
-                     "&type=$typeval" .
-                     "&list=$listval" .
-                     "&host=$machinename" .
-                     "&sport=$sport" .
-                     "&ncsport=$ncsport" .
-                     "&adminsport=$adminsport" .
-                     "&agentsport=$agentsport" .
-                     "&operation=remove";
+    #update domainXML
+    my $cmd = `/usr/bin/sslget -d \"$pki_instance_path/alias\" -p \"$token_pwd\" -v -n \"$subsystemnick\" -r \"$updateURL\" -e \"$param_string\" $sechost:$secagentport 2>&1`;
 
-        #update domainXML
-        my $cmd = `/usr/bin/sslget -d \"$pki_instance_path/alias\" -p \"$token_pwd\" -v -n \"$subsystemnick\" -r \"$updateURL\" -e \"$params\" $sechost:$secagentport 2>&1`;
-
-        $cmd =~ /\<Status\>(.*?)\<\/Status\>/;
-        $cmd = $1;
-
-        die ("Security Domain returns non-zero status for updateDomainXML.") if ($cmd ne "0"); 
-            
-   } 
+    $cmd =~ /\<Status\>(.*?)\<\/Status\>/;
+    $cmd = $1;
+    return $cmd;
 }
 
 sub remove_fcontext()
@@ -351,8 +493,8 @@ sub remove_selinux_fcontexts()
     my $setype = "pki_" . $subsystem_type;
     my $default_inst_name = "pki-" . $subsystem_type;
     my $default_inst_root = "/var/lib";
-    my $default_log_path = "/var/log/" . $default_instance_name;
-    my $default_conf_path = "/etc/" . $default_instance_name;
+    my $default_log_path = "/var/log/" . $default_inst_name;
+    my $default_conf_path = "/etc/" . $default_inst_name;
 
     my $log_path = "$pki_instance_path/logs";
     my $conf_path = "$pki_instance_path/conf";
@@ -538,7 +680,10 @@ ASK_AGAIN:
 
     $cleanup->open( "<$source_file_path" ) or die "Could not open file!\n";
 
-    eval { update_domain(); };
+    if (($sec_user ne "") && ($sec_pass ne "")) {
+        $sec_token = &get_install_token($sec_user, $sec_pass)
+    } 
+    eval { &update_domain($sec_token); };
     warn "Error updating security domain: " . $@ if $@;
 
     if (( $^O eq "linux") && ( is_Fedora() || (is_RHEL() && (! is_RHEL4())) )) {
@@ -678,6 +823,8 @@ sub main()
     # Parse command-line arguments.
     $result = GetOptions( "pki_instance_root=s" => \$pki_instance_root,
                           "pki_instance_name=s" => \$pki_instance_name,
+                          "security_domain_user=s" => \$sec_user,
+                          "security_domain_pwd=s" => \$sec_pass,
                           "token_pwd=s" => \$token_pwd,
                           "force" => \$force );
 

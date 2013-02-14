@@ -248,6 +248,25 @@
    </servlet>
 
    <servlet>
+      <servlet-name>  caUpdateDomainXML-admin </servlet-name>
+      <servlet-class> com.netscape.cms.servlet.csadmin.UpdateDomainXML  </servlet-class>
+             <init-param><param-name>  GetClientCert  </param-name>
+                         <param-value> false       </param-value> </init-param>
+             <init-param><param-name>  authority   </param-name>
+                         <param-value> ca          </param-value> </init-param>
+             <init-param><param-name>  ID          </param-name>
+                         <param-value> caUpdateDomainXML </param-value> </init-param>
+             <init-param><param-name>  interface   </param-name>
+                         <param-value> admin          </param-value> </init-param>
+             <init-param><param-name>  AuthMgr     </param-name>
+                         <param-value> TokenAuth </param-value> </init-param>
+             <init-param><param-name>  AuthzMgr    </param-name>
+                         <param-value> BasicAclAuthz </param-value> </init-param>
+             <init-param><param-name>  resourceID  </param-name>
+                         <param-value> certServer.securitydomain.domainxml </param-value> </init-param>
+   </servlet>
+
+   <servlet>
       <servlet-name>  caUpdateNumberRange  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.UpdateNumberRange  </servlet-class>
              <init-param><param-name>  GetClientCert  </param-name>
@@ -257,7 +276,7 @@
              <init-param><param-name>  ID          </param-name>
                          <param-value> caUpdateNumberRange </param-value> </init-param>
              <init-param><param-name>  interface   </param-name>
-                         <param-value> ee          </param-value> </init-param>
+                         <param-value> admin          </param-value> </init-param>
              <init-param><param-name>  AuthMgr     </param-name>
                          <param-value> TokenAuth </param-value> </init-param>
              <init-param><param-name>  AuthzMgr    </param-name>
@@ -1826,16 +1845,16 @@
    </servlet>
 
    <servlet>
-      <servlet-name>  caGetTokenInfo  </servlet-name>
-      <servlet-class> com.netscape.cms.servlet.csadmin.GetTokenInfo  </servlet-class>
+      <servlet-name>  caTokenAuthenticate-admin  </servlet-name>
+      <servlet-class> com.netscape.cms.servlet.csadmin.TokenAuthenticate  </servlet-class>
              <init-param><param-name>  GetClientCert  </param-name>
                          <param-value> false       </param-value> </init-param>
              <init-param><param-name>  authority   </param-name>
                          <param-value> ca          </param-value> </init-param>
              <init-param><param-name>  ID          </param-name>
-                         <param-value> caGetTokenInfo </param-value> </init-param>
+                         <param-value> caTokenAuthenticate  </param-value> </init-param>
              <init-param><param-name>  interface   </param-name>
-                         <param-value> ee          </param-value> </init-param>
+                         <param-value> admin          </param-value> </init-param>
    </servlet>
 
    <servlet>
@@ -2045,9 +2064,14 @@
       <url-pattern>   /agent/ca/updateDomainXML  </url-pattern>
    </servlet-mapping>
 
+   <servlet-mapping>
+      <servlet-name>  caUpdateDomainXML-admin </servlet-name>
+      <url-pattern>   /admin/ca/updateDomainXML  </url-pattern>
+   </servlet-mapping>
+
    <servlet-mapping>     
       <servlet-name>  caUpdateNumberRange </servlet-name>
-      <url-pattern>   /ee/ca/updateNumberRange  </url-pattern>
+      <url-pattern>   /admin/ca/updateNumberRange  </url-pattern>
    </servlet-mapping>
 
     <!-- ================= PKI Installation Wizard Header ================= -->
@@ -2496,8 +2520,8 @@
    </servlet-mapping>
 
    <servlet-mapping>
-      <servlet-name>  caGetTokenInfo </servlet-name>
-      <url-pattern>   /ee/ca/getTokenInfo </url-pattern>
+      <servlet-name>  caTokenAuthenticate-admin </servlet-name>
+      <url-pattern>   /admin/ca/tokenAuthenticate  </url-pattern>
    </servlet-mapping>
 
    <servlet-mapping>

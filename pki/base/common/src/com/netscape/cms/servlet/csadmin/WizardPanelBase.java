@@ -234,25 +234,29 @@ public class WizardPanelBase implements IWizardPanel {
     }
 
     public void updateDomainXML(String hostname, int port, boolean https,
-      String servlet, String uri) throws IOException {
+      String servlet, String uri, boolean useClientAuth) throws IOException {
         CMS.debug("WizardPanelBase updateDomainXML start hostname=" + hostname + " port=" + port);
-        IConfigStore cs = CMS.getConfigStore();
-        String nickname = "";
-        String tokenname = "";
-        try {
-            nickname = cs.getString("preop.cert.subsystem.nickname", "");
-            tokenname = cs.getString("preop.module.token", "");
-        } catch (Exception e) {}
+        String c = null;
+        if (useClientAuth) {
+            IConfigStore cs = CMS.getConfigStore();
+            String nickname = "";
+            String tokenname = "";
+            try {
+                nickname = cs.getString("preop.cert.subsystem.nickname", "");
+                tokenname = cs.getString("preop.module.token", "");
+            } catch (Exception e) {}
 
-        if (!tokenname.equals("") &&
-            !tokenname.equals("Internal Key Storage Token") &&
-            !tokenname.equals("internal")) {
-              nickname = tokenname+":"+nickname;
-        }
+            if (!tokenname.equals("") &&
+                !tokenname.equals("Internal Key Storage Token") &&
+                !tokenname.equals("internal")) {
+                  nickname = tokenname+":"+nickname;
+            }
 
-        CMS.debug("WizardPanelBase updateDomainXML nickname=" + nickname);
-        CMS.debug("WizardPanelBase: start sending updateDomainXML request");
-        String c = getHttpResponse(hostname, port, https, servlet, uri, nickname); 
+            CMS.debug("WizardPanelBase updateDomainXML nickname=" + nickname);
+            c = getHttpResponse(hostname, port, https, servlet, uri, nickname);
+        } else {
+            c = getHttpResponse(hostname, port, https, servlet, uri, null);
+        } 
         CMS.debug("WizardPanelBase: done sending updateDomainXML request");
 
         if (c != null) {
@@ -616,7 +620,7 @@ public class WizardPanelBase implements IWizardPanel {
                             config.putString("preop.internaldb.master.replicationpwd", v);
                         } else if (name.equals("instanceId")) {
                             config.putString("preop.master.instanceId", v);
-                        } else if (name.equals("cloning.cert.signing.nickname")) {
+                        } else if (name.equals("cloning.signing.nickname")) {
                             config.putString("preop.master.signing.nickname", v);
                             config.putString("preop.cert.signing.nickname", v);
                         } else if (name.equals("cloning.ocsp_signing.nickname")) {
@@ -769,11 +773,11 @@ public class WizardPanelBase implements IWizardPanel {
         }
     }
 
-    public void updateNumberRange(String hostname, int port, boolean https, 
+    public void updateNumberRange(String hostname, int eePort, int adminPort, boolean https, 
         String content, String type, HttpServletResponse response) 
       throws IOException {
         CMS.debug("WizardPanelBase updateNumberRange start host=" + hostname + 
-                                " port=" + port);
+                  " adminPort=" + adminPort + " eePort=" + eePort);
         IConfigStore cs = CMS.getConfigStore();
         String cstype = "";
         try {
@@ -782,61 +786,69 @@ public class WizardPanelBase implements IWizardPanel {
         }
 
         cstype = toLowerCaseSubsystemType(cstype);
-        String c = getHttpResponse(hostname, port, https, 
-          "/"+cstype+"/ee/"+cstype+"/updateNumberRange", content, null);
-        if (c == null || c.equals("")) {
-            CMS.debug("WizardPanelBase updateNumberRange: content is null.");
-            throw new IOException("The server you want to contact is not available");
-        } else {
-            CMS.debug("content="+c);
-            try {
-                ByteArrayInputStream bis = new ByteArrayInputStream(c.getBytes());
-                XMLObject parser = null;
-
-                try {
-                    parser = new XMLObject(bis);
-                } catch (Exception e) {
-                    CMS.debug( "WizardPanelBase::updateNumberRange() - "
-                             + "Exception="+e.toString() );
-                    throw new IOException( e.toString() );
-                }
-
-                String status = parser.getValue("Status");
-
-                CMS.debug("WizardPanelBase updateNumberRange: status=" + status);
-                if (status.equals(SUCCESS)) {
-                    String beginNum = parser.getValue("beginNumber");
-                    String endNum = parser.getValue("endNumber");
-                    if (type.equals("request")) {
-                        cs.putString("dbs.beginRequestNumber", beginNum);
-                        cs.putString("dbs.endRequestNumber", endNum);
-                    } else if (type.equals("serialNo")) {
-                        cs.putString("dbs.beginSerialNumber", beginNum);
-                        cs.putString("dbs.endSerialNumber", endNum);
-                    } else if (type.equals("replicaId")) {
-                        cs.putString("dbs.beginReplicaNumber", beginNum);
-                        cs.putString("dbs.endReplicaNumber", endNum);
-                    }
-                    // enable serial number management in clone
-                    cs.putString("dbs.enableSerialManagement", "true");
-                    cs.commit(false);
-                } else if (status.equals(AUTH_FAILURE)) {
-                    reloginSecurityDomain(response);
-                    return;
-                } else {
-                    String error = parser.getValue("Error");
-
-                    throw new IOException(error);
-                } 
-            } catch (IOException e) {
-                CMS.debug("WizardPanelBase: updateNumberRange: " + e.toString());
-                CMS.debug(e);
-                throw e;
-            } catch (Exception e) {
-                CMS.debug("WizardPanelBase: updateNumberRange: " + e.toString());
-                CMS.debug(e);
-                throw new IOException(e.toString());
+        String serverPath = "/" + cstype + "/admin/" + cstype + "/updateNumberRange";
+        String c = null;
+        XMLObject parser = null;
+        try {
+            c = getHttpResponse(hostname, adminPort, https, serverPath, content, null, null);
+            if (c == null || c.equals("")) {
+                CMS.debug("updateNumberRange: content is null.");
+                throw new IOException("The server you want to contact is not available");
             }
+            CMS.debug("content from admin interface ="+ c);
+            // when the admin servlet is unavailable, we return a badly formatted error page
+            // in that case, this will throw an exception and be passed into the catch block.
+            parser = new XMLObject(new ByteArrayInputStream(c.getBytes()));
+        } catch (Exception e) {
+            // for backward compatibility, try the old ee interface too
+            CMS.debug("updateNumberRange: Failed to contact master using admin port" + e);
+            CMS.debug("updateNumberRange: Attempting to contact master using EE port");
+            serverPath = "/" + cstype + "/ee/" + cstype + "/updateNumberRange";
+            c = getHttpResponse(hostname, eePort, https, serverPath, content, null, null);
+            if (c == null || c.equals("")) {
+                CMS.debug("updateNumberRange: content is null.");
+                throw new IOException("The server you want to contact is not available");
+            }
+            CMS.debug("content from ee interface =" + c);
+        }
+
+        try {
+            parser = new XMLObject(new ByteArrayInputStream(c.getBytes()));
+            String status = parser.getValue("Status");
+
+            CMS.debug("WizardPanelBase updateNumberRange: status=" + status);
+            if (status.equals(SUCCESS)) {
+                String beginNum = parser.getValue("beginNumber");
+                String endNum = parser.getValue("endNumber");
+                if (type.equals("request")) {
+                    cs.putString("dbs.beginRequestNumber", beginNum);
+                    cs.putString("dbs.endRequestNumber", endNum);
+                } else if (type.equals("serialNo")) {
+                    cs.putString("dbs.beginSerialNumber", beginNum);
+                    cs.putString("dbs.endSerialNumber", endNum);
+                } else if (type.equals("replicaId")) {
+                    cs.putString("dbs.beginReplicaNumber", beginNum);
+                    cs.putString("dbs.endReplicaNumber", endNum);
+                }
+                // enable serial number management in clone
+                cs.putString("dbs.enableSerialManagement", "true");
+                cs.commit(false);
+            } else if (status.equals(AUTH_FAILURE)) {
+                reloginSecurityDomain(response);
+                return;
+            } else {
+                String error = parser.getValue("Error");
+
+                throw new IOException(error);
+            } 
+        } catch (IOException e) {
+            CMS.debug("WizardPanelBase: updateNumberRange: " + e.toString());
+            CMS.debug(e);
+            throw e;
+        } catch (Exception e) {
+            CMS.debug("WizardPanelBase: updateNumberRange: " + e.toString());
+            CMS.debug(e);
+            throw new IOException(e.toString());
         }
     }
 
@@ -1305,119 +1317,6 @@ public class WizardPanelBase implements IWizardPanel {
         return x;
     }
 
-    public void getTokenInfo(IConfigStore config, String type, String host, 
-      int https_ee_port, boolean https, Context context, 
-      ConfigCertApprovalCallback certApprovalCallback) throws IOException {
-        CMS.debug("WizardPanelBase getTokenInfo start");
-        String uri = "/"+type+"/ee/"+type+"/getTokenInfo";
-        CMS.debug("WizardPanelBase getTokenInfo: uri="+uri);
-        String c = getHttpResponse(host, https_ee_port, https, uri, null, null,
-          certApprovalCallback);
-        if (c != null) {
-            try {
-                ByteArrayInputStream bis = new ByteArrayInputStream(c.getBytes());
-                XMLObject parser = null;
-
-                try {
-                    parser = new XMLObject(bis);
-                } catch (Exception e) {
-                    CMS.debug( "WizardPanelBase::getTokenInfo() - "
-                             + "Exception="+e.toString() );
-                    throw new IOException( e.toString() );
-                }
-
-                String status = parser.getValue("Status");
-
-                CMS.debug("WizardPanelBase getTokenInfo: status=" + status);
-
-                if (status.equals(SUCCESS)) {
-                    Document doc = parser.getDocument();
-                    NodeList list = doc.getElementsByTagName("name");
-                    int len = list.getLength();
-                    for (int i=0; i<len; i++) {
-                        Node n = list.item(i);
-                        NodeList nn = n.getChildNodes();
-                        String name = nn.item(0).getNodeValue();
-                        Node parent = n.getParentNode();
-                        nn = parent.getChildNodes();
-                        int len1 = nn.getLength();
-                        String v = "";
-                        for (int j=0; j<len1; j++) {
-                            Node nv = nn.item(j);
-                            String val = nv.getNodeName();
-                            if (val.equals("value")) {
-                                NodeList n2 = nv.getChildNodes();
-                                if (n2.getLength() > 0)
-                                    v = n2.item(0).getNodeValue();
-                                break;    
-                            }
-                        }
-                        if (name.equals("cloning.signing.nickname")) {                            
-                            config.putString("preop.master.signing.nickname", v);
-                            config.putString(type + ".cert.signing.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.ocsp_signing.nickname")) {
-                            config.putString("preop.master.ocsp_signing.nickname", v);
-                            config.putString(type + ".cert.ocsp_signing.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.subsystem.nickname")) {
-                            config.putString("preop.master.subsystem.nickname", v);
-                            config.putString(type + ".cert.subsystem.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.transport.nickname")) {
-                            config.putString("preop.master.transport.nickname", v);
-                            config.putString("kra.transportUnit.nickName", v);
-                            config.putString("kra.cert.transport.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.storage.nickname")) {
-                            config.putString("preop.master.storage.nickname", v);
-                            config.putString("kra.storageUnit.nickName", v);
-                            config.putString("kra.cert.storage.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.audit_signing.nickname")) {
-                            config.putString("preop.master.audit_signing.nickname", v);
-                            config.putString(type + ".cert.audit_signing.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.module.token")) {
-                            config.putString("preop.module.token", v);
-                        } else if (name.startsWith("cloning.ca")) {
-                            config.putString(name.replaceFirst("cloning", "preop"), v);
-                        } else if (name.startsWith("cloning")) {
-                            config.putString(name.replaceFirst("cloning", "preop.cert"), v);
-                        } else {
-                            config.putString(name, v);
-                        }
-                    }
-
-                    // reset nicknames for system cert verification
-                    String token = config.getString("preop.module.token", 
-                                                    "Internal Key Storage Token");
-                    if (! token.equals("Internal Key Storage Token")) {
-                        String certlist = config.getString("preop.cert.list");
-
-                        StringTokenizer t1 = new StringTokenizer(certlist, ",");
-                        while (t1.hasMoreTokens()) {
-                            String tag = t1.nextToken();
-                            if (tag.equals("sslserver")) continue;
-                            config.putString(type + ".cert." + tag + ".nickname", 
-                                token + ":" + 
-                                config.getString(type + ".cert." + tag + ".nickname", ""));
-                        } 
-                    }
-                } else {
-                    String error = parser.getValue("Error");
-                    throw new IOException(error);
-                }
-            } catch (IOException e) {
-                CMS.debug("WizardPanelBase: getTokenInfo: " + e.toString());
-                throw e;
-            } catch (Exception e) {
-                CMS.debug("WizardPanelBase: getTokenInfo: " + e.toString());
-                throw new IOException(e.toString());
-            }
-        }           
-    }
-
     public void importCertChain(String id) throws IOException {
         CMS.debug("DisplayCertChainPanel importCertChain");
         IConfigStore config = CMS.getConfigStore();
@@ -1443,6 +1342,7 @@ public class WizardPanelBase implements IWizardPanel {
                          https, context, null );
     }
 
+
     public void updateCertChain(IConfigStore config, String name, String host,
       int https_admin_port, boolean https, Context context, 
       ConfigCertApprovalCallback certApprovalCallback) throws IOException {
@@ -1450,53 +1350,6 @@ public class WizardPanelBase implements IWizardPanel {
                                                              https_admin_port,
                                                              https,
                                                              certApprovalCallback );
-        config.putString("preop."+name+".pkcs7", certchain);
-
-        byte[] decoded = CryptoUtil.base64Decode(certchain);
-        java.security.cert.X509Certificate[] b_certchain = null;
-
-        try {
-            b_certchain = CryptoUtil.getX509CertificateFromPKCS7(decoded);
-        } catch (Exception e) {
-            context.put("errorString",
-              "Failed to get the certificate chain.");
-            return;
-        }
-
-        int size = 0;
-        if (b_certchain != null) {
-            size = b_certchain.length;
-        }
-        config.putInteger("preop."+name+".certchain.size", size);
-        for (int i = 0; i < size; i++) {
-            byte[] bb = null;
-
-            try {
-                bb = b_certchain[i].getEncoded();
-            } catch (Exception e) {
-                context.put("errorString",
-                  "Failed to get the der-encoded certificate chain.");
-                return;
-            }
-            config.putString("preop."+name+".certchain." + i,
-              CryptoUtil.normalizeCertStr(CryptoUtil.base64Encode(bb)));
-        }
-
-        try {
-            config.commit(false);
-        } catch (EBaseException e) {
-        }
-    }
-
-    public void updateCertChainUsingSecureEEPort( IConfigStore config,
-                                                  String name, String host,
-                                                  int https_ee_port,
-                                                  boolean https,
-                                                  Context context, 
-                                                  ConfigCertApprovalCallback certApprovalCallback ) throws IOException {
-        String certchain = getCertChainUsingSecureEEPort( host, https_ee_port,
-                                                          https,
-                                                          certApprovalCallback);
         config.putString("preop."+name+".pkcs7", certchain);
 
         byte[] decoded = CryptoUtil.base64Decode(certchain);

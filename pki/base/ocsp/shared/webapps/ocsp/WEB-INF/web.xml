@@ -436,18 +436,6 @@
    </servlet>
 
     <!-- ================= PKI Installation Wizard Footer ================= -->
-   <servlet>
-      <servlet-name>  ocspGetTokenInfo  </servlet-name>
-      <servlet-class> com.netscape.cms.servlet.csadmin.GetTokenInfo  </servlet-class>
-             <init-param><param-name>  GetClientCert  </param-name>
-                         <param-value> false       </param-value> </init-param>
-             <init-param><param-name>  authority   </param-name>
-                         <param-value> ocsp          </param-value> </init-param>
-             <init-param><param-name>  ID          </param-name>
-                         <param-value> ocspGetTokenInfo </param-value> </init-param>
-             <init-param><param-name>  interface   </param-name>
-                         <param-value> ee          </param-value> </init-param>
-   </servlet>
 
 [PKI_OPEN_SEPARATE_PORTS_WEB_COMMENT]
    <filter-mapping>
@@ -645,10 +633,6 @@
    </servlet-mapping>
 
     <!-- ================= PKI Installation Wizard Footer ================= -->
-   <servlet-mapping>
-      <servlet-name>  ocspGetTokenInfo </servlet-name>
-      <url-pattern>   /ee/ocsp/getTokenInfo </url-pattern>
-   </servlet-mapping>
 
    <!-- ==================== Default Session Configuration =============== -->
    <!-- You can set the default session timeout (in minutes) for all newly -->
