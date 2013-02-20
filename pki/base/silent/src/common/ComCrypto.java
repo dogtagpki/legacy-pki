@@ -58,6 +58,8 @@ import sun.misc.BASE64Encoder;
 import sun.misc.BASE64Decoder;
 import java.security.Signature;
 
+import com.netscape.cmsutil.crypto.CryptoUtil;
+
 
 /**
  * CMS Test framework .
@@ -67,7 +69,7 @@ import java.security.Signature;
 
 public class ComCrypto {
 
-    private String cdir, certnickname, keysize, keytype, tokenpwd;
+    private String cdir, certnickname, keysize, keytype, tokenname, tokenpwd;
     private String certpackage, pkcs10request;
     private boolean debug = true;
     private boolean DBlogin = false;
@@ -80,9 +82,10 @@ public class ComCrypto {
     int END = START + 1;
     Password password = null;
 
-    public static CryptoManager manager;
-    public static CryptoToken token;
-    private CryptoStore store;
+    public static CryptoManager manager = null;
+    public static CryptoToken token = null;
+    public static final String PR_INTERNAL_TOKEN_NAME = "internal";
+    private CryptoStore store = null;
     private Password pass1 = null, pass2 = null;
 
     private String bstr = "-----BEGIN NEW CERTIFICATE REQUEST-----";
@@ -96,17 +99,31 @@ public class ComCrypto {
     ;
 
     /**
-     * Constructor . Takes the parameter certificatedbdirectory , passwordfor cert database, certificatenickname,keysize, keytype(RSA/DSA)
+     * Constructor . Takes the parameter certificatedbdirectory , token name, password for cert database, certificatenickname, keysize, keytype(RSA/DSA/EC)
      * @param certdbdirectory.
+     * @param tokenname 
      * @param certdbpassword 
      * @param certnickname 
-     * @param keysize (1024/2048/4096)
-     * @param keytype (RSA/DSA)
+     * @param keysize (1024/2048/4096) (nistp256, nistp512)
+     * @param keytype (RSA/DSA/EC)
      */
-
 
     public ComCrypto(String cd, String tpwd, String cn, String ks, String kt) {
         cdir = cd;
+        tokenname = PR_INTERNAL_TOKEN_NAME;
+        tokenpwd = tpwd;
+        certnickname = cn;
+        keysize = ks;
+        keytype = kt;
+    }
+
+    public ComCrypto(String cd, String tname, String tpwd, String cn, String ks, String kt) {
+        cdir = cd;
+        if ((tname==null) || (tname.equals(""))) {
+            tokenname = PR_INTERNAL_TOKEN_NAME;
+        } else {
+            tokenname = tname;
+        }
         tokenpwd = tpwd;
         certnickname = cn;
         keysize = ks;
@@ -131,6 +148,9 @@ public class ComCrypto {
         keytype = cd;
     }
 
+    public void setTokenName(String tn) {
+        tokenname = tn;
+    }
     public void setTokenPWD(String cd) {
         tokenpwd = cd;
     }
@@ -420,7 +440,20 @@ public class ComCrypto {
             }
 
             manager = CryptoManager.getInstance();
-            token = (PK11Token) manager.getInternalKeyStorageToken();
+            if (debug) {
+                System.out.println("tokenname:" + tokenname);
+            }
+
+            if (tokenname.equals(PR_INTERNAL_TOKEN_NAME)) {
+                token = manager.getInternalKeyStorageToken();
+            } else {
+                token = manager.getTokenByName(tokenname);
+            }
+            if (token == null) {
+                System.out.println("loginDB: token null ");
+                return false;
+            }
+
             pass1 = new Password(tokenpwd.toCharArray());
             if (token.isLoggedIn() && debug) {
                 System.out.println("Already Logged in ");
@@ -437,6 +470,9 @@ public class ComCrypto {
             if (debug) {
                 System.out.println("Crypto manager already initialized");
             }
+        } catch (NoSuchTokenException e) {
+            System.err.println("lolginDB:" + e);
+            return false;
         } catch (Exception e) {
             try { 
                 if (!token.isLoggedIn()) {
@@ -524,7 +560,16 @@ public class ComCrypto {
 
                 System.out.println("Debug : before get token");
 
-                token = manager.getInternalKeyStorageToken(); 
+                if (tokenname.equals(PR_INTERNAL_TOKEN_NAME)) {
+                    token = manager.getInternalKeyStorageToken();
+                } else {
+                    token = manager.getTokenByName(tokenname);
+                }
+                if (token == null) {
+                    System.err.println("generateCRMFrequest: token null ");
+                    return null;
+                }
+
                 password = new Password(token_pwd.toCharArray()); 
 
                 System.out.println("Debug : before login password");
@@ -532,6 +577,9 @@ public class ComCrypto {
                 token.login(password); 
 
                 System.out.println("Debug : after login password");
+            } catch (NoSuchTokenException e) {
+                System.err.println("generateCRMFrequest:" + e.toString());
+                return null;
             } catch (Exception e) {
                 System.out.println("INITIALIZATION ERROR: " + e.toString());
 
@@ -542,15 +590,27 @@ public class ComCrypto {
 
             // Generating CRMF request 
 
-            KeyPairGenerator kg = token.getKeyPairGenerator(KeyPairAlgorithm.RSA); 
+            if (keytype.equalsIgnoreCase("rsa")) {
+                KeyPairGenerator kg = token.getKeyPairGenerator(KeyPairAlgorithm.RSA); 
 
-            Integer x = new Integer(keysize);
-            int key_len = x.intValue();
+                Integer x = new Integer(keysize);
+                int key_len = x.intValue();
 
-            kg.initialize(key_len);
+                kg.initialize(key_len);
 
-            // 1st key pair
-            pair = kg.genKeyPair(); 
+                // 1st key pair
+                pair = kg.genKeyPair(); 
+            } else if (keytype.equalsIgnoreCase("ecc")) {
+                org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage usages_mask[] = {
+                    org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage.DERIVE
+                };
+                pair = CryptoUtil.generateECCKeyPair(tokenname,
+                      keysize /*ECC curve name*/,
+                      null,
+                      usages_mask,
+                      false /*temporary*/,
+                      -1 /*sensitive*/, -1 /*extractable*/);
+            }
 
             // create CRMF
             CertTemplate certTemplate = new CertTemplate();
@@ -647,7 +707,16 @@ public class ComCrypto {
 	
                 System.out.println("Debug : before get token");
 	
-                token = manager.getInternalKeyStorageToken(); 
+                if (tokenname.equals(PR_INTERNAL_TOKEN_NAME)) {
+                    token = manager.getInternalKeyStorageToken();
+                } else {
+                    token = manager.getTokenByName(tokenname);
+                }
+                if (token == null) {
+                    System.out.println("generateCRMFtransport: token null ");
+                    return false;
+                }
+
                 password = new Password(token_pwd.toCharArray()); 
 
                 System.out.println("Debug : before login password");
@@ -655,6 +724,9 @@ public class ComCrypto {
                 token.login(password); 
 
                 System.out.println("Debug : after login password");
+            } catch (NoSuchTokenException e) {
+                System.err.println("generateCRMFtransport:" + e.toString());
+                return null;
             } catch (Exception e) {
                 System.out.println("INITIALIZATION ERROR: " + e.toString());
 
@@ -714,9 +786,16 @@ public class ComCrypto {
             certTemplate.setPublicKey(new SubjectPublicKeyInfo(pair.getPublic()));
 
             // set extension
-            AlgorithmIdentifier algS = new AlgorithmIdentifier(
+            AlgorithmIdentifier algS = null;
+            if (keytype.equalsIgnoreCase("rsa")) {
+                algS = new AlgorithmIdentifier(
                     new OBJECT_IDENTIFIER("1.2.840.113549.3.7"),
                     new OCTET_STRING(iv));
+            } else if (keytype.equalsIgnoreCase("ecc")) {
+                algS = new AlgorithmIdentifier(
+                    new OBJECT_IDENTIFIER("1.2.840.10045.2.1"),
+                    new OCTET_STRING(iv));
+            }
 
             EncryptedValue encValue = new EncryptedValue(null, algS,
                     new BIT_STRING(session_data, 0), null, null,
