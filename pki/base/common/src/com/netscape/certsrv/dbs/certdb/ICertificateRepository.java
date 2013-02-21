@@ -41,6 +41,16 @@ import com.netscape.certsrv.dbs.repository.*;
 public interface ICertificateRepository extends IRepository {
 
     /**
+     * Retrieves the next certificate serial number, and also increases 
+     * the serial number by one in case of sequential number assignment.
+     *
+     * @return serial number
+     * @exception EBaseException failed to retrieve next serial number
+     */
+    public BigInteger getNextSerialNumber()
+        throws EBaseException;
+
+    /**
      * Adds a certificate record to the repository. Each certificate
      * record contains four parts: certificate, meta-attributes,
      * issue information and reovcation information.
