@@ -714,7 +714,7 @@ public class ComCrypto {
                 }
                 if (token == null) {
                     System.out.println("generateCRMFtransport: token null ");
-                    return false;
+                    return null;
                 }
 
                 password = new Password(token_pwd.toCharArray()); 
