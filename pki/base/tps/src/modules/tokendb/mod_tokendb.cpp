@@ -2704,22 +2704,26 @@ int check_injection_size(char **injection, int *psize, char *fixed_injection)
  * try not to over write our buffer any more
  * this routine will try to detect if we are going over the limit
  * if so, attempt to alter the buffer.
+ * param: **injection, pointer to string holding the injection data.
+ * param: *injection_size, pointer to int holding current size of the injection string.
+ * param: *catData, string containing data to add to the end of the injection data.
+ * param: *fixed_injection, original statically allocated injection buffer. When it is
+ *         time to expand this buffer, this buffer is discarded in favor of a malloced buffer.
+
 */
-int  safe_injection_strcat(char ** injection, int *injection_size , char *catData, char * fixed_injection )
+void  safe_injection_strcat(char ** injection, int *injection_size , char *catData, char * fixed_injection )
 {
-    int result = 0;
 
     int current_len = strlen(*injection);
     int cat_data_len = strlen(catData);
 
     if ( cat_data_len == 0) {
-        return result;
+        return;
     }
     int expected_len = current_len + cat_data_len;
 
     if ( expected_len >= *injection_size ) {
-
-        RA::Debug( "safe_injection_strcat, about to truncate, resize injection buffer:  ", "current len: %d expected_len %d data_len: %d cur_injection_size %d",current_len, expected_len, cat_data_len, *injection_size );
+       RA::Debug( "safe_injection_strcat, about to resize injection buffer to avoid truncation:  ", "current len: %d expected_len %d data_len: %d cur_injection_size %d",current_len, expected_len, cat_data_len, *injection_size );
 
         /* We are going to get truncated!
            Let's try to update the size of the buffer.
@@ -2734,7 +2738,7 @@ int  safe_injection_strcat(char ** injection, int *injection_size , char *catDat
         RA::Debug( "safe_injection_strcat, done  resizing injection buffer:  ", " new injection size: %d ",*injection_size );
 
         if (check_res == 1) {
-            return result;
+            return;
         }
         /* let's check it one more time for truncation*/
 
@@ -2745,18 +2749,12 @@ int  safe_injection_strcat(char ** injection, int *injection_size , char *catDat
         }
 
         if ( check_res == 1 || (expected_len >= *injection_size)) {
-            return result;
+            return;
         }
     }
 
     PRUint32 sLen = PR_snprintf( *injection, *injection_size , "%s%s", *injection,   catData );
 
-    if (sLen == expected_len)
-       result = 0;
-    else
-       result = 1;
-
-    return result;
 }
 
 /**
@@ -6261,9 +6259,9 @@ mod_tokendb_handler( request_rec *rq )
 
                 PR_snprintf( question_no, 256, "%d", q );
 
-                safe_injection_strcat(&injection, &injection_size , "\"" , fixed_injection );
+                safe_injection_strcat(&injection, &injection_size , "var question = \"" , fixed_injection );
 
-                safe_injection_strcat(&injection, &injection_size , "question_no" , fixed_injection ); 
+                safe_injection_strcat(&injection, &injection_size , question_no , fixed_injection );
 
                 safe_injection_strcat(&injection, &injection_size , "\";\n" , fixed_injection );
         }
