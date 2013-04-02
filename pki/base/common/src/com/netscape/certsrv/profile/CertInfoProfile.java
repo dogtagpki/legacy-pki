@@ -97,12 +97,17 @@ public class CertInfoProfile
 
     public void populate(X509CertInfo info)
     {
+        populate(null /* request */, info);
+    }
+
+    public void populate(IRequest request, X509CertInfo info)
+    {
         Enumeration e1 = mDefaults.elements();
         while (e1.hasMoreElements()) {
           ICertInfoPolicyDefault def = 
                (ICertInfoPolicyDefault)e1.nextElement();
           try {
-            def.populate(null /* request */, info);
+            def.populate(request, info);
           } catch (Exception e) {
             CMS.debug(e);
             CMS.debug("CertInfoProfile.populate: " + e.toString());
