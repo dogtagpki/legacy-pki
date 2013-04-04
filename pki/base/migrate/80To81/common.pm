@@ -3,6 +3,8 @@ use strict;
 use warnings;
 
 use Exporter;
+use XML::LibXML;
+
 our @ISA = qw(Exporter);
 our @EXPORT = qw(
  $verbose $dry_run $overwrite
@@ -22,6 +24,7 @@ our @EXPORT = qw(
  perform_file_actions check_for_customizations
  perform_cs_actions list_values_equal
  find_directory_changes
+ get_release_number
  );
 
 use File::Find;
@@ -65,6 +68,10 @@ my $NON_CLIENTAUTH_SECURE_PORT = "NON_CLIENTAUTH_SECURE_PORT";
 my $SECURITY_LIBRARIES     = "SECURITY_LIBRARIES";
 my $SERVER_NAME            = "SERVER_NAME";
 my $SERVER_ROOT            = "SERVER_ROOT";
+my $PKI_AGENT_MACHINE_NAME = "PKI_AGENT_MACHINE_NAME";
+my $PKI_EE_MACHINE_NAME    = "PKI_EE_MACHINE_NAME";
+my $PKI_EE_CLIENT_AUTH_MACHINE_NAME = "PKI_EE_CLIENT_AUTH_MACHINE_NAME";
+my $PKI_ADMIN_MACHINE_NAME = "PKI_ADMIN_MACHINE_NAME";
 my $SUBSYSTEM_TYPE         = "SUBSYSTEM_TYPE";
 my $SYSTEM_LIBRARIES       = "SYSTEM_LIBRARIES";
 my $SYSTEM_USER_LIBRARIES  = "SYSTEM_USER_LIBRARIES";
@@ -419,6 +426,77 @@ sub is_path_valid
     return $valid;
 }
 
+##############################################################
+# Version subroutines
+##############################################################
+# for version 8.1.3 for example
+# this returns 3
+sub get_release_number
+{
+    my ($cfg) = @_;
+    if (defined $cfg->{'cms.product.version'}) {
+        my $product_version = $cfg->{'cms.product.version'};
+        my ($a, $b, $c) = ($product_version =~ /(.*)\.(.*)\.(.*)/);
+        return $c;
+    }
+    return 0;
+}
+
+###############################################################
+# XML processing subroutines
+###############################################################
+
+# remove a node
+#
+# arg0 doc node
+# arg1 string with xpath of node to be removed
+# Return None
+sub remove_node
+{
+    my ($doc, $q) = @_;
+    my $nodes = $doc->findnodes($q);
+    if (defined $nodes and $nodes->size()>0) {
+        foreach my $node ($nodes->get_nodelist) {
+            my $parent = $node->parentNode;
+            $parent->removeChild($node);
+        }
+    }
+}
+
+# add a node
+#
+# arg0 doc node
+# arg1 parser
+# arg2 string with xpath of node to be added
+# arg3 string with xpath of parent node
+# arg4 string with xml data for the node to be added
+# Return None
+sub add_node
+{
+    my ($doc, $parser, $q, $parent_q, $xmldata) = @_;
+    my $nodes = $doc->findnodes($q);
+    if (!defined $nodes or $nodes->size() == 0) {
+        my $node = $parser->parse_balanced_chunk($xmldata);
+        foreach my $parent ($doc->findnodes($parent_q)) {
+            $parent->appendChild($node);
+        }
+    }
+}
+
+# change text in a node
+#
+# arg0 doc node
+# arg1 string with xpath of node to be modified
+# arg2 string with text to be inserted
+# Return None
+sub update_node_text
+{
+    my ($doc, $q, $text) = @_;
+    foreach my $node ($doc->findnodes($q)) {
+        $node->setData($text);
+    }
+}
+
 ################################################################
 # Template Subroutines
 ###############################################################
@@ -529,6 +607,25 @@ sub setup_slot_hash
     my $admin_secure_port = $cfg->{'pkicreate.admin_secure_port'};
     my $tomcat_server_port = $cfg->{'pkicreate.tomcat_server_port'};
 
+    #hosts
+    my $agentMachineName = $host;
+    if (exists $cfg->{'agentMachineName'} and defined $cfg->{'agentMachineName'}) {
+        $agentMachineName=$cfg->{'agentMachineName'};
+    }
+
+    my $eeMachineName = $host;
+    if (exists $cfg->{'eeMachineName'} and defined $cfg->{'eeMachineName'}) {
+        $agentMachineName=$cfg->{'eeMachineName'};
+    }
+    my $eecaMachineName = $host;
+    if (exists $cfg->{'eecaMachineName'} and defined $cfg->{'eecaMachineName'}) {
+        $agentMachineName=$cfg->{'eecaMachineName'};
+    }
+    my $adminMachineName = $host;
+    if (exists $cfg->{'adminMachineName'} and defined $cfg->{'adminMachineName'}) {
+        $agentMachineName=$cfg->{'adminMachineName'};
+    }
+
     #paths
     my $pki_instance_path = "$pki_instance_root/$pki_instance_name";
     my $pki_instance_conf_path = "$pki_instance_path/conf";
@@ -607,6 +704,11 @@ sub setup_slot_hash
         $slot_hash{$NON_CLIENTAUTH_SECURE_PORT} = $non_clientauth_secure_port;
         $slot_hash{$SECURITY_LIBRARIES}    = $default_security_libraries;
         $slot_hash{$SERVER_NAME}           = $host;
+        $slot_hash{$PKI_AGENT_MACHINE_NAME} = $agentMachineName;
+        $slot_hash{$PKI_EE_MACHINE_NAME}    = $eeMachineName;
+        $slot_hash{$PKI_EE_CLIENT_AUTH_MACHINE_NAME} = $eecaMachineName;
+        $slot_hash{$PKI_ADMIN_MACHINE_NAME} = $adminMachineName;
+
         $slot_hash{$SERVER_ROOT}           = $pki_instance_path;
         $slot_hash{$SUBSYSTEM_TYPE}        = $subsystem_type;
         $slot_hash{$SYSTEM_LIBRARIES}      = $default_system_libraries;

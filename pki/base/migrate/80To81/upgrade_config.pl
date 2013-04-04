@@ -29,8 +29,8 @@ use common;
 
 
 ##############################################################
-# This script is upgrade the UI files for a given PKI subsystem
-# instance from one version of the UI rpm to a later version.
+# This script is upgrade the config files for a given PKI subsystem
+# instance from one version of the config rpm to a later version.
 #
 # Sample Invocation (for CA):
 #
@@ -69,6 +69,46 @@ my $ARGS = ($#ARGV + 1);
 ##############################################################
 
 my $pki_subsystem_common_area = "/usr/share/pki";
+
+my $updateDomainServletData =
+"<servlet>
+     <servlet-name>  caUpdateDomainXML-admin  </servlet-name>
+     <servlet-class> com.netscape.cms.servlet.csadmin.UpdateDomainXML  </servlet-class>
+     <init-param>
+         <param-name>  GetClientCert  </param-name>
+         <param-value> true       </param-value>
+     </init-param>
+     <init-param>
+         <param-name>  authority   </param-name>
+         <param-value> ca          </param-value>
+     </init-param>
+     <init-param>
+         <param-name>  ID          </param-name>
+         <param-value> caUpdateDomainXML </param-value>
+     </init-param>
+     <init-param>
+         <param-name>  interface   </param-name>
+         <param-value> agent          </param-value>
+     </init-param>
+     <init-param>
+         <param-name>  AuthMgr     </param-name>
+         <param-value> certUserDBAuthMgr </param-value>
+     </init-param>
+     <init-param>
+         <param-name>  AuthzMgr    </param-name>
+         <param-value> BasicAclAuthz </param-value>
+     </init-param>
+     <init-param>
+         <param-name>  resourceID  </param-name>
+         <param-value> certServer.securitydomain.domainxml </param-value>
+     </init-param>
+ </servlet>";
+
+my $updateDomainMappingData =
+"<servlet-mapping>
+     <servlet-name>  caUpdateDomainXML-admin </servlet-name>
+     <url-pattern>   /admin/ca/updateDomainXML  </url-pattern>
+ </servlet-mapping>";
 
 ##############################################################
 # Local Data Structures
@@ -379,6 +419,9 @@ sub add_new_config_values
     # in any case)
     if (($subsystem_type eq $CA) || ($subsystem_type eq $KRA) || ($subsystem_type eq $OCSP) ||
         ($subsystem_type eq $TKS)) {
+        if ($cs_cfg->{'cms.version'} >= 8.1) {
+            return 1;
+        }
         my $listname = lc($subsystem_type) . ".cert.list";
         my $certlist = $changes_ref->{$listname}{new_s};
         foreach my $tag (split(",", $certlist)) {
@@ -423,6 +466,103 @@ sub add_new_config_values
     return 1;
 }
 
+# arg0 web_xml - path to web.xml file
+# arg1 subsystem_type - subsystem type
+# This is required for update from 8.1 to 8.1.errata
+sub modify_web_xml
+{
+    my ($web_xml, $subsystem_type) = @_;
+    my $parser = XML::LibXML->new();
+    my $doc    = $parser->parse_file($web_xml);
+    my $top_path = "/web-app";
+
+    if ($subsystem_type eq $CA) {
+        # change caUpdateNumberRange
+        my $q = "//servlet[normalize-space(servlet-name) = 'caUpdateNumberRange']";
+        foreach my $servlet ($doc->findnodes($q)) {
+            my $q1 = "./init-param[normalize-space(param-name)='interface']" .
+                     "/param-value/text()";
+            &update_node_text($servlet, $q1, 'admin');
+        }
+
+        #modify servlet mapping for caUpdateNumberRange
+        $q = "//servlet-mapping[normalize-space(servlet-name) = " .
+             "'caUpdateNumberRange']/url-pattern/text()";
+        &update_node_text($doc, $q, '/admin/ca/updateNumberRange');
+
+        # remove getTokenInfo
+        $q = "//servlet[normalize-space(servlet-name) = 'caGetTokenInfo']";
+        &remove_node($doc, $q);
+
+        # remove getTokenInfo servlet mapping
+        $q = "//servlet-mapping[normalize-space(servlet-name) = 'caGetTokenInfo']";
+        &remove_node($doc, $q);
+
+        #add caUpdateDomainXML-admin
+        $q = "//servlet[normalize-space(servlet-name) = 'caUpdateDomainXML-admin']";
+        &add_node($doc, $parser, $q, $top_path, $updateDomainServletData);
+
+        #add caUpdateDomainXML-admin servlet mapping
+        $q = "//servlet-mapping[normalize-space(servlet-name) = " .
+             "'caUpdateDomainXML-admin']";
+        &add_node($doc,$parser, $q, $top_path, $updateDomainMappingData);
+    } elsif ($subsystem_type eq $KRA) {
+        # change kraUpdateNumberRange
+        my $q = "//servlet[normalize-space(servlet-name) = 'kraUpdateNumberRange']";
+        foreach my $servlet ($doc->findnodes($q)) {
+            my $q1 = "./init-param[normalize-space(param-name)='interface']" .
+                     "/param-value/text()";
+            &update_node_text($servlet, $q1, 'admin');
+        }
+
+        #modify servlet mapping for kraUpdateNumberRange
+        $q = "//servlet-mapping[normalize-space(servlet-name) = " .
+             "'kraUpdateNumberRange']/url-pattern/text()";
+        &update_node_text($doc, $q, '/admin/kra/updateNumberRange');
+
+        # remove getTokenInfo
+        $q = "//servlet[normalize-space(servlet-name) = 'kraGetTokenInfo']";
+        &remove_node($doc, $q);
+
+        # remove getTokenInfo servlet mapping
+        $q = "//servlet-mapping[normalize-space(servlet-name) = 'kraGetTokenInfo']";
+        &remove_node($doc, $q);
+    } elsif ($subsystem_type eq $OCSP) {
+        # remove getTokenInfo
+        my $q = "//servlet[normalize-space(servlet-name) = 'ocspGetTokenInfo']";
+        &remove_node($doc, $q);
+
+        # remove getTokenInfo servlet mapping
+        $q = "//servlet-mapping[normalize-space(servlet-name) = 'ocspGetTokenInfo']";
+        &remove_node($doc, $q);
+    } elsif ($subsystem_type eq $TKS) {
+        # remove getTokenInfo
+        my $q = "//servlet[normalize-space(servlet-name) = 'tksGetTokenInfo']";
+        &remove_node($doc, $q);
+
+        # remove getTokenInfo servlet mapping
+        $q = "//servlet-mapping[normalize-space(servlet-name) = 'tksGetTokenInfo']";
+        &remove_node($doc, $q);
+    }
+
+    if (!$dry_run) {
+        my $backup_fname = "$web_xml.backup_$$";
+        emit("Backing up $web_xml to $backup_fname");
+        copy_file($web_xml, $backup_fname, $default_file_permissions, $pki_user, $pki_group);
+
+        if (! open(INST, ">", $web_xml)) {
+            emit("can not open $web_xml for writing", "error");
+            return 0;
+        }
+
+        emit("Writing new $web_xml");
+        print INST $doc->toString;
+        close(INST);
+    }
+
+    return 1;
+}
+
 
 ##############################################################
 # Main Program
@@ -459,6 +599,8 @@ sub main
 
     my %cs_cfg = ();
     exit 255 if !read_cfg("$pki_instance_path/conf/CS.cfg", \%cs_cfg);
+
+    my $release_number = get_release_number(\%cs_cfg);
 
     ##################################
     # General File Processing
@@ -510,6 +652,7 @@ sub main
     exit 255 if !populate_hash_values("$new_subs_dir/conf/CS.cfg", 0, "new_s", 
                                       \%cs_cfg_changes_hash);
     exit 255 if !add_new_config_values(\%cs_cfg, \%cs_cfg_changes_hash);
+
     exit 255 if !check_for_customizations(\%cs_cfg_changes_hash, \%cfg_actions, 0, \@ignore);
     exit 255 if !perform_cs_actions($inst_cs_cfg, \%cs_cfg_changes_hash, \%cfg_actions);
 
@@ -580,7 +723,18 @@ sub main
             $default_exe_permissions);
     }
 
-   set_permissions("/etc/init.d/${pki_instance_name}", $default_exe_permissions);
+    set_permissions("/etc/init.d/${pki_instance_name}", $default_exe_permissions);
+
+    ########################################
+    # For errata 1, modify the web.xml
+    ########################################
+    if (($release_number == 0 ) && 
+       (($subsystem_type eq $CA) || ($subsystem_type eq $KRA) || ($subsystem_type eq $OCSP) ||
+        ($subsystem_type eq $TKS))) {
+        return 255 if ! modify_web_xml(
+            "/var/lib/${pki_instance_name}/webapps/${subsystem_type}/WEB-INF/web.xml",
+            $subsystem_type);
+    }
 
     ################################
     # Cleanup
