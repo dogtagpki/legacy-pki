@@ -3,7 +3,6 @@ use strict;
 use warnings;
 
 use Exporter;
-use XML::LibXML;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw(
@@ -25,11 +24,15 @@ our @EXPORT = qw(
  perform_cs_actions list_values_equal
  find_directory_changes
  get_release_number
+ update_node_text add_node remove_node
  );
 
 use File::Find;
 use File::Path qw{mkpath rmtree};
 use File::Copy;
+use Socket;
+use Sys::Hostname;
+use XML::LibXML;
 
 # Global variables
 my %subs_hash = ();
@@ -72,6 +75,7 @@ my $PKI_AGENT_MACHINE_NAME = "PKI_AGENT_MACHINE_NAME";
 my $PKI_EE_MACHINE_NAME    = "PKI_EE_MACHINE_NAME";
 my $PKI_EE_CLIENT_AUTH_MACHINE_NAME = "PKI_EE_CLIENT_AUTH_MACHINE_NAME";
 my $PKI_ADMIN_MACHINE_NAME = "PKI_ADMIN_MACHINE_NAME";
+my $PKI_PORT_CONFIGURATION_MODE_SLOT = "PKI_PORT_CONFIGURATION_MODE";
 my $SUBSYSTEM_TYPE         = "SUBSYSTEM_TYPE";
 my $SYSTEM_LIBRARIES       = "SYSTEM_LIBRARIES";
 my $SYSTEM_USER_LIBRARIES  = "SYSTEM_USER_LIBRARIES";
@@ -101,6 +105,11 @@ my $PKI_EE_SECURE_PORT_SLOT   = "PKI_EE_SECURE_PORT";
 my $PKI_EE_SECURE_CLIENT_AUTH_PORT_SLOT   = "PKI_EE_SECURE_CLIENT_AUTH_PORT";
 my $PKI_AGENT_SECURE_PORT_SLOT = "PKI_AGENT_SECURE_PORT";
 my $PKI_ADMIN_SECURE_PORT_SLOT = "PKI_ADMIN_SECURE_PORT";
+my $PKI_AGENT_MACHINE_IP_ADDR_SLOT = "PKI_AGENT_MACHINE_IP_ADDR";
+my $PKI_EE_MACHINE_IP_ADDR_SLOT = "PKI_EE_MACHINE_IP_ADDR";
+my $PKI_EE_CLIENT_AUTH_MACHINE_IP_ADDR_SLOT = "PKI_EE_CLIENT_AUTH_MACHINE_IP_ADDR";
+my $PKI_ADMIN_MACHINE_IP_ADDR_SLOT = "PKI_ADMIN_MACHINE_IP_ADDR";
+my $PKI_AGENT_MACHINE_NAME_SLOT = "PKI_AGENT_MACHINE_NAME";
 my $PKI_SERVER_XML_CONF       = "PKI_SERVER_XML_CONF";
 my $PKI_SUBSYSTEM_TYPE_SLOT   = "PKI_SUBSYSTEM_TYPE";
 my $PKI_UNSECURE_PORT_SLOT    = "PKI_UNSECURE_PORT";
@@ -147,6 +156,13 @@ my $PKI_WEBAPPS_NAME          = "PKI_WEBAPPS_NAME";
 # "logging" parameters
 my $logfd = undef;
 my $logfile_path = undef;
+my $is_IPv6 = 0;
+
+if( defined( $ENV{ 'PKI_HOSTNAME' } ) ) {
+    # IPv6: Retrieve hostname from environment variable
+    $is_IPv6 = 1;
+}
+
 
 ##############################################################
 # Global Variables
@@ -426,6 +442,28 @@ sub is_path_valid
     return $valid;
 }
 
+# arg0 hostname
+# return "4-tuple" IP address (IPv4), or pass-through hostname (IPv6)
+sub get_IP_address_from_FQDN
+{
+    my $addr = "";
+    if( !$is_IPv6 ) {
+        if( $_[0] !~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/ ) {
+            # Retrieve IP address from a "mnemonic" hostname
+            ( $addr ) = inet_ntoa( ( gethostbyname( $_[0] ) )[4] );
+        } else {
+            # Simply return passed-in "4-tuple" IP address
+            $addr = $_[0];
+        }
+    } else {
+        # IPv6:  Don't rely upon "Socket6.pm" being present!
+        $addr = $_[0];
+    }
+
+    return( $addr );
+}
+
+
 ##############################################################
 # Version subroutines
 ##############################################################
@@ -626,6 +664,31 @@ sub setup_slot_hash
         $agentMachineName=$cfg->{'adminMachineName'};
     }
 
+    #ip addresses
+    my $agent_ip_addr = get_IP_address_from_FQDN($agentMachineName);
+    my $ee_ip_addr = get_IP_address_from_FQDN($eeMachineName);
+    my $ee_client_auth_ip_addr = get_IP_address_from_FQDN($eecaMachineName);
+    my $admin_ip_addr = get_IP_address_from_FQDN($adminMachineName);
+
+    # port configuration mode
+    my $port_configuration_mode = "";
+    if (exists $cfg->{'service.portConfigurationMode'} and \
+        defined $cfg->{'service.portConfigurationMode'}) {
+        $port_configuration_mode = $cfg->{'service.portConfigurationMode'};
+    } else {
+        if ($subsystem_type eq $RA) {
+            $port_configuration_mode = "RA Ports";
+        } elsif ($subsystem_type eq $TPS) {
+            $port_configuration_mode = "TPS Ports";
+        } elsif (($secure_port == $ee_secure_port) &&
+                 ($secure_port == $admin_secure_port) &&
+                 ($secure_port == $agent_secure_port)) {
+            $port_configuration_mode = "Shared Ports";
+        } else {
+            $port_configuration_mode = "Port Separation";
+        }
+    }
+
     #paths
     my $pki_instance_path = "$pki_instance_root/$pki_instance_name";
     my $pki_instance_conf_path = "$pki_instance_path/conf";
@@ -704,10 +767,7 @@ sub setup_slot_hash
         $slot_hash{$NON_CLIENTAUTH_SECURE_PORT} = $non_clientauth_secure_port;
         $slot_hash{$SECURITY_LIBRARIES}    = $default_security_libraries;
         $slot_hash{$SERVER_NAME}           = $host;
-        $slot_hash{$PKI_AGENT_MACHINE_NAME} = $agentMachineName;
-        $slot_hash{$PKI_EE_MACHINE_NAME}    = $eeMachineName;
-        $slot_hash{$PKI_EE_CLIENT_AUTH_MACHINE_NAME} = $eecaMachineName;
-        $slot_hash{$PKI_ADMIN_MACHINE_NAME} = $adminMachineName;
+        $slot_hash{$PKI_PORT_CONFIGURATION_MODE_SLOT} = $port_configuration_mode;
 
         $slot_hash{$SERVER_ROOT}           = $pki_instance_path;
         $slot_hash{$SUBSYSTEM_TYPE}        = $subsystem_type;
@@ -744,6 +804,15 @@ LoadModule nss_module  /etc/httpd/modules/libmodnss.so
         $slot_hash{$PKI_INSTANCE_PATH_SLOT}    = $pki_instance_path;
         $slot_hash{$PKI_INSTANCE_ROOT_SLOT}    = $pki_instance_root;
         $slot_hash{$PKI_MACHINE_NAME_SLOT}     = $host;
+        $slot_hash{$PKI_AGENT_MACHINE_NAME} = $agentMachineName;
+        $slot_hash{$PKI_EE_MACHINE_NAME}    = $eeMachineName;
+        $slot_hash{$PKI_EE_CLIENT_AUTH_MACHINE_NAME} = $eecaMachineName;
+        $slot_hash{$PKI_ADMIN_MACHINE_NAME} = $adminMachineName;
+        $slot_hash{$PKI_AGENT_MACHINE_IP_ADDR_SLOT} = $agent_ip_addr;
+        $slot_hash{$PKI_EE_MACHINE_IP_ADDR_SLOT}    = $ee_ip_addr;
+        $slot_hash{$PKI_EE_CLIENT_AUTH_MACHINE_IP_ADDR_SLOT} = $ee_client_auth_ip_addr;
+        $slot_hash{$PKI_ADMIN_MACHINE_IP_ADDR_SLOT} = $admin_ip_addr;
+        $slot_hash{$PKI_PORT_CONFIGURATION_MODE_SLOT} = $port_configuration_mode;
         $slot_hash{$PKI_RANDOM_NUMBER_SLOT}    = $random;
         $slot_hash{$PKI_SERVER_XML_CONF}       = $server_xml_instance_file_path;
         $slot_hash{$PKI_SUBSYSTEM_TYPE_SLOT}   = $subsystem_type;
