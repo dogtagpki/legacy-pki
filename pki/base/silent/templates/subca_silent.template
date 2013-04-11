@@ -83,7 +83,7 @@ fi
 ##  PKI Silent Security Database Variables
 ##  (e. g. - PKI Silent "browser" database)
 pki_silent_security_database_repository="/tmp"
-pki_silent_security_database_password=
+pki_silent_security_token_password=
 pki_silent_security_token_name=internal
 
 ##  PKI Security Domain Variables
@@ -314,8 +314,8 @@ subca_audit_signing_cert_subject_name="cn=CA\ Audit\ Signing\ Certificate\ 2,o=$
 usage_errors=0
 usage_error_preamble="ERROR:  User MUST define a value for"
 
-if [ "${pki_silent_security_database_password}" = "" ] ; then
-	printf "${usage_error_preamble} 'pki_silent_security_database_password'!\n"
+if [ "${pki_silent_security_token_password}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_silent_security_token_password'!\n"
 	usage_errors=`expr ${usage_errors} + 1`
 fi
 if [ "${pki_security_domain_name}" = "" ] ; then
@@ -472,7 +472,7 @@ pkisilent ConfigureSubCA \
 	-ca_port ${ca_nonssl_port} \
 	-ca_ssl_port ${ca_ee_port} \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
-	-client_certdb_pwd ${pki_silent_security_database_password} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
 	-client_token_name ${pki_silent_security_token_name} \
 	-preop_pin ${subca_preop_pin} \
 	-domain_name "${pki_security_domain_name}" \

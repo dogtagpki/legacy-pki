@@ -743,7 +743,7 @@ public class ConfigureOCSP
         // get response data
         String cert_to_import = 
                 new sun.misc.BASE64Encoder().encode(hr.getResponseData());
-        System.out.println("Imported Cert=" + cert_to_import);
+        System.out.println("Cert to Import=" + cert_to_import);
 
         ComCrypto cCrypt = new ComCrypto(client_certdb_dir,
                                         client_token_name,

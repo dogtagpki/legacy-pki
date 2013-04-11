@@ -1069,7 +1069,6 @@ public class ConfigureCA {
                 // Convert base64 string to a byte array
                 // buf = new sun.misc.BASE64Decoder().decodeBuffer(s);
 
-                System.out.println("Cert to Import =" + cert_to_import);
             } catch (Exception e) {
                 System.out.println("ERROR: failed to retrieve cert");
             }

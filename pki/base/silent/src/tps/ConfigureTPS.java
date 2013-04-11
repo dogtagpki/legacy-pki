@@ -735,7 +735,7 @@ public class ConfigureTPS
 			System.out.println("ERROR: failed to retrieve cert");
 		}
 
-		System.out.println("Imported Cert=" + cert_to_import);
+		System.out.println("Cert to Import=" + cert_to_import);
 		
 		ComCrypto cCrypt = new ComCrypto(client_certdb_dir,
                                         client_token_name,

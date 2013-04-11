@@ -80,7 +80,7 @@ fi
 ##  PKI Silent Security Database Variables
 ##  (e. g. - PKI Silent "browser" database)
 pki_silent_security_database_repository="/tmp"
-pki_silent_security_database_password=
+pki_silent_security_token_password=
 pki_silent_security_token_name=internal
 
 ##  PKI Security Domain Variables
@@ -806,8 +806,8 @@ tps_audit_signing_cert_nickname="auditSigningCert\ cert-${tps_instance_name}"
 usage_errors=0
 usage_error_preamble="ERROR:  User MUST define a value for"
 
-if [ "${pki_silent_security_database_password}" = "" ] ; then
-	printf "${usage_error_preamble} 'pki_silent_security_database_password'!\n"
+if [ "${pki_silent_security_token_password}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_silent_security_token_password'!\n"
 	usage_errors=`expr ${usage_errors} + 1`
 fi
 if [ "${pki_security_domain_name}" = "" ] ; then
@@ -1077,7 +1077,7 @@ pkisilent ConfigureCA \
 	-cs_hostname "${pki_host}" \
 	-cs_port ${ca_admin_port} \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
-	-client_certdb_pwd ${pki_silent_security_database_password} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
 	-client_token_name ${pki_silent_security_token_name} \
 	-preop_pin ${ca_preop_pin} \
 	-domain_name "${pki_security_domain_name}" \
@@ -1148,7 +1148,7 @@ pkisilent ConfigureCA \
 #	-cs_hostname "${pki_host}" \
 #	-cs_port ${ca_admin_port} \
 #	-client_certdb_dir ${pki_silent_security_database_repository} \
-#	-client_certdb_pwd ${pki_silent_security_database_password} \
+#	-client_certdb_pwd ${pki_silent_security_token_password} \
 #	-client_token_name ${pki_silent_security_token_name} \
 #	-preop_pin ${ca_preop_pin} \
 #	-domain_name "${pki_security_domain_name}" \
@@ -1211,7 +1211,7 @@ pkisilent ConfigureCA \
 #	-cs_hostname "${pki_host}" \
 #	-cs_port ${ca_admin_port} \
 #	-client_certdb_dir ${pki_silent_security_database_repository} \
-#	-client_certdb_pwd ${pki_silent_security_database_password} \
+#	-client_certdb_pwd ${pki_silent_security_token_password} \
 #	-client_token_name ${pki_silent_security_token_name} \
 #	-preop_pin ${ca_preop_pin} \
 #	-domain_name "${pki_security_domain_name}" \
@@ -1283,7 +1283,7 @@ pkisilent ConfigureCA \
 #	-cs_hostname "${pki_host}" \
 #	-cs_port ${ca_admin_port} \
 #	-client_certdb_dir ${pki_silent_security_database_repository} \
-#	-client_certdb_pwd ${pki_silent_security_database_password} \
+#	-client_certdb_pwd ${pki_silent_security_token_password} \
 #	-client_token_name ${pki_silent_security_token_name} \
 #	-preop_pin ${ca_preop_pin} \
 #	-domain_name "${pki_security_domain_name}" \
@@ -1357,7 +1357,7 @@ pkisilent ConfigureDRM \
 	-ca_port ${ca_nonssl_port} \
 	-ca_ssl_port ${ca_ee_port} \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
-	-client_certdb_pwd ${pki_silent_security_database_password} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
 	-client_token_name ${pki_silent_security_token_name} \
 	-preop_pin ${kra_preop_pin} \
 	-domain_name "${pki_security_domain_name}" \
@@ -1427,7 +1427,7 @@ pkisilent ConfigureDRM \
 #	-ca_port ${ca_nonssl_port} \
 #	-ca_ssl_port ${ca_ee_port} \
 #	-client_certdb_dir ${pki_silent_security_database_repository} \
-#	-client_certdb_pwd ${pki_silent_security_database_password} \
+#	-client_certdb_pwd ${pki_silent_security_token_password} \
 #	-client_token_name ${pki_silent_security_token_name} \
 #	-preop_pin ${kra_preop_pin} \
 #	-domain_name "${pki_security_domain_name}" \
@@ -1500,7 +1500,7 @@ pkisilent ConfigureOCSP \
 	-ca_port ${ca_nonssl_port} \
 	-ca_ssl_port ${ca_ee_port} \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
-	-client_certdb_pwd ${pki_silent_security_database_password} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
 	-client_token_name ${pki_silent_security_token_name} \
 	-preop_pin ${ocsp_preop_pin} \
 	-domain_name "${pki_security_domain_name}" \
@@ -1568,7 +1568,7 @@ pkisilent ConfigureTKS \
 	-ca_port ${ca_nonssl_port} \
 	-ca_ssl_port ${ca_ee_port} \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
-	-client_certdb_pwd ${pki_silent_security_database_password} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
 	-client_token_name ${pki_silent_security_token_name} \
 	-preop_pin ${tks_preop_pin} \
 	-domain_name "${pki_security_domain_name}" \
@@ -1634,7 +1634,7 @@ pkisilent ConfigureRA \
 	-ca_ssl_port ${ra_chosen_ca_ssl_port} \
 	-ca_admin_port ${ra_chosen_ca_admin_port} \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
-	-client_certdb_pwd ${pki_silent_security_database_password} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
 	-client_token_name ${pki_silent_security_token_name} \
 	-preop_pin ${ra_preop_pin} \
 	-domain_name "${pki_security_domain_name}" \
@@ -1706,7 +1706,7 @@ pkisilent ConfigureTPS \
 	-tks_hostname ${tps_chosen_tks_hostname} \
 	-tks_ssl_port ${tps_chosen_tks_ssl_port} \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
-	-client_certdb_pwd ${pki_silent_security_database_password} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
 	-client_token_name ${pki_silent_security_token_name} \
 	-preop_pin ${tps_preop_pin} \
 	-domain_name "${pki_security_domain_name}" \

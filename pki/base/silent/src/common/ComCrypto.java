@@ -34,6 +34,7 @@ import java.lang.Exception;
 
 import org.mozilla.jss.*;
 import org.mozilla.jss.CryptoManager;
+import org.mozilla.jss.crypto.InternalCertificate;
 import org.mozilla.jss.util.*;
 import org.mozilla.jss.ssl.*;
 import org.mozilla.jss.crypto.*;
@@ -248,8 +249,6 @@ public class ComCrypto {
     /**
      * Imports a certificate to Certificate Database. Takes certificate and nickname as parameters.
      */
-
-
     public boolean importCert(String cpack, String cn) {
 
         System.out.println("importCert string: importing with nickname: " + cn);
@@ -267,15 +266,42 @@ public class ComCrypto {
 
             X509Certificate cert = manager.importCertPackage(tmp.getBytes(), cn);
 
-            return true;
+            /*
+             *  failing to import cert should not be detrimental. When failed,
+             *  allow to continue and user can manually import them later.
+             *  Same with trust setting.
+             */
+            if (cert != null)
+                System.out.println("importCert string: importCertPackage() succeeded");
+            else
+                System.out.println("importCert string: importCertPackage() failed");
+
+            /* set trust bits for the issuer CA cert */
+            System.out.println("importCert string: set CA trust bits");
+            X509Certificate[] ca_certs = manager.getCACerts();
+            for (int i =0; i< ca_certs.length; i++) {
+                // look for the signing CA
+                if  (ca_certs[i].getSubjectDN().toString().equals(
+                    cert.getIssuerDN().toString())) {
+                    // set the trust bits
+                    InternalCertificate icert =
+                        (InternalCertificate) ca_certs[i];
+                    icert.setSSLTrust(InternalCertificate.TRUSTED_CA
+                          | InternalCertificate.TRUSTED_CLIENT_CA
+                          | InternalCertificate.VALID_CA);
+
+                    System.out.println("importCert string: CA trust bits set");
+                    break;
+                }
+            }
 
         } catch (Exception e) {
             System.out.println(
-                    "ERROR:exception importing cert " + e.getMessage());
+                    "ERROR: exception importing cert: " + e.getMessage());
             e.printStackTrace();
-            return false;
+            // return false;
         }
-
+        return true;
     }
 
     /* imports CA certificate
@@ -295,6 +321,11 @@ public class ComCrypto {
             }
 
             X509Certificate cert = manager.importCACertPackage(tmp.getBytes());
+            // adjust the trust bits
+            InternalCertificate icert = (InternalCertificate) cert;
+            icert.setSSLTrust(InternalCertificate.TRUSTED_CA
+                          | InternalCertificate.TRUSTED_CLIENT_CA
+                          | InternalCertificate.VALID_CA);
 
             return true;
 
