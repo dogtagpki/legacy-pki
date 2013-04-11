@@ -91,10 +91,10 @@ fi
 ##  parameter should be set to ~/.mozilla/firefox/<your new profile directory>
 ##  Example:
 ##pki_silent_security_database_repository="/home/jdoe/.mozilla/firefox/u7bdq5th.silent"
-##pki_silent_security_database_password="mypasswd"
+##pki_silent_security_token_password="mypasswd"
 ##pki_silent_security_token_name="Certicom\ FIPS\ Cert/Key\ Services"
 pki_silent_security_database_repository=
-pki_silent_security_database_password=
+pki_silent_security_token_password=
 pki_silent_security_token_name=
 
 ##  PKI Security Domain Variables
@@ -335,8 +335,8 @@ if [ "${pki_silent_security_database_repository}" = "" ] ; then
     printf "${usage_error_preamble} 'pki_silent_security_database_repository'!\n"   
     usage_errors=`expr ${usage_errors} + 1`
 fi
-if [ "${pki_silent_security_database_password}" = "" ] ; then
-	printf "${usage_error_preamble} 'pki_silent_security_database_password'!\n"
+if [ "${pki_silent_security_token_password}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_silent_security_token_password'!\n"
 	usage_errors=`expr ${usage_errors} + 1`
 fi
 if [ "${pki_silent_security_token_name}" = "" ] ; then
@@ -423,17 +423,16 @@ fi
 
 
 ## (4) Check for old PKI Silent Security Databases, but DO NOT remove them!
-##     Instead, inform the user and exit this script.
+##     Instead, just inform the user.
 if	[ -f "${pki_silent_security_database_repository}/cert8.db" ] ||
 	[ -f "${pki_silent_security_database_repository}/key3.db" ] ||
 	[ -f "${pki_silent_security_database_repository}/secmod.db" ] ; then
 	printf "\n"
-	printf "WARNING:  At least one of the security databases\n"
+	printf "WARNING:  The existing security databases\n"
 	printf "          (i. e. - 'cert8.db', 'key3.db', and/or 'secmod.db')\n"
-	printf "          required by '${pki_silent_script}' exists at the\n"
+	printf "          required by '${pki_silent_script}' at the\n"
 	printf "          specified location '${pki_silent_security_database_repository}'.\n"
-	printf "\n"
-	printf "          Continue...\n\n"
+	printf "          are to be used.\n\n"
 #	exit 255
 fi
 
@@ -465,7 +464,7 @@ pkisilent ConfigureTKS \
 	-ca_ssl_port ${ca_ee_port} \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
 	-client_token_name ${pki_silent_security_token_name} \
-	-client_certdb_pwd ${pki_silent_security_database_password} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
 	-preop_pin ${preop_pin} \
 	-domain_name "${pki_security_domain_name}" \
 	-admin_user ${pki_silent_admin_user} \
