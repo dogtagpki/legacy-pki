@@ -110,6 +110,34 @@ my $updateDomainMappingData =
      <url-pattern>   /admin/ca/updateDomainXML  </url-pattern>
  </servlet-mapping>";
 
+my $tokenAuthenticateServletData =
+"<servlet>
+     <servlet-name>  caTokenAuthenticate-admin  </servlet-name>
+     <servlet-class> com.netscape.cms.servlet.csadmin.TokenAuthenticate  </servlet-class>
+     <init-param>
+         <param-name>  GetClientCert  </param-name>
+         <param-value> false       </param-value>
+     </init-param>
+     <init-param>
+         <param-name>  authority   </param-name>
+         <param-value> ca          </param-value>
+     </init-param>
+     <init-param>
+         <param-name>  ID          </param-name>
+         <param-value> caTokenAuthenticate  </param-value>
+     </init-param>
+     <init-param>
+         <param-name>  interface   </param-name>
+         <param-value> admin       </param-value>
+     </init-param>
+ </servlet>";
+
+my $tokenAuthenticateMappingData = 
+"<servlet-mapping>
+     <servlet-name>  caTokenAuthenticate-admin </servlet-name>
+     <url-pattern>   /admin/ca/tokenAuthenticate  </url-pattern>
+ </servlet-mapping>";
+
 ##############################################################
 # Local Data Structures
 ##############################################################
@@ -506,6 +534,15 @@ sub modify_web_xml
         $q = "//servlet-mapping[normalize-space(servlet-name) = " .
              "'caUpdateDomainXML-admin']";
         &add_node($doc,$parser, $q, $top_path, $updateDomainMappingData);
+
+        #add caTokenAuthenticate-admin
+        $q = "//servlet[normalize-space(servlet-name) = 'caTokenAuthenticate-admin']";
+        &add_node($doc, $parser, $q, $top_path, $tokenAuthenticateServletData);
+
+        #add caTokenAuthenticate-admin servlet mapping
+        $q = "//servlet-mapping[normalize-space(servlet-name) = " .
+             "'caTokenAuthenticate-admin']";
+        &add_node($doc,$parser, $q, $top_path, $tokenAuthenticateMappingData);
     } elsif ($subsystem_type eq $KRA) {
         # change kraUpdateNumberRange
         my $q = "//servlet[normalize-space(servlet-name) = 'kraUpdateNumberRange']";
