@@ -72,11 +72,11 @@ my $pki_subsystem_common_area = "/usr/share/pki";
 
 my $updateDomainServletData =
 "<servlet>
-     <servlet-name>  caUpdateDomainXML-admin  </servlet-name>
+     <servlet-name>  caUpdateDomainXML-admin </servlet-name>
      <servlet-class> com.netscape.cms.servlet.csadmin.UpdateDomainXML  </servlet-class>
      <init-param>
          <param-name>  GetClientCert  </param-name>
-         <param-value> true       </param-value>
+         <param-value> false       </param-value>
      </init-param>
      <init-param>
          <param-name>  authority   </param-name>
@@ -88,11 +88,11 @@ my $updateDomainServletData =
      </init-param>
      <init-param>
          <param-name>  interface   </param-name>
-         <param-value> agent          </param-value>
+         <param-value> admin          </param-value>
      </init-param>
      <init-param>
          <param-name>  AuthMgr     </param-name>
-         <param-value> certUserDBAuthMgr </param-value>
+         <param-value> TokenAuth </param-value>
      </init-param>
      <init-param>
          <param-name>  AuthzMgr    </param-name>
