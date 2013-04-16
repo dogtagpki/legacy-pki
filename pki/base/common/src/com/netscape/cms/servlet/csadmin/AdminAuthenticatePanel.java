@@ -182,7 +182,7 @@ public class AdminAuthenticatePanel extends WizardPanelBase {
             String host = "";
             int httpsport = -1;
             try {
-                host = config.getString("preop.master.hostname");
+                host = config.getString("preop.master.httpsadminhost");
             } catch (Exception e) {
                 CMS.debug("AdminAuthenticatePanel update: "+e.toString());
                 context.put("errorString", "Missing hostname for master");
@@ -244,6 +244,11 @@ public class AdminAuthenticatePanel extends WizardPanelBase {
             }
 
             if (!cstype.equals("ca")) {
+                // preop.ca.hostname = CA EE Hostname
+                //
+                // preop.ca.list=
+                // Certificate Authority - https://<CA EE Host>:<Secure CA EE port>,
+                // ...,External CA
                 c1.append(",preop.ca.hostname,preop.ca.httpport,preop.ca.httpsport,preop.ca.list,preop.ca.pkcs7,preop.ca.type");
             }
 

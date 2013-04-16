@@ -12,12 +12,16 @@
 
 <!-- DO NOT REMOVE - Begin PKI Status Definitions -->
 <!--
-Unsecure Port       = http://[PKI_MACHINE_NAME]:[PKI_UNSECURE_PORT]/[PKI_SUBSYSTEM_TYPE]/ee/[PKI_SUBSYSTEM_TYPE]
-Secure Agent Port   = https://[PKI_MACHINE_NAME]:[PKI_AGENT_SECURE_PORT]/[PKI_SUBSYSTEM_TYPE]/agent/[PKI_SUBSYSTEM_TYPE]
-Secure EE Port      = https://[PKI_MACHINE_NAME]:[PKI_EE_SECURE_PORT]/[PKI_SUBSYSTEM_TYPE]/ee/[PKI_SUBSYSTEM_TYPE]
-Secure Admin Port   = https://[PKI_MACHINE_NAME]:[PKI_ADMIN_SECURE_PORT]/[PKI_SUBSYSTEM_TYPE]/services
-EE Client Auth Port = https://[PKI_MACHINE_NAME]:[PKI_EE_SECURE_CLIENT_AUTH_PORT]/[PKI_SUBSYSTEM_TYPE]/eeca/[PKI_SUBSYSTEM_TYPE] 
-PKI Console Port    = pkiconsole https://[PKI_MACHINE_NAME]:[PKI_ADMIN_SECURE_PORT]/[PKI_SUBSYSTEM_TYPE]
+EE Host             = [PKI_EE_MACHINE_NAME] ([PKI_EE_MACHINE_IP_ADDR])
+Agent Host          = [PKI_AGENT_MACHINE_NAME] ([PKI_AGENT_MACHINE_IP_ADDR])
+Admin Host          = [PKI_ADMIN_MACHINE_NAME] ([PKI_ADMIN_MACHINE_IP_ADDR])
+EE Client Auth Host = [PKI_EE_CLIENT_AUTH_MACHINE_NAME] ([PKI_EE_CLIENT_AUTH_MACHINE_IP_ADDR])
+Unsecure Port       = http://[PKI_EE_MACHINE_NAME]:[PKI_UNSECURE_PORT]/[PKI_SUBSYSTEM_TYPE]/ee/[PKI_SUBSYSTEM_TYPE]
+Secure Agent Port   = https://[PKI_AGENT_MACHINE_NAME]:[PKI_AGENT_SECURE_PORT]/[PKI_SUBSYSTEM_TYPE]/agent/[PKI_SUBSYSTEM_TYPE]
+Secure EE Port      = https://[PKI_EE_MACHINE_NAME]:[PKI_EE_SECURE_PORT]/[PKI_SUBSYSTEM_TYPE]/ee/[PKI_SUBSYSTEM_TYPE]
+Secure Admin Port   = https://[PKI_ADMIN_MACHINE_NAME]:[PKI_ADMIN_SECURE_PORT]/[PKI_SUBSYSTEM_TYPE]/services
+EE Client Auth Port = https://[PKI_EE_CLIENT_AUTH_MACHINE_NAME]:[PKI_EE_SECURE_CLIENT_AUTH_PORT]/[PKI_SUBSYSTEM_TYPE]/eeca/[PKI_SUBSYSTEM_TYPE] 
+PKI Console Port    = pkiconsole https://[PKI_ADMIN_MACHINE_NAME]:[PKI_ADMIN_SECURE_PORT]/[PKI_SUBSYSTEM_TYPE]
 Tomcat Port         = [TOMCAT_SERVER_PORT] (for shutdown)
 -->
 <!-- DO NOT REMOVE - End PKI Status Definitions -->
@@ -86,7 +90,9 @@ Tomcat Port         = [TOMCAT_SERVER_PORT] (for shutdown)
 
 <!-- Define a non-SSL HTTP/1.1 Connector on port 8080 -->
 [PKI_UNSECURE_PORT_SERVER_COMMENT]
-<Connector name="[PKI_UNSECURE_PORT_CONNECTOR_NAME]" port="[PKI_UNSECURE_PORT]" maxHttpHeaderSize="8192"
+<Connector name="[PKI_UNSECURE_PORT_CONNECTOR_NAME]"
+        address="[PKI_EE_MACHINE_IP_ADDR]"
+        port="[PKI_UNSECURE_PORT]" maxHttpHeaderSize="8192"
         maxThreads="150" minSpareThreads="25" maxSpareThreads="75"
         enableLookups="false" redirectPort="8443" acceptCount="100"
         connectionTimeout="20000" disableUploadTimeout="true"/>
@@ -119,7 +125,9 @@ Tomcat Port         = [TOMCAT_SERVER_PORT] (for shutdown)
         ocspMaxCacheEntryDuration - sets maximum seconds to next fetch attempt
         ocspTimeout -sets OCSP timeout in seconds
 -->
-<Connector name="[PKI_SECURE_PORT_CONNECTOR_NAME]" port="[PKI_SECURE_PORT]" maxHttpHeaderSize="8192"
+<Connector name="[PKI_SECURE_PORT_CONNECTOR_NAME]"
+        address="[PKI_AGENT_MACHINE_IP_ADDR]"
+        port="[PKI_AGENT_SECURE_PORT]" maxHttpHeaderSize="8192"
         maxThreads="150" minSpareThreads="25" maxSpareThreads="75"
         enableLookups="false" disableUploadTimeout="true"
         acceptCount="100" scheme="https" secure="true"
@@ -131,7 +139,7 @@ Tomcat Port         = [TOMCAT_SERVER_PORT] (for shutdown)
         tlsCiphers="-TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,-TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,+TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,+TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,+TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,-TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,+TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,+TLS_RSA_WITH_3DES_EDE_CBC_SHA,+TLS_RSA_WITH_AES_128_CBC_SHA,+TLS_RSA_WITH_AES_256_CBC_SHA,+TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,+TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,-TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,-TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,-TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,+TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,+TLS_DHE_DSS_WITH_AES_128_CBC_SHA,+TLS_DHE_DSS_WITH_AES_256_CBC_SHA,+TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,+TLS_DHE_RSA_WITH_AES_128_CBC_SHA,+TLS_DHE_RSA_WITH_AES_256_CBC_SHA"
         SSLImplementation="org.apache.tomcat.util.net.jss.JSSImplementation"
         enableOCSP="false"
-        ocspResponderURL="http://[PKI_MACHINE_NAME]:9080/ca/ocsp"
+        ocspResponderURL="http://[PKI_EE_MACHINE_NAME]:[PKI_UNSECURE_PORT]/ca/ocsp"
         ocspResponderCertNickname="ocspSigningCert cert-pki-ca"
         ocspCacheSize="1000"
         ocspMinCacheEntryDuration="60"
@@ -145,7 +153,9 @@ Tomcat Port         = [TOMCAT_SERVER_PORT] (for shutdown)
 <!-- DO NOT REMOVE - End define PKI secure port -->
 
 [PKI_OPEN_SEPARATE_PORTS_SERVER_COMMENT][PKI_ADMIN_SECURE_PORT_SERVER_COMMENT]
-<Connector name="[PKI_ADMIN_SECURE_PORT_CONNECTOR_NAME]" port="[PKI_ADMIN_SECURE_PORT]" maxHttpHeaderSize="8192"
+<Connector name="[PKI_ADMIN_SECURE_PORT_CONNECTOR_NAME]"
+        address="[PKI_ADMIN_MACHINE_IP_ADDR]"
+        port="[PKI_ADMIN_SECURE_PORT]" maxHttpHeaderSize="8192"
         maxThreads="150" minSpareThreads="25" maxSpareThreads="75"
         enableLookups="false" disableUploadTimeout="true"
         acceptCount="100" scheme="https" secure="true"
@@ -164,7 +174,9 @@ Tomcat Port         = [TOMCAT_SERVER_PORT] (for shutdown)
 [PKI_CLOSE_SEPARATE_PORTS_SERVER_COMMENT]
 
 [PKI_OPEN_SEPARATE_PORTS_SERVER_COMMENT][PKI_EE_SECURE_PORT_SERVER_COMMENT]
-<Connector name="[PKI_EE_SECURE_PORT_CONNECTOR_NAME]" port="[PKI_EE_SECURE_PORT]" maxHttpHeaderSize="8192"
+<Connector name="[PKI_EE_SECURE_PORT_CONNECTOR_NAME]"
+        address="[PKI_EE_MACHINE_IP_ADDR]"
+        port="[PKI_EE_SECURE_PORT]" maxHttpHeaderSize="8192"
         maxThreads="150" minSpareThreads="25" maxSpareThreads="75"
         enableLookups="false" disableUploadTimeout="true"
         acceptCount="100" scheme="https" secure="true"
@@ -183,7 +195,9 @@ Tomcat Port         = [TOMCAT_SERVER_PORT] (for shutdown)
 [PKI_CLOSE_SEPARATE_PORTS_SERVER_COMMENT]
 
 [PKI_OPEN_SEPARATE_PORTS_SERVER_COMMENT][PKI_EE_SECURE_CLIENT_AUTH_PORT_SERVER_COMMENT]
-<Connector name="[PKI_EE_SECURE_CLIENT_AUTH_PORT_CONNECTOR_NAME]" port="[PKI_EE_SECURE_CLIENT_AUTH_PORT]" maxHttpHeaderSize="8192"
+<Connector name="[PKI_EE_SECURE_CLIENT_AUTH_PORT_CONNECTOR_NAME]"
+        address="[PKI_EE_CLIENT_AUTH_MACHINE_IP_ADDR]"
+        port="[PKI_EE_SECURE_CLIENT_AUTH_PORT]" maxHttpHeaderSize="8192"
         maxThreads="150" minSpareThreads="25" maxSpareThreads="75"
         enableLookups="false" disableUploadTimeout="true"
         acceptCount="100" scheme="https" secure="true"

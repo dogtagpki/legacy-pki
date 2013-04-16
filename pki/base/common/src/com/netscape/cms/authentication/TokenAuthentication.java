@@ -140,17 +140,19 @@ public class TokenAuthentication implements IAuthManager,
 
         String sessionId = (String)authCred.get(CRED_SESSION_ID);
         String givenHost = (String)authCred.get("clientHost");
-        String authHost = sconfig.getString("securitydomain.host");
+        String authAdminHost = sconfig.getString("securitydomain.adminhost");
+        String authEEHost = sconfig.getString("securitydomain.eehost");
         int authAdminPort = sconfig.getInteger("securitydomain.httpsadminport");
         int authEEPort = sconfig.getInteger("securitydomain.httpseeport");
-        String authURL = "/ca/admin/ca/tokenAuthenticate";
+        String authAdminURL = "/ca/admin/ca/tokenAuthenticate";
+        String authEEURL = "/ca/ee/ca/tokenAuthenticate";
 
         String content = CRED_SESSION_ID + "=" + sessionId + "&hostname=" + givenHost;
         CMS.debug("TokenAuthentication: content=" + content);
 
         String c = null;
         try {
-            c = sendAuthRequest(authHost, authAdminPort, authURL, content);
+            c = sendAuthRequest(authAdminHost, authAdminPort, authAdminURL, content);
             // in case where the new interface does not exist, EE will return a badly
             // formatted response which will throw an exception during parsing
             if (c != null) {
@@ -159,14 +161,15 @@ public class TokenAuthentication implements IAuthManager,
             }
         } catch (Exception e) { 
             CMS.debug("TokenAuthenticate: failed to contact admin host:port "
-                    + authHost + ":" + authAdminPort + " " + e);
-            CMS.debug("TokenAuthenticate: attempting ee port " + authEEPort);
-            authURL = "/ca/ee/ca/tokenAuthenticate";
+                    + authAdminHost + ":" + authAdminPort + " " + e);
+            // Retry against the EE host:port combination
+            CMS.debug("TokenAuthenticate: attempting ee host:port " + authEEHost + ":" + authEEPort);
+
             try {
-                c = sendAuthRequest(authHost, authEEPort, authURL, content);
+                c = sendAuthRequest(authEEHost, authEEPort, authEEURL, content);
             } catch (IOException e1) {
                 CMS.debug("TokenAuthenticate: failed to contact EE host:port "
-                        + authHost + ":" + authAdminPort + " " + e1);
+                        + authEEHost + ":" + authEEPort + " " + e1);
                 throw new EBaseException(e1.getMessage());
             }
         }

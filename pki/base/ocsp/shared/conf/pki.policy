@@ -34,6 +34,9 @@ grant codeBase "file:/usr/share/java/velocity.jar" {
 grant codeBase "file:/usr/share/java/xalan-j2-serializer.jar" {
     permission java.security.AllPermission;
 };
+grant codeBase "file:/usr/share/java/xerces-j2.jar" {
+    permission java.security.AllPermission;
+};
 
 
 

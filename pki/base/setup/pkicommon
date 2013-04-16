@@ -208,6 +208,32 @@ $HTTPS_PREFIX        = "https://";
 $LDAP_PREFIX         = "ldap://";
 $LDAPS_PREFIX        = "ldaps://";
 
+# Subsystem names
+$CA   = "ca";
+$OCSP = "ocsp";
+$KRA  = "kra";
+$TKS  = "tks";
+$RA   = "ra";
+$TPS  = "tps";
+
+# Port Configuration Modes
+$PKI_IP_PORT_SEPARATION_MODE = "IP Port Separation";
+$PKI_PORT_SEPARATION_MODE = "Port Separation";
+$PKI_SHARED_PORTS_MODE = "Shared Ports";
+$PKI_RA_PORTS_MODE = "RA Ports";
+$PKI_TPS_PORTS_MODE = "TPS Ports";
+$PKI_MISSING_PORT_MODE = "Must be shared ports, separated ports, OR IP separated ports!";
+$PKI_SHARED_AND_IP_SEPARATED_PORT_MODES = "Cannot be shared ports AND IP separated ports!";
+$PKI_SHARED_AND_SEPARATED_PORT_MODES = "Cannot be shared ports AND separated ports!";
+$PKI_DUPLICATE_SHARED_CONNECTOR_PORTS = "Specified shared connector ports must be unique!";
+$PKI_DUPLICATE_SEPARATED_CONNECTOR_PORTS = "Specified separated connector ports must be unique!";
+$PKI_DUPLICATE_IP_SEPARATED_CONNECTOR_PORTS = "For IP separated connector ports, specified secure ports must be unique from the specified unsecure port which must be unique from the specified tomcat port!";
+$PKI_MISSING_HOSTNAMES = "For IP separated ports, ALL hostnames must be specified!";
+$PKI_MISSING_EE_CLIENT_AUTH_HOSTNAME = "When using IP separated ports on a CA, an EE client auth  hostname must be specified!";
+$PKI_IP_DUPLICATE_HOSTNAME_PORT = "For IP separated ports, all 'hostname:port' combinations must be unique!";
+$PKI_DUPLICATE_RA_CONNECTOR_PORTS = "Specified RA connector ports must be unique!";
+$PKI_DUPLICATE_TPS_CONNECTOR_PORTS = "Specified TPS connector ports must be unique!";
+
 
 ##############################################################
 # Global Variables
@@ -640,6 +666,29 @@ sub get_FQDN
 }
 
 
+# arg0 hostname
+# return "4-tuple" IP address (IPv4), or pass-through hostname (IPv6)
+sub get_IP_address_from_FQDN
+{
+    my( $host ) = @_;
+    my $addr = "";
+    if( !$is_IPv6 ) {
+        if( $host !~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/ ) {
+            # Retrieve IP address from a "mnemonic" hostname
+            ( $addr ) = inet_ntoa( ( gethostbyname( $host ) )[4] );
+        } else {
+            # Simply return passed-in "4-tuple" IP address
+            $addr = $host;
+        }
+    } else {
+        # IPv6:  Don't rely upon "Socket6.pm" being present!
+        $addr = $host;
+    }
+
+    return( $addr );
+}
+
+
 ##############################################################
 # Generic "availability" Subroutines
 ##############################################################
@@ -663,49 +712,246 @@ sub check_for_valid_url_prefix
     return 0;
 }
 
-# arg0 secure_port
-# arg1 unsecure_port
-# arg2 agent_secure_port
-# arg3 ee_secure_port
-# arg4 admin_secure_port 
-# return 1 - ports are valid (success)
-# return 0 - ports have a conflict (failure)
-sub AreConnectorPortsValid 
+# arg0  subsystem_type
+# arg1  secure_port
+# arg2  unsecure_port
+# arg3  non_clientauth_secure_port
+# arg4  agent_secure_port
+# arg5  ee_secure_port
+# arg6  ee_secure_clientauth_port
+# arg7  admin_secure_port 
+# arg8  tomcat_server_port 
+# arg9  agent_hostname
+# arg10 ee_hostname
+# arg11 ee_client_auth_hostname
+# arg12 admin_hostname
+# return $PKI_IP_PORT_SEPARATION_MODE, $PKI_PORT_SEPARATION_MODE,
+#        $PKI_SHARED_PORTS_MODE, $RA_PORTS_MODE, $TPS_PORTS_MODE, or
+#        explanatory error message
+sub get_port_configuration_mode
 {
+    my $l_agent_hostport = "";
+    my $l_ee_hostport = "";
+    my $l_ee_client_auth_hostport = "";
+    my $l_admin_hostport = "";
+    my $l_unsecure_hostport = "";
+    my $l_tomcat_hostport = "";
+
     # parse parameters
-    my( $secure_port, $unsecure_port, $agent_secure_port, 
-        $ee_secure_port, $admin_secure_port ) = @_;
+    my( $subsystem_type,
+        $secure_port,
+        $unsecure_port,
+        $non_clientauth_secure_port,
+        $agent_secure_port,
+        $ee_secure_port,
+        $ee_secure_client_auth_port,
+        $admin_secure_port,
+        $tomcat_server_port,
+        $agent_hostname,
+        $ee_hostname,
+        $ee_client_auth_hostname,
+        $admin_hostname ) = @_;
 
+    if( $subsystem_type ne $RA && $subsystem_type ne $TPS ) {
+        # CA, KRA, OCSP, and TKS subsystems
 
-    if( $secure_port == -1 && $agent_secure_port == -1)
-    {
-        return 0;
-    }
-
-    if( $secure_port >= 0 && $agent_secure_port >= 0)
-    {
-        return 0;
-    }
-
-    if( $secure_port >= 0)
-    {
-        if ( $secure_port == $unsecure_port)
-        {
-             return 0;
+        # Must be shared ports, separated ports, OR IP separated ports
+        if( $secure_port == -1 && $agent_secure_port == -1 ) {
+            return $PKI_MISSING_PORT_MODE;
         }
-        return 1;
+
+        # Cannot be shared ports AND IP separated ports
+        if( $secure_port >= 0 ) {
+            if( ( $admin_hostname ne "" ) ||
+                ( $agent_hostname ne "" ) ||
+                ( $ee_hostname ne "" ) ) {
+                return $PKI_SHARED_AND_IP_SEPARATED_PORT_MODES;
+            }
+            if( ( $subsystem_type eq $CA ) &&
+                ( $ee_client_auth_hostname ne "" ) ) {
+                return $PKI_SHARED_AND_IP_SEPARATED_PORT_MODES;
+            }
+        }
+
+        # Cannot be shared ports AND separated ports
+        if( $secure_port >= 0 && $agent_secure_port >= 0 ) {
+            return $PKI_SHARED_AND_SEPARATED_PORT_MODES;
+        }
+
+        if( $secure_port >= 0 ) {
+            # Shared Ports:  all shared ports must be unique
+            if( ( $secure_port == $unsecure_port )      ||
+                ( $secure_port == $tomcat_server_port ) ||
+                ( $unsecure_port == $tomcat_server_port ) ) {
+                # Specified shared connector ports are invalid!
+                return $PKI_DUPLICATE_SHARED_CONNECTOR_PORTS;
+            } else {
+                # Specified shared connector ports are valid!
+                return $PKI_SHARED_PORTS_MODE;
+            }
+        } else {
+            # Check for Separated Ports vs. IP Separated Ports
+            if( ( $admin_hostname eq "" ) &&
+                ( $agent_hostname eq "" ) &&
+                ( $ee_hostname eq "" )    &&
+                ( $ee_client_auth_hostname eq "" ) ) {
+                # Separated Ports:  all separated ports must be unique
+                if( ( $agent_secure_port == $admin_secure_port )           ||
+                    ( $agent_secure_port == $ee_secure_port )              ||
+                    ( $agent_secure_port == $ee_secure_client_auth_port )  ||
+                    ( $agent_secure_port == $unsecure_port )               ||
+                    ( $agent_secure_port == $tomcat_server_port )          ||
+                    ( $ee_secure_port == $admin_secure_port )              ||
+                    ( $ee_secure_port == $ee_secure_client_auth_port )     ||
+                    ( $ee_secure_port == $unsecure_port )                  ||
+                    ( $ee_secure_port == $tomcat_server_port )             ||
+                    ( $ee_secure_client_auth_port == $admin_secure_port )  ||
+                    ( $ee_secure_client_auth_port == $unsecure_port )      ||
+                    ( $ee_secure_client_auth_port == $tomcat_server_port ) ||
+                    ( $admin_secure_port == $unsecure_port )               ||
+                    ( $admin_secure_port == $tomcat_server_port )          ||
+                    ( $unsecure_port == $tomcat_server_port ) ) {
+                    # Specified separated connector ports are invalid!
+                    return $PKI_DUPLICATE_SEPARATED_CONNECTOR_PORTS;
+                } else {
+                    # Specified separated connector ports are valid!
+                    return $PKI_PORT_SEPARATION_MODE;
+                }
+            } else {
+                # IP Separated Ports:  these IP separated ports must be unique
+                if( ( $agent_secure_port == $unsecure_port )               ||
+                    ( $agent_secure_port == $tomcat_server_port )          ||
+                    ( $ee_secure_port == $unsecure_port )                  ||
+                    ( $ee_secure_port == $tomcat_server_port )             ||
+                    ( $ee_secure_client_auth_port == $unsecure_port )      ||
+                    ( $ee_secure_client_auth_port == $tomcat_server_port ) ||
+                    ( $admin_secure_port == $unsecure_port )               ||
+                    ( $admin_secure_port == $tomcat_server_port )          ||
+                    ( $unsecure_port == $tomcat_server_port ) ) {
+                    # Specified IP separated connector ports are invalid!
+                    return $PKI_DUPLICATE_IP_SEPARATED_CONNECTOR_PORTS;
+                }
+            }
+
+            if( ( $admin_hostname ne "" ) ||
+                ( $agent_hostname ne "" ) ||
+                ( $ee_hostname ne "" ) ) {
+                # if ANY hostname is specified, ALL hostnames must be specified
+                if( ( $admin_hostname eq "" ) ||
+                    ( $agent_hostname eq "" ) ||
+                    ( $ee_hostname eq "" ) ) {
+                    # Specified IP separated connector ports are invalid!
+                    return $PKI_MISSING_HOSTNAMES;
+                }
+            }
+
+            # IP Separated Ports:  establish "hostname:port" combinations
+            $l_agent_hostport = $agent_hostname . ':' . $agent_secure_port;
+            $l_ee_hostport = $ee_hostname . ':' . $ee_secure_port;
+            $l_admin_hostport = $admin_hostname . ':' . $admin_secure_port;
+            $l_unsecure_hostport = $ee_hostname . ':' . $unsecure_port;
+            $l_tomcat_hostport = $admin_hostname . ':' . $tomcat_server_port;
+
+            # IP Separated Ports
+            if( $subsystem_type eq $CA ) {
+                # CA subsystems
+
+                # 'ee_client_auth_hostname' must be specified
+                if( $ee_client_auth_hostname eq "" ) {
+                        # Specified IP separated connector ports are invalid!
+                        return $PKI_MISSING_EE_CLIENT_AUTH_HOSTNAME;
+                }
+
+                $l_ee_client_auth_hostport = $ee_client_auth_hostname . ':'
+                                           . $ee_secure_client_auth_port;
+
+                # IP Separated Ports:  all "hostname:port" combinations
+                #                      must be unique
+                if( ( $l_agent_hostport eq $l_admin_hostport )             ||
+                    ( $l_agent_hostport eq $l_ee_hostport )                ||
+                    ( $l_agent_hostport eq $l_ee_client_auth_hostport )    ||
+                    ( $l_agent_hostport eq $l_unsecure_hostport )          ||
+                    ( $l_agent_hostport eq $l_tomcat_hostport )            ||
+                    ( $l_ee_hostport eq $l_admin_hostport )                ||
+                    ( $l_ee_hostport eq $l_ee_client_auth_hostport )       ||
+                    ( $l_ee_hostport eq $l_unsecure_hostport )             ||
+                    ( $l_ee_hostport eq $l_tomcat_hostport )               ||
+                    ( $l_ee_client_auth_hostport eq $l_admin_hostport )    ||
+                    ( $l_ee_client_auth_hostport eq $l_unsecure_hostport ) ||
+                    ( $l_ee_client_auth_hostport eq $l_tomcat_hostport )   ||
+                    ( $l_admin_hostport eq $l_unsecure_hostport )          ||
+                    ( $l_admin_hostport eq $l_tomcat_hostport )            ||
+                    ( $l_unsecure_hostport eq $l_tomcat_hostport ) ) {
+                    # Specified IP separated connector ports are invalid!
+                    return $PKI_IP_DUPLICATE_HOSTNAME_PORT;
+                } else {
+                    # Specified IP separated connector ports are valid!
+                    return $PKI_IP_PORT_SEPARATION_MODE;
+                }
+            } else {
+                # KRA, OCSP, and TKS subsystems
+
+                # IP Separated Ports:  all "hostname:port" combinations
+                #                      must be unique
+                if( ( $l_agent_hostport eq $l_admin_hostport )             ||
+                    ( $l_agent_hostport eq $l_ee_hostport )                ||
+                    ( $l_agent_hostport eq $l_unsecure_hostport )          ||
+                    ( $l_agent_hostport eq $l_tomcat_hostport )            ||
+                    ( $l_ee_hostport eq $l_admin_hostport )                ||
+                    ( $l_ee_hostport eq $l_unsecure_hostport )             ||
+                    ( $l_ee_hostport eq $l_tomcat_hostport )               ||
+                    ( $l_admin_hostport eq $l_unsecure_hostport )          ||
+                    ( $l_admin_hostport eq $l_tomcat_hostport )            ||
+                    ( $l_unsecure_hostport eq $l_tomcat_hostport ) ) {
+                    # Specified IP separated connector ports are invalid!
+                    return $PKI_IP_DUPLICATE_HOSTNAME_PORT;
+                } else {
+                    # Specified IP separated connector ports are valid!
+                    return $PKI_IP_PORT_SEPARATION_MODE;
+                }
+            }
+        }
+    } else {
+        # RA and TPS (Apache) subsystems:  make sure all ports are unique
+        if( ( $secure_port == $non_clientauth_secure_port ) ||
+            ( $secure_port == $unsecure_port )              ||
+            ( $unsecure_port == $non_clientauth_secure_port ) ) {
+            # Specified RA/TPS connector ports are invalid!
+            if( $subsystem_type eq $RA ) {
+                return $PKI_DUPLICATE_RA_CONNECTOR_PORTS;
+            } elsif( $subsystem_type eq $TPS ) {
+                return $PKI_DUPLICATE_TPS_CONNECTOR_PORTS;
+            }
+        } elsif( $subsystem_type eq $RA ) {
+            # Specified RA connector ports are valid!
+            return $RA_PORTS_MODE;
+        } elsif( $subsystem_type eq $TPS ) {
+            # Specified TPS connector ports are valid!
+            return $TPS_PORTS_MODE;
+        }
+    }
+}
+
+
+# arg0 . . . argn items (may contain duplicates)
+# return          comma-separated string of unique items (input order)
+sub compose_unique_list
+{
+    # Retrieve items
+    my @items = @_;
+
+    # Create a list of unique items (i. e. - remove all duplicate items)
+    my @unique_items;
+    foreach my $item ( @items ) {
+        if( !grep( /$item/, @unique_items ) ) {
+            push( @unique_items, $item );
+        }
     }
 
-    # Now make sure none of the separated ports are the same
-    if( ($agent_secure_port == $admin_secure_port) || 
-        ( $agent_secure_port == $ee_secure_port)   ||
-        ( $ee_secure_port == $admin_secure_port) ) 
-    {
-        return 0;
-    }
+    # Create a single comma-separated string of the unique items
+    my $unique_list = join(",", @unique_items);
 
-    return 1;
-    
+    return $unique_list;
 }
 
 

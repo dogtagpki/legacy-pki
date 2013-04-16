@@ -139,8 +139,10 @@ public class CreateSubsystemPanel extends WizardPanelBase {
             context.put("wizardname", config.getString("preop.wizard.name"));
             context.put("systemname", config.getString("preop.system.name"));
             context.put("fullsystemname", config.getString("preop.system.fullname"));
-            context.put("machineName", config.getString("machineName"));
-            context.put("http_port", CMS.getEENonSSLPort());
+            context.put("agentMachineName", config.getString("agentMachineName"));
+            context.put("eeMachineName", config.getString("eeMachineName"));
+            context.put("adminMachineName", config.getString("adminMachineName"));
+            context.put("http_ee_port", CMS.getEENonSSLPort());
             context.put("https_agent_port", CMS.getAgentPort());
             context.put("https_ee_port", CMS.getEESSLPort());
             context.put("https_admin_port", CMS.getAdminPort());
@@ -245,18 +247,32 @@ public class CreateSubsystemPanel extends WizardPanelBase {
                 String host = u.getHost();
                 int https_ee_port = u.getPort();
 
+                String https_admin_host = getSecurityDomainAdminHost( config,
+                                                                      host,
+                                                                      String.valueOf(https_ee_port),
+                                                                      cstype );
                 String https_admin_port = getSecurityDomainAdminPort( config,
                                                                       host,
                                                                       String.valueOf(https_ee_port),
                                                                       cstype );
+                CMS.debug("CreateSubsystemPanel: update " + 
+                          "cstype=" + cstype +
+                          " EE host (preop.master.hostname)=" + host +
+                          " EE port (preop.master.hostname)=" +
+                          String.valueOf(https_ee_port) +
+                          " Admin host (preop.master.httpsadminhost)=" +
+                          https_admin_host +
+                          " Admin port (preop.master.httpsadminport)=" +
+                          https_admin_port);
 
                 config.putString("preop.master.hostname", host);
                 config.putInteger("preop.master.httpsport", https_ee_port);
+                config.putString("preop.master.httpsadminhost", https_admin_host);
                 config.putString("preop.master.httpsadminport", https_admin_port);
 
                 ConfigCertApprovalCallback certApprovalCallback = new ConfigCertApprovalCallback();
                 if (cstype.equals("ca")) {
-                    updateCertChain( config, "clone", host, Integer.parseInt(https_admin_port),
+                    updateCertChain( config, "clone", https_admin_host, Integer.parseInt(https_admin_port),
                                  true, context, certApprovalCallback );
                 }
             } else {

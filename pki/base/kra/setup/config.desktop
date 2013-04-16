@@ -22,7 +22,7 @@ Encoding=UTF-8
 Name=Data Recovery Manager Configuration - [PKI_INSTANCE_ID]
 GenericName=Data Recovery Manager Configuration
 Comment=Configure Data Recovery Manager
-Exec=firefox https://[PKI_MACHINE_NAME]:[PKI_SECURE_PORT]/kra/admin/console/config/login?pin=[PKI_RANDOM_NUMBER]
+Exec=firefox https://[PKI_ADMIN_MACHINE_NAME]:[PKI_ADMIN_SECURE_PORT]/kra/admin/console/config/login?pin=[PKI_RANDOM_NUMBER]
 Icon=firefox.png
 Terminal=false
 Type=Application

@@ -257,6 +257,10 @@ public class UpdateDomainXML extends CMSServlet {
         String domainmgr = httpReq.getParameter("dm");
         String clone = httpReq.getParameter("clone");
         String operation = httpReq.getParameter("operation");
+        String agenthost = httpReq.getParameter("agenthost");
+        String eehost = httpReq.getParameter("eehost");
+        String adminhost = httpReq.getParameter("adminhost");
+        String eecahost = httpReq.getParameter("eecahost");
 
         // ensure required parameters are present
         // especially important for DS syntax checking
@@ -345,6 +349,18 @@ public class UpdateDomainXML extends CMSServlet {
             }
             if ((eecaport != null) && (!eecaport.equals(""))) {
                 attrs.add(new LDAPAttribute("SecureEEClientAuthPort", eecaport));
+            }
+            if ((agenthost != null) && (!agenthost.equals(""))) {
+                attrs.add(new LDAPAttribute("AgentHost", agenthost));
+            }
+            if ((eehost != null) && (!eehost.equals(""))) {
+                attrs.add(new LDAPAttribute("EEHost", eehost));
+            }
+            if ((adminhost != null) && (!adminhost.equals(""))) {
+                attrs.add(new LDAPAttribute("AdminHost", adminhost));
+            }
+            if ((eecahost != null) && (!eecahost.equals(""))) {
+                attrs.add(new LDAPAttribute("EEClientAuthHost", eecahost));
             }
             if ((domainmgr != null) && (!domainmgr.equals(""))) {
                 attrs.add(new LDAPAttribute("DomainManager", domainmgr.toUpperCase()));

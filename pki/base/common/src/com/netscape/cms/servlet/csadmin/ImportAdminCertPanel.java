@@ -110,6 +110,7 @@ public class ImportAdminCertPanel extends WizardPanelBase {
 
         try {
             String serialno = cs.getString("preop.admincert.serialno.0");
+            CMS.debug("ImportAdminCertPanel: serialno=" + serialno);
             
             context.put("serialNumber", serialno);
         } catch (Exception e) {
@@ -126,35 +127,62 @@ public class ImportAdminCertPanel extends WizardPanelBase {
             context.put("ca", "true");
         }
 
-        String caHost = "";
-        String caPort = "";
+        String ca_admin_host = "";
+        String ca_admin_port = "";
         String info = "";
 
         if (ca == null) {
             if (type.equals("otherca")) {
                 try {
-                    // this is a non-CA system that has elected to have its certificates 
-                    // signed by a CA outside of the security domain.
-                    // in this case, we submitted the cert request for the admin cert to
-                    // to security domain host.
-                    caHost = cs.getString("securitydomain.host", "");
-                    caPort = cs.getString("securitydomain.httpsadminport", "");
+                    // This is a non-CA system that has elected to have its
+                    // certificates  signed by a CA outside of the security
+                    // domain.  In this case, we submitted the cert request
+                    // for the admin cert to the security domain Admin host
+                    // and Admin port.
+                    ca_admin_host = cs.getString(
+                                        "securitydomain.adminhost", "");
+                    ca_admin_port = cs.getString(
+                                        "securitydomain.httpsadminport", "");
+                    CMS.debug("ImportAdminCertPanel: otherca " + 
+                              "ca_admin_host=" + ca_admin_host +
+                              " ca_admin_port=" + ca_admin_port);
                 } catch (Exception e) {}
             } else if (type.equals("sdca")) {
                 try {
-                    // this is a non-CA system that submitted its certs to a CA
-                    // within the security domain.  In this case, we submitted the cert
-                    // request for the admin cert to this CA
-                    caHost = cs.getString("preop.ca.hostname", "");
-                    caPort = cs.getString("preop.ca.httpsadminport", "");
+                    // This is a non-CA system that submitted its certs to
+                    // a CA within the security domain.  In this case, we
+                    // submitted the cert request for the admin cert to
+                    // this CA via the CA Admin host and CA Admin port
+                    // after using the associated CA EE host and CA EE port
+                    // to look them up in the security domain.
+                    String ca_ee_host = cs.getString("preop.ca.hostname", "");
+                    String ca_ee_port = cs.getString("preop.ca.httpsport", "");
+                    ca_admin_host = getSecurityDomainAdminHost(cs,
+                                                               ca_ee_host,
+                                                               ca_ee_port,
+                                                               "CA");
+                    ca_admin_port = getSecurityDomainAdminPort(cs,
+                                                               ca_ee_host,
+                                                               ca_ee_port,
+                                                               "CA");
+                    CMS.debug("ImportAdminCertPanel: sdca " + 
+                              "ca_ee_host=" + ca_ee_host +
+                              " ca_ee_port=" + ca_ee_port +
+                              " ca_admin_host=" + ca_admin_host +
+                              " ca_admin_port=" + ca_admin_port);
                 } catch (Exception e) {}
             }
         } else {
             // for CAs, we always generate our own admin certs
-            // send our own connection details
+            // send our own connection details which must utilize
+            // the CA Admin Host and CA Admin Port since the EE
+            // connection for this CA is not yet available
             try {
-                caHost = cs.getString("service.machineName", "");
-                caPort = cs.getString("pkicreate.admin_secure_port", "");
+                ca_admin_host = cs.getString("service.adminMachineName", "");
+                ca_admin_port = cs.getString("pkicreate.admin_secure_port", "");
+                CMS.debug("ImportAdminCertPanel: ca " + 
+                          "ca_admin_host=" + ca_admin_host +
+                          " ca_admin_port=" + ca_admin_port);
             } catch (Exception e) {}
         }
 
@@ -165,8 +193,8 @@ public class ImportAdminCertPanel extends WizardPanelBase {
         }
 
         context.put("pkcs7", pkcs7);
-        context.put("caHost", caHost);
-        context.put("caPort", caPort);
+        context.put("caHost", ca_admin_host);
+        context.put("caPort", ca_admin_port);
         context.put("info", info);
     }
 

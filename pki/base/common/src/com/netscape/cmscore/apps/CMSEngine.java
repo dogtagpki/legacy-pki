@@ -333,7 +333,7 @@ public class CMSEngine implements ICMSEngine {
                     // replication only uses simple bind for now
                     host = config.getString("internaldb.ldapconn.host");
                     port = config.getString("internaldb.ldapconn.port");
-                    binddn = "cn=Replication Manager masterAgreement1-"+ config.getString("machineName", "") +  "-" + 
+                    binddn = "cn=Replication Manager masterAgreement1-"+ config.getString("adminMachineName", "") +  "-" + 
                         config.getString("instanceId", "") + ",cn=config";
                     secure = config.getString("internaldb.ldapconn.secureConn");
                     authType = config.getString("internaldb.ldapauth.authtype", "BasicAuth");
@@ -804,7 +804,16 @@ public class CMSEngine implements ICMSEngine {
     public String getEEHost() {
         String host = "";
         try {
-            host = mConfig.getString("machineName");
+            host = mConfig.getString("eeMachineName");
+        } catch (Exception e) {
+        }
+        return host;
+    }
+
+    public String getEEClientAuthHost() {
+        String host = "";
+        try {
+            host = mConfig.getString("eecaMachineName");
         } catch (Exception e) {
         }
         return host;
@@ -813,7 +822,7 @@ public class CMSEngine implements ICMSEngine {
     public String getEENonSSLHost() {
         String host = "";
         try {
-            host = mConfig.getString("machineName");
+            host = mConfig.getString("eeMachineName");
         } catch (Exception e) {
         }
         return host;
@@ -830,7 +839,7 @@ public class CMSEngine implements ICMSEngine {
     public String getEESSLHost() {
         String host = "";
         try {
-            host = mConfig.getString("machineName");
+            host = mConfig.getString("eeMachineName");
         } catch (Exception e) {
         }
         return host;
@@ -851,7 +860,7 @@ public class CMSEngine implements ICMSEngine {
     public String getAgentHost() {
         String host = "";
         try {
-            host = mConfig.getString("machineName");
+            host = mConfig.getString("agentMachineName");
         } catch (Exception e) {
         }
         return host;
@@ -868,7 +877,7 @@ public class CMSEngine implements ICMSEngine {
     public String getAdminHost() {
         String host = "";
         try {
-            host = mConfig.getString("machineName");
+            host = mConfig.getString("adminMachineName");
         } catch (Exception e) {
         }
         return host;

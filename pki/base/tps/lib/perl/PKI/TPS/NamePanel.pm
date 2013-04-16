@@ -85,26 +85,27 @@ sub update
 
     &PKI::TPS::Wizard::debug_log("NamePanel: update - selected ca= $count");
 
-    my $host = "";
+    my $ca_ee_host = "";
     my $https_ee_port = "";
 
     my $useExternalCA = "off";
     if ($count =~ /http/) {
+      # this is for pkisilent
       my $info = new URI::URL($count);
-      $host = $info->host;
+      $ca_ee_host = $info->host;
       $https_ee_port = $info->port;
     } else {
-      $host = $::config->get("preop.securitydomain.ca$count.host");
-      if ($host eq "") {
+      $ca_ee_host = $::config->get("preop.securitydomain.ca$count.eehost");
+      if ($ca_ee_host eq "") {
           $useExternalCA = "on";
       } else {
           $https_ee_port = $::config->get("preop.securitydomain.ca$count.secureport");
-          &PKI::TPS::Wizard::debug_log("NamePanel: update - host= $host, https_ee_port= $https_ee_port");
+          &PKI::TPS::Wizard::debug_log("NamePanel: update - ca_ee_host= $ca_ee_host, https_ee_port= $https_ee_port");
       }
     }
     $::config->put("preop.certenroll.useExternalCA", $useExternalCA);
 
-    $::config->put("preop.ca.url", "https://" . $host . ":" . $https_ee_port);
+    $::config->put("preop.ca.url", "https://" . $ca_ee_host . ":" . $https_ee_port);
 
     my $tokenname = $::config->get("preop.module.token");
     &PKI::TPS::Wizard::debug_log("NamePanel: update got token name = $tokenname");
@@ -300,17 +301,17 @@ GEN_CERT:
                       "auth_port=" . $sdom_url->port;
 
                 if ($certtag eq "subsystem") {
-                    $host = $sdom_url->host;
+                    $ca_ee_host = $sdom_url->host;
                     $https_ee_port = $sdom_url->port;
                 }
                 if ($changed eq "true") {
                 # nickname changed is true, using token passwd for calling sslget
-$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
-$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
+$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_ee_host:$https_ee_port";
+$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_ee_host:$https_ee_port";
                 } else {
                 # nickname changed is false, using internal passwd for calling sslget
-$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
-$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
+$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_ee_host:$https_ee_port";
+$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_ee_host:$https_ee_port";
                 }
 
                 &PKI::TPS::Wizard::debug_log("debug_req = " . $debug_req);
@@ -516,13 +517,13 @@ sub display
     my $count = 0;
 
     while (1) {
-      my $host = $::config->get("preop.securitydomain.ca$count.host") || "";
-      if ($host eq "") {
+      my $ca_ee_host = $::config->get("preop.securitydomain.ca$count.eehost") || "";
+      if ($ca_ee_host eq "") {
         goto DONE;
       }
       my $https_ee_port = $::config->get("preop.securitydomain.ca$count.secureport");
       my $name = $::config->get("preop.securitydomain.ca$count.subsystemname");
-      my $item = $name . " - https://" . $host . ":" . $https_ee_port;
+      my $item = $name . " - https://" . $ca_ee_host . ":" . $https_ee_port;
       $::symbol{urls}[$count++] = $item;
 
     }

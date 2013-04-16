@@ -19,7 +19,6 @@
 # --- END COPYRIGHT BLOCK ---
 #
 
-use strict;
 use LWP::UserAgent;
 use HTTP::Request::Common qw(POST);
 use URI::Escape;
@@ -260,9 +259,9 @@ sub get_install_token()
         chomp($line);
         (my $varname, my $valname) = split(/=/, $line);
         if ($varname eq "cs.type") { $typeval = $valname; }
-        if ($varname eq "service.machineName") { $machinename = $valname; }
+        if ($varname eq "service.adminMachineName") { $machinename = $valname; }
         if ($varname eq "pkicreate.admin_secure_port") { $adminsport = $valname; }
-        if ($varname eq "securitydomain.host") { $sechost = $valname; }
+        if ($varname eq "securitydomain.adminhost") { $sechost = $valname; }
         if ($varname eq "securitydomain.httpsadminport") { $secadminport = $valname; }
     }
 
@@ -320,10 +319,10 @@ sub update_domain()
         (my $varname, my $valname) = split(/=/, $line);
 
         if ($varname eq "cs.type") { $typeval = $valname; }
-        if ($varname eq "service.machineName") { $machinename = $valname; }
+        if ($varname eq "service.adminMachineName") { $machinename = $valname; }
         if ($varname eq "service.securityDomainPort") { $sport = $valname; }
         if ($varname eq "service.non_clientauth_securePort") { $ncsport = $valname; }
-        if ($varname eq "securitydomain.host") { $sechost = $valname; }
+        if ($varname eq "securitydomain.adminhost") { $sechost = $valname; }
         if ($varname eq "securitydomain.httpport") { $httpport = $valname; }
         if ($varname eq "securitydomain.httpseeport") { $seceeport = $valname; }
         if ($varname eq "securitydomain.httpsagentport") { $secagentport = $valname; }
@@ -341,8 +340,8 @@ sub update_domain()
         (!defined($seceeport))    ||
         (!defined($secagentport)) ||
         (!defined($secadminport))) {
-        print (STDOUT "No security domain defined.\nIf this is an unconfigured instance, then that is OK.\n" .
-            "Otherwise, manually delete the entry from the security domain master.\n" ); 
+        print STDOUT "No security domain defined.\nIf this is an unconfigured instance, then that is OK.\n" .
+            "Otherwise, manually delete the entry from the security domain master.\n"; 
         return;
     }
 
@@ -416,7 +415,7 @@ sub update_domain_using_agent_port()
         (my $varname, my $valname) = split(/=/, $line);
 
         if ($varname eq "cs.type") { $typeval = $valname; }
-        if ($varname eq "securitydomain.host") { $sechost = $valname; }
+        if ($varname eq "securitydomain.agenthost") { $sechost = $valname; }
         if ($varname eq "securitydomain.httpsagentport") { $secagentport = $valname; }
     }
 
@@ -564,14 +563,25 @@ sub remove_selinux_fcontexts()
 
 sub remove_selinux_ports()
 {
+    my $i = 0;
     my $status;
     my $semanage = "/usr/sbin/semanage";
     my $conf_file = $pki_instance_path . "/conf/CS.cfg";
     my $typeval;
+    my $agent_port;
+    my $ee_port;
+    my $eeca_port;
+    my $admin_port;
     my $secure_port;
     my $non_clientauth_secure_port;
+    my $tomcat_server_port;
     my $unsecure_port;
     my @ports = ();
+    my $agent_host = "";
+    my $ee_host = "";
+    my $eeca_host = "";
+    my $admin_host = "";
+    my $port_configuration_mode = "";
 
     # get cs type
     open(DAT, $conf_file) or die "Could not open CS.cfg file.";
@@ -580,9 +590,19 @@ sub remove_selinux_ports()
         chomp($line);
         (my $varname, my $valname) = split(/=/, $line);
         if ($varname eq "cs.type") { $typeval = $valname; }
+        if ($varname eq "service.agentPort") { $agent_port = $valname; }
+        if ($varname eq "service.eePort") { $ee_port = $valname; }
+        if ($varname eq "service.eecaPort") { $eeca_port = $valname; }
+        if ($varname eq "service.adminPort") { $admin_port = $valname; }
         if ($varname eq "service.securePort") { $secure_port = $valname; }
         if ($varname eq "service.non_clientauth_securePort") { $non_clientauth_secure_port = $valname; }
+        if ($varname eq "service.tomcatPort") { $tomcat_server_port = $valname; }
         if ($varname eq "service.unsecurePort") { $unsecure_port = $valname; }
+        if ($varname eq "service.agentMachineName") { $agent_host = $valname; }
+        if ($varname eq "service.eeMachineName") { $ee_host = $valname; }
+        if ($varname eq "service.eecaMachineName") { $eeca_host = $valname; }
+        if ($varname eq "service.adminMachineName") { $admin_host = $valname; }
+        if ($varname eq "service.portConfigurationMode") { $port_configuration_mode = $valname; }
     }
     close(DAT);
 
@@ -590,20 +610,107 @@ sub remove_selinux_ports()
     $subsystem_type =  lc($typeval);
 
     if (($typeval eq "CA") || ($typeval eq "KRA") || ($typeval eq "OCSP") || ($typeval eq "TKS")) {
-        use XML::LibXML;
-        my $parser = XML::LibXML->new();
-        my $config = $parser->parse_file($pki_instance_path . "/conf/server.xml") 
-            or die "Could not read XML from server.xml to determine ports.";
-        
-        my $root = $config->getDocumentElement;
+        if( $port_configuration_mode eq $PKI_SHARED_PORTS_MODE ) {
+            if( defined $secure_port ) {
+                $ports[$i] = $secure_port;
+                $i++;
+            }
+            if( defined $unsecure_port ) {
+                $ports[$i] = $unsecure_port;
+                $i++;
+            }
+            if( defined $tomcat_server_port ) {
+                $ports[$i] = $tomcat_server_port;
+                $i++;
+            }
+        } elsif( $port_configuration_mode eq $PKI_PORT_SEPARATION_MODE ) {
+            if( defined $unsecure_port ) {
+                $ports[$i] = $unsecure_port;
+                $i++;
+            }
+            if( defined $tomcat_server_port ) {
+                $ports[$i] = $tomcat_server_port;
+                $i++;
+            }
+            if( defined $agent_port ) {
+                $ports[$i] = $agent_port;
+                $i++;
+            }
+            if( defined $ee_port ) {
+                $ports[$i] = $ee_port;
+                $i++;
+            }
+            if( ( $typeval eq "CA" ) &&
+                ( defined $eeca_port ) ) {
+                $ports[$i] = $eeca_port;
+                $i++;
+            }
+            if( defined $admin_port ) {
+                $ports[$i] = $admin_port;
+                $i++;
+            }
+        } elsif( $port_configuration_mode eq $PKI_IP_PORT_SEPARATION_MODE ) {
+            # obtain the fully-qualified domain name of this host
+            my $host = get_FQDN( $hostname );
 
-        my $i = 0;
-        foreach my $port ($root->findnodes('//@port')) {
-            $ports[$i] = $port->getValue();
-            $i++;
+            # since the TOMCAT SERVER port is always located on the
+            # installation host ($host), simply make certain that it
+            # exists, prior to marking it for removal
+            if( defined $tomcat_server_port ) {
+                $ports[$i] = $tomcat_server_port;
+                $i++;
+            }
+
+            # check to make certain that the AGENT, EE, EE_Client_Auth,
+            # ADMIN, and UNSECURE ports refer to ports located on the
+            # installation host, and that they exist, prior to marking
+            # them for removal
+            if( ( defined $agent_host )  &&
+                ( $agent_host eq $host ) &&
+                ( defined $agent_port ) ) {
+                $ports[$i] = $agent_port;
+                $i++;
+            }
+            if( ( defined $ee_host )  &&
+                ( $ee_host eq $host ) &&
+                ( defined $ee_port ) ) {
+                $ports[$i] = $ee_port;
+                $i++;
+            }
+            if( ( $typeval eq "CA" )    &&
+                ( defined $eeca_host )  &&
+                ( $eeca_host eq $host ) &&
+                ( defined $eeca_port ) ) {
+                $ports[$i] = $eeca_port;
+                $i++;
+            }
+            if( ( defined $admin_host )  &&
+                ( $admin_host eq $host ) &&
+                ( defined $admin_port ) ) {
+                $ports[$i] = $admin_port;
+                $i++;
+            }
+            if( ( defined $ee_host )  &&
+                ( $ee_host eq $host ) &&
+                ( defined $unsecure_port ) ) {
+                $ports[$i] = $unsecure_port;
+                $i++;
+            }
+        } else {
+            # Obtain ports via legacy pre-port configuration mode method
+            use XML::LibXML;
+            my $parser = XML::LibXML->new();
+            my $config = $parser->parse_file($pki_instance_path . "/conf/server.xml") 
+                or die "Could not read XML from server.xml to determine ports.";
+
+            my $root = $config->getDocumentElement;
+
+            foreach my $port ($root->findnodes('//@port')) {
+                $ports[$i] = $port->getValue();
+                $i++;
+            }
         }
     } else {  # TPS, RA
-        my $i =0;
         if (defined $secure_port) {
             $ports[$i] = $secure_port;
             $i++;

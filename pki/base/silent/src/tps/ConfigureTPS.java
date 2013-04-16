@@ -74,6 +74,7 @@ public class ConfigureTPS
 	public static String sd_admin_password = null;
 
 	public static String ca_hostname = null;
+	public static String ca_admin_hostname = null;
 	public static String ca_port = null;
 	public static String ca_ssl_port = null;
 	public static String ca_admin_port = null;
@@ -343,6 +344,8 @@ public class ConfigureTPS
 		px.prettyprintxml();
 
 		sleep_time();
+		// 'ca_url' is not used, but refers to
+		// the CA EE hostname and the CA EE port
 		String ca_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
 
 		// CA choice panel
@@ -359,6 +362,9 @@ public class ConfigureTPS
 
 		sleep_time();
 		// TKS choice panel
+        //
+		// 'tks_url' is not used, but refers to
+		// the TKS Agent hostname and the TKS Agent port
 		String tks_url = "https://" + tks_hostname + ":" + tks_ssl_port ;
 		query_string = "p=7" +
 						"&urls=0" +
@@ -379,6 +385,8 @@ public class ConfigureTPS
 			ss_keygen = "keygen";
 		}
 
+		// 'drm_url' is not used, but refers to
+		// the DRM Agent hostname and the DRM Agent port
 		String drm_url = "https://" + drm_hostname + ":" + drm_ssl_port ;
 
 		query_string = "p=8" +
@@ -570,6 +578,8 @@ public class ConfigureTPS
 		ArrayList dn_list = null;
 		ArrayList friendly_list = null;
 
+		// 'ca_url' is not used, but refers to
+		// the CA EE hostname and the CA EE port
 		String ca_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
 
 		String query_string = "p=12" +
@@ -665,6 +675,8 @@ public class ConfigureTPS
 
 		admin_cert_request = crmf_request;
 
+		// 'auth_hostname' references the CA EE hostname
+		// 'auth_port' references the CA EE port
 		String query_string = "p=14" +
 							"&uid=" + admin_user +
 							"&name=" +
@@ -717,12 +729,23 @@ public class ConfigureTPS
 							"&importCert=" + "true" +
 							"" ;
 
+		// Account for a connection to a CA that has been
+		// configured with IP Port Configuration Mode.
+		if ( ca_admin_hostname == null ) {
+			// A missing 'ca_admin_hostname' implies that the CA
+			// may have been configured with a single hostname
+			// (i. e. - Port Configuration Mode).  Try setting
+			// 'ca_admin_hostname' to 'ca_hostname', although
+			// this may still fail.
+			ca_admin_hostname = ca_hostname;
+		}
+
 		// NOTE:  CA, DRM, OCSP, and TKS use the Security Domain Admin Port;
 		//        whereas RA and TPS use the CA Admin Port associated with
 		//        the 'CA choice panel' as invoked from the SubsystemPanel()
 		//        which MAY or MAY NOT be the same CA as the CA specified
 		//        by the Security Domain.
-		hr = hc.sslConnect(ca_hostname,ca_admin_port,admin_uri,query_string);
+		hr = hc.sslConnect(ca_admin_hostname,ca_admin_port,admin_uri,query_string);
 
 		try
 		{
@@ -762,7 +785,7 @@ public class ConfigureTPS
 		String query_string_1 = "p=15" +
 							"&serialNumber=" + admin_serial_number +
 							"&caHost=" +
-							URLEncoder.encode( ca_hostname ) +
+							URLEncoder.encode( ca_admin_hostname ) +
 							"&caPort=" + ca_admin_port +
 							"&op=next" +
 							"&xml=true" ;
@@ -931,6 +954,7 @@ public class ConfigureTPS
 		StringHolder x_sd_admin_password = new StringHolder();
 
 		StringHolder x_ca_hostname = new StringHolder();
+		StringHolder x_ca_admin_hostname = new StringHolder();
 		StringHolder x_ca_port = new StringHolder();
 		StringHolder x_ca_ssl_port = new StringHolder();
 		StringHolder x_ca_admin_port = new StringHolder();
@@ -1023,8 +1047,10 @@ public class ConfigureTPS
 		parser.addOption ("-sd_admin_password %s #Security Domain password",
 							x_sd_admin_password); 
 
-		parser.addOption ("-ca_hostname %s #CA Hostname",
+		parser.addOption ("-ca_hostname %s #CA EE Hostname",
 							x_ca_hostname); 
+		parser.addOption ("-ca_admin_hostname %s #CA Admin Hostname",
+							x_ca_admin_hostname); 
 		parser.addOption ("-ca_port %s #CA non-SSL port",
 							x_ca_port); 
 		parser.addOption ("-ca_ssl_port %s #CA SSL port",
@@ -1158,6 +1184,7 @@ public class ConfigureTPS
 		sd_admin_password = x_sd_admin_password.value;
 
 		ca_hostname = x_ca_hostname.value;
+		ca_admin_hostname = x_ca_admin_hostname.value;
 		ca_port = x_ca_port.value;
 		ca_ssl_port = x_ca_ssl_port.value;
 		ca_admin_port = x_ca_admin_port.value;

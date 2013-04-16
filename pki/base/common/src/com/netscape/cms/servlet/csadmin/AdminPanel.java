@@ -288,8 +288,8 @@ public class AdminPanel extends WizardPanelBase {
                 throw e;
             }
         } else {
-            String ca_hostname = null;
-            int ca_port = -1;
+            String ca_ee_hostname = null;
+            int ca_ee_port = -1;
 
             // REMINDER:  This panel is NOT used by "clones"
             CMS.debug( "AdminPanel update:  "
@@ -298,19 +298,22 @@ public class AdminPanel extends WizardPanelBase {
 
             if (type.equals("sdca")) {
                 try {
-                    ca_hostname = config.getString("preop.ca.hostname");
-                    ca_port = config.getInteger("preop.ca.httpsport");
+                    ca_ee_hostname = config.getString("preop.ca.hostname");
+                    ca_ee_port = config.getInteger("preop.ca.httpsport");
                 } catch (Exception e) {
                 }
             } else {
                 try {
-                    ca_hostname = config.getString("securitydomain.host", "");
-                    ca_port = config.getInteger("securitydomain.httpseeport");
+                    ca_ee_hostname = config.getString(
+                                         "securitydomain.eehost", "");
+                    ca_ee_port = config.getInteger(
+                                     "securitydomain.httpseeport");
                 } catch (Exception e) {
                 }
             }
 
-            submitRequest(ca_hostname, ca_port, request, response, context);
+            submitRequest(ca_ee_hostname, ca_ee_port, request, response,
+                          context);
         }
 
         try {
@@ -430,14 +433,14 @@ public class AdminPanel extends WizardPanelBase {
         }
     }
 
-    private void submitRequest(String ca_hostname, int ca_port, HttpServletRequest request,
+    private void submitRequest(String ca_ee_hostname, int ca_ee_port, HttpServletRequest request,
             HttpServletResponse response, Context context) throws IOException {
         IConfigStore config = CMS.getConfigStore();
         String sd_hostname = null;
         int sd_port = -1;
 
         try {
-            sd_hostname = config.getString("securitydomain.host", "");
+            sd_hostname = config.getString("securitydomain.eehost", "");
             sd_port = config.getInteger("securitydomain.httpseeport");
         } catch (Exception e) {}
 
@@ -463,7 +466,7 @@ public class AdminPanel extends WizardPanelBase {
             JssSSLSocketFactory factory = new JssSSLSocketFactory();
 
             httpclient = new HttpClient(factory);
-            httpclient.connect(ca_hostname, ca_port);
+            httpclient.connect(ca_ee_hostname, ca_ee_port);
             HttpRequest httprequest = new HttpRequest();
             httprequest.setMethod(HttpRequest.POST);
             httprequest.setURI("/ca/ee/ca/profileSubmit");

@@ -152,7 +152,7 @@ public class GetConfigEntries extends CMSServlet {
                     value = config.getString(name);
                     CMS.debug("Retrieving config value=" + value);
                     if (value.equals("localhost"))
-                        value = config.getString("machineName", "");
+                        value = config.getString("adminMachineName", "");
                 } catch (Exception ee) {
                     if (name.equals("internaldb.ldapauth.password")) {
                         value = getLDAPPassword();

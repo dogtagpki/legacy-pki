@@ -121,6 +121,93 @@ public class CertUtil {
         return null;
     }
 
+    // Process all of the SubjectAlternativeName component information
+    // for the SSL Server Certificate stored in the instance's CS.cfg,
+    // and save it into a 'CertificateExtensions' object so that it
+    // may be programmatically injected into the request.
+    //
+    //     NOTE:  This code is borrowed heavily from the
+    //            'createExtension(IRequest request)' method of
+    //            'SubjectAltNameExtDefault.java' minus the 'request'.
+    //
+    //      03/27/2013 - The following attempt to embed a certificate
+    //                   extension into a PKCS #10 certificate request
+    //                   was abandoned since we were unable to successfully
+    //                   convert the certificate extension into a PKCS #10
+    //                   attribute.  What was generated was an improper
+    //                   PKCS #10 certificate request. - mlh
+    //     
+ // public static SubjectAlternativeNameExtension processSANExtension(
+ //        IConfigStore config)
+ //        throws IOException, EBaseException, EPropertyNotFound {
+ //     SubjectAlternativeNameExtension ext = null;
+ //     try {
+ //         boolean critical = Boolean.valueOf(
+ //             config.getString(
+ //              "preop.cert.sslserver.subjAltNameExtCritical")).booleanValue();
+ //         int num = Integer.parseInt(
+ //             config.getString("preop.cert.sslserver.subjAltNameNumGNs"));
+ //         GeneralNames gn = new GeneralNames();
+ //         int count = 0; // actual # of SAN records
+ //
+ //         String enable = null;
+ //         String type = null;
+ //         String pattern = null;
+ //         CMS.debug("processSANExtension() processing " + num +
+ //                   " SAN extensions:");
+ //         for (int i= 0; i< num; i++) {
+ //             enable = config.getString(
+ //                      "preop.cert.sslserver.subjAltExtGNEnable_" + i);
+ //             if (enable != null && enable.equals("true")) {
+ //                 type = config.getString(
+ //                        "preop.cert.sslserver.subjAltExtType_" + i);
+ //                 if (type.equalsIgnoreCase("DNSName")) {
+ //                     pattern = config.getString(
+ //                               "preop.cert.sslserver.subjAltExtPattern_" +
+ //                               i);
+ //                     if (pattern.equals("")) {
+ //                         CMS.debug("processSANExtension() - " +
+ //                                   "pattern is empty, not added");
+ //                         continue;
+ //                     }
+ //                     GeneralNameInterface n = new DNSName(pattern);
+ //                     if (n != null) {
+ //                         gn.addElement(n);
+ //                         count++;
+ //                         CMS.debug("processSANExtension() added SAN: " +
+ //                                   pattern);
+ //                     } else {
+ //                         CMS.debug("processSANExtension() failed to " +
+ //                                   "add SAN: " + pattern);
+ //                     }
+ //                 }
+ //             }
+ //         }
+ //         CMS.debug("processSANExtension() processed " + count +
+ //                   " SAN extensions.");
+ //
+ //         if (count != 0) {
+ //             try {
+ //                 ext = new SubjectAlternativeNameExtension();
+ //             } catch (Exception e) {
+ //                 CMS.debug("processSANExtension() - error = " +
+ //                           e.toString());
+ //                 throw new IOException( e.toString() );
+ //             }
+ //             ext.set(SubjectAlternativeNameExtension.SUBJECT_NAME, gn);
+ //             ext.setCritical(critical);
+ //             CMS.debug("processSANExtension() SAN extension criticality " +
+ //                       " is " + (critical ? "true." : "false."));
+ //         } else {
+ //             CMS.debug("processSANExtension() - count is 0");
+ //         }
+ //     } catch (Exception e) {
+ //         CMS.debug("processSANExtension() - error = " + e.toString());
+ //     }
+ //
+ //     return ext;
+ // }
+
     public static String getPKCS10(IConfigStore config, String prefix, 
             Cert certObj, Context context) throws IOException {
         String certTag = certObj.getCertTag();
@@ -168,10 +255,44 @@ public class CertUtil {
                 CMS.debug("CertRequestPanel: error getting private key null");
             }
 
+        // 
+        //  03/27/2013 - The following attempt to embed a certificate
+        //               extension into a PKCS #10 certificate request
+        //               was abandoned since we were unable to successfully
+        //               convert the certificate extension into a PKCS #10
+        //               attribute.  What was generated was an improper
+        //               PKCS #10 certificate request. - mlh
+        // 
             // construct cert request
+        //  String mode = config.getString("service.portConfigurationMode");
             String dn = config.getString(prefix + certTag + ".dn");
 
             PKCS10 certReq = null;
+        //  if (certTag.equals("sslserver") &&
+        //      mode.equals("IP Port Separation")) {
+        //      // Programmatically inject SAN extension into request.
+        //      CMS.debug("CertUtil::getPKCS10() - " +
+        //                "injecting SAN extension into request");
+        //      SubjectAlternativeNameExtension ext =
+        //          processSANExtension(config);
+        //      if (ext != null) {
+        //          // create an extensions attribute for the certificate
+        //          CertificateExtensions reqexts = new CertificateExtensions();
+        //          // inject SAN extension into request:
+        //          reqexts.set(
+        //              PKIXExtensions.SubjectAlternativeName_Id.toString(),
+        //              ext);
+        //          certReq = CryptoUtil.createCertificationRequest(dn, pubk,
+        //                        privk, algorithm, reqexts);
+        //      } else {
+        //          CMS.debug("CertUtil::getPKCS10() - " +
+        //                    "unable to inject SAN extension into request");
+        //      }
+        //  } else {
+        //      certReq = CryptoUtil.createCertificationRequest(dn, pubk,
+        //                    privk, algorithm);
+        //  }
+
             certReq = CryptoUtil.createCertificationRequest(dn, pubk,
                     privk, algorithm);
             byte[] certReqb = certReq.toByteArray();
@@ -218,6 +339,79 @@ public class CertUtil {
         req.setRequestStatus(RequestStatus.COMPLETE);
 
         return req;
+    }
+
+    // Dynamically inject the SubjectAlternativeName extension to a
+    // local/self-signed master CA's request for its SSL Server Certificate.
+    //
+    // Since this information may vary from instance to
+    // instance, obtain the necessary information from the
+    // 'preop.cert.sslserver.san' value(s) in the instance's
+    // CS.cfg, process these values converting each item into
+    // its individual SubjectAlternativeName components, and
+    // inject these values into the local request.
+    //
+    public static void injectSANextensionIntoRequest(IConfigStore config,
+                           IRequest req) throws Exception {
+        CMS.debug("CertUtil::injectSANextensionIntoRequest() - injecting SAN " +
+                  "entries into request . . .");
+        int i = 0;
+        String sanHostnames = config.getString("preop.cert.sslserver.san");
+        StringTokenizer st = new StringTokenizer(sanHostnames, ",");
+        while (st.hasMoreTokens()) {
+            String sanHostname = st.nextToken();
+            CMS.debug("CertUtil: injectSANextensionIntoRequest() injecting " +
+                      "SAN hostname: " + sanHostname);
+            req.setExtData("req_san_pattern_" + i, sanHostname);
+            i++;
+        }
+        CMS.debug("CertUtil: injectSANextensionIntoRequest() " + "injected " +
+                  i + " SAN entries into request.");
+    }
+
+    // Dynamically apply the SubjectAlternativeName extension to a
+    // remote PKI instance's request for its SSL Server Certificate.
+    //
+    // Since this information may vary from instance to
+    // instance, obtain the necessary information from the
+    // 'preop.cert.sslserver.san' value(s) in the instance's
+    // CS.cfg, process these values converting each item into
+    // its individual SubjectAlternativeName components, and
+    // build an SSL Server Certificate URL extension consisting
+    // of this information.
+    //
+    // 03/27/2013 - Should consider removing this
+    //              "buildSANSSLserverURLExtension()"
+    //              method if it becomes possible to
+    //              embed a certificate extension into
+    //              a PKCS #10 certificate request.
+    //
+    public static String buildSANSSLserverURLExtension(IConfigStore config)
+           throws Exception {
+        String url = "";
+        String entries = "";
+
+        CMS.debug("CertUtil: buildSANSSLserverURLExtension() " +
+                  "building SAN SSL Server Certificate URL extension . . .");
+        int i = 0;
+        String sanHostnames = config.getString("preop.cert.sslserver.san");
+        StringTokenizer st = new StringTokenizer(sanHostnames, ",");
+        while (st.hasMoreTokens()) {
+            String sanHostname = st.nextToken();
+            CMS.debug("CertUtil: buildSANSSLserverURLExtension() processing " +
+                      "SAN hostname: " + sanHostname);
+            // Add the DNSName for all SANs
+            entries = entries +
+                      "&req_san_pattern_" + i + "=" + sanHostname;
+            i++;
+        }
+
+        url = "&req_san_entries=" + i + entries;
+
+        CMS.debug("CertUtil: buildSANSSLserverURLExtension() " + "placed " +
+                  i + " SAN entries into SSL Server Certificate URL.");
+
+        return url;
     }
 
 /**
@@ -320,6 +514,7 @@ public class CertUtil {
         IRequest req = null;
 
         try {
+            String mode = config.getString("service.portConfigurationMode");
             String dn = config.getString(prefix + certTag + ".dn");
             String keyAlgorithm = null;
             Date date = new Date();
@@ -360,6 +555,10 @@ public class CertUtil {
                 queue = ca.getRequestQueue();
                 if (queue != null) {
                     req = createLocalRequest(queue, serialNo.toString(), info);
+                    if (certTag.equals("sslserver") &&
+                        mode.equals("IP Port Separation")) {
+                        injectSANextensionIntoRequest(config, req);
+                    }
                     CMS.debug("CertUtil profile name= "+profile);
                     req.setExtData("req_key", x509key.toString());
 
@@ -432,13 +631,13 @@ public class CertUtil {
             }
         } catch (Exception e) {
             CMS.debug(e);
-            CMS.debug("NamePanel configCert() exception caught:" + e.toString());
+            CMS.debug("CertUtil createLocalCert() exception caught:" + e.toString());
         }
 
         if (cr == null) {
             context.put("errorString",
-                    "Ceritifcate Authority is not ready to serve.");
-            throw new IOException("Ceritifcate Authority is not ready to serve.");
+                    "Certificate Authority is not ready to serve.");
+            throw new IOException("Certificate Authority is not ready to serve.");
         }
 
         ICertRecord record = null;
@@ -453,22 +652,22 @@ public class CertUtil {
                 cert.getSerialNumber(), cert, meta);
         } catch (Exception e) {
             CMS.debug(
-                "NamePanel configCert: failed to add metainfo. Exception: " + e.toString());
+                "CertUtil createLocalCert: failed to add metainfo. Exception: " + e.toString());
         }
 
         try {
             cr.addCertificateRecord(record);
             CMS.debug(
-                    "NamePanel configCert: finished adding certificate record.");
+                    "CertUtil createLocalCert: finished adding certificate record.");
         } catch (Exception e) {
             CMS.debug(
-                    "NamePanel configCert: failed to add certificate record. Exception: "
+                    "CertUtil createLocalCert: failed to add certificate record. Exception: "
                             + e.toString());
             try {
                 cr.deleteCertificateRecord(record.getSerialNumber());
                 cr.addCertificateRecord(record);
             } catch (Exception ee) {
-                CMS.debug("NamePanel update: Exception: " + ee.toString());
+                CMS.debug("CertUtil createLocalCert: Exception: " + ee.toString());
             }
         }
 
@@ -502,9 +701,9 @@ public class CertUtil {
 
         try { 
           String sysType = cs.getString("cs.type", "");
-          String machineName = cs.getString("machineName", "");
+          String agentMachineName = cs.getString("agentMachineName", "");
           String securePort = cs.getString("service.securePort", "");
-          id = sysType + "-" + machineName + "-" + securePort;
+          id = sysType + "-" + agentMachineName + "-" + securePort;
         } catch (Exception e1) {
           // ignore
         }

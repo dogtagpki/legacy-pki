@@ -33,7 +33,7 @@ public class AutoInstaller {
     private static Properties props = null;
 
     // Admin Server and InternalDB varialbes 
-    private String adminDomain, adminID, adminPWD, adminPort, machineName, host, serverID, instanceID, serverRoot, sieURL, dbConnPort, dbConnHost, dbInstanceName, dbPassword, dbLDAPauthDN, dbmode, ldapServerDB;
+    private String adminDomain, adminID, adminPWD, adminPort, adminMachineName, host, serverID, instanceID, serverRoot, sieURL, dbConnPort, dbConnHost, dbInstanceName, dbPassword, dbLDAPauthDN, dbmode, ldapServerDB;
 
     // CMS Subsystem info
 
@@ -2324,7 +2324,7 @@ public class AutoInstaller {
         adminID = props.getProperty("inst.admin.uid");
         adminPWD = props.getProperty("inst.admin.pwd");
         adminPort = props.getProperty("inst.admin.port");
-        machineName = props.getProperty("inst.machineName");
+        adminMachineName = props.getProperty("inst.adminMachineName");
         host = props.getProperty("inst.host");
         serverID = props.getProperty("inst.serverIdentifier");
         instanceID = "cert-" + serverID;

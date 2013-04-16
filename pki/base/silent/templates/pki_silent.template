@@ -706,6 +706,7 @@ tks_audit_signing_cert_subject_name="cn=TKS\ Audit\ Signing\ Certificate,o=${pki
 ##
 
 ra_chosen_ca_hostname=${pki_security_domain_host}
+ra_chosen_ca_admin_hostname=${pki_security_domain_host}
 ra_chosen_ca_nonssl_port=${ca_nonssl_port}
 ra_chosen_ca_ssl_port=${ca_ee_port}
 ra_chosen_ca_admin_port=${ca_admin_port}
@@ -761,6 +762,7 @@ ra_subsystem_cert_subject_name="cn=RA\ Subsystem\ Certificate,ou=${ra_instance_n
 ##
 
 tps_chosen_ca_hostname=${pki_security_domain_host}
+tps_chosen_ca_admin_hostname=${pki_security_domain_host}
 tps_chosen_ca_nonssl_port=${ca_nonssl_port}
 tps_chosen_ca_ssl_port=${ca_ee_port}
 tps_chosen_ca_admin_port=${ca_admin_port}
@@ -1630,6 +1632,7 @@ pkisilent ConfigureRA \
 	-sd_admin_name "${pki_security_domain_admin_name}" \
 	-sd_admin_password ${pki_security_domain_admin_password} \
 	-ca_hostname ${ra_chosen_ca_hostname} \
+	-ca_admin_hostname ${ra_chosen_ca_admin_hostname} \
 	-ca_port ${ra_chosen_ca_nonssl_port} \
 	-ca_ssl_port ${ra_chosen_ca_ssl_port} \
 	-ca_admin_port ${ra_chosen_ca_admin_port} \
@@ -1697,6 +1700,7 @@ pkisilent ConfigureTPS \
 	-sd_admin_name "${pki_security_domain_admin_name}" \
 	-sd_admin_password ${pki_security_domain_admin_password} \
 	-ca_hostname ${tps_chosen_ca_hostname} \
+	-ca_admin_hostname ${tps_chosen_ca_admin_hostname} \
 	-ca_port ${tps_chosen_ca_nonssl_port} \
 	-ca_ssl_port ${tps_chosen_ca_ssl_port} \
 	-ca_admin_port ${tps_chosen_ca_admin_port} \

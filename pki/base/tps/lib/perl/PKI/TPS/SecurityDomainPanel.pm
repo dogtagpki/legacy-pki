@@ -186,7 +186,7 @@ sub update
 
     # Add values necessary for 'pkiremove' . . .
     $::config->put("securitydomain.select", "existing");
-    $::config->put("securitydomain.host", $sdomainURL_info->host);
+    $::config->put("securitydomain.adminhost", $sdomainURL_info->host);
     $::config->put("securitydomain.httpsadminport", $sdomainURL_info->port);
     $::config->put("preop.securitydomain.done", "true");
     $::config->commit();

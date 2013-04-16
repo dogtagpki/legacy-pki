@@ -44,7 +44,7 @@ public class createinstance {
         System.out.println("                    adminDomain");
         System.out.println("                    serverRoot");
         System.out.println("                    instanceID");
-        System.out.println("                    machineName");
+        System.out.println("                    adminMachineName");
         System.out.println("                    sieURL");
         System.out.println(" OR ");
         System.out.println(" createinstance -h <to print this usage string>");
@@ -65,7 +65,7 @@ public class createinstance {
         query += "&sieURL=" + URLEncoder.encode(sieurl);
         query += "&adminUID=" + URLEncoder.encode(AdminDN);
         query += "&adminPWD=" + URLEncoder.encode(AdminDNPW);
-        query += "&machineName=" + URLEncoder.encode(host + "." + adminDomain);
+        query += "&adminMachineName=" + URLEncoder.encode(host + "." + adminDomain);
 
         PostQuery sm = new PostQuery(myStringUrl, AdminDN, AdminDNPW, query);
 

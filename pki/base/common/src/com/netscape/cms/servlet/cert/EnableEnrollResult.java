@@ -140,10 +140,10 @@ public class EnableEnrollResult extends CMSServlet {
         CMSTemplateParams argSet = new CMSTemplateParams(header, fixed);
 
         IConfigStore configStore = CMS.getConfigStore();
-        String machine = configStore.getString("machineName");
+        String eeMachine = configStore.getString("eeMachineName");
         String port = CMS.getEESSLPort();
 
-        header.addStringValue("machineName", machine);
+        header.addStringValue("eeMachineName", eeMachine);
         header.addStringValue("port", port);
         String val = configStore.getString("hashDirEnrollment.name");
         IAuthSubsystem authSS = (IAuthSubsystem) CMS.getSubsystem(CMS.SUBSYSTEM_AUTH);

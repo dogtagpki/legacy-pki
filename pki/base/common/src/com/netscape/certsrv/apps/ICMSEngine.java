@@ -655,6 +655,14 @@ public interface ICMSEngine extends ISubsystem {
     public String getEEHost();
 
     /**
+     * Retrieves the host name of the server's secure end entity service
+     * which utilizes clientAuth.
+     *
+     * @return host name of end-entity clientAuth service
+     */
+    public String getEEClientAuthHost();
+
+    /**
      * Retrieves the host name of the server's non-secure end entity service.
      *
      * @return host name of end-entity non-secure service

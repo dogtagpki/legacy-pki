@@ -364,7 +364,7 @@ get_pki_configuration_definitions()
 		return 255
 	fi
 
-	line=`grep ^securitydomain.host= ${pki_instance_configuration_file}`
+	line=`grep ^securitydomain.adminhost= ${pki_instance_configuration_file}`
 	if [ "${line}" != "" ] ; then
 		pki_security_domain_hostname=`echo "${line}" | cut -b21-`
 	else
