@@ -100,9 +100,9 @@ public class ImportCAChainPanel extends WizardPanelBase {
 
         IConfigStore cs = CMS.getConfigStore();
         try {
-            context.put("machineName", cs.getString("machineName"));
-            context.put("https_port", CMS.getEESSLPort());
-            context.put("http_port", CMS.getEENonSSLPort());
+            context.put("eeMachineName", cs.getString("eeMachineName"));
+            context.put("https_ee_port", CMS.getEESSLPort());
+            context.put("http_ee_port", CMS.getEENonSSLPort());
         } catch (EBaseException e) {}
 
 
@@ -149,9 +149,9 @@ public class ImportCAChainPanel extends WizardPanelBase {
         /* This should never be called */
         IConfigStore cs = CMS.getConfigStore();
         try {
-            context.put("machineName", cs.getString("machineName"));
-            context.put("https_port", CMS.getEESSLPort());
-            context.put("http_port", CMS.getEENonSSLPort());
+            context.put("eeMachineName", cs.getString("eeMachineName"));
+            context.put("https_ee_port", CMS.getEESSLPort());
+            context.put("http_ee_port", CMS.getEENonSSLPort());
             context.put("title", "Import CA's Certificate Chain");
             context.put("panel", "admin/console/config/importcachainpanel.vm");
         } catch (EBaseException e) {}

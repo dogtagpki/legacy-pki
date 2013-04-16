@@ -74,6 +74,7 @@ public class ConfigureRA
 	public static String sd_admin_password = null;
 
 	public static String ca_hostname = null;
+	public static String ca_admin_hostname = null;
 	public static String ca_port = null;
 	public static String ca_ssl_port = null;
 	public static String ca_admin_port = null;
@@ -297,6 +298,8 @@ public class ConfigureRA
 		px.prettyprintxml();
 
 		sleep_time();
+		// 'ca_url' is not used, but refers to
+		// the CA EE hostname and the CA EE port
 		String ca_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
 
 		// CA choice panel
@@ -439,6 +442,8 @@ public class ConfigureRA
 		ArrayList cert_list = null;
 		ArrayList dn_list = null;
 
+		// 'ca_url' is not used, but refers to
+		// the CA EE hostname and the CA EE port
 		String ca_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
 
 		String query_string = "p=9" +
@@ -521,6 +526,8 @@ public class ConfigureRA
 
 		admin_cert_request = crmf_request;
 
+		// 'auth_hostname' references the CA EE hostname
+		// 'auth_port' references the CA EE port
 		String query_string = "p=11" +
 							"&uid=" + admin_user +
 							"&name=" +
@@ -573,12 +580,23 @@ public class ConfigureRA
 							"&importCert=" + "true" +
 							"" ;
 
+		// Account for a connection to a CA that has been
+		// configured with IP Port Configuration Mode.
+		if ( ca_admin_hostname == null ) {
+			// A missing 'ca_admin_hostname' implies that the CA
+			// may have been configured with a single hostname
+			// (i. e. - Port Configuration Mode).  Try setting
+			// 'ca_admin_hostname' to 'ca_hostname', although
+			// this may still fail.
+			ca_admin_hostname = ca_hostname;
+		}
+
 		// NOTE:  CA, DRM, OCSP, and TKS use the Security Domain Admin Port;
 		//        whereas RA and TPS use the CA Admin Port associated with
 		//        the 'CA choice panel' as invoked from the SubsystemPanel()
 		//        which MAY or MAY NOT be the same CA as the CA specified
 		//        by the Security Domain.
-		hr = hc.sslConnect(ca_hostname,ca_admin_port,admin_uri,query_string);
+		hr = hc.sslConnect(ca_admin_hostname,ca_admin_port,admin_uri,query_string);
 
 		try
 		{
@@ -617,7 +635,7 @@ public class ConfigureRA
 		String query_string_1 = "p=12" +
 								"&serialNumber=" + admin_serial_number +
 								"&caHost=" +
-								URLEncoder.encode( ca_hostname ) +
+								URLEncoder.encode( ca_admin_hostname ) +
 								"&caPort=" + ca_admin_port +
 								"&op=next" +
 								"&xml=true" ;
@@ -776,6 +794,7 @@ public class ConfigureRA
 		StringHolder x_sd_admin_password = new StringHolder();
 
 		StringHolder x_ca_hostname = new StringHolder();
+		StringHolder x_ca_admin_hostname = new StringHolder();
 		StringHolder x_ca_port = new StringHolder();
 		StringHolder x_ca_ssl_port = new StringHolder();
 		StringHolder x_ca_admin_port = new StringHolder();
@@ -835,8 +854,10 @@ public class ConfigureRA
 		parser.addOption ("-sd_admin_password %s #Security Domain password",
 							x_sd_admin_password); 
 
-		parser.addOption ("-ca_hostname %s #CA Hostname",
+		parser.addOption ("-ca_hostname %s #CA EE Hostname",
 							x_ca_hostname); 
+		parser.addOption ("-ca_admin_hostname %s #CA Admin Hostname",
+							x_ca_admin_hostname); 
 		parser.addOption ("-ca_port %s #CA non-SSL port",
 							x_ca_port); 
 		parser.addOption ("-ca_ssl_port %s #CA SSL port",
@@ -917,6 +938,7 @@ public class ConfigureRA
 		sd_admin_password = x_sd_admin_password.value;
 
 		ca_hostname = x_ca_hostname.value;
+		ca_admin_hostname = x_ca_admin_hostname.value;
 		ca_port = x_ca_port.value;
 		ca_ssl_port = x_ca_ssl_port.value;
 		ca_admin_port = x_ca_admin_port.value;

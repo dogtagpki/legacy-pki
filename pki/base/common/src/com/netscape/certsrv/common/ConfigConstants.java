@@ -106,7 +106,7 @@ public interface ConfigConstants {
     public static final String PR_ADMIN_PASSWD = "AdminUserPassword";
     public static final String PR_ADMIN_UID = "adminUID";
     public static final String PR_ADMIN_DOMAIN = "adminDomain";
-    public static final String PR_MACHINE_NAME = "machineName";
+    public static final String PR_MACHINE_NAME = "adminMachineName";
 
     public static final String PR_CA_OCSP_SERVICE = "CAOCSPService";
 

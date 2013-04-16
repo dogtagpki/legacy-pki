@@ -14,30 +14,31 @@ cd `dirname $0`
 
 ##  Disallow script to be run as the name of this template
 pki_silent_script=`basename $0`
-if	[ "${pki_silent_script}" = "pki_silent.template" ] ; then
-    printf "Important:\n"
-    printf "       Use the following reference for essential EC setup prior to running this script:\n"
-    printf "       silentEC_readme.txt.\n\n"
-    printf "\n"
-    printf "\n"
-    printf "Usage:  (1) Install AND configure a directory server instance.\n\n"
-    printf "        (2) Install AND configure a Root CA subsystem instance\n"
-    printf "            that is its own security domain.\n\n"
-	printf "        (3) Install and configure a TKS subsystem instance\n"
-	printf "        (4) (optionally) Install and configure a DRM subsystem instance\n"
-    printf "        (5) Install (but not configure) a TPS subsystem instance\n"
-    printf "            Follow ECC setup instruction in silentEC_readme.txt.\n"
-    printf "        (6) Install the 'pki-silent' package.\n\n"
-    printf "        (7) Copy '$0' to a new script name\n"
-    printf "            without the '.template' extension.\n"
-    printf "            (e .g. - 'configure_tps_ec_instances')\n\n"
-    printf "        (8) Fill in all MANDATORY user-defined variables\n"
-    printf "            in the new script.\n\n"
-    printf "        (9) Change any OPTIONAL user-defined variables\n"
-    printf "            in the new script as desired.\n\n"
-    printf "        (10) Become the TPS administrator user (not 'root' user),\n"
-    printf "            and execute the new script to\n"
-    printf "            configure the TPS subsystem instances.\n\n"
+if	[ "${pki_silent_script}" = "silentEC_tps.template" ] ; then
+	printf "\n"
+	printf "Important:   Use the following reference for essential EC setup\n"
+	printf "             prior to running this script:\n"
+	printf "\n"
+	printf "                 silentEC_readme.txt.\n\n"
+	printf "\n"
+    printf "Usage:  ( 1) Install AND configure a directory server instance.\n\n"
+    printf "        ( 2) Install AND configure a Root CA subsystem instance\n"
+    printf "             that is its own security domain.\n\n"
+	printf "        ( 3) Install AND configure a TKS subsystem instance.\n\n"
+	printf "        ( 4) (optionally) Install and configure a DRM subsystem instance.\n\n"
+    printf "        ( 5) Install (but do NOT configure) a TPS subsystem instance.\n\n"
+    printf "             Follow ECC setup instructions in 'silentEC_readme.txt'.\n\n"
+    printf "        ( 6) Install the 'pki-silent' package.\n\n"
+    printf "        ( 7) Copy '$0' to a new script name\n"
+    printf "             without the '.template' extension\n"
+    printf "             (e .g. - 'configure_ec_tps_instance').\n\n"
+    printf "        ( 8) Fill in all MANDATORY user-defined variables\n"
+    printf "             in the new script.\n\n"
+    printf "        ( 9) Change any OPTIONAL user-defined variables\n"
+    printf "             in the new script as desired.\n\n"
+    printf "        (10) Become the TPS administrator user (NOT 'root' user),\n"
+    printf "             and execute the new script to\n"
+    printf "             configure this TPS subsystem instance.\n\n"
 	exit 255
 fi
 
@@ -287,6 +288,7 @@ pki_silent_tps_log=${pki_silent_security_database_repository}/tpsEC.log
 ##
 
 tps_chosen_ca_hostname=${pki_security_domain_host}
+tps_chosen_ca_admin_hostname=${pki_security_domain_host}
 tps_chosen_ca_nonssl_port=${ca_nonssl_port}
 tps_chosen_ca_ssl_port=${ca_ee_port}
 tps_chosen_ca_admin_port=${ca_admin_port}
@@ -443,13 +445,13 @@ if	[ -f "${pki_silent_security_database_repository}/cert8.db" ] ||
 	printf "WARNING:  The existing security databases\n"
 	printf "          (i. e. - 'cert8.db', 'key3.db', and/or 'secmod.db')\n"
 	printf "          required by '${pki_silent_script}' at the\n"
-	printf "          specified location '${pki_silent_security_database_repository}'.\n"
-	printf "          are to be used.\n\n"
+	printf "          specified location '${pki_silent_security_database_repository}'\n"
+	printf "          will be used.\n\n"
 #	exit 255
 fi
 
 
-## (5) Remove ALL old PKI Silent log files
+## (5) Remove any old PKI Silent log file named '${pki_silent_tps_log}'
 printf "Removing old PKI Silent log files:\n"
 if [ -f ${pki_silent_tps_log} ] ; then
 	printf "    Removing old '${pki_silent_tps_log}' . . . "
@@ -475,6 +477,7 @@ pkisilent ConfigureTPS \
 	-sd_admin_name "${pki_security_domain_admin_name}" \
 	-sd_admin_password ${pki_security_domain_admin_password} \
 	-ca_hostname ${tps_chosen_ca_hostname} \
+	-ca_admin_hostname ${tps_chosen_ca_admin_hostname} \
 	-ca_port ${tps_chosen_ca_nonssl_port} \
 	-ca_ssl_port ${tps_chosen_ca_ssl_port} \
 	-ca_admin_port ${tps_chosen_ca_admin_port} \

@@ -24,7 +24,7 @@ public class CMSInstance {
 
     private int i;
     private boolean st;
-    private String host, port, AdminDN, AdminDNPW, serverRoot, instanceID, sieurl, adminDomain, machineName;
+    private String host, port, AdminDN, AdminDNPW, serverRoot, instanceID, sieurl, adminDomain, adminMachineName;
 
     /**
      * CMS Test framework .
@@ -46,7 +46,7 @@ public class CMSInstance {
         AdminDNPW = pwd;
         adminDomain = domain;
         serverRoot = sroot;
-        machineName = mname;
+        adminMachineName = mname;
         instanceID = insID;
         sieurl = sieURL;
     }
@@ -194,7 +194,7 @@ public class CMSInstance {
         query += "&sieURL=" + URLEncoder.encode(sieurl);
         query += "&adminUID=" + URLEncoder.encode(AdminDN);
         query += "&adminPWD=" + URLEncoder.encode(AdminDNPW);
-        query += "&machineName=" + URLEncoder.encode(machineName);
+        query += "&adminMachineName=" + URLEncoder.encode(adminMachineName);
 
         PostQuery sm = new PostQuery(myStringUrl, AdminDN, AdminDNPW, query);
 
@@ -250,7 +250,7 @@ public class CMSInstance {
         System.out.println(args.length);
         if (args.length < 10) {
             System.out.println(
-                    "Usage : <task:Create/REmove> host port AdminDN AdminDNPW adminDomain serverRoot instanceID machineName sieURL");
+                    "Usage : <task:Create/REmove> host port AdminDN AdminDNPW adminDomain serverRoot instanceID adminMachineName sieURL");
             System.exit(-1);
         }   
 

@@ -345,7 +345,7 @@ public class RestoreKeyCertPanel extends WizardPanelBase {
             int master_port = -1;
             int master_ee_port = -1;
             try {
-                sd_hostname = config.getString("securitydomain.host", "");
+                sd_hostname = config.getString("securitydomain.adminhost", "");
                 sd_port = config.getInteger("securitydomain.httpsadminport", -1);
                 master_hostname = config.getString("preop.master.hostname", "");
                 master_port = config.getInteger("preop.master.httpsadminport", -1);

@@ -27,18 +27,18 @@ if	[ "${subca_silentEC_script}" = "silentEC_subca.template" ] ; then
 	printf "        (3) Use 'pkicreate' to install a second CA subsystem\n"
 	printf "            instance (this will become a Subordinate CA).\n"
 	printf "            [Do NOT configure this CA subsystem instance!]\n\n"
-	printf "            Follow ECC setup instruction in silentEC_readme.txt.\n"
+	printf "            Follow ECC setup instructions in 'silentEC_readme.txt'.\n\n"
 	printf "        (4) Install the 'pki-silent' package.\n\n"
 	printf "        (5) Copy '$0' to a new script name\n"
-	printf "            without the '.template' extension.\n"
-	printf "            (e .g. - 'configure_ec_subca_instance')\n\n"
+	printf "            without the '.template' extension\n"
+	printf "            (e .g. - 'configure_ec_subca_instance').\n\n"
 	printf "        (6) Fill in all MANDATORY user-defined variables\n"
 	printf "            in the new script.\n\n"
 	printf "        (7) Change any OPTIONAL user-defined variables\n"
 	printf "            in the new script as desired.\n\n"
-	printf "        (8) Become the subca administrator user (NOT 'root' user),\n"
+	printf "        (8) Become the Subordinate CA administrator user (NOT 'root' user),\n"
 	printf "            and execute the new script to\n"
-	printf "            configure a Subordinate CA subsystem instance.\n\n"
+	printf "            configure this Subordinate CA subsystem instance.\n\n"
 	exit 255
 fi
 
@@ -461,13 +461,13 @@ if	[ -f "${pki_silent_security_database_repository}/cert8.db" ] ||
 	printf "WARNING:  The existing security databases\n"
 	printf "          (i. e. - 'cert8.db', 'key3.db', and/or 'secmod.db')\n"
 	printf "          required by '${subca_silentEC_script}' at the\n"
-	printf "          specified location '${pki_silent_security_database_repository}'.\n"
-	printf "          are to be used.\n\n"
+	printf "          specified location '${pki_silent_security_database_repository}'\n"
+	printf "          will be used.\n\n"
 #	exit 255
 fi
 
 
-## (5) Remove ALL old PKI Silent log files
+## (5) Remove any old PKI Silent log file named '${pki_silent_subca_log}'
 printf "Removing old PKI Silent log files:\n"
 if [ -f ${pki_silent_subca_log} ] ; then
 	printf "    Removing old '${pki_silent_subca_log}' . . . "

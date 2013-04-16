@@ -189,15 +189,15 @@ public class DatabasePanel extends WizardPanelBase {
             hostname = HOST;
             portStr = PORT;
             String instanceId = "";
-            String machineName = "";
+            String adminMachineName = "";
 
             try {
                 instanceId = cs.getString("instanceId", "");
-                machineName = cs.getString("machineName", "");
+                adminMachineName = cs.getString("adminMachineName", "");
             } catch (Exception e) {
                 CMS.debug("DatabasePanel display: " + e.toString());
             }
-            String suffix = "dc=" + machineName + "-" + instanceId;
+            String suffix = "dc=" + adminMachineName + "-" + instanceId;
 
             boolean multipleEnable = false;
             try {
@@ -212,7 +212,7 @@ public class DatabasePanel extends WizardPanelBase {
             else
                 basedn = suffix;
             binddn = BINDDN;
-            database = machineName + "-" + instanceId;
+            database = adminMachineName + "-" + instanceId;
         }
 
         context.put("clone", select);
@@ -306,7 +306,7 @@ public class DatabasePanel extends WizardPanelBase {
             String realhostname = "";
             if (hostname.equals("localhost")) {
                 try {
-                    realhostname = cs.getString("machineName", "");
+                    realhostname = cs.getString("adminMachineName", "");
                 } catch (Exception ee) {
                 }
             }
@@ -1048,7 +1048,7 @@ public class DatabasePanel extends WizardPanelBase {
 
         IConfigStore cs = CMS.getConfigStore();
         try {
-            machinename = cs.getString("machineName", "");
+            machinename = cs.getString("adminMachineName", "");
             instanceId = cs.getString("instanceId", "");
             hostname = cs.getString("internaldb.ldapconn.host", "");
             port = cs.getInteger("internaldb.ldapconn.port", -1);
@@ -1093,7 +1093,7 @@ public class DatabasePanel extends WizardPanelBase {
         try {
             cstype = cs.getString("cs.type");
             cstype = toLowerCaseSubsystemType(cstype);
-            machinename = cs.getString("machineName", "");
+            machinename = cs.getString("adminMachineName", "");
             instanceId = cs.getString("instanceId", "");
         } catch (Exception e) {
         }

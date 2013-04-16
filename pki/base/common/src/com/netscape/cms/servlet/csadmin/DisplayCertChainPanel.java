@@ -194,9 +194,9 @@ public class DisplayCertChainPanel extends WizardPanelBase {
             int panel = getPanelNo()+1;
             IConfigStore cs = CMS.getConfigStore();
             try {
-                String sd_hostname = cs.getString("securitydomain.host", "");
+                String sd_hostname = cs.getString("securitydomain.adminhost", "");
                 int sd_port = cs.getInteger("securitydomain.httpsadminport", -1);
-                String cs_hostname = cs.getString("machineName", "");
+                String cs_hostname = cs.getString("adminMachineName", "");
                 int cs_port = cs.getInteger("pkicreate.admin_secure_port", -1);
                 String subsystem = cs.getString("cs.type", "");
                 String urlVal = "https://"+cs_hostname+":"+cs_port+"/"+toLowerCaseSubsystemType(subsystem)+"/admin/console/config/wizard?p="+panel+"&subsystem="+subsystem;
@@ -205,15 +205,29 @@ public class DisplayCertChainPanel extends WizardPanelBase {
                 response.sendRedirect(sdurl);
 
                 // The user previously specified the CA Security Domain's
-                // SSL Admin port in the "Security Domain Panel";
-                // now retrieve this specified CA Security Domain's
-                // non-SSL EE, SSL Agent, and SSL EE ports:
+                // Admin hostname and SSL Admin port in the
+                // "Security Domain Panel"; now retrieve this specified
+                // CA Security Domain's Host, Agent, EE, and EE clientauth
+                // hostnames, as well as its non-SSL EE, SSL Agent, SSL EE,
+                // and SSL EE clientauth ports:
+                cs.putString("securitydomain.host", 
+                              getSecurityDomainHost( cs, "EEHost" ) );
+                cs.putString( "securitydomain.agenthost", 
+                              getSecurityDomainHost( cs, "AgentHost" ) );
+                cs.putString("securitydomain.eehost", 
+                              getSecurityDomainHost( cs, "EEHost" ) );
+                cs.putString("securitydomain.eecahost", 
+                              getSecurityDomainHost( cs,
+                                                     "EEClientAuthHost" ) );
                 cs.putString( "securitydomain.httpport", 
                               getSecurityDomainPort( cs, "UnSecurePort" ) );
                 cs.putString("securitydomain.httpsagentport", 
                               getSecurityDomainPort( cs, "SecureAgentPort" ) );
                 cs.putString("securitydomain.httpseeport", 
                               getSecurityDomainPort( cs, "SecurePort" ) );
+                cs.putString("securitydomain.httpseecaport", 
+                              getSecurityDomainPort( cs,
+                                               "SecureEEClientAuthPort" ) );
             } catch (Exception ee) {
                 CMS.debug("DisplayCertChainPanel Exception="+ee.toString());
             }

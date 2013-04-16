@@ -183,14 +183,6 @@ my $jdbc_stdext_link = "/var/lib/tomcat5/common/lib/\[jdbc-stdext\].jar";
 my $jndi_link        = "/var/lib/tomcat5/common/lib/\[jndi\].jar";
 my $jaas_link        = "/var/lib/tomcat5/server/lib/\[jaas\].jar";
 
-# Subsystem names
-my $CA   = "ca";
-my $OCSP = "ocsp";
-my $KRA  = "kra";
-my $TKS  = "tks";
-my $RA   = "ra";
-my $TPS  = "tps";
-
 # Base subsystem directory names
 my $alias_base_subsystem_dir    = "alias";     # CA, KRA, OCSP, TKS, RA, TPS
 my $applets_base_subsystem_dir  = "applets";   # TPS
@@ -312,6 +304,9 @@ my $pki_audit_group = $pki_group;                    # CA, KRA, OCSP, TKS, TPS
 my $db_password_low  = 100000000000;
 my $db_password_high = 999999999999;
 
+# Template slot constants (CA, KRA, OCSP, RA, TKS, TPS)
+my $PKI_PORT_CONFIGURATION_MODE_SLOT = "PKI_PORT_CONFIGURATION_MODE";
+
 # Template slot constants (RA, TPS)
 my $GROUPID                = "GROUPID";
 my $HTTPD_CONF             = "HTTPD_CONF";
@@ -349,7 +344,15 @@ my $PKI_GROUP_SLOT            = "PKI_GROUP";
 my $PKI_INSTANCE_ID_SLOT      = "PKI_INSTANCE_ID";
 my $PKI_INSTANCE_PATH_SLOT    = "PKI_INSTANCE_PATH";
 my $PKI_INSTANCE_ROOT_SLOT    = "PKI_INSTANCE_ROOT";
-my $PKI_MACHINE_NAME_SLOT     = "PKI_MACHINE_NAME";
+my $PKI_AGENT_MACHINE_IP_ADDR_SLOT = "PKI_AGENT_MACHINE_IP_ADDR";
+my $PKI_EE_MACHINE_IP_ADDR_SLOT = "PKI_EE_MACHINE_IP_ADDR";
+my $PKI_EE_CLIENT_AUTH_MACHINE_IP_ADDR_SLOT = "PKI_EE_CLIENT_AUTH_MACHINE_IP_ADDR";
+my $PKI_ADMIN_MACHINE_IP_ADDR_SLOT = "PKI_ADMIN_MACHINE_IP_ADDR";
+my $PKI_AGENT_MACHINE_NAME_SLOT = "PKI_AGENT_MACHINE_NAME";
+my $PKI_EE_MACHINE_NAME_SLOT = "PKI_EE_MACHINE_NAME";
+my $PKI_EE_CLIENT_AUTH_MACHINE_NAME_SLOT = "PKI_EE_CLIENT_AUTH_MACHINE_NAME";
+my $PKI_ADMIN_MACHINE_NAME_SLOT = "PKI_ADMIN_MACHINE_NAME";
+my $PKI_SAN_MACHINE_NAMES_SLOT = "PKI_SAN_MACHINE_NAMES";
 my $PKI_RANDOM_NUMBER_SLOT    = "PKI_RANDOM_NUMBER";
 my $PKI_SECURE_PORT_SLOT      = "PKI_SECURE_PORT";
 my $PKI_EE_SECURE_PORT_SLOT   = "PKI_EE_SECURE_PORT";
@@ -401,11 +404,15 @@ my $saved_file_marker       = "[files]";
 my $saved_directory_marker  = "[directories]";
 
 #selinux constants
+my $getenforce = "/usr/sbin/getenforce";
 my $semanage = "/usr/sbin/semanage";
 my $restorecon = "/sbin/restorecon";
 my $SELINUX_PORT_UNDEFINED = 0;
 my $SELINUX_PORT_DEFINED = 1;
 my $SELINUX_PORT_WRONGLY_DEFINED = 2;
+my $SELINUX_MODE_DISABLED = "Disabled";
+my $SELINUX_MODE_ENFORCING = "Enforcing";
+my $SELINUX_MODE_PERMISSIVE = "Permissive";
 
 # PKI banners
 $marked_header = "    <!-- ================= PKI Installation Wizard Header ================= -->";
@@ -433,6 +440,7 @@ my %selinux_ports = ();
 my $pki_instance_root  = "";
 my $pki_instance_name  = "";
 my $subsystem_type     = "";
+my $uc_subsystem_type  = "";
 my $secure_port        = -1;
 my $non_clientauth_secure_port = -1;
 my $unsecure_port      = -1;
@@ -443,12 +451,27 @@ my $agent_secure_port    = -1;
 my $ee_secure_port       = -1;
 my $ee_secure_client_auth_port = -1;
 my $admin_secure_port    = -1;
+my $agent_ip_addr        = "";
+my $ee_ip_addr           = "";
+my $ee_client_auth_ip_addr = "";
+my $admin_ip_addr        = "";
+my $agent_hostname       = "";
+my $ee_hostname          = "";
+my $ee_client_auth_hostname = "";
+my $admin_hostname       = "";
+my $san_hostnames        = "";
 my $username             = "";
 my $groupname            = "";
 my $audit_groupname      = "";
 my $pki_security_manager = "";
 my $redirected_conf_path = "";
 my $redirected_logs_path = "";
+my $agent_hostport = "";
+my $ee_hostport = "";
+my $ee_client_auth_hostport = "";
+my $admin_hostport = "";
+my $unsecure_hostport = "";
+my $tomcat_hostport = "";
 
 # Base subsystem directory paths
 my $pki_subsystem_path      = "";  # CA, KRA, OCSP, TKS, RA, TPS
@@ -552,6 +575,8 @@ my $password_conf_instance_file_path          = "";  # CA, KRA, OCSP, TKS,
 my $perl_instance_symlink_path                = "";  # RA, TPS
 my $perl_subsystem_path                       = "";  # RA, TPS
 my $pfile_instance_file_path                  = "";  # CA, KRA, OCSP, TKS,
+                                                     # RA, TPS
+my $port_configuration_mode                   = "";  # CA, KRA, OCSP, TKS,
                                                      # RA, TPS
 my $pwcache_conf_instance_file_path           = "";  # RA, TPS
 my $pki_cfg_instance_file_path                = "";  # CA, KRA, OCSP, TKS,
@@ -767,7 +792,63 @@ sub usage()
          . "                                                   "
          . "# [ca | kra | ocsp | tks]\n\n"
          . "          #####################################################################\n"
-         . "          ###   SELECT separate secure ports for AGENT, EE, and ADMIN:      ###\n"
+         . "          ############  BEGIN 'Port Configuration Mode' SELECTION  ############\n"
+         . "          #####################################################################\n\n"
+         . "          #####################################################################\n"
+         . "          #                                                                   #\n"
+         . "          #         (1) IP Port Separation                                    #\n"
+         . "          #             * - specify hostnames and secure ports for            #\n"
+         . "          #                 AGENT, EE, and ADMIN                              #\n"
+         . "          #             * - specify a hostname and a secure port for          #\n"
+         . "          #                 client auth EE (required for CAs only)            #\n"
+         . "          #             * - all <hostname>:<port> combinations                #\n"
+         . "          #                 must be unique                                    #\n"
+         . "          #                                                                   #\n"
+         . "          #             NOTE:  'IP Port Separation' mimics the                #\n"
+         . "          #                    behavior of 'Port Separation'                  #\n"
+         . "          #                    whenever every hostname is specified           #\n"
+         . "          #                    as Fully Qualified Domain Name                 #\n"
+         . "          #                    (FQDN) of the machine on which an              #\n"
+         . "          #                    instance is being installed                    #\n"
+         . "          #                    (i. e. - all hostnames will have               #\n"
+         . "          #                    the same name).  For new PKI                   #\n"
+         . "          #                    deployments, 'IP Port Separation'              #\n"
+         . "          #                    is recommended to provide the                  #\n"
+         . "          #                    greatest flexibility.                          #\n"
+         . "          #                                                                   #\n"
+         . "          #####################################################################\n\n"
+         . "          -agent_hostname=<agent_hostname>         "
+         . "# Agent hostname\n\n"
+         . "          -agent_secure_port=<agent_secure_port>   "
+         . "# Agent secure port\n\n"
+         . "          -ee_hostname=<ee_hostname>               "
+         . "# EE hostname\n\n"
+         . "          -ee_secure_port=<ee_secure_port>         "
+         . "# EE secure port\n\n"
+         . "          -admin_hostname=<admin_hostname>         "
+         . "# Admin hostname\n\n"
+         . "          -admin_secure_port=<admin_secure_port>   " 
+         . "# Admin secure port\n\n"
+         . "          -ee_client_auth_hostname=<ee_client_auth_hostname>\n"
+         . "                                         # EE client authentication hostname\n"
+         . "                                         # (required for CAs only)\n\n"
+         . "          -ee_secure_client_auth_port=<ee_secure_client_auth_port>\n"
+         . "                                         # EE secure client authentication port\n"
+         . "                                         # (required for CAs only)\n\n"
+         . "          #####################################################################\n"
+         . "          #                                                                   #\n"
+         . "          #         (2) Port Separation                                       #\n"
+         . "          #             * - specify separate secure ports for                 #\n"
+         . "          #                 AGENT, EE, and ADMIN                              #\n"
+         . "          #             * - specify a separate secure port for                #\n"
+         . "          #                 client auth EE (required for CAs only)            #\n"
+         . "          #             * - all ports must be unique                          #\n"
+         . "          #                                                                   #\n"
+         . "          #             NOTE:  For previously existing PKI deployments,       #\n"
+         . "          #                    'Port Separation' may be used in               #\n"
+         . "          #                    conjunction with 'port forwarding' to          #\n"
+         . "          #                    emulate 'IP Port Separation' behavior.         #\n"
+         . "          #                                                                   #\n"
          . "          #####################################################################\n\n"
          . "          -agent_secure_port=<agent_secure_port>   "
          . "# Agent secure port\n\n"
@@ -775,17 +856,18 @@ sub usage()
          . "# EE secure port\n\n"
          . "          -admin_secure_port=<admin_secure_port>   " 
          . "# Admin secure port\n\n"
-         . "          #####################################################################\n"
-         . "          ###   ... and a client auth EE port, required for CAs only        ###\n"
-         . "          #####################################################################\n\n"
          . "          -ee_secure_client_auth_port=<ee_secure_client_auth_port>\n"
-         . "                                         # EE secure client authentication port\n\n"
+         . "                                         # EE secure client authentication port\n"
+         . "                                         # (required for CAs only)\n\n"
          . "          #####################################################################\n"
-         . "          ###   OR SELECT a single secure port shared by AGENT,EE and ADMIN ###\n"
-         . "          ###                                                               ###\n"
-         . "          ###   WARNING:  Use of a single shared secure port has been       ###\n"
-         . "          ###             DEPRECATED!  Use 'port separation' in conjunction ###\n"
-         . "          ###             with 'port forwarding' to emulate this behavior.  ###\n"
+         . "          #                                                                   #\n"
+         . "          #         (3) Shared Ports                                          #\n"
+         . "          #             * - specify a single secure port to be shared by      #\n"
+         . "          #                 AGENT, EE, and ADMIN                              #\n"
+         . "          #                                                                   #\n"
+         . "          #              WARNING:  Use of a single shared secure port         #\n"
+         . "          #                        has been DEPRECATED!                       #\n"
+         . "          #                                                                   #\n"
          . "          #####################################################################\n\n"
          . "          -secure_port=<secure_port>               "
          . "# Secure port\n"
@@ -794,7 +876,7 @@ sub usage()
          . "                                                   "
          . "#  EE, and Admin)\n\n"
          . "          #####################################################################\n"
-         . "          ###   END secure port SELECTION                                   ###\n"
+         . "          ############   END  'Port Configuration Mode' SELECTION  ############\n"
          . "          #####################################################################\n\n"
          . "          -unsecure_port=<unsecure_port>           "
          . "# Unsecure port\n\n"
@@ -925,7 +1007,7 @@ sub usage()
 
     print( STDOUT
            "###############################################################################\n"
-         . "###   EXAMPLES:                                                             ###\n"
+         . "###   EXAMPLES (using 'Port Separation' for 'Tomcat' instances)             ###\n"
          . "###       PKI (Tomcat) subsystem instance creation of a  CA                 ###\n"
          . "###       PKI (Tomcat) subsystem instance creation of a  Subordinate CA     ###\n"
          . "###       PKI (Tomcat) subsystem instance creation of a  KRA                ###\n"
@@ -1074,7 +1156,12 @@ sub parse_arguments()
     my $l_ee_secure_port     = -1;
     my $l_ee_secure_client_auth_port     = -1;
     my $l_admin_secure_port  = -1;
+    my $l_agent_hostname     = "";
+    my $l_ee_hostname        = "";
+    my $l_ee_client_auth_hostname = "";
+    my $l_admin_hostname     = "";
     my $show_help            = 0;
+    my $port_configuration_mode_errors = 0;
 
     $result = GetOptions( "help" => \$show_help,
                           "pki_instance_root=s" => \$pki_instance_root,
@@ -1083,9 +1170,13 @@ sub parse_arguments()
                           "secure_port:i" => \$l_secure_port,
                           "non_clientauth_secure_port:i" => \$l_non_clientauth_secure_port,
                           "unsecure_port:i" => \$l_unsecure_port,
+                          "agent_hostname=s" => \$l_agent_hostname,
                           "agent_secure_port:i" => \$l_agent_secure_port,
+                          "ee_hostname=s" => \$l_ee_hostname,
                           "ee_secure_port:i" => \$l_ee_secure_port,
+                          "ee_client_auth_hostname=s" => \$l_ee_client_auth_hostname,
                           "ee_secure_client_auth_port:i" => \$l_ee_secure_client_auth_port,
+                          "admin_hostname=s" => \$l_admin_hostname,
                           "admin_secure_port:i" => \$l_admin_secure_port, 
                           "tomcat_server_port:i" => \$l_tomcat_server_port,
                           "user=s" => \$username,
@@ -1204,6 +1295,7 @@ sub parse_arguments()
         return 0;
     } else {
         emit( "    subsystem_type      $subsystem_type\n" );
+        $uc_subsystem_type = uc $subsystem_type;
     }
 
     ## Mandatory "-secure_port=<secure_port>" option
@@ -1238,6 +1330,18 @@ sub parse_arguments()
             }
         }
 
+        if( $l_agent_hostname ne ""          ||
+            $l_ee_hostname ne ""             ||
+            $l_ee_client_auth_hostname ne "" ||
+            $l_admin_hostname ne "" ) {
+            usage();
+            emit( "IP separated port configuration mode is invalid for "
+                . "'$uc_subsystem_type' subsystems; NO values for agent, admin,"
+                . " ee, or ee client auth hostnames should be specified!\n",
+                "error");
+            return 0;
+        }
+
         if( $l_agent_secure_port > 0 ||
             $l_ee_secure_port > 0    ||
             $l_ee_secure_client_auth_port > 0    ||
@@ -1254,6 +1358,44 @@ sub parse_arguments()
             emit( "Must NOT include value for non_clientauth_secure_port!\n",
                   "error" );
             return 0;
+        }
+
+        # IP Separated Ports:  if ANY hostname is specified,
+        #                      ALL hostnames must be specified
+        if( $subsystem_type eq $CA ) {
+            # CA subsystems
+            if( $l_agent_hostname ne ""          ||
+                $l_ee_hostname ne ""             ||
+                $l_ee_client_auth_hostname ne "" ||
+                $l_admin_hostname ne "" ) {
+                if( $l_agent_hostname eq ""          ||
+                    $l_ee_hostname eq ""             ||
+                    $l_ee_client_auth_hostname eq "" ||
+                    $l_admin_hostname eq "" ) {
+                    usage();
+                    emit( "For 'CA' subsystems, if attempting to use "
+                        . "an IP separated port configuration mode, "
+                        . "values must be included for agent, admin, ee, "
+                        . "and ee client auth hostnames!\n", "error");
+                    return 0;
+                }
+            }
+        } else {
+            # KRA, OCSP, or TKS subsystems
+            if( $l_agent_hostname ne "" ||
+                $l_ee_hostname ne ""    ||
+                $l_admin_hostname ne "" ) {
+                if( $l_agent_hostname eq "" ||
+                    $l_ee_hostname eq ""    ||
+                    $l_admin_hostname eq "" ) {
+                    usage();
+                    emit( "For '$uc_subsystem_type' subsystems, if attempting "
+                        . "to use an IP separated port configuration mode, "
+                        . "values must be included for agent, admin, "
+                        . "and ee hostnames!\n", "error");
+                    return 0;
+                }
+            }
         }
     }
  
@@ -1290,61 +1432,233 @@ sub parse_arguments()
         }
     }
 
+    ## Port configuration mode
+    if( $l_agent_hostname ne "" ) {
+        # obtain the fully-qualified domain name of this agent hostname
+        $agent_hostname = get_FQDN( $l_agent_hostname );
+        emit( "    agent_hostname      $agent_hostname\n");
+    }
+
     if( $l_agent_secure_port >= 0 ) {
         $agent_secure_port = $l_agent_secure_port;
-     
         emit( "    agent_secure_port   $agent_secure_port\n");
+    }
 
+    ## Mandatory ee_hostname  if "-agent_hostname" is given 
+    if( $l_ee_hostname ne "" ) {
+        # obtain the fully-qualified domain name of this EE hostname
+        $ee_hostname = get_FQDN( $l_ee_hostname );
+        emit( "    ee_hostname         $ee_hostname\n");
+    } else {
+        if( $agent_hostname ne "" ) {
+            emit( "Must include value for ee_hostname if agent_hostname is given!\n", "error");
+            $port_configuration_mode_errors++;
+        }
     }
 
     ## Mandatory ee_secure_port  if "-agent_secure_port" is given 
-
     if( $l_ee_secure_port >= 0 ) {
         $ee_secure_port = $l_ee_secure_port;
-     
         emit( "    ee_secure_port      $ee_secure_port\n");
-
     } else {
         if($agent_secure_port >= 0) {
-            emit( "Must include value for ee_secure_port if agent_secure_port is given!\n");
+            emit( "Must include value for ee_secure_port if agent_secure_port is given!\n", "error");
+            $port_configuration_mode_errors++;
         }
     }
 
-    ## Mandatory ee_secure_client_auth_port  if "-agent_secure_port" is given, and CA subsystem
+    ## Mandatory ee_client_auth_hostname  if "-agent_hostname" is given,
+    ## and CA subsystem
+    if( $l_ee_client_auth_hostname ne "" ) {
+        # obtain the fully-qualified domain name of this EE client auth hostname
+        $ee_client_auth_hostname = get_FQDN( $l_ee_client_auth_hostname );
+        emit( "    ee_client_auth_hostname         $ee_client_auth_hostname\n");
+    } else {
+        if (($agent_hostname ne "") && ($subsystem_type eq $CA)) {
+            emit( "For CAs, must include value for ee_client_auth_hostname if agent_hostname is given!\n", "error");
+            $port_configuration_mode_errors++;
+        }
+    }
 
+    ## Mandatory ee_secure_client_auth_port  if "-agent_secure_port" is given,
+    ## and CA subsystem
     if( $l_ee_secure_client_auth_port >= 0 ) {
         $ee_secure_client_auth_port = $l_ee_secure_client_auth_port;
-     
         emit( "    ee_secure_client_auth_port      $ee_secure_client_auth_port\n");
-
     } else {
         if (($agent_secure_port >= 0) && ($subsystem_type eq $CA)) {
-            usage();
-            emit( "For CAs, must include value for ee_secure_client_auth_port if agent_secure_port is given!\n");
-            return 0;
+            emit( "For CAs, must include value for ee_secure_client_auth_port if agent_secure_port is given!\n", "error");
+            $port_configuration_mode_errors++;
         }
     }
 
-     ## Mandatory admin_secure_port if "-agent_secure_port" is given 
+    ## Mandatory admin_hostname  if "-agent_hostname" is given 
+    if( $l_admin_hostname ne "" ) {
+        # obtain the fully-qualified domain name of this admin hostname
+        $admin_hostname = get_FQDN( $l_admin_hostname );
+        emit( "    admin_hostname      $admin_hostname\n");
+    } else {
+        if( $agent_hostname ne "" ) {
+            emit( "Must include value for admin_hostname if agent_hostname is given!\n", "error");
+            $port_configuration_mode_errors++;
+        }
+    }
 
+    ## Mandatory admin_secure_port if "-agent_secure_port" is given 
     if( $l_admin_secure_port >= 0 ) {
         $admin_secure_port = $l_admin_secure_port;
-    
         emit( "    admin_secure_port   $admin_secure_port\n");
-
     } else {
         if($agent_secure_port >= 0) {
-            emit( "Must include value for admin_secure_port if agent_secure_port is given!\n");
+            emit( "Must include value for admin_secure_port if agent_secure_port is given!\n", "error");
+            $port_configuration_mode_errors++;
         }
     }
 
-    if (!AreConnectorPortsValid($secure_port,$unsecure_port,$agent_secure_port,
-         $ee_secure_port,$ee_secure_client_auth_port, $admin_secure_port ) )
-    {
+    if( $port_configuration_mode_errors > 0 ) {
         usage();
-        emit( "Invalid port numbers submitted!\n","error" );
+        emit( "Correct $port_configuration_mode_errors port configuration mode error(s)!\n", "error");
         return 0;
     }
+
+    # obtain the fully-qualified domain name of this host
+    $host = get_FQDN( $hostname );
+
+    my $mode = get_port_configuration_mode( $subsystem_type,
+                                            $secure_port,
+                                            $unsecure_port,
+                                            $non_clientauth_secure_port,
+                                            $agent_secure_port,
+                                            $ee_secure_port,
+                                            $ee_secure_client_auth_port,
+                                            $admin_secure_port,
+                                            $tomcat_server_port,
+                                            $agent_hostname,
+                                            $ee_hostname,
+                                            $ee_client_auth_hostname,
+                                            $admin_hostname );
+    if( $mode eq $PKI_IP_PORT_SEPARATION_MODE ) {
+        # Set port configuration mode
+        $port_configuration_mode = $PKI_IP_PORT_SEPARATION_MODE;
+
+        # Populate unique SAN machine list
+        #
+        # NOTE:  Since this function returns a unique list of items
+        #        in the input order minus any duplicates, the input
+        #        order places the "$ee_hostname" first since it seems
+        #        reasonable that the Subject Name corresponds to the
+        #        first Subject Alternative Name.
+        #
+        $san_hostnames = compose_unique_list( $ee_hostname,
+                                              $agent_hostname,
+                                              $admin_hostname,
+                                              $ee_client_auth_hostname );
+
+        # Establish all '<hostname>:<port>' combinations
+        $agent_hostport = $agent_hostname . ':' . $agent_secure_port;
+        $ee_hostport = $ee_hostname . ':' . $ee_secure_port;
+        if( $subsystem_type eq $CA ) {
+            $ee_client_auth_hostport = $ee_client_auth_hostname . ':'
+                                     . $ee_secure_client_auth_port;
+        }
+        $admin_hostport = $admin_hostname . ':' . $admin_secure_port;
+        $unsecure_hostport = $ee_hostname . ':' . $unsecure_port;
+        $tomcat_hostport = $host . ':' . $tomcat_server_port;
+        emit( "    Using 'IP Port Separation' Configuration Mode\n" );
+    } elsif( $mode eq $PKI_PORT_SEPARATION_MODE ) {
+        # Set port configuration mode
+        $port_configuration_mode = $PKI_PORT_SEPARATION_MODE;
+
+        # Set all '<hostnames>' equal to the local FQDN hostname
+        $agent_hostname = $host;
+        $ee_hostname    = $host;
+        if( $subsystem_type eq $CA ) {
+            $ee_client_auth_hostname = $host;
+        }
+        $admin_hostname = $host;
+        $san_hostnames = $host;
+
+        # Establish all '<hostname>:<port>' combinations
+        $agent_hostport = $agent_hostname . ':' . $agent_secure_port;
+        $ee_hostport = $ee_hostname . ':' . $ee_secure_port;
+        if( $subsystem_type eq $CA ) {
+            $ee_client_auth_hostport = $ee_client_auth_hostname . ':'
+                                     . $ee_secure_client_auth_port;
+        }
+        $admin_hostport = $admin_hostname . ':' . $admin_secure_port;
+        $unsecure_hostport = $ee_hostname . ':' . $unsecure_port;
+        $tomcat_hostport = $host . ':' . $tomcat_server_port;
+        emit( "    Using 'Port Separation' Configuration Mode\n" );
+    } elsif( $mode eq $PKI_SHARED_PORTS_MODE ) {
+        # Set port configuration mode
+        $port_configuration_mode = $PKI_SHARED_PORTS_MODE;
+
+        # Set all '<hostnames>' equal to the local FQDN hostname
+        $agent_hostname = $host;
+        $ee_hostname    = $host;
+        if( $subsystem_type eq $CA ) {
+            $ee_client_auth_hostname = $host;
+        }
+        $admin_hostname = $host;
+        $san_hostnames = $host;
+
+        # Establish all '<hostname>:<port>' combinations
+        $agent_hostport = $agent_hostname . ':' . $secure_port;
+        $ee_hostport = $ee_hostname . ':' . $secure_port;
+        if( $subsystem_type eq $CA ) {
+            $ee_client_auth_hostport = $ee_client_auth_hostname . ':'
+                                . $secure_port;
+        }
+        $admin_hostport = $admin_hostname . ':' . $secure_port;
+        $unsecure_hostport = $ee_hostname . ':' . $unsecure_port;
+        $tomcat_hostport = $host . ':' . $tomcat_server_port;
+        emit( "    Using 'Shared Ports' Configuration Mode\n" );
+    } elsif( $mode eq $RA_PORTS_MODE ) {
+        # Set port configuration mode
+        $port_configuration_mode = $PKI_RA_PORTS_MODE;
+
+        # Set all '<hostnames>' equal to the local FQDN hostname
+        $agent_hostname = $host;
+        $ee_hostname    = $host;
+        $admin_hostname = $host;
+        $san_hostnames = $host;
+
+        # Establish all '<hostname>:<port>' combinations
+        $agent_hostport = $agent_hostname . ':' . $secure_port;
+        $ee_hostport = $ee_hostname . ':' . $secure_port;
+        $admin_hostport = $admin_hostname . ':' . $secure_port;
+        $unsecure_hostport = $ee_hostname . ':' . $unsecure_port;
+        emit( "    Using '$RA Ports' Configuration Mode\n" );
+    } elsif( $mode eq $TPS_PORTS_MODE ) {
+        # Set port configuration mode
+        $port_configuration_mode = $PKI_TPS_PORTS_MODE;
+
+        # Set all '<hostnames>' equal to the local FQDN hostname
+        $agent_hostname = $host;
+        $ee_hostname    = $host;
+        $admin_hostname = $host;
+        $san_hostnames = $host;
+
+        # Establish all '<hostname>:<port>' combinations
+        $agent_hostport = $agent_hostname . ':' . $secure_port;
+        $ee_hostport = $ee_hostname . ':' . $secure_port;
+        $admin_hostport = $admin_hostname . ':' . $secure_port;
+        $unsecure_hostport = $ee_hostname . ':' . $unsecure_port;
+        emit( "    Using '$TPS Ports' Configuration Mode\n" );
+    } else {
+        # Port Configuration Mode Error:  Display usage with error message
+        usage();
+        emit( "$mode\n","error" );
+        return 0;
+    }
+
+    # Obtain IP addresses from the fully-qualified domain names of each host
+    $agent_ip_addr = get_IP_address_from_FQDN( $agent_hostname );
+    $ee_ip_addr = get_IP_address_from_FQDN( $ee_hostname );
+    if( $subsystem_type eq $CA ) {
+        $ee_client_auth_ip_addr = get_IP_address_from_FQDN( $ee_client_auth_hostname );
+    }
+    $admin_ip_addr = get_IP_address_from_FQDN( $admin_hostname );
 
     ## Optional "-user=<username>" option
     if( $username ne "" ) {
@@ -1943,9 +2257,6 @@ sub initialize_paths()
 # no return value
 sub initialize_pki_creation_values()
 {
-    # obtain the fully-qualified domain name of this host
-    $host = get_FQDN( $hostname );
-
     # we need the certdb password generated now ...
     $db_password = generate_random( $db_password_low, $db_password_high );
 
@@ -2509,6 +2820,7 @@ sub process_pki_templates()
         $slot_hash{$LIB_PREFIX}            = $lib_prefix;
         $slot_hash{$NSS_CONF}              = $nss_conf_instance_file_path;
         $slot_hash{$OBJ_EXT}               = $obj_ext;
+        $slot_hash{$PKI_PORT_CONFIGURATION_MODE_SLOT} = $port_configuration_mode;
         $slot_hash{$PORT}                  = $unsecure_port;
         $slot_hash{$PROCESS_ID}            = $$;
         $slot_hash{$SECURE_PORT}           = $secure_port;
@@ -2566,7 +2878,16 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
         $slot_hash{$PKI_INSTANCE_ID_SLOT}      = $pki_instance_name;
         $slot_hash{$PKI_INSTANCE_PATH_SLOT}    = $pki_instance_path;
         $slot_hash{$PKI_INSTANCE_ROOT_SLOT}    = $pki_instance_root;
-        $slot_hash{$PKI_MACHINE_NAME_SLOT}     = $host;
+        $slot_hash{$PKI_AGENT_MACHINE_IP_ADDR_SLOT} = $agent_ip_addr;
+        $slot_hash{$PKI_EE_MACHINE_IP_ADDR_SLOT} = $ee_ip_addr;
+        $slot_hash{$PKI_EE_CLIENT_AUTH_MACHINE_IP_ADDR_SLOT} = $ee_client_auth_ip_addr;
+        $slot_hash{$PKI_ADMIN_MACHINE_IP_ADDR_SLOT} = $admin_ip_addr;
+        $slot_hash{$PKI_AGENT_MACHINE_NAME_SLOT} = $agent_hostname;
+        $slot_hash{$PKI_EE_MACHINE_NAME_SLOT} = $ee_hostname;
+        $slot_hash{$PKI_EE_CLIENT_AUTH_MACHINE_NAME_SLOT} = $ee_client_auth_hostname;
+        $slot_hash{$PKI_ADMIN_MACHINE_NAME_SLOT} = $admin_hostname;
+        $slot_hash{$PKI_SAN_MACHINE_NAMES_SLOT} = $san_hostnames;
+        $slot_hash{$PKI_PORT_CONFIGURATION_MODE_SLOT} = $port_configuration_mode;
         $slot_hash{$PKI_RANDOM_NUMBER_SLOT}    = $random;
         $slot_hash{$PKI_SERVER_XML_CONF}       = $server_xml_instance_file_path;
         $slot_hash{$PKI_SUBSYSTEM_TYPE_SLOT}   = $subsystem_type;
@@ -3457,7 +3778,7 @@ sub check_selinux_port()
         if ($selinux_ports{$seport} eq $setype) {
             return $SELINUX_PORT_DEFINED;
         } else {
-            return $SELINUX_PORT_WONGLY_DEFINED;
+            return $SELINUX_PORT_WRONGLY_DEFINED;
         }
     } else {
         return $SELINUX_PORT_UNDEFINED;
@@ -3641,23 +3962,200 @@ sub process_pki_selinux_setup()
     if ($non_clientauth_secure_port != -1) {
         &add_selinux_port($setype_p, $non_clientauth_secure_port);
     }
-    if ($unsecure_port != -1) {
-        &add_selinux_port($setype_p, $unsecure_port);
-    }
     if ($tomcat_server_port != -1) {
         &add_selinux_port($setype_p, $tomcat_server_port);
     }
-    if ($agent_secure_port != -1) {
+
+    # Always check to make certain that the AGENT, EE, EE_Client_Auth,
+    # ADMIN, and UNSECURE ports refer to ports located on the installation
+    # host ($host) prior to making any attempt to label them using SELinux.
+    #
+    # The primary purpose of this is to allow the user to implement
+    # IP Separation (e. g. - all interfaces distinguishable by unique
+    # IPs using a common port), while still leaving the installation host
+    # protected by SELinux in Enforcing mode.
+    #
+    # It should be noted, however, that if an interface port is allowed to be
+    # unlabeled, in order to avoid potential port-level SELinux binding issues
+    # on the installation host, always check to make certain that the specified
+    # port has not previously been labeled on the installation host.
+    #
+    # IMPORTANT:  Caution should be taken when using unlabeled ports, as this
+    #             does not prevent a future application from labeling this
+    #             port for its own use on the installation host which
+    #             could cause port-level SELinux binding issues.
+    #
+    if( ( $agent_hostname eq $host ) &&
+        ( $agent_secure_port != -1 ) ) {
         &add_selinux_port($setype_p, $agent_secure_port);
+    } elsif ( $agent_secure_port != -1 ) {
+        print( STDOUT
+               "Agent port $agent_secure_port is unlabeled "
+             . "on $agent_hostname\n" );
+        $status = &check_selinux_port($setype_p, $agent_secure_port);
+        if ($status == $SELINUX_PORT_UNDEFINED) {
+            print( STDERR
+                   "Warning - Agent port $agent_secure_port could be "
+                 . "defined on the installation host $host in the future.\n" );
+            print( STDOUT "\n" );
+        } elsif ($status == $SELINUX_PORT_DEFINED) {
+            print( STDERR
+                   "Warning - Agent port $agent_secure_port is already "
+                 . "defined as $setype_p on the installation host $host.\n" );
+            print( STDOUT "\n" );
+        } elsif ($status == $SELINUX_PORT_WRONGLY_DEFINED) {
+            print( STDERR
+                   "Warning - Agent port $agent_secure_port is "
+                 . "already defined as a different SELinux context type "
+                 . "than $setype_p on the installation host $host.\n" );
+            print( STDOUT "\n" );
+            my $selinux_mode = system("$getenforce");
+            if ($selinux_mode == $SELINUX_MODE_ENFORCING) {
+                print( STDERR
+                       "Error - Agent port $agent_secure_port cannot "
+                     . "be used when SELinux mode is 'Enforcing'.\n" );
+                print( STDOUT "\n" );
+            }
+        }
     }
-    if ($ee_secure_port != -1) {
+    if( ( $ee_hostname eq $host ) &&
+        ( $ee_secure_port != -1 ) ) {
         &add_selinux_port($setype_p, $ee_secure_port);
+    } elsif ( $ee_secure_port != -1 ) {
+        print( STDOUT
+               "EE port $ee_secure_port is unlabeled "
+             . "on $ee_hostname\n" );
+        $status = &check_selinux_port($setype_p, $ee_secure_port);
+        if ($status == $SELINUX_PORT_UNDEFINED) {
+            print( STDERR
+                   "Warning - EE port $ee_secure_port could be "
+                 . "defined on the installation host $host in the future.\n" );
+            print( STDOUT "\n" );
+        } elsif ($status == $SELINUX_PORT_DEFINED) {
+            print( STDERR
+                   "Warning - EE port $ee_secure_port is already "
+                 . "defined as $setype_p on the installation host $host.\n" );
+            print( STDOUT "\n" );
+        } elsif ($status == $SELINUX_PORT_WRONGLY_DEFINED) {
+            print( STDERR
+                   "Warning - EE port $ee_secure_port is "
+                 . "already defined as a different SELinux context type "
+                 . "than $setype_p on the installation host $host.\n" );
+            print( STDOUT "\n" );
+            my $selinux_mode = system("$getenforce");
+            if ($selinux_mode == $SELINUX_MODE_ENFORCING) {
+                print( STDERR
+                       "Error - EE port $ee_secure_port cannot "
+                     . "be used when SELinux mode is 'Enforcing'.\n" );
+                print( STDOUT "\n" );
+            }
+        }
     }
-    if ($ee_secure_client_auth_port != -1) {
-        &add_selinux_port($setype_p, $ee_secure_client_auth_port);
+    if($subsystem_type eq $CA ) {
+        if( ( $ee_client_auth_hostname eq $host ) &&
+            ( $ee_secure_client_auth_port != -1 ) ) {
+            &add_selinux_port($setype_p, $ee_secure_client_auth_port);
+        } elsif ( $ee_secure_client_auth_port != -1 ) {
+            print( STDOUT
+                   "EE client auth port $ee_secure_client_auth_port is "
+                 . "unlabeled on $ee_hostname\n" );
+            $status = &check_selinux_port($setype_p,
+                                          $ee_secure_client_auth_port);
+            if ($status == $SELINUX_PORT_UNDEFINED) {
+                print( STDERR
+                       "Warning - EE client auth port "
+                     . "$ee_secure_client_auth_port could be defined on the "
+                     . "installation host $host in the future.\n" );
+                print( STDOUT "\n" );
+            } elsif ($status == $SELINUX_PORT_DEFINED) {
+                print( STDERR
+                       "Warning - EE client auth port "
+                     . "$ee_secure_client_auth_port is already defined "
+                     . "as $setype_p on the installation host $host.\n" );
+                print( STDOUT "\n" );
+            } elsif ($status == $SELINUX_PORT_WRONGLY_DEFINED) {
+                print( STDERR
+                       "Warning - EE client auth port "
+                     . "$ee_secure_client_auth_port is "
+                     . "already defined as a different SELinux context type "
+                     . "than $setype_p on the installation host $host.\n" );
+                print( STDOUT "\n" );
+                my $selinux_mode = system("$getenforce");
+                if ($selinux_mode == $SELINUX_MODE_ENFORCING) {
+                    print( STDERR
+                           "Error - EE client auth port "
+                         . "$ee_secure_client_auth_port cannot be used "
+                         . "when SELinux mode is 'Enforcing'.\n" );
+                    print( STDOUT "\n" );
+                }
+            }
+        }
     }
-    if ($admin_secure_port != -1) {
+    if( ( $admin_hostname eq $host ) &&
+        ( $admin_secure_port != -1 ) ) {
         &add_selinux_port($setype_p, $admin_secure_port);
+    } elsif ( $admin_secure_port != -1 ) {
+        print( STDOUT
+               "Admin port $admin_secure_port is unlabeled "
+             . "on $admin_hostname\n" );
+        $status = &check_selinux_port($setype_p, $admin_secure_port);
+        if ($status == $SELINUX_PORT_UNDEFINED) {
+            print( STDERR
+                   "Warning - Admin port $admin_secure_port could be "
+                 . "defined on the installation host $host in the future.\n" );
+            print( STDOUT "\n" );
+        } elsif ($status == $SELINUX_PORT_DEFINED) {
+            print( STDERR
+                   "Warning - Admin port $admin_secure_port is already "
+                 . "defined as $setype_p on the installation host $host.\n" );
+            print( STDOUT "\n" );
+        } elsif ($status == $SELINUX_PORT_WRONGLY_DEFINED) {
+            print( STDERR
+                   "Warning - Admin port $admin_secure_port is "
+                 . "already defined as a different SELinux context type "
+                 . "than $setype_p on the installation host $host.\n" );
+            print( STDOUT "\n" );
+            my $selinux_mode = system("$getenforce");
+            if ($selinux_mode == $SELINUX_MODE_ENFORCING) {
+                print( STDERR
+                       "Error - Admin port $admin_secure_port cannot "
+                     . "be used when SELinux mode is 'Enforcing'.\n" );
+                print( STDOUT "\n" );
+            }
+        }
+    }
+    if( ( $ee_hostname eq $host ) &&
+        ( $unsecure_port != -1 ) ) {
+        &add_selinux_port($setype_p, $unsecure_port);
+    } elsif ( $unsecure_port != -1 ) {
+        print( STDOUT
+               "Unsecure EE port $unsecure_port is unlabeled "
+             . "on $ee_hostname\n" );
+        $status = &check_selinux_port($setype_p, $unsecure_port);
+        if ($status == $SELINUX_PORT_UNDEFINED) {
+            print( STDERR
+                   "Warning - Unsecure EE port $unsecure_port could be "
+                 . "defined on the installation host $host in the future.\n" );
+            print( STDOUT "\n" );
+        } elsif ($status == $SELINUX_PORT_DEFINED) {
+            print( STDERR
+                   "Warning - Unsecure EE port $unsecure_port is already "
+                 . "defined as $setype_p on the installation host $host.\n" );
+            print( STDOUT "\n" );
+        } elsif ($status == $SELINUX_PORT_WRONGLY_DEFINED) {
+            print( STDERR
+                   "Warning - Unsecure EE port $unsecure_port is "
+                 . "already defined as a different SELinux context type "
+                 . "than $setype_p on the installation host $host.\n" );
+            print( STDOUT "\n" );
+            my $selinux_mode = system("$getenforce");
+            if ($selinux_mode == $SELINUX_MODE_ENFORCING) {
+                print( STDERR
+                       "Error - Unsecure EE port $unsecure_port cannot "
+                     . "be used when SELinux mode is 'Enforcing'.\n" );
+                print( STDOUT "\n" );
+            }
+        }
     }
 }
 
@@ -3942,13 +4440,13 @@ ASK_AGAIN:
         $subsystem_type eq $OCSP ||
         $subsystem_type eq $TKS ) {
         if( $admin_secure_port > 0 ) {
-            # Port Separation:  CA, KRA, OCSP, TKS
+            # IP Port Separation/Port Separation:  CA, KRA, OCSP, TKS
             print( STDOUT
                    "Please start the configuration by accessing:\n\n"
-                 . "https://$host:$admin_secure_port/$subsystem_type/admin/"
+                 . "https://$admin_hostname:$admin_secure_port/$subsystem_type/admin/"
                  . "console/config/login?pin=$random\n\n" );
             emit( "Configuration Wizard listening on\n"
-                . "https://$host:$admin_secure_port/$subsystem_type/admin/"
+                . "https://$admin_hostname:$admin_secure_port/$subsystem_type/admin/"
                 . "console/config/login?pin=$random\n",
                   "log" );
         } else {
@@ -3963,7 +4461,7 @@ ASK_AGAIN:
                   "log" );
         }
     } else {
-        # Port Separation:  RA, TPS
+        # RA/TPS Ports
         print( STDOUT
                "Please start the configuration by accessing:\n\n"
              . "https://$host:$non_clientauth_secure_port/$subsystem_type/"

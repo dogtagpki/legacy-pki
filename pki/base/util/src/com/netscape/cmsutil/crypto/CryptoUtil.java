@@ -819,6 +819,51 @@ public class CryptoUtil {
     }
 
     /**
+     * Creates a PKCS#10 request
+     * (injecting the specified Certificate Extensions into the request)
+     *
+     *     NOTE:  This code was inspired by the
+     *            'getCertRequest(String subjectName, KeyPair keyPair,
+     *             Extensions exts)' method of 'KeyCertUtil.java'.
+     *
+     *  03/27/2013 - The following attempt to embed a certificate
+     *               extension into a PKCS #10 certificate request
+     *               was abandoned since we were unable to successfully
+     *               convert the certificate extension into a PKCS #10
+     *               attribute.  What was generated was an improper
+     *               PKCS #10 certificate request. - mlh
+     *
+     */
+//  public static PKCS10 createCertificationRequest(String subjectName,
+//          X509Key pubk, PrivateKey prik, String alg,
+//          CertificateExtensions exts)
+//      throws NoSuchAlgorithmException, NoSuchProviderException,
+//              InvalidKeyException, IOException, CertificateException,
+//              SignatureException {
+//      X509Key key = pubk;
+//      java.security.Signature sig = java.security.Signature.getInstance(alg,
+//              "Mozilla-JSS");
+//
+//      sig.initSign(prik);
+//      PKCS10 pkcs10 = null;
+//      if (exts != null) {
+//          PKCS10Attribute attr = new
+//              PKCS10Attribute(PKCS9Attribute.EXTENSION_REQUEST_OID,
+//                  (CertAttrSet) exts);
+//          PKCS10Attributes attrs = new PKCS10Attributes();
+//          attrs.setAttribute(attr.getAttributeValue().getName(), attr);
+//          pkcs10 = new PKCS10(key, attrs);
+//      } else {
+//          pkcs10 = new PKCS10(key);
+//      }
+//      X500Name name = new X500Name(subjectName);
+//      X500Signer signer = new X500Signer(sig, name);
+//
+//      pkcs10.encodeAndSign(signer);
+//      return pkcs10;
+//  }
+
+    /**
      * Creates a PKCS#10 request.
      */
     public static PKCS10 createCertificationRequest(String subjectName,
@@ -862,6 +907,55 @@ public class CryptoUtil {
                                                                                 
         return pkcs10;
     }
+
+    /**
+     * Creates a PKCS#10 request
+     * (injecting the specified Certificate Extensions into the request)
+     *
+     *     NOTE:  This code was inspired by the
+     *            'getCertRequest(String subjectName, KeyPair keyPair,
+     *             Extensions exts)' method of 'KeyCertUtil.java'.
+     *
+     *  03/27/2013 - The following attempt to embed a certificate
+     *               extension into a PKCS #10 certificate request
+     *               was abandoned since we were unable to successfully
+     *               convert the certificate extension into a PKCS #10
+     *               attribute.  What was generated was an improper
+     *               PKCS #10 certificate request. - mlh
+     *
+     */
+//  public static PKCS10 createCertificationRequest(String subjectName,
+//          KeyPair keyPair, String alg, CertificateExtensions exts)
+//      throws NoSuchAlgorithmException, NoSuchProviderException,
+//              InvalidKeyException, IOException, CertificateException,
+//              SignatureException {
+//      PublicKey pubk = keyPair.getPublic();
+//      X509Key key = convertPublicKeyToX509Key(pubk);
+//
+//      java.security.Signature sig = java.security.Signature.getInstance(alg,
+//              "Mozilla-JSS");
+//
+//      sig.initSign(keyPair.getPrivate());
+//
+//      PKCS10 pkcs10 = null;
+//      if (exts != null) {
+//          PKCS10Attribute attr = new
+//              PKCS10Attribute(PKCS9Attribute.EXTENSION_REQUEST_OID,
+//                  (CertAttrSet) exts);
+//          PKCS10Attributes attrs = new PKCS10Attributes();
+//          attrs.setAttribute(attr.getAttributeValue().getName(), attr);
+//          pkcs10 = new PKCS10(key, attrs);
+//      } else {
+//          pkcs10 = new PKCS10(key);
+//      }
+//
+//      X500Name name = new X500Name(subjectName);
+//      X500Signer signer = new X500Signer(sig, name);
+//
+//      pkcs10.encodeAndSign(signer);
+//
+//      return pkcs10;
+//  }
 
     public static void unTrustCert(InternalCertificate cert) {
         // remove TRUSTED_CA

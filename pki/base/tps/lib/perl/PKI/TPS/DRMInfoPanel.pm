@@ -85,27 +85,34 @@ sub update
       &PKI::TPS::Wizard::debug_log("DRMInfoPanel: update - got urls = $count");
 
       my $instanceID = $::config->get("service.instanceID");
-      my $host = "";
+      my $kra_agent_host = "";
+      my $kra_admin_host = "";
       my $https_agent_port = "";
       my $https_admin_port = "";
 
       if ($count =~ /http/) {
         # this is for pkisilent
         my $info = new URI::URL($count);
-        $host = defined($info->host) ? $info->host : "";
+        $kra_agent_host = defined($info->host) ? $info->host : "";
         $https_agent_port = defined($info->port) ? $info->port : "";
+        $kra_admin_host = defined($q->param('adminhost'))? $q->param('adminhost') : "";
         $https_admin_port = defined($q->param('adminport'))? $q->param('adminport') : "";
       } else {
-        $host = defined($::config->get("preop.securitydomain.kra$count.host")) ? 
-            $::config->get("preop.securitydomain.kra$count.host") : "";
+        &PKI::TPS::Wizard::debug_log("DRMInfoPanel: update - "
+                                   . "Obtaining DRM Info from 'CS.cfg'.");
+
+        $kra_agent_host = defined($::config->get("preop.securitydomain.kra$count.agenthost")) ? 
+            $::config->get("preop.securitydomain.kra$count.agenthost") : "";
         $https_agent_port = defined($::config->get("preop.securitydomain.kra$count.secureagentport")) ? 
             $::config->get("preop.securitydomain.kra$count.secureagentport") : "";
+        $kra_admin_host = defined($::config->get("preop.securitydomain.kra$count.adminhost")) ? 
+            $::config->get("preop.securitydomain.kra$count.adminhost") : "";
         $https_admin_port = defined($::config->get("preop.securitydomain.kra$count.secureadminport")) ? 
             $::config->get("preop.securitydomain.kra$count.secureadminport") : "";
       }
 
 
-      if (($host eq "") || ($https_agent_port eq "")) {
+      if (($kra_agent_host eq "") || ($https_agent_port eq "")) {
         $::symbol{errorString} = "no DRM found.  CA, TKS and DRM must be installed prior to TPS installation";
         return 0;
       }
@@ -120,9 +127,9 @@ sub update
       }
 
       my $subsystemCertNickName = $::config->get("preop.cert.subsystem.nickname");
-      $::config->put("preop.krainfo.select", "https://$host:$https_admin_port");
+      $::config->put("preop.krainfo.select", "https://$kra_admin_host:$https_admin_port");
       $::config->put("conn.drm1.clientNickname", $subsystemCertNickName);
-      $::config->put("conn.drm1.hostport", $host . ":" . $https_agent_port); 
+      $::config->put("conn.drm1.hostport", $kra_agent_host . ":" . $https_agent_port); 
       $::config->put("conn.tks1.serverKeygen", "true");
       $::config->put("op.enroll.userKey.keyGen.encryption.serverKeygen.enable", "true");
       $::config->put("op.enroll.userKeyTemporary.keyGen.encryption.serverKeygen.enable", "true");
@@ -156,14 +163,14 @@ sub display
     $::symbol{urls}        = [];
     my $count = 0;
     while (1) {
-      my $host = ""; 
-      $host = $::config->get("preop.securitydomain.kra$count.host");
-      if ($host eq "") {
+      my $kra_agent_host = ""; 
+      $kra_agent_host = $::config->get("preop.securitydomain.kra$count.agenthost");
+      if ($kra_agent_host eq "") {
         goto DONE;
       }
       my $https_agent_port = $::config->get("preop.securitydomain.kra$count.secureagentport");
       my $name = $::config->get("preop.securitydomain.kra$count.subsystemname");
-      $::symbol{urls}[$count++] = $name . " - https://" . $host . ":" . $https_agent_port;
+      $::symbol{urls}[$count++] = $name . " - https://" . $kra_agent_host . ":" . $https_agent_port;
     }
 DONE:
     $::symbol{urls_size}   = $count;

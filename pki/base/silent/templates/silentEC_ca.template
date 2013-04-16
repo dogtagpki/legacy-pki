@@ -22,20 +22,20 @@ if	[ "${pki_silent_script}" = "silentEC_ca.template" ] ; then
 	printf "                silentEC_readme.txt.\n\n"
 	printf "\n"
 	printf "Usage:  (1) Install AND configure a directory server instance.\n\n"
-	printf "        (2) Install (but not configure) the Root CA subsystem instance\n"
+	printf "        (2) Install (but do NOT configure) the Root CA subsystem instance\n"
 	printf "            that is its own security domain.\n\n"
-	printf "            Follow ECC setup instruction in silentEC_readme.txt.\n"
+	printf "            Follow ECC setup instructions in silentEC_readme.txt.\n\n"
 	printf "        (3) Install the 'pki-silent' package.\n\n"
 	printf "        (4) Copy '$0' to a new script name\n"
-	printf "            without the '.template' extension.\n"
-	printf "            (e .g. - 'configure_ec_ca_instance')\n\n"
+	printf "            without the '.template' extension\n"
+	printf "            (e .g. - 'configure_ec_ca_instance').\n\n"
 	printf "        (5) Fill in all MANDATORY user-defined variables\n"
 	printf "            in the new script.\n\n"
 	printf "        (6) Change any OPTIONAL user-defined variables\n"
 	printf "            in the new script as desired.\n\n"
 	printf "        (7) Become the CA administrator user (NOT 'root' user),\n"
 	printf "            and execute the new script to\n"
-	printf "            configure a 'default' CA subsystem instance.\n"
+	printf "            configure this CA subsystem instance\n"
 	printf "            that is its own security domain.\n\n"
 	exit 255
 fi
@@ -495,7 +495,7 @@ fi
 
 
 ## (4) Check for old PKI Silent Security Databases, but DO NOT remove them!
-##     Instead, just inform the user
+##     Instead, just inform the user.
 if	[ -f "${pki_silent_security_database_repository}/cert8.db" ] ||
 	[ -f "${pki_silent_security_database_repository}/key3.db" ] ||
 	[ -f "${pki_silent_security_database_repository}/secmod.db" ] ; then
@@ -503,13 +503,13 @@ if	[ -f "${pki_silent_security_database_repository}/cert8.db" ] ||
 	printf "WARNING:  The existing security databases\n"
 	printf "          (i. e. - 'cert8.db', 'key3.db', and/or 'secmod.db')\n"
 	printf "          required by '${pki_silent_script}' at the\n"
-	printf "          specified location '${pki_silent_security_database_repository}'.\n"
-	printf "          are to be used \n\n"
-#	exit 255
+	printf "          specified location '${pki_silent_security_database_repository}'\n"
+	printf "          will be used.\n\n"
+#   exit 255
 fi
 
 
-## (5) Remove ALL old PKI Silent log files
+## (5) Remove any old PKI Silent log file named '${pki_silent_ca_log}'
 printf "Removing old PKI Silent log files:\n"
 if [ -f ${pki_silent_ca_log} ] ; then
 	printf "    Removing old '${pki_silent_ca_log}' . . . "

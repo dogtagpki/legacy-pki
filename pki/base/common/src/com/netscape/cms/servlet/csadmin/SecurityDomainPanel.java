@@ -131,10 +131,12 @@ public class SecurityDomainPanel extends WizardPanelBase {
             context.put("wizardname", config.getString("preop.wizard.name"));
             context.put("panelname", "Security Domain Configuration");
             context.put("systemname", config.getString("preop.system.name"));
-            context.put("machineName", config.getString("machineName"));
+            context.put("eeMachineName", config.getString("eeMachineName"));
             context.put("http_ee_port", CMS.getEENonSSLPort());
+            context.put("agentMachineName", config.getString("agentMachineName"));
             context.put("https_agent_port", CMS.getAgentPort());
             context.put("https_ee_port", CMS.getEESSLPort());
+            context.put("adminMachineName", config.getString("adminMachineName"));
             context.put("https_admin_port", CMS.getAdminPort());
             context.put("sdomainAdminURL", default_admin_url);
         } catch (EBaseException e) {}
@@ -338,7 +340,15 @@ public class SecurityDomainPanel extends WizardPanelBase {
             config.putString("securitydomain.name", 
               HttpInput.getDomainName(request, "sdomainName"));
             config.putString("securitydomain.host", 
-              CMS.getEENonSSLHost());
+              CMS.getEEHost());
+            config.putString("securitydomain.agenthost", 
+              CMS.getAgentHost());
+            config.putString("securitydomain.eehost", 
+              CMS.getEEHost());
+            config.putString("securitydomain.adminhost", 
+              CMS.getAdminHost());
+            config.putString("securitydomain.eecahost", 
+              CMS.getEEClientAuthHost());
             config.putString("securitydomain.httpport", 
               CMS.getEENonSSLPort());
             config.putString("securitydomain.httpsagentport", 
@@ -347,6 +357,8 @@ public class SecurityDomainPanel extends WizardPanelBase {
               CMS.getEESSLPort());
             config.putString("securitydomain.httpsadminport", 
               CMS.getAdminPort());
+            config.putString("securitydomain.httpseecaport", 
+                             CMS.getEEClientAuthSSLPort());
 
             // make sure the subsystem certificate is issued by the security  
             // domain
@@ -389,7 +401,7 @@ public class SecurityDomainPanel extends WizardPanelBase {
                 }
 
                 context.put( "sdomainURL", admin_url );
-                config.putString( "securitydomain.host", hostname );
+                config.putString( "securitydomain.adminhost", hostname );
                 config.putInteger( "securitydomain.httpsadminport",
                                    admin_port );
             }
@@ -469,10 +481,12 @@ public class SecurityDomainPanel extends WizardPanelBase {
         }
 
         try {
-            context.put("machineName", config.getString("machineName"));
+            context.put("eeMachineName", config.getString("eeMachineName"));
             context.put("http_ee_port", CMS.getEENonSSLPort());
+            context.put("agentMachineName", config.getString("agentMachineName"));
             context.put("https_agent_port", CMS.getAgentPort());
             context.put("https_ee_port", CMS.getEESSLPort());
+            context.put("adminMachineName", config.getString("adminMachineName"));
             context.put("https_admin_port", CMS.getAdminPort());
             context.put("sdomainAdminURL",
                         config.getString("preop.securitydomain.admin_url"));

@@ -347,10 +347,44 @@ public class CertRequestPanel extends WizardPanelBase {
                 CMS.debug("CertRequestPanel: error getting private key null");
             }
 	    
+        // 
+        //  03/27/2013 - The following attempt to embed a certificate
+        //               extension into a PKCS #10 certificate request
+        //               was abandoned since we were unable to successfully
+        //               convert the certificate extension into a PKCS #10
+        //               attribute.  What was generated was an improper
+        //               PKCS #10 certificate request. - mlh
+        // 
             // construct cert request
+        //  String mode = config.getString("service.portConfigurationMode");
             String caDN = config.getString(PCERT_PREFIX + certTag + ".dn");
 
             cert.setDN(caDN);
+        //  PKCS10 certReq = null;
+        //  if (certTag.equals("sslserver") &&
+        //      mode.equals("IP Port Separation")) {
+        //      // Programmatically inject SAN extension into request.
+        //      CMS.debug("CertRequestPanel::handleCertRequest() - " +
+        //                "injecting SAN extension into request");
+        //      SubjectAlternativeNameExtension ext =
+        //          CertUtil.processSANExtension(config);
+        //      if (ext != null) {
+        //          // create an extensions attribute for the certificate
+        //          CertificateExtensions reqexts = new CertificateExtensions();
+        //          // inject SAN extension into request:
+        //          reqexts.set(
+        //              PKIXExtensions.SubjectAlternativeName_Id.toString(),
+        //              ext);
+        //          certReq = CryptoUtil.createCertificationRequest(caDN, pubk,
+        //                        privk, algorithm, reqexts);
+        //      } else {
+        //          CMS.debug("CertRequestPanel::handleCertRequest() - " +
+        //                    "unable to inject SAN extension into request");
+        //      }
+        //  } else {
+        //      certReq = CryptoUtil.createCertificationRequest(caDN, pubk,
+        //                    privk, algorithm);
+        //  }
             PKCS10 certReq = CryptoUtil.createCertificationRequest(caDN, pubk,
                     privk, algorithm);
 

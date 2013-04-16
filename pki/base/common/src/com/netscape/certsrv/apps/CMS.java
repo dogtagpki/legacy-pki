@@ -858,6 +858,16 @@ public final class CMS {
     }
 
     /**
+     * Retrieves the host name of the server's secure end entity service
+     * which utilizes clientAuth.
+     *
+     * @return host name of end-entity clientAuth service
+     */
+    public static String getEEClientAuthHost() {
+        return _engine.getEEClientAuthHost();
+    }
+
+    /**
      * Retrieves the host name of the server's non-secure end entity service.
      *
      * @return host name of end-entity non-secure service

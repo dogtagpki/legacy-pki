@@ -103,13 +103,17 @@ public class MainPageServlet extends CMSServlet {
         IArgBlock rarg = null;
         IConfigStore cs = CMS.getConfigStore();
         int state = 0;
-        String host = "";
+        String agentHost = "";
+        String eeHost = "";
+        String adminHost = "";
         String adminInterface = "";
         String eeInterface = "";
         String agentInterface = "";
         try {
             state = cs.getInteger("cs.state", 0);
-            host = cs.getString("machineName", "");
+            adminHost = cs.getString("adminMachineName", "");
+            agentHost = cs.getString("agentMachineName", "");
+            eeHost = cs.getString("eeMachineName", "");
             adminInterface = cs.getString("admin.interface.uri", "");
             eeInterface = cs.getString("ee.interface.uri", "");
             agentInterface = cs.getString("agent.interface.uri", "");
@@ -122,7 +126,7 @@ public class MainPageServlet extends CMSServlet {
             rarg.addStringValue("prefix", "http");
             rarg.addIntegerValue("port", 
               Integer.valueOf(CMS.getEENonSSLPort()).intValue());
-            rarg.addStringValue("host", host);
+            rarg.addStringValue("host", adminHost);
             rarg.addStringValue("uri", adminInterface);
             argSet.addRepeatRecord(rarg);
             num++;
@@ -133,7 +137,7 @@ public class MainPageServlet extends CMSServlet {
                 rarg.addStringValue("prefix", "https");
                 rarg.addIntegerValue("port", 
                   Integer.valueOf(CMS.getEESSLPort()).intValue());
-                rarg.addStringValue("host", host);
+                rarg.addStringValue("host", eeHost);
                 rarg.addStringValue("uri", eeInterface);
                 argSet.addRepeatRecord(rarg);
                 num++;
@@ -144,7 +148,7 @@ public class MainPageServlet extends CMSServlet {
                 rarg.addStringValue("prefix", "https");
                 rarg.addIntegerValue("port", 
                   Integer.valueOf(CMS.getAgentPort()).intValue());
-                rarg.addStringValue("host", host);
+                rarg.addStringValue("host", agentHost);
                 rarg.addStringValue("uri", agentInterface);
                 argSet.addRepeatRecord(rarg);
                 num++;

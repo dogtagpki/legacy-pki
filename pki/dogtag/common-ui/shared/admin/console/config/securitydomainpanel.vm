@@ -66,19 +66,19 @@ If no security domain exists, a new one must be created for this CA.
       </tr>
       <tr>
         <th>Security Domain HTTP EE URL (unsecure): </th>
-        <td>http://$machineName:$http_ee_port</td>
+        <td>http://$eeMachineName:$http_ee_port</td>
       </tr>
       <tr>
         <th>Security Domain HTTPS Agent URL (clientauth): </th>
-        <td>https://$machineName:$https_agent_port</td>
+        <td>https://$agentMachineName:$https_agent_port</td>
       </tr>
       <tr>
         <th>Security Domain HTTPS EE URL (non-clientauth): </th>
-        <td>https://$machineName:$https_ee_port</td>
+        <td>https://$eeMachineName:$https_ee_port</td>
       </tr>
       <tr>
         <th>Security Domain HTTPS Admin URL (non-clientauth): </th>
-        <td>https://$machineName:$https_admin_port</td>
+        <td>https://$adminMachineName:$https_admin_port</td>
       </tr>
     </table>
 <br/>

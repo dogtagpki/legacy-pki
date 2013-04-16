@@ -148,25 +148,26 @@ public class AuthenticatePanel extends WizardPanelBase {
             String pwd = HttpInput.getPassword(request, "__password");
             config.putString("preop.ca.agent.uid", uid);
             config.putString("preop.ca.agent.pwd", pwd);
-            String host = "";
-            int httpsport = -1;
+            String ca_ee_host = "";
+            int ca_ee_httpsport = -1;
             try {
-                host = config.getString("preop.ca.hostname");
+                ca_ee_host = config.getString("preop.ca.hostname");
             } catch (Exception e) {
                 CMS.debug("AuthenticatePanel update: "+e.toString());
-                context.put("errorString", "Missing hostname");
-                throw new IOException("Missing hostname");
+                context.put("errorString", "Missing CA EE hostname");
+                throw new IOException("Missing CA EE hostname");
             }
          
             try {
-                httpsport = config.getInteger("preop.ca.httpsport");
+                ca_ee_httpsport = config.getInteger("preop.ca.httpsport");
             } catch (Exception e) {
                 CMS.debug("AuthenticatePanel update: "+e.toString());
-                context.put("errorString", "Missing port");
-                throw new IOException("Missing port");
+                context.put("errorString", "Missing Secure CA EE port");
+                throw new IOException("Missing Secure CA EE port");
             }
 
-             boolean authenticated = authenticate(host, httpsport, true,
+             boolean authenticated = authenticate(ca_ee_host, ca_ee_httpsport,
+             true,
              "/ca/ee/ca/configSubsystem", "uid="+uid+"&pwd="+pwd);
 
              if (!authenticated) {
