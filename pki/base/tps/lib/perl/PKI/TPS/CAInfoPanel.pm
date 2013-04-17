@@ -287,7 +287,7 @@ sub get_secure_admin_port_from_domain_xml
       if( ( $ca_ee_host eq $c->{'Host'}[0] ) &&
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
           $https_admin_port = https_$c->{'SecureAdminPort'}[0];
-          break;
+          last;
       }
     }
 
@@ -311,7 +311,7 @@ sub get_secure_agent_port_from_domain_xml
       if( ( $ca_ee_host eq $c->{'Host'}[0] ) &&
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
           $https_agent_port = https_$c->{'SecureAgentPort'}[0];
-          break;
+          last;
       }
     }
 
@@ -341,7 +341,7 @@ sub get_admin_host_from_domain_xml
               # Port Separation Schema
               $ca_admin_host = https_$c->{'Host'}[0];
           }
-          break;
+          last;
       }
     }
 
@@ -371,7 +371,7 @@ sub get_agent_host_from_domain_xml
               # Port Separation Schema
               $ca_agent_host = https_$c->{'Host'}[0];
           }
-          break;
+          last;
       }
     }
 

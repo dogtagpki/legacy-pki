@@ -284,14 +284,12 @@ sub get_secure_admin_port_from_domain_xml
     my $xml = $parser->XMLin( $response->{'DomainInfo'},
                               ForceArray => 1 );
     my $https_admin_port = "";
-    my $count = 0;
     foreach my $c (@{$xml->{'CAList'}[0]->{'CA'}}) {
       if( ( $ca_ee_host eq $c->{'Host'}[0] ) &&
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
           $https_admin_port = https_$c->{'SecureAdminPort'}[0];
+          last;
       }
-
-      $count++;
     }
 
     return $https_admin_port;
@@ -310,14 +308,12 @@ sub get_secure_agent_port_from_domain_xml
     my $xml = $parser->XMLin( $response->{'DomainInfo'},
                               ForceArray => 1 );
     my $https_agent_port = "";
-    my $count = 0;
     foreach my $c (@{$xml->{'CAList'}[0]->{'CA'}}) {
       if( ( $ca_ee_host eq $c->{'Host'}[0] ) &&
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
           $https_agent_port = https_$c->{'SecureAgentPort'}[0];
+          last;
       }
-
-      $count++;
     }
 
     return $https_agent_port;
@@ -336,7 +332,6 @@ sub get_admin_host_from_domain_xml
     my $xml = $parser->XMLin( $response->{'DomainInfo'},
                               ForceArray => 1 );
     my $ca_admin_host = "";
-    my $count = 0;
     foreach my $c (@{$xml->{'CAList'}[0]->{'CA'}}) {
       if( ( $ca_ee_host eq $c->{'Host'}[0] ) &&
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
@@ -347,9 +342,9 @@ sub get_admin_host_from_domain_xml
               # Port Separation Schema
               $ca_admin_host = https_$c->{'Host'}[0];
           }
+          last;
       }
 
-      $count++;
     }
 
     return $ca_admin_host;
@@ -368,7 +363,6 @@ sub get_agent_host_from_domain_xml
     my $xml = $parser->XMLin( $response->{'DomainInfo'},
                               ForceArray => 1 );
     my $ca_agent_host = "";
-    my $count = 0;
     foreach my $c (@{$xml->{'CAList'}[0]->{'CA'}}) {
       if( ( $ca_ee_host eq $c->{'Host'}[0] ) &&
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
@@ -379,9 +373,9 @@ sub get_agent_host_from_domain_xml
               # Port Separation Schema
               $ca_agent_host = https_$c->{'Host'}[0];
           }
+          last;
       }
 
-      $count++;
     }
 
     return $ca_agent_host;

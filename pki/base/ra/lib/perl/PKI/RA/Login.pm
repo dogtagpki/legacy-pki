@@ -68,8 +68,6 @@ use PKI::RA::SecurityDomainPanel;
 use PKI::RA::DisplayCertChainPanel;
 use PKI::RA::SubsystemTypePanel;
 use PKI::RA::CAInfoPanel;
-use PKI::RA::TKSInfoPanel;
-use PKI::RA::DRMInfoPanel;
 use PKI::RA::DisplayCertChain2Panel;
 use PKI::RA::AdminAuthPanel;
 use PKI::RA::AgentAuthPanel;
