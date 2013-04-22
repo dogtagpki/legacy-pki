@@ -120,7 +120,9 @@ alias_DATA =
 
 applets_DATA =	$(srcdir)/applets/1.4.4d40a449.ijc \
 		$(srcdir)/applets/1.4.499dc06c.ijc \
-		$(srcdir)/applets/1.3.44724DDE.ijc
+		$(srcdir)/applets/1.3.44724DDE.ijc \
+		$(srcdir)/applets/1.4.51707a0d.ijc \
+		$(srcdir)/applets/1.4.51707a06.ijc
 
 bin_SCRIPTS =	wrappers/tpsclient
 
