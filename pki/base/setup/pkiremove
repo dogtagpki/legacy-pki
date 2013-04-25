@@ -1,0 +1,993 @@
+#!/usr/bin/pkiperl
+#
+# --- BEGIN COPYRIGHT BLOCK ---
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Copyright (C) 2007 Red Hat, Inc.
+# All rights reserved.
+# --- END COPYRIGHT BLOCK ---
+#
+
+use LWP::UserAgent;
+use HTTP::Request::Common qw(POST);
+use URI::Escape;
+
+##############################################################
+# This script is used to remove an existing PKI instance.
+#
+# To execute:
+#
+#   ./pkiremove -pki_instance_root=<pki_instance_root> # Instance root
+#                                                      # directory destination
+#
+#               -pki_instance_name=<pki_instance_id>   # Unique PKI subsystem
+#                                                      # instance name
+#                                                      # (e. g. - pki-pki1)
+#                       
+#               -security_domain_user=<user_id>        # Security domain user
+#                                                      # (e. g. - admin)
+#                       
+#               -security_domain_pwd=<password>        # Security domain password
+#                       
+#               [-token_pwd=<token pwd>]               # Password of token containing
+#                                                      # subsystem certificate
+#
+#               [-force]                               # Don't ask any
+#                                                      # questions
+#
+##############################################################
+
+
+##############################################################
+# Perl Version
+##############################################################
+
+my $MINIMUM_PERL_VERSION = "5.006001";
+
+my $perl_version_error_message = "ERROR:  Using Perl version $] ...\n"
+                               . "        Must use Perl version "
+                               . "$MINIMUM_PERL_VERSION or later to "
+                               . "run this script!\n";
+
+die "$perl_version_error_message" if $] < $MINIMUM_PERL_VERSION;
+
+
+##############################################################
+# Execution Check
+##############################################################
+
+# Check to insure that this script's original
+# invocation directory has not been deleted!
+my $cwd = `/bin/pwd`;
+chomp $cwd;
+if( "$cwd" eq "" ) {
+    print( STDERR "Cannot invoke '$0' from non-existent directory!\n" );
+    print( STDOUT "\n" );
+    exit 255;
+}
+
+
+##############################################################
+# Environment Variables
+##############################################################
+
+# untaint called subroutines
+if( ( $^O ne 'Windows_NT' ) && ( $^O ne 'MSWin32' ) ) {
+    $> = $<;   # set effective user ID to real UID
+    $) = $(;   # set effective group ID to real GID
+    $ENV{ 'PATH' } = '/bin:/usr/bin';
+    $ENV{ 'ENV' } = '' if $ENV{ 'ENV' } ne '';
+}
+
+
+##############################################################
+# Command-Line Variables
+##############################################################
+
+my $ARGS = ( $#ARGV + 1 );
+
+
+##############################################################
+# Shared Common Perl Data and Subroutines
+##############################################################
+
+# Compute "flavor" of Operating System
+my $pki_flavor = "";
+if( $^O eq "linux" ) {
+    $pki_flavor = `pkiflavor`;
+} elsif( $^O eq "solaris" ) {
+    $pki_flavor = `pkiflavor`;
+} else {
+    print( STDERR
+           "ERROR:  Unsupported platform '$^O'!\n" );
+    print( STDOUT "\n" );
+    exit 255;
+}
+
+$pki_flavor =~ s/\s+$//g;
+
+# Establish path to scripts
+my $common_path = "/usr/share/pki/scripts";
+
+if( ! -d "$common_path" ) {
+    print( STDERR
+           "ERROR:  The path '$common_path' does not exist!\n"
+         . "        Unable to load shared Common Perl Data "
+         . "and Subroutines!\n" );
+    print( STDOUT "\n" );
+    exit 255;
+}
+
+if( ! -e "$common_path/pkicommon" ) {
+    print( STDERR
+           "ERROR:  The file '$common_path/pkicommon' does not exist!\n"
+         . "        Unable to load shared Common Perl Data "
+         . "and Subroutines!\n" );
+    print( STDOUT "\n" );
+    exit 255;
+}
+
+eval( "use lib '" . $common_path . "'" );
+require( 'pkicommon' );
+
+
+##############################################################
+# Local Constants
+##############################################################
+
+my $saved_cleanup_file_name = ".cleanup.dat";
+my $saved_file_marker       = "[files]";
+my $saved_directory_marker  = "[directories]";
+my $semanage = "/usr/sbin/semanage";
+
+##############################################################
+# Local Data Structures
+##############################################################
+
+
+##############################################################
+# Local Variables
+##############################################################
+
+my $pki_instance_root = "";
+my $pki_instance_name = "";
+my $force             = 0;
+my $token_pwd         = "";
+my $sec_user          = "";
+my $sec_pass          = "";
+my $sec_token         = "";
+
+my $pki_instance_path = "";
+my $subsystem_type = "";
+
+
+##############################################################
+# Platform-Dependent Data Initialization
+##############################################################
+
+
+##############################################################
+# Local Data Initialization
+##############################################################
+
+
+##############################################################
+# PKI Instance Removal Subroutines
+##############################################################
+
+# no args
+# no return value
+sub usage()
+{
+    print( STDOUT
+           "Usage:  pkiremove -pki_instance_root=<pki_instance_root> "
+         . "# Instance root\n"
+         . "                                                         "
+         . "# directory\n"
+         . "                                                         "
+         . "# destination\n\n"
+         . "                  -pki_instance_name=<pki_instance_id>   "
+         . "# Unique PKI\n"
+         . "                                                         "
+         . "# subsystem\n"
+         . "                                                         "
+         . "# instance name\n"
+         . "                                                         "
+         . "# (e. g. - pki-pki1)\n\n"
+         . "                  -security_domain_user=<user_id>        "
+         . "# Security domain\n"
+         . "                                                         "
+         . "# user id\n"
+         . "                                                         "
+         . "# (e. g. - admin)\n\n"
+         . "                  -security_domain_pwd=<password>        "
+         . "# Secuity domain\n"
+         . "                                                         "
+         . "# password\n\n"
+         . "                  [-token_pwd=<token password>]          "
+         . "# Password for\n"
+         . "                                                         "
+         . "# token containing\n"
+         . "                                                         "
+         . "# subsystem cert\n\n"
+         . "                  [-force]                               "
+         . "# Don't ask\n"
+         . "                                                         "
+         . "# any questions\n\n" );
+
+    print( STDOUT
+           "Example:  pkiremove -pki_instance_root=/var/lib "
+         . "-pki_instance_name=$pki_flavor-ca1\n\n " );
+
+    print( STDOUT
+           "IMPORTANT:  Must be run as root!\n\n" );
+
+    return;
+}
+
+sub get_install_token()
+{
+    my ($secuser, $secpass) = @_;
+    my $token;
+
+    my $conf_file = $pki_instance_path . "/conf/CS.cfg";
+    my $sechost;
+    my $secadminport;
+    my $adminsport;
+    my $typeval;
+    my $machinename;
+
+    if (!defined($secuser) || ($secuser eq "") ||
+        !defined($secpass) || ($secpass eq "")) {
+        return undef;
+    }
+
+    open(DAT, $conf_file) or die "Could not open CS.cfg file to update security domain";
+    my @conf_data=<DAT>;
+    foreach my $line (@conf_data) {
+        chomp($line);
+        (my $varname, my $valname) = split(/=/, $line);
+        if ($varname eq "cs.type") { $typeval = $valname; }
+        if ($varname eq "service.adminMachineName") { $machinename = $valname; }
+        if ($varname eq "pkicreate.admin_secure_port") { $adminsport = $valname; }
+        if ($varname eq "securitydomain.adminhost") { $sechost = $valname; }
+        if ($varname eq "securitydomain.httpsadminport") { $secadminport = $valname; }
+    }
+
+    my $subca_url = "https://" . $machinename  . ":" . $adminsport .
+        "/ca/admin/console/config/wizard?p=5&subsystem=" . $typeval;
+    my $loginURL = "https://" . $sechost . ":" . $secadminport . "/ca/admin/ca/getCookie";
+
+    my $ua = LWP::UserAgent->new;
+    $ua->agent('Mozilla/8.0');
+
+    my $req = POST $loginURL,
+        [ uid => $secuser, pwd => $secpass, url => $subca_url ];
+
+    $req->header('Accept' => 'text/html');
+
+    # send request
+    my $res = $ua->request($req);
+    # check the outcome
+    if ($res->is_success) {
+       if ($res->decoded_content =~ m/header.session_id = \"(.*)\";/) {
+           $token = $1;
+       } else {
+           if ($res->decoded_content =~m/header.errorString = \"(.*)\";/) {
+               print $1;
+           }
+       }
+    } else {
+       print "Error: " . $res->status_line . "\n";
+    }
+    return $token;
+}
+
+sub update_domain()
+{
+    my ($install_token,) = @_;
+    my $conf_file = $pki_instance_path . "/conf/CS.cfg";
+    my $sport;
+    my $ncsport;
+    my $httpport;
+    my $seceeport;
+    my $secagentport;
+    my $secadminport;
+    my $adminsport;
+    my $agentsport;
+    my $secselect;
+    my $sechost;
+    my $typeval;
+    my $machinename;
+    my $status;
+
+    open(DAT, $conf_file) or die "Could not open CS.cfg file to update security domain";
+    my @conf_data=<DAT>;
+    foreach my $line (@conf_data) {
+        chomp($line);
+        (my $varname, my $valname) = split(/=/, $line);
+
+        if ($varname eq "cs.type") { $typeval = $valname; }
+        if ($varname eq "service.adminMachineName") { $machinename = $valname; }
+        if ($varname eq "service.securityDomainPort") { $sport = $valname; }
+        if ($varname eq "service.non_clientauth_securePort") { $ncsport = $valname; }
+        if ($varname eq "securitydomain.adminhost") { $sechost = $valname; }
+        if ($varname eq "securitydomain.httpport") { $httpport = $valname; }
+        if ($varname eq "securitydomain.httpseeport") { $seceeport = $valname; }
+        if ($varname eq "securitydomain.httpsagentport") { $secagentport = $valname; }
+        if ($varname eq "securitydomain.httpsadminport") { $secadminport = $valname; }
+        if ($varname eq "securitydomain.select") { $secselect = $valname; }
+        if ($varname eq "pkicreate.admin_secure_port") { $adminsport = $valname; }
+        if ($varname eq "pkicreate.agent_secure_port") { $agentsport = $valname; }
+    }
+
+    close(DAT);
+
+    # NOTE:  Don't check for the existence of "$httpport", as this will
+    #        be undefined for a Security Domain that has been migrated!
+    if ((!defined($sechost))      ||
+        (!defined($seceeport))    ||
+        (!defined($secagentport)) ||
+        (!defined($secadminport))) {
+        print STDOUT "No security domain defined.\nIf this is an unconfigured instance, then that is OK.\n" .
+            "Otherwise, manually delete the entry from the security domain master.\n"; 
+        return;
+    }
+
+    my $listval = $typeval . "List";
+    my %params = ( name => $pki_instance_name,
+                   type => $typeval,
+                   list => $listval,
+                   host => $machinename,
+                   sport => $sport,
+                   ncsport => $ncsport,
+                   adminsport => $adminsport,
+                   agentsport => $agentsport,
+                   operation => "remove" );
+
+    my $param_string = "";
+    while (my ($k, $v) = each %params) {
+        $param_string = $param_string . $k . "=" . uri_escape($v) . "&";
+    }
+    chop($param_string);     # remove last &
+
+    if ($install_token ne "") {
+        print STDOUT "Contacting the security domain master to update the security domain\n";
+
+        my $updateURL = "https://" . $sechost . ":" . $secadminport . "/ca/admin/ca/updateDomainXML";
+        $params{"sessionID"} = $install_token;
+
+        my $ua = LWP::UserAgent->new;
+        $ua->agent('Mozilla/8.0');
+
+        my $req = POST $updateURL, [%params];
+        $req->header('Accept' => 'text/html');
+        my $res = $ua->request($req);
+
+        if ($res->is_success) {
+            $res->decoded_content =~/\<Status\>(.*?)\<\/Status\>/;
+            $status = $1;
+        } else {
+            print "Warning: unable to update domain using admin port. " . $res->status_line . "\n";
+            $status = &update_domain_using_agent_port($param_string);
+        }
+
+        # these next lines are here to account for new clones of existing instances
+        # the new clones will have the updateDomainXML servlet on the admin interface
+        # but - because acls are replicated from the master - may not have the updated
+        # acl to allow enterprise users to update the domain.  In this case, try the old
+        # interface.
+
+        if ($status ne "0") {
+            $status = &update_domain_using_agent_port($param_string);
+        }
+    } else {
+        $status = &update_domain_using_agent_port($param_string);
+    }
+
+    die ("Security Domain returns non-zero status for updateDomainXML.") if ($status ne "0"); 
+}
+
+sub update_domain_using_agent_port()
+{
+    my ($param_string, ) = @_;
+    my $conf_file = $pki_instance_path . "/conf/CS.cfg";
+    my $typeval;
+    my $sechost;
+    my $secagentport;
+    my $subsystemnick;
+
+    open(DAT, $conf_file) or die "Could not open CS.cfg file to update security domain";
+    my @conf_data=<DAT>;
+    foreach my $line (@conf_data) {
+        chomp($line);
+        (my $varname, my $valname) = split(/=/, $line);
+
+        if ($varname eq "cs.type") { $typeval = $valname; }
+        if ($varname eq "securitydomain.agenthost") { $sechost = $valname; }
+        if ($varname eq "securitydomain.httpsagentport") { $secagentport = $valname; }
+    }
+
+    my $subsystemnick_param = lc($typeval) . ".cert.subsystem.nickname";
+
+    foreach my $line (@conf_data) {
+        chomp($line);
+        (my $varname, my $valname) = split(/=/, $line);
+        if ($varname eq $subsystemnick_param) { $subsystemnick = $valname; }
+    }
+    close(DAT);
+
+    (my $token_name, my $nick) = split(/:/, $subsystemnick, 2);
+    if ((!defined($nick)) || ($nick eq "")) {
+        $token_name = "internal";
+    }
+
+    my $updateURL = "/ca/agent/ca/updateDomainXML";
+
+    if ($token_pwd eq "") {
+        my $pwfile = $pki_instance_path . "/conf/password.conf";
+        if (-r $pwfile) {
+            open(DAT, $pwfile) or die "Could not open password.conf file to get token pssword.";
+            my @pw_data=<DAT>;
+            foreach my $line (@pw_data) {
+                chomp($line);
+                if (($typeval eq "CA")   ||
+                    ($typeval eq "KRA")  ||
+                    ($typeval eq "OCSP") ||
+                    ($typeval eq "TKS")) {
+                    (my $varname, my $valname) = split(/=/, $line);
+                    if ($varname eq $token_name) { $token_pwd = $valname; }
+                    if ($varname eq "hardware-$token_name") { $token_pwd = $valname; }
+                } else {  # TPS, RA
+                    (my $varname, my $valname) = split(/:/, $line);
+                    if ($varname eq $token_name) { $token_pwd = $valname; }
+                    if ($varname eq "hardware-$token_name") { $token_pwd = $valname; }
+                }
+            }
+            close($pwfile);
+        }
+
+        while ($token_pwd eq "") {
+            $token_pwd  = prompt( "No password found for $token_name. What is the password for this token?");
+        }
+    }
+
+    #update domainXML
+    my $cmd = `/usr/bin/sslget -d \"$pki_instance_path/alias\" -p \"$token_pwd\" -v -n \"$subsystemnick\" -r \"$updateURL\" -e \"$param_string\" $sechost:$secagentport 2>&1`;
+
+    $cmd =~ /\<Status\>(.*?)\<\/Status\>/;
+    $cmd = $1;
+    return $cmd;
+}
+
+sub remove_fcontext()
+{
+    my ($fcontext, $fname, $ftype) = @_;
+    my $errs;
+    if ($ftype eq "f") {
+        $errs = `$semanage fcontext -d -t $fcontext -f -- $fname 2>&1`
+    } else {
+        $errs = `$semanage fcontext -d -t $fcontext $fname 2>&1`
+    }
+    if (($? != 0)  && ($errs !~ /defined in policy, cannot be deleted/)) {
+        print STDERR "ERROR: Error in setting selinux file context $fcontext for $fname\n";
+        print $errs;
+        print STDOUT "\n";
+    }
+}
+
+sub remove_selinux_fcontexts()
+{
+    my $setype = "pki_" . $subsystem_type;
+    my $default_inst_name = "pki-" . $subsystem_type;
+    my $default_inst_root = "/var/lib";
+    my $default_log_path = "/var/log/" . $default_inst_name;
+    my $default_conf_path = "/etc/" . $default_inst_name;
+
+    my $log_path = "$pki_instance_path/logs";
+    my $conf_path = "$pki_instance_path/conf";
+    my $ftype;
+    my $java_component=0;
+
+    if (($subsystem_type eq "ca") || ($subsystem_type eq "kra") || ($subsystem_type eq "ocsp")
+        || ($subsystem_type eq "tks")) {
+        $java_component=1;
+    }
+
+    if ( -l $log_path) {
+        $log_path = readlink $log_path;
+    };
+ 
+    if ( -l $conf_path) {
+        $conf_path = readlink $conf_path;
+    };
+
+    print STDOUT "Removing selinux file contexts.\n";
+
+    # remove context for /usr/bin/dtomcat5-$pki_instance_name
+    if (($java_component) && ($pki_instance_name ne $default_inst_name )) {
+        &remove_fcontext($setype . "_exec_t", 
+            "/usr/bin/dtomcat5-$pki_instance_name", "f");
+    }
+
+     # remove context for /etc/rc.d/init.d/$pki_instance_name
+    if ($pki_instance_name ne $default_inst_name) {
+        &remove_fcontext($setype . "_script_exec_t", 
+            "/etc/rc\\.d/init\\.d/$pki_instance_name", "f");
+    }
+
+    # remove context for $pki_instance_root/$pki_instance_name
+    if (($pki_instance_name ne $default_inst_name) || ($pki_instance_root ne $default_inst_root)) {
+        &remove_fcontext($setype . "_var_lib_t", 
+            "\"$pki_instance_root/$pki_instance_name(/.*)?\"", "a");
+    }
+
+    # remove context for /var/run/$pki_instance_name.pid
+    if (($java_component) && ($pki_instance_name ne $default_inst_name )) {
+        &remove_fcontext($setype . "_var_run_t", 
+            "/var/run/$pki_instance_name\\.pid", "f");
+    }
+
+    # remove context for $log_path
+    if ($log_path ne $default_log_path) {
+        &remove_fcontext($setype . "_log_t",
+            "\"$log_path(/.*)?\"", "a"); 
+    }
+
+    # remove context for  $conf_path/tomcat5.conf
+    if (($java_component) && ($conf_path ne $default_conf_path)) {
+        $ftype = $setype . "_tomcat_exec_t";
+        &remove_fcontext($setype . "_tomcat_exec_t", 
+            "$conf_path/tomcat5\\.conf", "f");    
+    }
+
+    # remove context for $conf_path
+    if ($conf_path ne $default_conf_path) {
+         &remove_fcontext($setype . "_etc_rw_t",
+             "\"$conf_path(/.*)?\"", "a");
+    }
+
+}
+
+
+sub remove_selinux_ports()
+{
+    my $i = 0;
+    my $status;
+    my $semanage = "/usr/sbin/semanage";
+    my $conf_file = $pki_instance_path . "/conf/CS.cfg";
+    my $typeval;
+    my $agent_port;
+    my $ee_port;
+    my $eeca_port;
+    my $admin_port;
+    my $secure_port;
+    my $non_clientauth_secure_port;
+    my $tomcat_server_port;
+    my $unsecure_port;
+    my @ports = ();
+    my $agent_host = "";
+    my $ee_host = "";
+    my $eeca_host = "";
+    my $admin_host = "";
+    my $port_configuration_mode = "";
+
+    # get cs type
+    open(DAT, $conf_file) or die "Could not open CS.cfg file.";
+    my @conf_data=<DAT>;
+    foreach my $line (@conf_data) {
+        chomp($line);
+        (my $varname, my $valname) = split(/=/, $line);
+        if ($varname eq "cs.type") { $typeval = $valname; }
+        if ($varname eq "service.agentPort") { $agent_port = $valname; }
+        if ($varname eq "service.eePort") { $ee_port = $valname; }
+        if ($varname eq "service.eecaPort") { $eeca_port = $valname; }
+        if ($varname eq "service.adminPort") { $admin_port = $valname; }
+        if ($varname eq "service.securePort") { $secure_port = $valname; }
+        if ($varname eq "service.non_clientauth_securePort") { $non_clientauth_secure_port = $valname; }
+        if ($varname eq "service.tomcatPort") { $tomcat_server_port = $valname; }
+        if ($varname eq "service.unsecurePort") { $unsecure_port = $valname; }
+        if ($varname eq "service.agentMachineName") { $agent_host = $valname; }
+        if ($varname eq "service.eeMachineName") { $ee_host = $valname; }
+        if ($varname eq "service.eecaMachineName") { $eeca_host = $valname; }
+        if ($varname eq "service.adminMachineName") { $admin_host = $valname; }
+        if ($varname eq "service.portConfigurationMode") { $port_configuration_mode = $valname; }
+    }
+    close(DAT);
+
+    # for use in other routines
+    $subsystem_type =  lc($typeval);
+
+    if (($typeval eq "CA") || ($typeval eq "KRA") || ($typeval eq "OCSP") || ($typeval eq "TKS")) {
+        if( $port_configuration_mode eq $PKI_SHARED_PORTS_MODE ) {
+            if( defined $secure_port ) {
+                $ports[$i] = $secure_port;
+                $i++;
+            }
+            if( defined $unsecure_port ) {
+                $ports[$i] = $unsecure_port;
+                $i++;
+            }
+            if( defined $tomcat_server_port ) {
+                $ports[$i] = $tomcat_server_port;
+                $i++;
+            }
+        } elsif( $port_configuration_mode eq $PKI_PORT_SEPARATION_MODE ) {
+            if( defined $unsecure_port ) {
+                $ports[$i] = $unsecure_port;
+                $i++;
+            }
+            if( defined $tomcat_server_port ) {
+                $ports[$i] = $tomcat_server_port;
+                $i++;
+            }
+            if( defined $agent_port ) {
+                $ports[$i] = $agent_port;
+                $i++;
+            }
+            if( defined $ee_port ) {
+                $ports[$i] = $ee_port;
+                $i++;
+            }
+            if( ( $typeval eq "CA" ) &&
+                ( defined $eeca_port ) ) {
+                $ports[$i] = $eeca_port;
+                $i++;
+            }
+            if( defined $admin_port ) {
+                $ports[$i] = $admin_port;
+                $i++;
+            }
+        } elsif( $port_configuration_mode eq $PKI_IP_PORT_SEPARATION_MODE ) {
+            # obtain the fully-qualified domain name of this host
+            my $host = get_FQDN( $hostname );
+
+            # since the TOMCAT SERVER port is always located on the
+            # installation host ($host), simply make certain that it
+            # exists, prior to marking it for removal
+            if( defined $tomcat_server_port ) {
+                $ports[$i] = $tomcat_server_port;
+                $i++;
+            }
+
+            # check to make certain that the AGENT, EE, EE_Client_Auth,
+            # ADMIN, and UNSECURE ports refer to ports located on the
+            # installation host, and that they exist, prior to marking
+            # them for removal
+            if( ( defined $agent_host )  &&
+                ( $agent_host eq $host ) &&
+                ( defined $agent_port ) ) {
+                $ports[$i] = $agent_port;
+                $i++;
+            }
+            if( ( defined $ee_host )  &&
+                ( $ee_host eq $host ) &&
+                ( defined $ee_port ) ) {
+                $ports[$i] = $ee_port;
+                $i++;
+            }
+            if( ( $typeval eq "CA" )    &&
+                ( defined $eeca_host )  &&
+                ( $eeca_host eq $host ) &&
+                ( defined $eeca_port ) ) {
+                $ports[$i] = $eeca_port;
+                $i++;
+            }
+            if( ( defined $admin_host )  &&
+                ( $admin_host eq $host ) &&
+                ( defined $admin_port ) ) {
+                $ports[$i] = $admin_port;
+                $i++;
+            }
+            if( ( defined $ee_host )  &&
+                ( $ee_host eq $host ) &&
+                ( defined $unsecure_port ) ) {
+                $ports[$i] = $unsecure_port;
+                $i++;
+            }
+        } else {
+            # Obtain ports via legacy pre-port configuration mode method
+            use XML::LibXML;
+            my $parser = XML::LibXML->new();
+            my $config = $parser->parse_file($pki_instance_path . "/conf/server.xml") 
+                or die "Could not read XML from server.xml to determine ports.";
+
+            my $root = $config->getDocumentElement;
+
+            foreach my $port ($root->findnodes('//@port')) {
+                $ports[$i] = $port->getValue();
+                $i++;
+            }
+        }
+    } else {  # TPS, RA
+        if (defined $secure_port) {
+            $ports[$i] = $secure_port;
+            $i++;
+        }
+        if (defined $non_clientauth_secure_port) {
+            $ports[$i] = $non_clientauth_secure_port;
+            $i++;
+        }
+        if (defined $unsecure_port) {
+            $ports[$i] = $unsecure_port;
+            $i++;
+        }
+    }  
+
+    print( STDOUT "\n" );
+    foreach my $port (@ports) {
+        my $setype = "pki_" . lc($typeval) . "_port_t";
+        my $errs;
+        print STDOUT "Removing port $port from selinux policy.\n";
+        $errs = `$semanage port -d -t $setype -ptcp $port 2>&1`;
+        if ($? != 0)  {
+            if ($errs !~ /defined in policy, cannot be deleted/) {
+                warn "Port $port not removed from selinux policy correctly.\n";
+                print $errs;
+            } else {
+                print "Port $port not removed from selinux policy because it is defined in policy.\nThis is OK.\n";
+            }
+        }
+    }
+}
+
+
+# no args
+# return 1 - success, or
+# return 0 - failure
+sub remove_instance()
+{
+    my $command = "";
+
+    print( STDOUT
+           "PKI instance Deletion Utility "
+         . "cleaning up instance ...\n\n" );
+
+    my $result = 0;
+    my $cleanup = new FileHandle;
+    my $source_file_path = $pki_instance_path
+                         . "/" . $saved_cleanup_file_name;
+    my @files;
+    my @directories;
+    my $pki_start_stop_command = "";
+    my $pki_start_stop_script_instance_file_path = "";
+    my $confirm = "Y";
+
+ASK_AGAIN:
+    if( !$force ) {
+        $confirm  = prompt( "You have elected to remove the instance "
+                          . "installed in "
+                          . "$pki_instance_path.\n"
+                          . "Are you sure (Y/N)? " );
+    }
+
+    if( $confirm eq "N" || $confirm eq "n" ) {
+       return 1;
+    } elsif( $confirm ne "Y" && $confirm ne "y" ) {
+       goto ASK_AGAIN;
+    }
+
+    if( !file_exists( "$source_file_path" ) ) {
+        print( STDERR
+               "ERROR:  Can't remove instance, "
+             . "cleanup file does not exist!\n" );
+        return $result;
+    }
+
+    $cleanup->open( "<$source_file_path" ) or die "Could not open file!\n";
+
+    if (($sec_user ne "") && ($sec_pass ne "")) {
+        $sec_token = &get_install_token($sec_user, $sec_pass)
+    } 
+    eval { &update_domain($sec_token); };
+    warn "Error updating security domain: " . $@ if $@;
+
+    if (( $^O eq "linux") && ( is_Fedora() || (is_RHEL() && (! is_RHEL4())) )) {
+        eval { remove_selinux_ports(); };
+        warn "Error removing selinux ports: " . $@ if $@; 
+
+        eval { remove_selinux_fcontexts(); };
+        warn "Error removing selinux file contexts: " . $@ if $@;
+    }
+
+    my $file_mode = "file";
+    my @file_split;
+
+    while( <$cleanup> )
+    {
+        my $line = $_;
+        chomp( $line );
+
+        if( $line eq $saved_file_marker ) {
+            $file_mode = "file";
+            next;
+        }
+
+        if( $line eq $saved_directory_marker ) {
+           $file_mode = "directory";
+           next;
+        }
+
+        if( $file_mode eq "file" ) {
+            push( @files, $line );
+
+            @file_split = split( '/', $line );
+            my $last = @file_split;
+
+            if( $file_split[$last -1] eq $pki_instance_name ) {
+                $pki_start_stop_script_instance_file_path = $line;
+            }
+        }
+
+        if( $file_mode eq "directory" ) {
+            push( @directories, $line );
+        }
+    }
+
+    $cleanup->close();
+
+    if( $pki_start_stop_script_instance_file_path eq "" ) {
+        print( STDERR
+               "ERROR:  Can't locate start script of "
+             . "instance to be cleaned up!\n" );
+        return $result;
+    }
+
+    # De-register this instance with "chkconfig"
+    if( $^O eq "linux" ) {
+        # De-register this instance with '/sbin/chkconfig'
+        print( STDOUT "\n" );
+        print( STDOUT
+               "De-registering '$pki_instance_name' from "
+             . "'/sbin/chkconfig'.\n" );
+        deregister_pki_instance_with_chkconfig( $pki_instance_name );
+    }
+
+    if( $^O eq "linux" ) {
+        $pki_start_stop_command = "/sbin/service" . " " . $pki_instance_name;
+    } else {
+        # default case:  e. g. - ( $^O eq "solaris" )
+        $pki_start_stop_command = $pki_start_stop_script_instance_file_path;
+    }
+
+    $command = "$pki_start_stop_command stop";
+
+    system( "$command" );
+
+    my $size = @directories;
+
+    print( STDOUT "\n" );
+
+    if( $size ) {
+        my $i = 0;
+        for( $i = 0; $i < $size; $i ++ ) {
+            print( STDOUT
+                   "Removing dir $directories[$i]\n" );
+            remove_directory( $directories[$i] );
+        }
+    }
+
+    $size = @files;
+
+    if( $size ) {
+        my $i = 0;
+        for( $i = 0; $i < $size; $i++ ) {
+            print( STDOUT
+                   "Removing file $files[$i]\n" );
+            remove_file( $files[$i] );
+        }
+    }
+
+    print( STDOUT "\n" );
+
+    $result = 1;
+    return $result;
+}
+
+
+##############################################################
+# Main Program
+##############################################################
+
+# no args
+# return 1 - success, or
+# return 0 - failure
+sub main()
+{
+    chdir( "/tmp" );
+
+    my $result = 0;
+
+    print( STDOUT
+           "PKI instance Deletion Utility ...\n\n" );
+
+    # On Linux/UNIX, insure that this script is being run as "root".
+    $result = check_for_root_UID();
+    if( !$result ) {
+        usage();
+        exit 255;
+    }
+
+    # Check for a valid number of command-line arguments.
+    if( $ARGS < 2 ) {
+        print( STDERR
+               "$0:  Insufficient arguments!\n\n" );
+        usage();
+        exit 255;
+    }
+
+    # Parse command-line arguments.
+    $result = GetOptions( "pki_instance_root=s" => \$pki_instance_root,
+                          "pki_instance_name=s" => \$pki_instance_name,
+                          "security_domain_user=s" => \$sec_user,
+                          "security_domain_pwd=s" => \$sec_pass,
+                          "token_pwd=s" => \$token_pwd,
+                          "force" => \$force );
+
+    # Always disallow root to be the pki_instance_root.
+    if( $pki_instance_root eq "/" ) {
+        print( STDERR
+               "$0:  Don't even think about making root "
+             . "the pki_instance_root!\n\n" );
+        usage();
+        exit 255;
+    }
+
+    # Remove all trailing directory separators ('/')
+    $pki_instance_root =~ s/\/+$//;
+
+    # Check for valid content of command-line arguments.
+    if( $pki_instance_root eq "" ) {
+        print( STDERR
+               "$0:  Must have value for -pki_instance_root!\n\n" );
+        usage();
+        exit 255;
+    }
+
+    if( $pki_instance_name eq "" ) {
+        print( STDERR
+               "$0:  The instance ID of the PKI instance "
+             . "to be removed is required!\n\n" );
+        usage();
+        exit 255;
+    }
+
+    $pki_instance_path = $pki_instance_root . "/" . $pki_instance_name;
+
+    if( !directory_exists( "$pki_instance_path" ) ) {
+        print( STDERR
+               "$0:  Target directory $pki_instance_path "
+             . "is not a legal directory.\n\n" );
+        usage();
+        exit 255;
+    }
+
+    # Remove the specified instance
+    $result = remove_instance();
+    if( $result != 1 ) {
+        exit 255;
+    }
+
+    return $result;
+}
+
+
+##############################################################
+# PKI Instance Removal
+##############################################################
+
+main();
+
+exit 0;
+
