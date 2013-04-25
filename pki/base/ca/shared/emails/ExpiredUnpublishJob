@@ -1,6 +1,0 @@
-ExpiredUnpublishJob $InstanceID summary:
-$SummaryItemList
-Executed at: $ExecutionTime. 
-$SummaryTotalSuccess succeeded
-$SummaryTotalFailure failed
-End of summary.
