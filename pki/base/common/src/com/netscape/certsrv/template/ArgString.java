@@ -18,6 +18,7 @@
 package com.netscape.certsrv.template;
 
 
+import java.util.*;
 
 /**
  * This class represents a string-based argument.

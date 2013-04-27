@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -75,37 +75,44 @@ sub update
 
     my $count = defined($q->param('urls')) ? $q->param('urls') : "";
     if ($count eq "") {
-        $::symbol{errorString} = "no TKS info provided.  CA, TKS and optionally DRM must be installed prior to TPS installation";
+        $::symbol{errorString} = "no TKS info provided.  CA, TKS, and optionally DRM must be installed prior to TPS installation";
         return 0;
     }
     &PKI::TPS::Wizard::debug_log("TKSInfoPanel: update - got urls = $count");
 
     my $instanceID = $::config->get("service.instanceID");
-    my $host = "";
+    my $tks_agent_host = "";
+    my $tks_admin_host = "";
     my $https_agent_port = "";
     my $https_admin_port = "";
 
     if ($count =~ /http/) {
       # this is for pkisilent
       my $info = new URI::URL($count);
-      $host = defined($info->host) ? $info->host : "";
+      $tks_agent_host = defined($info->host) ? $info->host : "";
       $https_agent_port = defined($info->port) ? $info->port : "";
+      $tks_admin_host = defined($q->param('adminhost')) ? $q->param('adminhost') : "";
       $https_admin_port = defined($q->param('adminport')) ? $q->param('adminport') : "";
     } else {
-      $host = defined($::config->get("preop.securitydomain.tks$count.host")) ?
-          $::config->get("preop.securitydomain.tks$count.host") : "";
+      &PKI::TPS::Wizard::debug_log("TKSInfoPanel: update - "
+                                 . "Obtaining TKS Info from 'CS.cfg'.");
+
+      $tks_admin_host = defined($::config->get("preop.securitydomain.tks$count.adminhost")) ?
+          $::config->get("preop.securitydomain.tks$count.adminhost") : "";
       $https_admin_port = defined($::config->get("preop.securitydomain.tks$count.secureadminport")) ?
           $::config->get("preop.securitydomain.tks$count.secureadminport") : "";
+      $tks_agent_host = defined($::config->get("preop.securitydomain.tks$count.agenthost")) ?
+          $::config->get("preop.securitydomain.tks$count.agenthost") : "";
       $https_agent_port = defined($::config->get("preop.securitydomain.tks$count.secureagentport")) ? 
           $::config->get("preop.securitydomain.tks$count.secureagentport") : "";
     }
 
-    if (($host eq "") || ($https_agent_port eq "")) {
-      $::symbol{errorString} = "no TKS found.  CA, TKS and optionally DRM must be installed prior to TPS installation";
+    if (($tks_agent_host eq "") || ($https_agent_port eq "")) {
+      $::symbol{errorString} = "no TKS found.  CA, TKS, and optionally DRM must be installed prior to TPS installation";
       return 0;
     }
 
-    if ($https_admin_port eq "") {
+    if (($tks_admin_host eq "") || ($https_admin_port eq "")) {
       if ($count =~ /http/) {
         $::symbol{errorString} = "TKS admin port must be provided";
       } else {
@@ -115,9 +122,9 @@ sub update
     }
 
     my $subsystemCertNickName = $::config->get("preop.cert.subsystem.nickname");
-    $::config->put("preop.tksinfo.select", "https://$host:$https_admin_port");
+    $::config->put("preop.tksinfo.select", "https://$tks_admin_host:$https_admin_port");
     $::config->put("conn.tks1.clientNickname", $subsystemCertNickName);
-    $::config->put("conn.tks1.hostport", $host . ":" . $https_agent_port); 
+    $::config->put("conn.tks1.hostport", $tks_agent_host . ":" . $https_agent_port); 
     $::config->put("preop.tksinfo.done", "true");
     $::config->commit();
 
@@ -131,19 +138,19 @@ sub display
     $::symbol{urls}        = [];
     my $count = 0;
     while (1) {
-      my $host = "";
-      $host = $::config->get("preop.securitydomain.tks$count.host");
-      if ($host eq "") {
+      my $tks_agent_host = "";
+      $tks_agent_host = $::config->get("preop.securitydomain.tks$count.agenthost");
+      if ($tks_agent_host eq "") {
         goto DONE;
       }
       my $https_agent_port = $::config->get("preop.securitydomain.tks$count.secureagentport");
       my $name = $::config->get("preop.securitydomain.tks$count.subsystemname");
-      $::symbol{urls}[$count++] = $name . " - https://" . $host . ":" . $https_agent_port;
+      $::symbol{urls}[$count++] = $name . " - https://" . $tks_agent_host . ":" . $https_agent_port;
     }
 DONE:
     $::symbol{urls_size}   = $count;
     if ($count eq 0) {
-      $::symbol{errorString} = "no TKS found.  CA, TKS and optionally DRM must be installed prior to TPS installation";
+      $::symbol{errorString} = "no TKS found.  CA, TKS, and optionally DRM must be installed prior to TPS installation";
       return 0;
     }
 

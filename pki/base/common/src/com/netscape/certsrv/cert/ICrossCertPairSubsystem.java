@@ -18,11 +18,8 @@
 package com.netscape.certsrv.cert;
 
 
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.ISubsystem;
+import com.netscape.certsrv.base.*;
+import java.security.cert.*;
 
 
 /**

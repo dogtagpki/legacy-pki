@@ -1,0 +1,519 @@
+#!/bin/bash
+##  BEGIN COPYRIGHT BLOCK
+##  (C) 2013 Red Hat, Inc.
+##  All rights reserved.
+##  END COPYRIGHT BLOCK
+
+
+##  Always switch into this base directory
+##  prior to script execution so that all
+##  of its output is written to this directory
+
+cd `dirname $0`
+
+
+##  Disallow script to be run as the name of this template
+pki_silent_script=`basename $0`
+if	[ "${pki_silent_script}" = "silentEC_ocsp.template" ] ; then
+	printf "\n"
+	printf "Important:  Use the following reference for essential EC setup\n"
+	printf "            prior to running this script:\n"
+	printf "\n"
+	printf "                silentEC_readme.txt.\n\n"
+	printf "\n"
+	printf "Usage:  (1) Install AND configure a directory server instance.\n\n"
+	printf "        (2) Install AND configure a Root CA subsystem instance\n"
+	printf "            that is its own security domain.\n\n"
+	printf "        (3) Install (but do NOT configure) an OCSP subsystem instance.\n\n"
+	printf "            Follow ECC setup instructions in silentEC_readme.txt.\n\n"
+	printf "        (4) Install the 'pki-silent' package.\n\n"
+	printf "        (5) Copy '$0' to a new script name\n"
+	printf "            without the '.template' extension\n"
+	printf "            (e .g. - 'configure_ec_ocsp_instance').\n\n"
+	printf "        (6) Fill in all MANDATORY user-defined variables\n"
+	printf "            in the new script.\n\n"
+	printf "        (7) Change any OPTIONAL user-defined variables\n"
+	printf "            in the new script as desired.\n\n"
+	printf "        (8) Become the OCSP administrator user (NOT 'root' user),\n"
+	printf "            and execute the new script to\n"
+	printf "            configure this OCSP subsystem instance.\n\n"
+	exit 255
+fi
+
+
+##
+##  This script should NOT be run as root!
+##
+
+ROOTUID=0
+
+OS=`uname`
+if [ "${OS}" = "Linux" ] ; then
+	MY_EUID=`/usr/bin/id -u`
+	MY_UID=`/usr/bin/id -ur`
+	USERNAME=`/usr/bin/id -un`
+else
+	printf "ERROR:  Unsupported operating system '${OS}'!\n"
+	exit 255
+fi
+
+if	[ "${MY_UID}"  == "${ROOTUID}" ] ||
+	[ "${MY_EUID}" == "${ROOTUID}" ] ; then
+	printf "ERROR:  The '$0' script should NOT be run as root!\n"
+	exit 255
+fi
+
+
+##############################################################################
+##############################################################################
+##                                                                          ##
+##  P K I   S I L E N T  -  V A R I A B L E   D E C L A R A T I O N         ##
+##                                                                          ##
+##############################################################################
+##############################################################################
+
+##############################################################################
+##  U S E R - D E F I N E D   V A R I A B L E S   ( M A N D A T O R Y )     ##
+##############################################################################
+
+##
+##  IMPORTANT:  'Escape' ALL spaces in EACH variable specified below!
+##
+##              For Example:
+##
+##                  pki_security_domain_name="My\ Security\ Domain"
+##
+
+##  PKI Silent Security Database Variables
+##  (e. g. - PKI Silent "browser" database)
+##  See "silentEC_readme.txt" for instruction on "Browser"
+##  Once Firefox is setup for EC, the following 
+##  pki_silent_security_database_repository
+##  parameter should be set to ~/.mozilla/firefox/<your new profile directory>
+##  Example:
+##pki_silent_security_database_repository="/home/jdoe/.mozilla/firefox/u7bdq5th.silent"
+##pki_silent_security_token_password="mypasswd"
+##pki_silent_security_token_name="Certicom\ FIPS\ Cert/Key\ Services"
+pki_silent_security_database_repository=
+pki_silent_security_token_password=
+pki_silent_security_token_name=
+
+##  PKI Security Domain Variables
+##  (e. g. - Security Domain Login Panel)
+## Example:
+##pki_security_domain_name="sample\ ECC\ domain"
+pki_security_domain_name=
+pki_security_domain_host=`hostname`
+pki_security_domain_admin_name=admin
+pki_security_domain_admin_password=
+
+##  PKI Internal LDAP Database Variables
+##  (e. g. - Database Panel)
+pki_ldap_host=localhost
+pki_ldap_port=389
+pki_bind_dn="cn=Directory\ Manager"
+pki_bind_password=
+
+##  PKI Instance-Specific Token Variables
+##  (e. g. - Module Panel)
+## ECC subsystems in general are set up with an HSM.
+## Example:
+##ocsp_token_name=NHSM6000-OCS
+##ocsp_token_password=hsmpasswd
+ocsp_token_name=
+ocsp_token_password=
+
+##  PKI Instance-Specific Backup Variables
+##  (e. g. - Backup Key and Certificates Panel)
+##  Note: in an ECC setup, you will most likely hook up the CS subsystems
+##  with an HSM, so the keys cannot be backed up in this software fashion
+##  so it's irrelevant
+ocsp_backup_password=redhat
+
+##  PKI Email Variables
+##
+##      For example, to specify 'pkitest@example.com':
+##
+##          pki_email_name=pkitest
+##          pki_email_company=example
+##          pki_email_domain=com
+##
+pki_email_name=
+pki_email_company=
+pki_email_domain=
+
+##  PKI Silent Admin Variables
+##  (e. g. - Import Admin Certificate into PKI Silent "browser" database)
+pki_silent_admin_user=admin
+pki_silent_admin_password=
+pki_silent_admin_email="${pki_email_name}\@${pki_email_company}\.${pki_email_domain}"
+
+
+
+##############################################################################
+##  P R E - D E F I N E D   " D E F A U L T "   V A R I A B L E S           ##
+##############################################################################
+
+##  PKI Subsystem Host (computed by default)
+pki_host=`hostname`
+
+##  PKI Subsystem Names
+## Example:
+##ocsp_subsystem_name="OCSP\ Responder\ silentEC"
+ocsp_subsystem_name=
+
+##  PKI Subsystem Instance Names
+## Example:
+##ocsp_instance_name="pki-ocsp-silentEC"
+ocsp_instance_name=
+
+##
+##  NOTE:  Default PKI Instance Ports
+##
+##      OCSP:
+##
+##          *180 - non-secure port (not role specific)
+##          *701 - non-secure Tomcat port
+##          *443 - secure EE port
+##          *444 - secure Agent port
+##          *445 - secure Admin port
+##
+##
+##  For Example:
+##
+##      semanage port -l | grep pki
+##
+##      pki_ocsp_port_t        tcp      11180, 11701, 11443, 11444, 11445
+##
+
+## CA ports
+ca_nonssl_port=31180
+ca_agent_port=31443
+ca_ee_port=31444
+ca_admin_port=31445
+
+## OCSP ports
+ocsp_nonssl_port=12180
+ocsp_agent_port=12443
+ocsp_ee_port=12444
+ocsp_admin_port=12445
+
+
+##############################################################################
+##  U S E R - D E F I N E D   V A R I A B L E S   ( O P T I O N A L )       ##
+##############################################################################
+
+##  PKI Silent Log Files
+pki_silent_ocsp_log=${pki_silent_security_database_repository}/ocspEC.log
+
+
+##
+## NOTE:  For comparison's sake, if the default instances were manually
+##        configured using a Firefox browser, the content of the corresponding
+##        Firefox browser's security libraries would be something similar
+##        to this:
+##
+##            Certificate Nickname                          Trust Attributes
+##                                                          SSL,S/MIME,JAR/XPI
+##
+##            Certificate Authority - ${pki_security_domain_name}     CT,C,C
+##            OCSP Administrator of Instance ${ocsp_instance_name}'s
+##                              ${pki_security_domain_name} ID        u,u,u
+##
+##        where:
+##
+##                Nickname:  "Certificate Authority - "
+##                        +  "${pki_security_domain_name}"
+##            Subject Name:  "cn=Certificate Authority,"
+##                        +  "ou=${ca_instance_name},"
+##                        +  "o=${pki_security_domain_name}"
+##
+##                Nickname:  "OCSP Administrator of Instance "
+##                        +  "${ocsp_instance_name}'s "
+##                        +  "${pki_security_domain_name} ID"
+##            Subject Name:  "cn=OCSP Administrator of Instance "
+##                        +  "${ocsp_instance_name},"
+##                        +  "uid=admin,"
+##                        +  "e=${pki_silent_admin_email},"
+##                        +  "o=${pki_security_domain_name}"
+##
+
+
+##  Miscellaneous OCSP Variables
+##
+##  REMINDER:  'Escape' ALL spaces in EACH variable specified below!
+##
+##  NOTE:  For comparison's sake, if the default instances were manually
+##         configured using a Firefox browser, the content of the corresponding
+##         "/var/lib/${ocsp_instance_name}/alias/" security libraries would be
+##         something similar to this:
+##
+##             Certificate Nickname                         Trust Attributes
+##                                                          SSL,S/MIME,JAR/XPI
+##
+##             ocspSigningCert cert-${ocsp_instance_name}            CTu,Cu,Cu
+##             subsystemCert cert-${ocsp_instance_name}              u,u,u
+##             Certificate Authority - ${pki_security_domain_name}   CT,c,
+##             Server-Cert cert-${ocsp_instance_name}                u,u,u
+##             auditSigningCert cert-${ocsp_instance_name}           u,u,u
+##
+##         where:
+##
+##                 Nickname:  "ocspSigningCert cert-${ocsp_instance_name}"
+##             Subject Name:  "cn=OCSP Signing Certificate,"
+##                         +  "ou=${ocsp_instance_name},"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "subsystemCert cert-${ocsp_instance_name}"
+##             Subject Name:  "cn=OCSP Subsystem Certificate,"
+##                         +  "ou=${ocsp_instance_name},"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "Certificate Authority - "
+##                         +  "${pki_security_domain_name}"
+##             Subject Name:  "cn=Certificate Authority,"
+##                         +  "ou=${ca_instance_name},"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "Server-Cert cert-${ocsp_instance_name}"
+##             Subject Name:  "cn=${pki_host},"
+##                         +  "ou=${ocsp_instance_name},"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "auditSigningCert cert-${ocsp_instance_name}"
+##             Subject Name:  "cn=OCSP Audit Signing Certificate,"
+##                         +  "ou=${ocsp_instance_name},"
+##                         +  "o=${pki_security_domain_name}"
+##
+
+ocsp_agent_name="OCSP\ Administrator\ of\ Instance\ ${ocsp_instance_name}\'s\ ${pki_security_domain_name}\ ID"
+ocsp_agent_key_size=nistp256
+ocsp_agent_key_type=ecc
+ocsp_signing_algorithm=SHA256withEC
+ocsp_save_p12=false
+ocsp_agent_cert_subject="cn=OCSP\ Administrator\ of\ Instance\ ${ocsp_instance_name},uid=admin,e=${pki_silent_admin_email},o=${pki_security_domain_name}"
+ocsp_base_dn="dc=${pki_host}-${ocsp_instance_name}"
+ocsp_db_name="${pki_host}-${ocsp_instance_name}"
+ocsp_key_size=256
+ocsp_key_type=ecc
+ocsp_key_curvename=nistp256
+ocsp_sign_cert_subject_name="cn=OCSP\ Signing\ Certificate,ou=${ocsp_instance_name},o=${pki_security_domain_name}"
+ocsp_subsystem_cert_subject_name="cn=OCSP\ Subsystem\ Certificate,ou=${ocsp_instance_name},o=${pki_security_domain_name}"
+ocsp_server_cert_subject_name="cn=${pki_host},ou=${ocsp_instance_name},o=${pki_security_domain_name}"
+ocsp_audit_signing_cert_subject_name="cn=OCSP\ Audit\ Signing\ Certificate,ou=${ocsp_instance_name},o=${pki_security_domain_name}"
+
+
+
+##############################################################################
+##  C A L C U L A T E   P K I   I N S T A N C E   P I N S                   ##
+##############################################################################
+
+##  PKI Subsystem Instance PINS
+#preop_pin=`cat /var/lib/${ocsp_instance_name}/conf/CS.cfg \
+#   | grep preop.pin | grep -v grep | awk -F= '{print $2}'`
+preop_pin=
+
+
+##############################################################################
+##############################################################################
+##                                                                          ##
+##  P K I   S I L E N T  -  S U B S Y S T E M   C O N F I G U R A T I O N   ##
+##                                                                          ##
+##############################################################################
+##############################################################################
+
+##############################################################################
+##  P K I   S I L E N T   I N I T I A L I Z A T I O N                       ##
+##############################################################################
+
+## (1) Make certain that user has defined all MANDATORY user-defined variables!
+usage_errors=0
+usage_error_preamble="ERROR:  User MUST define a value for"
+
+if [ "${preop_pin}" = "" ] ; then
+    printf "${usage_error_preamble} 'preop_pin'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_silent_security_database_repository}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_silent_security_database_repository'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_silent_security_token_password}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_silent_security_token_password'!\n"
+	usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_silent_security_token_name}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_silent_security_token_name'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_security_domain_name}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_security_domain_name'!\n"
+	usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_security_domain_admin_password}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_security_domain_admin_password'!\n"
+	usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_bind_password}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_bind_password'!\n"
+	usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${ocsp_token_name}" = "" ] ; then
+    printf "${usage_error_preamble} 'tks_token_name'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${ocsp_token_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'ocsp_token_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_email_name}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_email_name'!\n"
+	usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_email_company}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_email_company'!\n"
+	usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_email_domain}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_email_domain'!\n"
+	usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_silent_admin_password}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_silent_admin_password'!\n"
+	usage_errors=`expr ${usage_errors} + 1`
+fi
+
+
+## (2) Make certain that a PKI instance of the specified name EXISTS,
+##     but has NOT been previously CONFIGURED!
+existence_errors=0
+existence_error_preamble="ERROR:  No PKI Instance named"
+configuration_errors=0
+configuration_error_preamble="ERROR:  A PKI Instance named"
+configuration_error_postamble="EXISTS,\n        but has PREVIOUSLY been CONFIGURED!"
+
+#if [ ! -f "/var/lib/${ca_instance_name}/conf/CS.cfg" ] ; then
+#	printf "${existence_error_preamble} '${ca_instance_name}' EXISTS!\n"
+#	existence_errors=`expr ${existence_errors} + 1`
+#else
+#	ca_configuration_check=`grep -c preop /var/lib/${ca_instance_name}/conf/CS.cfg`
+#	if [ ${ca_configuration_check} -eq 0 ] ; then
+#	    printf "${configuration_error_preamble} '${ca_instance_name}' "
+#		printf "${configuration_error_postamble}\n"
+#		configuration_errors=`expr ${configuration_errors} + 1`
+#	fi
+#fi
+
+
+if	[ ${usage_errors} -ne 0 ]     ||
+	[ ${existence_errors} -ne 0 ] ||
+	[ ${configuration_errors} -ne 0 ] ; then
+	printf "\n"
+	printf "Please correct ALL errors listed above and re-run\n"
+	printf "the '$0' script!\n\n"
+	exit 255
+fi
+
+
+## (3) Make certain that 'pkisilent' exists and is executable on this system.
+if [ ! -x "/usr/bin/pkisilent" ] ; then
+	printf "\n"
+	printf "ERROR:  Please install the 'pki-silent' package and re-run\n"
+	printf "the '$0' script!\n\n"
+	exit 255
+fi
+
+
+## (4) Check for old PKI Silent Security Databases, but DO NOT remove them!
+##     Instead, just inform the user.
+if	[ -f "${pki_silent_security_database_repository}/cert8.db" ] ||
+	[ -f "${pki_silent_security_database_repository}/key3.db" ] ||
+	[ -f "${pki_silent_security_database_repository}/secmod.db" ] ; then
+	printf "\n"
+	printf "WARNING:  The existing security databases\n"
+	printf "          (i. e. - 'cert8.db', 'key3.db', and/or 'secmod.db')\n"
+	printf "          required by '${pki_silent_script}' at the\n"
+	printf "          specified location '${pki_silent_security_database_repository}'\n"
+    printf "          will be used.\n\n"
+#	exit 255
+fi
+
+
+## (5) Remove any old PKI Silent log file named '${pki_silent_ocsp_log}'
+printf "Removing old PKI Silent log files:\n"
+if [ -f ${pki_silent_ocsp_log} ] ; then
+	printf "    Removing old '${pki_silent_ocsp_log}' . . . "
+	rm ${pki_silent_ocsp_log}
+	printf "done.\n"
+fi
+printf "Done.\n\n"
+
+
+export NSS_USE_DECODED_CKA_EC_POINT=1
+##  Configure Subordinate ECC OCSP
+printf "'${pki_silent_script}':  Configuring '${ocsp_instance_name}' . . .\n"
+pkisilent ConfigureOCSP \
+	-cs_hostname "${pki_host}" \
+	-cs_port ${ocsp_admin_port} \
+	-sd_hostname "${pki_security_domain_host}" \
+	-sd_ssl_port ${ca_ee_port} \
+	-sd_agent_port ${ca_agent_port} \
+	-sd_admin_port ${ca_admin_port} \
+	-sd_admin_name "${pki_security_domain_admin_name}" \
+	-sd_admin_password ${pki_security_domain_admin_password} \
+	-ca_hostname ${pki_security_domain_host} \
+	-ca_port ${ca_nonssl_port} \
+	-ca_ssl_port ${ca_ee_port} \
+	-client_certdb_dir ${pki_silent_security_database_repository} \
+	-client_token_name ${pki_silent_security_token_name} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
+	-preop_pin ${preop_pin} \
+	-domain_name "${pki_security_domain_name}" \
+	-admin_user ${pki_silent_admin_user} \
+	-admin_password ${pki_silent_admin_password} \
+	-admin_email "${pki_silent_admin_email}" \
+	-agent_name ${ocsp_agent_name} \
+	-ldap_host ${pki_ldap_host} \
+	-ldap_port ${pki_ldap_port} \
+	-bind_dn "${pki_bind_dn}" \
+	-bind_password ${pki_bind_password} \
+	-base_dn "${ocsp_base_dn}" \
+	-db_name "${ocsp_db_name}" \
+	-key_size ${ocsp_key_size} \
+	-key_type ${ocsp_key_type} \
+	-key_curvename ${ocsp_key_curvename} \
+	-signing_key_size ${ocsp_key_size} \
+	-signing_key_type ${ocsp_key_type} \
+	-signing_key_curvename ${ocsp_key_curvename} \
+	-signing_signingalgorithm ${ocsp_signing_algorithm} \
+	-subsystem_key_size ${ocsp_key_size} \
+	-subsystem_key_type ${ocsp_key_type} \
+	-subsystem_key_curvename ${ocsp_key_curvename} \
+	-audit_signing_key_size 2048 \
+	-audit_signing_key_type rsa \
+	-sslserver_key_size ${ocsp_key_size} \
+	-sslserver_key_type ${ocsp_key_type} \
+	-sslserver_key_curvename ${ocsp_key_curvename} \
+	-save_p12 ${ocsp_save_p12} \
+	-backup_pwd ${ocsp_backup_password} \
+	-token_name ${ocsp_token_name} \
+	-token_pwd ${ocsp_token_password} \
+	-signing_algorithm ${ocsp_signing_algorithm} \
+	-agent_key_size ${ocsp_agent_key_size} \
+	-agent_key_type ${ocsp_agent_key_type} \
+	-agent_cert_subject "${ocsp_agent_cert_subject}" \
+	-subsystem_name ${ocsp_subsystem_name} \
+	-ocsp_sign_cert_subject_name "${ocsp_sign_cert_subject_name}" \
+	-ocsp_subsystem_cert_subject_name "${ocsp_subsystem_cert_subject_name}" \
+	-ocsp_server_cert_subject_name "${ocsp_server_cert_subject_name}" \
+	-ocsp_audit_signing_cert_subject_name \
+	"${ocsp_audit_signing_cert_subject_name}" \
+	| tee ${pki_silent_ocsp_log}
+
+##  Restart OCSP
+## Do this manually as root
+	printf "If configured without errors, ask the OS root user to restart the CS instance:\n"
+	printf "/sbin/service '${ocsp_instance_name}' restart\n\n"
+
+exit 0
+

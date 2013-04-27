@@ -18,21 +18,23 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.property.*;
+import java.io.*;
+import java.net.URL;
+import com.netscape.certsrv.base.*;
+import java.util.*;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class AuthenticatePanel extends WizardPanelBase {
 
@@ -146,25 +148,26 @@ public class AuthenticatePanel extends WizardPanelBase {
             String pwd = HttpInput.getPassword(request, "__password");
             config.putString("preop.ca.agent.uid", uid);
             config.putString("preop.ca.agent.pwd", pwd);
-            String host = "";
-            int httpsport = -1;
+            String ca_ee_host = "";
+            int ca_ee_httpsport = -1;
             try {
-                host = config.getString("preop.ca.hostname");
+                ca_ee_host = config.getString("preop.ca.hostname");
             } catch (Exception e) {
                 CMS.debug("AuthenticatePanel update: "+e.toString());
-                context.put("errorString", "Missing hostname");
-                throw new IOException("Missing hostname");
+                context.put("errorString", "Missing CA EE hostname");
+                throw new IOException("Missing CA EE hostname");
             }
          
             try {
-                httpsport = config.getInteger("preop.ca.httpsport");
+                ca_ee_httpsport = config.getInteger("preop.ca.httpsport");
             } catch (Exception e) {
                 CMS.debug("AuthenticatePanel update: "+e.toString());
-                context.put("errorString", "Missing port");
-                throw new IOException("Missing port");
+                context.put("errorString", "Missing Secure CA EE port");
+                throw new IOException("Missing Secure CA EE port");
             }
 
-             boolean authenticated = authenticate(host, httpsport, true,
+             boolean authenticated = authenticate(ca_ee_host, ca_ee_httpsport,
+             true,
              "/ca/ee/ca/configSubsystem", "uid="+uid+"&pwd="+pwd);
 
              if (!authenticated) {

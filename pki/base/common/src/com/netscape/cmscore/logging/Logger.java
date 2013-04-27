@@ -18,13 +18,11 @@
 package com.netscape.cmscore.logging;
 
 
-import java.util.Hashtable;
-import java.util.Properties;
+import java.io.*;
+import java.util.*;
+import com.netscape.certsrv.logging.*;
 
-import com.netscape.certsrv.logging.ILogEvent;
-import com.netscape.certsrv.logging.ILogEventFactory;
-import com.netscape.certsrv.logging.ILogQueue;
-import com.netscape.certsrv.logging.ILogger;
+import com.netscape.cmscore.util.*;
 
 
 /**

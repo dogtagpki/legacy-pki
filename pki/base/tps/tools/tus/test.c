@@ -48,7 +48,6 @@
 int
 main( int argc, char **argv )
 {
-  char ldapuri[1024];
   LDAP          *ld;
   LDAPMessage   *result = NULL, *e;
   char          *dn = NULL;
@@ -59,11 +58,8 @@ main( int argc, char **argv )
 
   /* STEP 1: Get a handle to an LDAP connection and
     set any session preferences. */
-  snprintf(ldapuri, 1024, "ldap://%s:%i", HOSTNAME, PORTNUMBER);
-  rc = ldap_initialize(&ld, ldapuri);
-
-  if ( ld == NULL ) {
-    perror( "ldap_initialize" );
+  if ( (ld = prldap_init( HOSTNAME, PORTNUMBER, 1 )) == NULL ) {
+    perror( "prldap_init" );
     return( 1 );
   }
 
@@ -75,7 +71,7 @@ main( int argc, char **argv )
   /* STEP 2: Bind to the server.
     In this example, the client binds anonymously to the server
     (no DN or credentials are specified). */
-  rc = ldap_sasl_bind_s(ld, NULL, LDAP_SASL_SIMPLE, NULL, NULL, NULL, NULL);
+  rc = ldap_simple_bind_s( ld, NULL, NULL );
   if ( rc != LDAP_SUCCESS ) {
     fprintf(stderr, "ldap_simple_bind_s: %s\n", ldap_err2string(rc));
     return( 1 );
@@ -112,6 +108,6 @@ main( int argc, char **argv )
   }
 
   /* STEP 4: Disconnect from the server. */
-  ldap_unbind_ext_s( ld, NULL, NULL );
+  ldap_unbind( ld );
   return( 0 );
 }

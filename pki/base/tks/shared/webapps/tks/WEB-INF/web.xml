@@ -6,7 +6,6 @@
 <!DOCTYPE web-app 
    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN" "file:///usr/share/pki/setup/web-app_2_3.dtd">
 <web-app>
-
     <filter>
         <filter-name>AgentRequestFilter</filter-name>
         <filter-class>com.netscape.cms.servlet.filter.AgentRequestFilter</filter-class>
@@ -14,12 +13,6 @@
             <param-name>https_port</param-name>
             <param-value>[PKI_AGENT_SECURE_PORT]</param-value>
         </init-param>
-[PKI_OPEN_ENABLE_PROXY_COMMENT]
-        <init-param>
-            <param-name>proxy_port</param-name>
-            <param-value>[PKI_PROXY_SECURE_PORT]</param-value>
-        </init-param>
-[PKI_CLOSE_ENABLE_PROXY_COMMENT]
         <init-param>
             <param-name>active</param-name>
             <param-value>true</param-value>
@@ -33,12 +26,6 @@
             <param-name>https_port</param-name>
             <param-value>[PKI_ADMIN_SECURE_PORT]</param-value>
         </init-param>
-[PKI_OPEN_ENABLE_PROXY_COMMENT]
-        <init-param>
-            <param-name>proxy_port</param-name>
-            <param-value>[PKI_PROXY_SECURE_PORT]</param-value>
-        </init-param>
-[PKI_CLOSE_ENABLE_PROXY_COMMENT]
         <init-param>
             <param-name>active</param-name>
             <param-value>true</param-value>
@@ -56,22 +43,13 @@
             <param-name>https_port</param-name>
             <param-value>[PKI_EE_SECURE_PORT]</param-value>
         </init-param>
-[PKI_OPEN_ENABLE_PROXY_COMMENT]
-        <init-param>
-            <param-name>proxy_port</param-name>
-            <param-value>[PKI_PROXY_SECURE_PORT]</param-value>
-        </init-param>
-        <init-param>
-            <param-name>proxy_http_port</param-name>
-            <param-value>[PKI_PROXY_UNSECURE_PORT]</param-value>
-        </init-param>
-[PKI_CLOSE_ENABLE_PROXY_COMMENT]
         <init-param>
             <param-name>active</param-name>
             <param-value>true</param-value>
         </init-param>
     </filter>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet>
         <servlet-name>csadmin-wizard</servlet-name>
         <servlet-class>com.netscape.cms.servlet.wizard.WizardServlet</servlet-class>
@@ -98,6 +76,7 @@
         </init-param>
     </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  tksstart  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.base.CMSStartServlet  </servlet-class>
@@ -290,6 +269,8 @@
                          <param-value> /services.template </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet>
       <servlet-name>  tksDownloadPKCS12  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.DownloadPKCS12  </servlet-class>
@@ -309,6 +290,7 @@
                          <param-value> certServer.clone.configuration </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  tksGetConfigEntries  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.GetConfigEntries </servlet-class>
@@ -326,18 +308,6 @@
                          <param-value> certServer.clone.configuration.GetConfigEntries </param-value> </init-param>
    </servlet>
 
-   <servlet>
-      <servlet-name>  tksGetTokenInfo  </servlet-name>
-      <servlet-class> com.netscape.cms.servlet.csadmin.GetTokenInfo  </servlet-class>
-             <init-param><param-name>  GetClientCert  </param-name>
-                         <param-value> false       </param-value> </init-param>
-             <init-param><param-name>  authority   </param-name>
-                         <param-value> tks          </param-value> </init-param>             <init-param><param-name>  ID          </param-name>
-                         <param-value> tksGetTokenInfo </param-value> </init-param>
-             <init-param><param-name>  interface   </param-name>
-                         <param-value> ee          </param-value> </init-param>
-   </servlet>
-
 [PKI_OPEN_SEPARATE_PORTS_WEB_COMMENT]
    <filter-mapping>
       <filter-name>  AgentRequestFilter  </filter-name>
@@ -347,13 +317,37 @@
    <filter-mapping>
       <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /admin/*            </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /auths              </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /ug                 </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /log                </url-pattern>
+   </filter-mapping>
+
 <!--
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /jobsScheduler      </url-pattern>
+   </filter-mapping>
 -->
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /acl                </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  AdminRequestFilter  </filter-name>
       <url-pattern>  /server             </url-pattern>
    </filter-mapping>
 
@@ -420,7 +414,8 @@
       <url-pattern>   /agent/tks/computeRandomData  </url-pattern>
    </servlet-mapping>
 
-                                                                                
+    <!-- ================= PKI Installation Wizard Header ================= -->
+
     <servlet-mapping>
         <servlet-name>csadmin-wizard</servlet-name>
         <url-pattern>/admin/console/config/wizard</url-pattern>
@@ -431,6 +426,7 @@
         <url-pattern>/admin/console/config/login</url-pattern>
     </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  tksGetConfigEntries  </servlet-name>
       <url-pattern>   /admin/tks/getConfigEntries  </url-pattern>
@@ -456,15 +452,14 @@
       <url-pattern>   /services  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet-mapping>
       <servlet-name>  tksDownloadPKCS12 </servlet-name>
       <url-pattern>   /admin/console/config/savepkcs12 </url-pattern>
    </servlet-mapping>
 
-   <servlet-mapping>
-      <servlet-name>  tksGetTokenInfo </servlet-name>
-      <url-pattern>   /ee/tks/getTokenInfo </url-pattern>
-   </servlet-mapping>
+    <!-- ================= PKI Installation Wizard Footer ================= -->
 
    <!-- ==================== Default Session Configuration =============== -->
    <!-- You can set the default session timeout (in minutes) for all newly -->

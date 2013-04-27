@@ -18,6 +18,13 @@
 package com.netscape.cmscore.dbs;
 
 
+import java.util.*;
+import java.io.*;
+import java.math.*;
+import netscape.ldap.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.dbs.*;
 
 
 /**
@@ -34,4 +41,5 @@ public class RepositorySchema {
     public static final String LDAP_OC_REPOSITORY = "repository";
     public static final String LDAP_ATTR_SERIALNO = "serialno";
     public static final String LDAP_ATTR_PUB_STATUS = "publishingStatus";
+    public final static String LDAP_ATTR_DESCRIPTION = "description";
 }

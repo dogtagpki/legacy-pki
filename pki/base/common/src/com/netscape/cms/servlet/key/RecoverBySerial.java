@@ -18,20 +18,6 @@
 package com.netscape.cms.servlet.key;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.util.Hashtable;
-import java.util.Locale;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.x509.X509CertImpl;
-
 import com.netscape.certsrv.apps.CMS;
 import com.netscape.certsrv.authentication.IAuthToken;
 import com.netscape.certsrv.authorization.AuthzToken;
@@ -48,6 +34,18 @@ import com.netscape.cms.servlet.common.CMSTemplate;
 import com.netscape.cms.servlet.common.CMSTemplateParams;
 import com.netscape.cms.servlet.common.ECMSGWException;
 import com.netscape.cmsutil.util.Cert;
+import netscape.security.x509.X509CertImpl;
+
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.util.Hashtable;
+import java.util.Locale;
+import java.util.Vector;
 
 /**
  * A class representing a recoverBySerial servlet.
@@ -70,6 +68,7 @@ public class RecoverBySerial extends CMSServlet {
 
     private final static String OUT_OP = "op";
     private final static String OUT_SERIALNO = IN_SERIALNO;
+    private final static String OUT_SERIALNO_IN_HEX = "serialNumberInHex";
     private final static String OUT_RECOVERY_SUCCESS = "recoverySuccess";
     private final static String OUT_SERVICE_URL = "serviceURL";
     private final static String OUT_ERROR = "errorDetails";
@@ -290,6 +289,8 @@ public class RecoverBySerial extends CMSServlet {
                   new BigInteger(seq), x509cert,
                       (String) sContext.get(SessionContext.USER_ID));
             header.addStringValue(OUT_SERIALNO, req.getParameter(IN_SERIALNO));
+            header.addStringValue(OUT_SERIALNO_IN_HEX,
+                new BigInteger(req.getParameter(IN_SERIALNO)).toString(16));
             header.addStringValue("requestID", reqID);
         } catch (EBaseException e) {
             String error =
@@ -406,6 +407,8 @@ public class RecoverBySerial extends CMSServlet {
                 req.getParameter(OUT_OP));
             header.addBigIntegerValue(OUT_SERIALNO,
                 new BigInteger(seq), 10);
+            header.addBigIntegerValue(OUT_SERIALNO_IN_HEX,
+                new BigInteger(seq), 16);
             header.addStringValue(OUT_SERVICE_URL,
                 req.getRequestURI());
             byte pkcs12[] = mService.doKeyRecovery(

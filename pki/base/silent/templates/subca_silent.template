@@ -83,7 +83,8 @@ fi
 ##  PKI Silent Security Database Variables
 ##  (e. g. - PKI Silent "browser" database)
 pki_silent_security_database_repository="/tmp"
-pki_silent_security_database_password=
+pki_silent_security_token_password=
+pki_silent_security_token_name=internal
 
 ##  PKI Security Domain Variables
 ##  (e. g. - Security Domain Login Panel)
@@ -106,7 +107,7 @@ subca_token_password=
 
 ##  PKI Instance-Specific Backup Variables
 ##  (e. g. - Backup Key and Certificates Panel)
-subca_backup_password=
+subca_backup_password=redhat
 
 ##  PKI Email Variables
 ##
@@ -139,10 +140,7 @@ pki_host=`hostname`
 ca_subsystem_name="Certificate\ Authority"
 
 ##  PKI Subsystem Instance Names
-subca_instance_name="pki-subca"
-
-##  PKI Subsystem Init Script Names
-subca_init_script="pki-cad"
+subca_instance_name="pki-ca1"
 
 ##
 ##  NOTE:  Default PKI Instance Ports
@@ -161,7 +159,7 @@ subca_init_script="pki-cad"
 ##      semanage port -l | grep pki
 ##
 ##      pki_ca_port_t          tcp      9180, 9701, 9443, 9444, 9445
-##      pki_subca_port_t       tcp      9580, 9801, 9543, 9544, 9545
+##      pki_ca1_port_t         tcp      9580, 9801, 9543, 9544, 9545
 ##
 
 ## CA ports
@@ -291,6 +289,7 @@ subca_key_type=rsa
 subca_signing_algorithm=SHA256withRSA
 subca_signing_signingalgorithm=SHA256withRSA
 subca_ocsp_signing_signingalgorithm=SHA256withRSA
+subca_save_p12=false
 subca_sign_cert_subject_name="cn=Certificate\ Authority\ 2,o=${pki_security_domain_name}"
 subca_subsystem_cert_subject_name="cn=CA\ Subsystem\ Certificate\ 2,o=${pki_security_domain_name}"
 subca_ocsp_cert_subject_name="cn=OCSP\ Signing\ Certificate\ 2,o=${pki_security_domain_name}"
@@ -315,8 +314,8 @@ subca_audit_signing_cert_subject_name="cn=CA\ Audit\ Signing\ Certificate\ 2,o=$
 usage_errors=0
 usage_error_preamble="ERROR:  User MUST define a value for"
 
-if [ "${pki_silent_security_database_password}" = "" ] ; then
-	printf "${usage_error_preamble} 'pki_silent_security_database_password'!\n"
+if [ "${pki_silent_security_token_password}" = "" ] ; then
+	printf "${usage_error_preamble} 'pki_silent_security_token_password'!\n"
 	usage_errors=`expr ${usage_errors} + 1`
 fi
 if [ "${pki_security_domain_name}" = "" ] ; then
@@ -440,7 +439,7 @@ subca_preop_pin=`cat /var/lib/${subca_instance_name}/conf/CS.cfg \
 ##############################################################################
 ##
 ##  For example, upon completion,
-##  execute '/sbin/service ${subca_init_script} status ${subca_instance_name}':
+##  execute '/sbin/service ${subca_instance_name} status':
 ##
 ##      ${subca_instance_name} (pid 7843) is running ...
 ##
@@ -473,7 +472,8 @@ pkisilent ConfigureSubCA \
 	-ca_port ${ca_nonssl_port} \
 	-ca_ssl_port ${ca_ee_port} \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
-	-client_certdb_pwd ${pki_silent_security_database_password} \
+	-client_certdb_pwd ${pki_silent_security_token_password} \
+	-client_token_name ${pki_silent_security_token_name} \
 	-preop_pin ${subca_preop_pin} \
 	-domain_name "${pki_security_domain_name}" \
 	-admin_user ${pki_silent_admin_user} \
@@ -496,6 +496,7 @@ pkisilent ConfigureSubCA \
 	-agent_key_size ${subca_agent_key_size} \
 	-agent_key_type ${subca_agent_key_type} \
 	-agent_cert_subject "${subca_agent_cert_subject}" \
+    -save_p12 ${subca_save_p12} \
 	-backup_pwd ${subca_backup_password} \
 	-subsystem_name "${ca_subsystem_name}" \
 	-subca_sign_cert_subject_name "${subca_sign_cert_subject_name}" \
@@ -507,7 +508,6 @@ pkisilent ConfigureSubCA \
 	| tee ${pki_silent_subca_log}
 
 ##  Restart Subordinate CA
-/sbin/service ${subca_init_script} restart ${subca_instance_name}
+/sbin/service ${subca_instance_name} restart
 
 exit 0
-
