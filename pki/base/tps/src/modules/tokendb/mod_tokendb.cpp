@@ -2711,7 +2711,7 @@ int  safe_injection_strcat(char ** injection, int *injection_size , char *catDat
 
     int current_len = strlen(*injection);
     if (catData == NULL) {
-        return;
+        return result;
     }
     int cat_data_len = strlen(catData);
 
