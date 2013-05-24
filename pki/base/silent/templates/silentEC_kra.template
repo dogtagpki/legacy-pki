@@ -173,20 +173,20 @@ kra_instance_name=
 ##      DRM:
 ##
 ##          *180 - non-secure port (not role specific)
-##          *701 - non-secure Tomcat port
-##          *443 - secure EE port
-##          *444 - secure Agent port
+##          *443 - secure Agent port
+##          *444 - secure EE port
 ##          *445 - secure Admin port
+##          *701 - non-secure Tomcat port
 ##
 ##
 ##  For Example:
 ##
 ##      semanage port -l | grep pki
 ##
-##      pki_kra_port_t         tcp      10180, 10701, 10443, 10444, 10445
+##      pki_kra_port_t         tcp      10180, 10443, 10444, 10445, 10701
 ##
 
-## CA ports
+## CA ports (Security Domain)
 ca_nonssl_port=9180
 ca_agent_port=9443
 ca_ee_port=9444
@@ -197,6 +197,61 @@ kra_nonssl_port=10180
 kra_agent_port=10443
 kra_ee_port=10444
 kra_admin_port=10445
+
+## URL to CA used to Issue Certificates for KRA Instance Creation
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain (see CAVEAT)
+##     * referenced CA must reside within the same security domain 
+##       as this KRA instance
+##
+##       CAVEAT:   If the chosen CA is a security domain:
+##
+##                     * all KRA subsystem certificates (including the
+##                       'Subsystem' certificates) will be stored on this CA
+##                     * the KRA subsystem client 'Administration'
+##                       certificate will automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this KRA subsystem
+##                     * the 'pkisilent' client security databases may be
+##                       used inside a firefox browser with no further
+##                       changes
+##
+##                 If the chosen CA is NOT a security domain:
+##
+##                     * all KRA subsystem certificates EXCEPT the KRA
+##                       'Subsystem' certificate will be stored on this CA;
+##                       the KRA 'Subsystem' certificate will be stored on
+##                       the CA that is the security domain for this KRA
+##                       subsystem
+##                     * the KRA subsystem client 'Administration'
+##                       certificate will NOT automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this KRA subsystem;
+##                       import will fail with something similar to the
+##                       following message:
+##
+##                           ERROR: exception importing cert: Security
+##                                  library failed to decode certificate
+##                                  package: (-8183) security library:
+##                                  improperly formatted DER-encoded
+##                                  message.
+##
+##                     * in order to utilize the 'pkisilent' client
+##                       security databases inside a firefox browser,
+##                       one will need to manually import the KRA
+##                       'Administration' certificate for the KRA subsystem
+##                       stored in this non-security domain CA
+##
+##     NOTE:  To pass in a value of an empty string, specify the value "empty"
+##            instead of "" since ArgParser() throws away empty strings.
+##
+##            This special "empty" string value may be specified for any of
+##            the following variables:
+##
+##                * kra_instance_ca_domain_url="empty"
+##
+kra_instance_ca_domain_url="https://${pki_security_domain_host}:${ca_ee_port}"
 
 
 ##############################################################################
@@ -550,6 +605,7 @@ pkisilent ConfigureDRM \
 	-agent_key_type ${kra_agent_key_type} \
 	-agent_cert_subject "${kra_agent_cert_subject}" \
 	-subsystem_name ${kra_subsystem_name} \
+	-ca_domain_url "${kra_instance_ca_domain_url}" \
 	-drm_transport_cert_subject_name "${kra_transport_cert_subject_name}" \
 	-drm_subsystem_cert_subject_name "${kra_subsystem_cert_subject_name}" \
 	-drm_storage_cert_subject_name "${kra_storage_cert_subject_name}" \

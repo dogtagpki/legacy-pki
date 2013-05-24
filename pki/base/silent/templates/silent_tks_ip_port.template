@@ -93,33 +93,41 @@ pki_tks_admin_host=
 ##  NOTE:  Default PKI CA Instance Ports
 ##
 ##          9180 - non-secure port (not role specific)
-##          9701 - non-secure Tomcat port
-##          9443 - secure EE port
-##          9444 - secure Agent port
+##          9443 - secure Agent port
+##          9444 - secure EE port
 ##          9445 - secure Admin port
 ##          9446 - secure EE Client Auth port (not necessarily labeled)
+##          9701 - non-secure Tomcat port
 ##
 ##  NOTE:  Default PKI TKS Instance Ports
 ##
 ##         13180 - non-secure port (not role specific)
-##         13701 - non-secure Tomcat port
-##         13443 - secure EE port
-##         13444 - secure Agent port
+##         13443 - secure Agent port
+##         13444 - secure EE port
 ##         13445 - secure Admin port
+##         13701 - non-secure Tomcat port
 ##
 ##  For Example:
 ##
 ##      semanage port -l | grep pki
 ##
-##      pki_ca_port_t          tcp      9180, 9701, 9443, 9444, 9445
-##      pki_tks_port_t         tcp      13180, 13701, 13443, 13444, 13445
+##      pki_ca_port_t          tcp      9180, 9443, 9444, 9445, 9701
+##      pki_tks_port_t         tcp      13180, 13443, 13444, 13445, 13701
 ##
 
-## PKI CA ports
+## PKI CA ports (Security Domain)
 pki_ca_nonssl_port=
-pki_ca_ee_port=
 pki_ca_agent_port=
+pki_ca_ee_port=
 pki_ca_admin_port=
+
+## PKI Subordinate CA ports (not a Security Domain)
+##
+##     NOTE:  Replace the CA EE Security Domain Host and Port to optionally use
+##            a Subordinate CA to Issue Certificates for TKS Instance Creation
+##
+pki_subca_ee_host=${pki_ca_ee_host}
+pki_subca_ee_port=${pki_ca_ee_port}
 
 ## PKI TKS ports
 pki_tks_admin_port=
@@ -198,6 +206,61 @@ pki_tks_instance_name="pki-tks"
 
 ##  PKI Silent Log Files
 pki_silent_tks_log=/tmp/tks.log
+
+## URL to CA used to Issue Certificates for TKS Instance Creation
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain (see CAVEAT)
+##     * referenced CA must reside within the same security domain
+##       as this TKS instance
+##
+##       CAVEAT:   If the chosen CA is a security domain:
+##
+##                     * all TKS subsystem certificates (including the
+##                       'Subsystem' certificates) will be stored on this CA
+##                     * the TKS subsystem client 'Administration'
+##                       certificate will automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this TKS subsystem
+##                     * the 'pkisilent' client security databases may be
+##                       used inside a firefox browser with no further
+##                       changes
+##
+##                 If the chosen CA is NOT a security domain:
+##
+##                     * all TKS subsystem certificates EXCEPT the TKS
+##                       'Subsystem' certificate will be stored on this CA;
+##                       the TKS 'Subsystem' certificate will be stored on
+##                       the CA that is the security domain for this TKS
+##                       subsystem
+##                     * the TKS subsystem client 'Administration'
+##                       certificate will NOT automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this TKS subsystem;
+##                       import will fail with something similar to the
+##                       following message:
+##
+##                           ERROR: exception importing cert: Security
+##                                  library failed to decode certificate
+##                                  package: (-8183) security library:
+##                                  improperly formatted DER-encoded
+##                                  message.
+##
+##                     * in order to utilize the 'pkisilent' client
+##                       security databases inside a firefox browser,
+##                       one will need to manually import the TKS
+##                       'Administration' certificate for the TKS subsystem
+##                       stored in this non-security domain CA
+##
+##     NOTE:  To pass in a value of an empty string, specify the value "empty"
+##            instead of "" since ArgParser() throws away empty strings.
+##
+##            This special "empty" string value may be specified for any of
+##            the following variables:
+##
+##                * pki_tks_instance_ca_domain_url="empty"
+##
+pki_tks_instance_ca_domain_url="https://${pki_subca_ee_host}:${pki_subca_ee_port}"
 
 
 
@@ -536,6 +599,7 @@ pkisilent ConfigureTKS \
     -agent_key_type ${tks_agent_key_type} \
     -agent_cert_subject "${tks_agent_cert_subject}" \
     -subsystem_name ${pki_tks_subsystem_name} \
+    -ca_domain_url "${pki_tks_instance_ca_domain_url}" \
     -save_p12 ${tks_save_p12} \
     -backup_pwd ${pki_tks_backup_password} \
     -tks_subsystem_cert_subject_name "${tks_subsystem_cert_subject_name}" \

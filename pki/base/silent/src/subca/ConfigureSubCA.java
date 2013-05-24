@@ -172,6 +172,9 @@ public class ConfigureSubCA
 
     public static String subsystem_name = null;
 
+    // Name Panel - CertSubjectPanel()
+    public static String ca_domain_url = null;
+
     // names 
     public static String subca_sign_cert_subject_name = null;
     public static String subca_subsystem_cert_subject_name = null;
@@ -534,7 +537,17 @@ public class ConfigureSubCA
         ArrayList cert_list = null;
         ArrayList dn_list = null;
 
-        String domain_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
+        String domain_url = null;
+        if ( ( ca_domain_url != null )       &&
+             ( !ca_domain_url.equals( "" ) ) &&
+             ( !ca_domain_url.equals( "empty" ) ) ) {
+            domain_url = ca_domain_url;
+        } else {
+            // Use the CA EE hostname and the CA EE port
+            domain_url = "https://" + ca_hostname + ":" + ca_ssl_port;
+        }
+        System.out.println("CertSubjectPanel() domain_url='" +
+                           domain_url + "'.");
 
 
         String query_string = "p=11" + "&op=next" + "&xml=true" +
@@ -548,8 +561,8 @@ public class ConfigureSubCA
             URLEncoder.encode(subca_subsystem_cert_subject_name) +
             "&audit_signing=" +
             URLEncoder.encode(subca_audit_signing_cert_subject_name) + 
-            "&urls=0" + 
-            ""; 
+            "&urls=" + 
+            URLEncoder.encode(domain_url);
 
         hr = hc.sslConnect(cs_hostname,cs_port,wizard_uri,query_string);
 
@@ -1078,6 +1091,9 @@ public class ConfigureSubCA
         // subsystem name
         StringHolder x_subsystem_name = new StringHolder();
 
+        // Name Panel - CertSubjectPanel()
+        StringHolder x_ca_domain_url = new StringHolder();
+
         // subject names
         StringHolder x_subca_sign_cert_subject_name = new StringHolder();
         StringHolder x_subca_subsystem_cert_subject_name = new StringHolder();
@@ -1203,6 +1219,10 @@ public class ConfigureSubCA
                             x_subsystem_name); 
 
         parser.addOption (
+        "-ca_domain_url %s #URL to CA used to Issue Certificates for SubCA Instance Creation",
+                            x_ca_domain_url);
+
+        parser.addOption (
         "-subca_sign_cert_subject_name %s #subCA cert subject name",
                             x_subca_sign_cert_subject_name);
         parser.addOption (
@@ -1305,6 +1325,8 @@ public class ConfigureSubCA
         save_p12 = x_save_p12.value;
         backup_pwd = x_backup_pwd.value;
         subsystem_name = x_subsystem_name.value;
+
+        ca_domain_url = x_ca_domain_url.value;
         
         subca_sign_cert_subject_name = x_subca_sign_cert_subject_name.value ;
         subca_subsystem_cert_subject_name = 

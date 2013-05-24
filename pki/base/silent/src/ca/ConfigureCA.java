@@ -177,6 +177,9 @@ public class ConfigureCA {
 
     public static String subsystem_name = null;
 
+    // Name Panel - CertSubjectPanel()
+    public static String ca_domain_url = null;
+
     public static String external_ca= null;
     public static String ext_ca_cert_file = null;
     public static String ext_ca_cert_chain_file = null;
@@ -643,6 +646,17 @@ public class ConfigureCA {
             ArrayList dn_list = null;
             String query_string = null;
 
+            String domain_url = null;
+            if ( ( ca_domain_url != null )       &&
+                 ( !ca_domain_url.equals( "" ) ) &&
+                 ( !ca_domain_url.equals( "empty" ) ) ) {
+                domain_url = "&urls=" + URLEncoder.encode(ca_domain_url);
+            } else {
+                domain_url = "&urls=0" + "";
+            }
+            System.out.println("CertSubjectPanel() domain_url='" +
+                               domain_url + "'.");
+
             // use subject names provided as input
 
             if (!clone) {
@@ -652,12 +666,12 @@ public class ConfigureCA {
                     + URLEncoder.encode(ca_ocsp_cert_subject_name) + "&signing="
                     + URLEncoder.encode(ca_sign_cert_subject_name) + "&sslserver="
                     + URLEncoder.encode(ca_server_cert_subject_name) + "&audit_signing=" 
-                    + URLEncoder.encode(ca_audit_signing_cert_subject_name) + "&urls=0"
-                    + "";
+                    + URLEncoder.encode(ca_audit_signing_cert_subject_name)
+                    + domain_url;
             } else {
                 query_string = "p=11" + "&op=next" + "&xml=true" + "&sslserver="
-                    + URLEncoder.encode(ca_server_cert_subject_name) + "&urls=0"
-                    + "";
+                    + URLEncoder.encode(ca_server_cert_subject_name)
+                    + domain_url;
             } 
 
             hr = hc.sslConnect(cs_hostname, cs_port, wizard_uri, query_string);
@@ -1517,6 +1531,9 @@ public class ConfigureCA {
         // subsystemName
         StringHolder x_subsystem_name = new StringHolder();
 
+        // Name Panel - CertSubjectPanel()
+        StringHolder x_ca_domain_url = new StringHolder();
+
         // external CA cert
         StringHolder x_external_ca = new StringHolder();
         StringHolder x_ext_ca_cert_file = new StringHolder();         
@@ -1633,6 +1650,10 @@ public class ConfigureCA {
 
         parser.addOption("-subsystem_name %s #CA subsystem name",
                 x_subsystem_name); 
+
+        parser.addOption (
+        "-ca_domain_url %s #URL to CA used to Issue Certificates for CA Instance Creation",
+                x_ca_domain_url);
         
         parser.addOption("-external %s #Subordinate to external CA [true,false] (optional, default false)",
                 x_external_ca); 
@@ -1741,6 +1762,8 @@ public class ConfigureCA {
         ca_audit_signing_cert_subject_name = x_ca_audit_signing_cert_subject_name.value;
 		
         subsystem_name = x_subsystem_name.value;
+
+        ca_domain_url = x_ca_domain_url.value;
         
         external_ca = set_default(x_external_ca.value, "false");
         ext_ca_cert_file = x_ext_ca_cert_file.value;

@@ -152,6 +152,9 @@ public class ConfigureTKS
     public static String subsystem_name = null;
     public static String tks_audit_signing_cert_subject_name = null;
 
+    // Name Panel - CertSubjectPanel()
+    public static String ca_domain_url = null;
+
     public ConfigureTKS ()
     {
         // do nothing :)
@@ -470,7 +473,17 @@ public class ConfigureTKS
         ArrayList cert_list = null;
         ArrayList dn_list = null;
 
-        String domain_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
+        String domain_url = null;
+        if ( ( ca_domain_url != null )       &&
+             ( !ca_domain_url.equals( "" ) ) &&
+             ( !ca_domain_url.equals( "empty" ) ) ) {
+            domain_url = ca_domain_url;
+        } else {
+            // Use the CA EE hostname and the CA EE port
+            domain_url = "https://" + ca_hostname + ":" + ca_ssl_port;
+        }
+        System.out.println("CertSubjectPanel() domain_url='" +
+                           domain_url + "'.");
 
         String query_string = "p=9" + "&op=next" + "&xml=true" +
                     "&subsystem=" + 
@@ -990,6 +1003,9 @@ public class ConfigureTKS
         // subsystemName
         StringHolder x_subsystem_name = new StringHolder();
 
+        // Name Panel - CertSubjectPanel()
+        StringHolder x_ca_domain_url = new StringHolder();
+
         // parse the args
         ArgParser parser = new ArgParser("ConfigureTKS");
 
@@ -1104,6 +1120,10 @@ public class ConfigureTKS
         "-subsystem_name %s #CA subsystem name",
                             x_subsystem_name); 
 
+        parser.addOption (
+        "-ca_domain_url %s #URL to CA used to Issue Certificates for TKS Instance Creation",
+                            x_ca_domain_url);
+
         parser.addOption(
         "-tks_audit_signing_cert_subject_name %s #TKS audit signing cert subject name",
                             x_tks_audit_signing_cert_subject_name);
@@ -1188,6 +1208,8 @@ public class ConfigureTKS
         
         subsystem_name = x_subsystem_name.value ;
         tks_audit_signing_cert_subject_name = x_tks_audit_signing_cert_subject_name.value;
+
+        ca_domain_url = x_ca_domain_url.value;
 
         boolean st = ca.ConfigureTKSInstance();
     

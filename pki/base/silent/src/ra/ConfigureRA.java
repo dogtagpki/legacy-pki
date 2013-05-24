@@ -125,6 +125,12 @@ public class ConfigureRA
 	// Admin Certificate Request Panel
 	public static String requestor_name = null;
 
+	// CA Info Panel - SubsystemPanel()
+	public static String ca_issuance_url = null;
+
+	// Name Panel - CertSubjectPanel()
+	public static String ca_domain_url = null;
+
 	public ConfigureRA ()
 	{
 		// do nothing :)
@@ -298,13 +304,23 @@ public class ConfigureRA
 		px.prettyprintxml();
 
 		sleep_time();
-		// 'ca_url' is not used, but refers to
-		// the CA EE hostname and the CA EE port
-		String ca_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
+
+		String ca_url = null;
+        if ( ( ca_issuance_url != null )       &&
+             ( !ca_issuance_url.equals( "" ) ) &&
+             ( !ca_issuance_url.equals( "empty" ) ) ) {
+			ca_url = ca_issuance_url;
+		} else {
+			// Use the CA EE hostname and the CA EE port
+			ca_url = "https://" + ca_hostname + ":" + ca_ssl_port;
+		}
+        System.out.println("SubsystemPanel() ca_url='" +
+                           ca_url + "'.");
 
 		// CA choice panel
 		query_string = "p=4" +
-					"&urls=0" +
+					"&urls=" +
+					URLEncoder.encode(ca_url) +
 					"&op=next" +
 					"&xml=true" ;
 
@@ -442,9 +458,17 @@ public class ConfigureRA
 		ArrayList cert_list = null;
 		ArrayList dn_list = null;
 
-		// 'ca_url' is not used, but refers to
-		// the CA EE hostname and the CA EE port
-		String ca_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
+		String ca_url = null;
+        if ( ( ca_domain_url != null )       &&
+             ( !ca_domain_url.equals( "" ) ) &&
+             ( !ca_domain_url.equals( "empty" ) ) ) {
+			ca_url = ca_domain_url;
+		} else {
+			// Use the CA EE hostname and the CA EE port
+			ca_url = "https://" + ca_hostname + ":" + ca_ssl_port;
+		}
+        System.out.println("CertSubjectPanel() ca_url='" +
+                           ca_url + "'.");
 
 		String query_string = "p=9" +
 					"&sslserver=" +
@@ -455,7 +479,8 @@ public class ConfigureRA
 					URLEncoder.encode(ra_subsystem_cert_subject_name) +
 					"&subsystem_nick=" +
 					URLEncoder.encode(ra_subsystem_cert_nickname) +
-					"&urls=0" +
+					"&urls=" +
+					URLEncoder.encode(ca_url) +
 					"&op=next" +
 					"&xml=true" ;
 
@@ -830,6 +855,12 @@ public class ConfigureRA
 		// subsystemName
 		StringHolder x_subsystem_name = new StringHolder();
 
+		// CA Info Panel - SubsystemPanel()
+		StringHolder x_ca_issuance_url = new StringHolder();
+
+		// Name Panel - CertSubjectPanel()
+		StringHolder x_ca_domain_url = new StringHolder();
+
 
 		// parse the args
 		ArgParser parser = new ArgParser("ConfigureRA");
@@ -915,6 +946,14 @@ public class ConfigureRA
 		"-subsystem_name %s #RA subsystem name",
 							x_subsystem_name); 
 
+		parser.addOption (
+		"-ca_issuance_url %s #URL to CA used to Issue Certificates",
+							x_ca_issuance_url);
+
+		parser.addOption (
+		"-ca_domain_url %s #URL to CA used to Issue Certificates for RA Instance Creation",
+							x_ca_domain_url);
+
 		// and then match the arguments
 		String [] unmatched = null;
 		unmatched = parser.matchAllArgs (args,0,parser.EXIT_ON_UNMATCHED);
@@ -972,6 +1011,10 @@ public class ConfigureRA
 			x_ra_subsystem_cert_nickname.value;
 		
 		subsystem_name = x_subsystem_name.value ;
+
+		ca_issuance_url = x_ca_issuance_url.value;
+
+		ca_domain_url = x_ca_domain_url.value;
 
 
 

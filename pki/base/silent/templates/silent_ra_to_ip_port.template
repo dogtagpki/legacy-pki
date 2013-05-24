@@ -91,11 +91,11 @@ pki_host=`hostname`
 ##  NOTE:  Default PKI CA Instance Ports
 ##
 ##          9180 - non-secure port (not role specific)
-##          9701 - non-secure Tomcat port
-##          9443 - secure EE port
-##          9444 - secure Agent port
+##          9443 - secure Agent port
+##          9444 - secure EE port
 ##          9445 - secure Admin port
 ##          9446 - secure EE Client Auth port (not necessarily labeled)
+##          9701 - non-secure Tomcat port
 ##
 ##  NOTE:  Default PKI RA Instance Ports
 ##
@@ -107,15 +107,30 @@ pki_host=`hostname`
 ##
 ##      semanage port -l | grep pki
 ##
-##      pki_ca_port_t          tcp      9180, 9701, 9443, 9444, 9445
-##      pki_ra_port_t          tcp      12890, 12888, 12889
+##      pki_ca_port_t          tcp      9180, 9443, 9444, 9445, 9701
+##      pki_ra_port_t          tcp      12888, 12889, 12890
 ##
 
-## PKI CA ports
+## PKI CA ports (Security Domain)
 pki_ca_nonssl_port=
-pki_ca_ee_port=
 pki_ca_agent_port=
+pki_ca_ee_port=
 pki_ca_admin_port=
+
+## PKI Subordinate CA ports (not a Security Domain)
+##
+##     NOTE:  Replace the CA EE Security Domain Host and Port to optionally use
+##            a Subordinate CA to Issue Certificates for Requests Submitted via
+##            this RA
+##
+pki_alternate_subca_ee_host=${pki_ca_ee_host}
+pki_alternate_subca_ee_port=${pki_ca_ee_port}
+##
+##     NOTE:  Replace the CA EE Security Domain Host and Port to optionally use
+##            a Subordinate CA to Issue Certificates for RA Instance Creation
+##
+pki_subca_ee_host=${pki_ca_ee_host}
+pki_subca_ee_port=${pki_ca_ee_port}
 
 ## PKI RA ports
 pki_ra_clientauth_port=
@@ -167,6 +182,71 @@ pki_ra_instance_name="pki-ra"
 
 ##  PKI Silent Log Files
 pki_silent_ra_log=/tmp/ra.log
+
+## URL to CA used to Issue Certificates for Requests Submitted via RA
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain
+##     * referenced CA must reside within the same security domain
+##       as the associated RA instance
+##
+##     NOTE:  To pass in a value of an empty string, specify the value "empty"
+##            instead of "" since ArgParser() throws away empty strings.
+##
+##            This special "empty" string value may be specified for any of
+##            the following variables:
+##
+##                * pki_ra_chosen_ca_issuance_url="empty"
+##                * pki_ra_instance_ca_domain_url="empty"
+##
+pki_ra_chosen_ca_issuance_url="https://${pki_alternate_subca_ee_host}:${pki_alternate_subca_ee_port}"
+
+## URL to CA used to Issue Certificates for RA Instance Creation
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain (see CAVEAT)
+##     * referenced CA must reside within the same security domain
+##       as this RA instance
+##
+##       CAVEAT:   If the chosen CA is a security domain:
+##
+##                     * all RA subsystem certificates (including the
+##                       'Subsystem' certificates) will be stored on this CA
+##                     * the RA subsystem client 'Administration'
+##                       certificate will automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this RA subsystem
+##                     * the 'pkisilent' client security databases may be
+##                       used inside a firefox browser with no further
+##                       changes
+##
+##                 If the chosen CA is NOT a security domain:
+##
+##                     * all RA subsystem certificates EXCEPT the RA
+##                       'Subsystem' certificate will be stored on this CA;
+##                       the RA 'Subsystem' certificate will be stored on
+##                       the CA that is the security domain for this RA
+##                       subsystem
+##                     * the RA subsystem client 'Administration'
+##                       certificate will NOT automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this RA subsystem;
+##                       import will fail with something similar to the
+##                       following message:
+##
+##                           ERROR: exception importing cert: Security
+##                                  library failed to decode certificate
+##                                  package: (-8183) security library:
+##                                  improperly formatted DER-encoded
+##                                  message.
+##
+##                     * in order to utilize the 'pkisilent' client
+##                       security databases inside a firefox browser,
+##                       one will need to manually import the RA
+##                       'Administration' certificate for the RA subsystem
+##                       stored in this non-security domain CA
+##
+pki_ra_instance_ca_domain_url="https://${pki_subca_ee_host}:${pki_subca_ee_port}"
 
 
 
@@ -440,6 +520,7 @@ pkisilent ConfigureRA \
     -ca_port ${ra_chosen_ca_nonssl_port} \
     -ca_ssl_port ${ra_chosen_ca_ssl_port} \
     -ca_admin_port ${ra_chosen_ca_admin_port} \
+    -ca_issuance_url "${pki_ra_chosen_ca_issuance_url}" \
     -client_certdb_dir ${pki_silent_security_database_repository} \
     -client_certdb_pwd ${pki_silent_security_token_password} \
     -preop_pin ${ra_preop_pin} \
@@ -456,6 +537,7 @@ pkisilent ConfigureRA \
     -agent_key_type ${ra_agent_key_type} \
     -agent_cert_subject "${ra_agent_cert_subject}" \
     -subsystem_name ${pki_ra_subsystem_name} \
+    -ca_domain_url "${pki_ra_instance_ca_domain_url}" \
     -ra_server_cert_nickname "${ra_server_cert_nickname}" \
     -ra_server_cert_subject_name "${ra_server_cert_subject_name}" \
     -ra_subsystem_cert_nickname "${ra_subsystem_cert_nickname}" \

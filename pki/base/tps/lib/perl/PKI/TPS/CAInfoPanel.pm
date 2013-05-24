@@ -249,8 +249,8 @@ DONE:
 
 sub get_domain_xml
 {
-    my $ca_ee_host = $1;
-    my $https_ee_port = $2;
+    my $ca_ee_host = $_[0];
+    my $https_ee_port = $_[1];
 
     # get the domain xml
     # e. g. - https://water.sfbay.redhat.com:9445/ca/admin/ca/getDomainXML
@@ -272,9 +272,9 @@ sub get_domain_xml
 
 sub get_secure_admin_port_from_domain_xml
 {
-    my $content = $1;
-    my $ca_ee_host = $2;
-    my $https_ee_port = $3;
+    my $content = $_[0];
+    my $ca_ee_host = $_[1];
+    my $https_ee_port = $_[2];
 
     # Retrieve the secure admin port corresponding
     # to the selected EE host and secure ee port.
@@ -286,7 +286,7 @@ sub get_secure_admin_port_from_domain_xml
     foreach my $c (@{$xml->{'CAList'}[0]->{'CA'}}) {
       if( ( $ca_ee_host eq $c->{'Host'}[0] ) &&
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
-          $https_admin_port = https_$c->{'SecureAdminPort'}[0];
+          $https_admin_port = $c->{'SecureAdminPort'}[0];
           last;
       }
     }
@@ -296,9 +296,9 @@ sub get_secure_admin_port_from_domain_xml
 
 sub get_secure_agent_port_from_domain_xml
 {
-    my $content = $1;
-    my $ca_ee_host = $2;
-    my $https_ee_port = $3;
+    my $content = $_[0];
+    my $ca_ee_host = $_[1];
+    my $https_ee_port = $_[2];
 
     # Retrieve the secure agent port corresponding
     # to the selected EE host and secure ee port.
@@ -310,7 +310,7 @@ sub get_secure_agent_port_from_domain_xml
     foreach my $c (@{$xml->{'CAList'}[0]->{'CA'}}) {
       if( ( $ca_ee_host eq $c->{'Host'}[0] ) &&
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
-          $https_agent_port = https_$c->{'SecureAgentPort'}[0];
+          $https_agent_port = $c->{'SecureAgentPort'}[0];
           last;
       }
     }
@@ -320,9 +320,9 @@ sub get_secure_agent_port_from_domain_xml
 
 sub get_admin_host_from_domain_xml
 {
-    my $content = $1;
-    my $ca_ee_host = $2;
-    my $https_ee_port = $3;
+    my $content = $_[0];
+    my $ca_ee_host = $_[1];
+    my $https_ee_port = $_[2];
 
     # Retrieve the admin host corresponding
     # to the selected EE host and secure ee port.
@@ -336,10 +336,10 @@ sub get_admin_host_from_domain_xml
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
           if( $c->{'AdminHost'}[0] ne "" ) {
               # IP Port Separation Schema
-              $ca_admin_host = https_$c->{'AdminHost'}[0];
+              $ca_admin_host = $c->{'AdminHost'}[0];
           } else {
               # Port Separation Schema
-              $ca_admin_host = https_$c->{'Host'}[0];
+              $ca_admin_host = $c->{'Host'}[0];
           }
           last;
       }
@@ -350,9 +350,9 @@ sub get_admin_host_from_domain_xml
 
 sub get_agent_host_from_domain_xml
 {
-    my $content = $1;
-    my $ca_ee_host = $2;
-    my $https_ee_port = $3;
+    my $content = $_[0];
+    my $ca_ee_host = $_[1];
+    my $https_ee_port = $_[2];
 
     # Retrieve the agent host corresponding
     # to the selected EE host and secure ee port.
@@ -366,10 +366,10 @@ sub get_agent_host_from_domain_xml
           ( $https_ee_port eq $c->{'SecurePort'}[0] ) ) {
           if( $c->{'AgentHost'}[0] ne "" ) {
               # IP Port Separation Schema
-              $ca_agent_host = https_$c->{'AgentHost'}[0];
+              $ca_agent_host = $c->{'AgentHost'}[0];
           } else {
               # Port Separation Schema
-              $ca_agent_host = https_$c->{'Host'}[0];
+              $ca_agent_host = $c->{'Host'}[0];
           }
           last;
       }

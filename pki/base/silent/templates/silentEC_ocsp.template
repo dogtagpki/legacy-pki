@@ -173,20 +173,20 @@ ocsp_instance_name=
 ##      OCSP:
 ##
 ##          *180 - non-secure port (not role specific)
-##          *701 - non-secure Tomcat port
-##          *443 - secure EE port
-##          *444 - secure Agent port
+##          *443 - secure Agent port
+##          *444 - secure EE port
 ##          *445 - secure Admin port
+##          *701 - non-secure Tomcat port
 ##
 ##
 ##  For Example:
 ##
 ##      semanage port -l | grep pki
 ##
-##      pki_ocsp_port_t        tcp      11180, 11701, 11443, 11444, 11445
+##      pki_ocsp_port_t        tcp      11180, 11443, 11444, 11445, 11701
 ##
 
-## CA ports
+## CA ports (Security Domain)
 ca_nonssl_port=31180
 ca_agent_port=31443
 ca_ee_port=31444
@@ -197,6 +197,61 @@ ocsp_nonssl_port=12180
 ocsp_agent_port=12443
 ocsp_ee_port=12444
 ocsp_admin_port=12445
+
+## URL to CA used to Issue Certificates for OCSP Instance Creation
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain (see CAVEAT)
+##     * referenced CA must reside within the same security domain 
+##       as this OCSP instance
+##
+##       CAVEAT:   If the chosen CA is a security domain:
+##
+##                     * all OCSP subsystem certificates (including the
+##                       'Subsystem' certificates) will be stored on this CA
+##                     * the OCSP subsystem client 'Administration'
+##                       certificate will automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this OCSP subsystem
+##                     * the 'pkisilent' client security databases may be
+##                       used inside a firefox browser with no further
+##                       changes
+##
+##                 If the chosen CA is NOT a security domain:
+##
+##                     * all OCSP subsystem certificates EXCEPT the OCSP
+##                       'Subsystem' certificate will be stored on this CA;
+##                       the OCSP 'Subsystem' certificate will be stored on
+##                       the CA that is the security domain for this OCSP
+##                       subsystem
+##                     * the OCSP subsystem client 'Administration'
+##                       certificate will NOT automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this OCSP subsystem;
+##                       import will fail with something similar to the
+##                       following message:
+##
+##                           ERROR: exception importing cert: Security
+##                                  library failed to decode certificate
+##                                  package: (-8183) security library:
+##                                  improperly formatted DER-encoded
+##                                  message.
+##
+##                     * in order to utilize the 'pkisilent' client
+##                       security databases inside a firefox browser,
+##                       one will need to manually import the OCSP
+##                       'Administration' certificate for the OCSP subsystem
+##                       stored in this non-security domain CA
+##
+##     NOTE:  To pass in a value of an empty string, specify the value "empty"
+##            instead of "" since ArgParser() throws away empty strings.
+##
+##            This special "empty" string value may be specified for any of
+##            the following variables:
+##
+##                * ocsp_instance_ca_domain_url="empty"
+##
+ocsp_instance_ca_domain_url="https://${pki_security_domain_host}:${ca_ee_port}"
 
 
 ##############################################################################
@@ -503,6 +558,7 @@ pkisilent ConfigureOCSP \
 	-agent_key_type ${ocsp_agent_key_type} \
 	-agent_cert_subject "${ocsp_agent_cert_subject}" \
 	-subsystem_name ${ocsp_subsystem_name} \
+	-ca_domain_url "${ocsp_instance_ca_domain_url}" \
 	-ocsp_sign_cert_subject_name "${ocsp_sign_cert_subject_name}" \
 	-ocsp_subsystem_cert_subject_name "${ocsp_subsystem_cert_subject_name}" \
 	-ocsp_server_cert_subject_name "${ocsp_server_cert_subject_name}" \

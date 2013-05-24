@@ -165,6 +165,10 @@ public class ConfigureOCSP
     public static String ocsp_audit_signing_cert_subject_name = null;
 
     public static String subsystem_name = null;
+
+    // Name Panel - CertSubjectPanel()
+    public static String ca_domain_url = null;
+
     public ConfigureOCSP ()
     {
         // do nothing :)
@@ -494,7 +498,17 @@ public class ConfigureOCSP
         ArrayList cert_list = null;
         ArrayList dn_list = null;
 
-        String domain_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
+        String domain_url = null;
+        if ( ( ca_domain_url != null )       &&
+             ( !ca_domain_url.equals( "" ) ) &&
+             ( !ca_domain_url.equals( "empty" ) ) ) {
+            domain_url = ca_domain_url;
+        } else {
+            // Use the CA EE hostname and the CA EE port
+            domain_url = "https://" + ca_hostname + ":" + ca_ssl_port;
+        }
+        System.out.println("CertSubjectPanel() domain_url='" +
+                           domain_url + "'.");
 
         String query_string = "p=9" + "&op=next" + "&xml=true" +
                 "&subsystem=" + 
@@ -1028,6 +1042,9 @@ public class ConfigureOCSP
         // subsystemName
         StringHolder x_subsystem_name = new StringHolder();
 
+        // Name Panel - CertSubjectPanel()
+        StringHolder x_ca_domain_url = new StringHolder();
+
         // parse the args
         ArgParser parser = new ArgParser("ConfigureOCSP");
 
@@ -1152,6 +1169,10 @@ public class ConfigureOCSP
         "-subsystem_name %s #OCSP subsystem name",
                             x_subsystem_name); 
 
+        parser.addOption (
+        "-ca_domain_url %s #URL to CA used to Issue Certificates for OCSP Instance Creation",
+                            x_ca_domain_url);
+
         parser.addOption(
         "-ocsp_audit_signing_cert_subject_name %s #OCSP audit signing cert subject name",
                             x_ocsp_audit_signing_cert_subject_name);
@@ -1247,6 +1268,7 @@ public class ConfigureOCSP
         
         subsystem_name = x_subsystem_name.value ;
 
+        ca_domain_url = x_ca_domain_url.value;
 
         boolean st = ca.ConfigureOCSPInstance();
     
