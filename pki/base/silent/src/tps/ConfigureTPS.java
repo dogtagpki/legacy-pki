@@ -79,11 +79,15 @@ public class ConfigureTPS
 	public static String ca_ssl_port = null;
 	public static String ca_admin_port = null;
 
-	public static String drm_hostname = null;
-	public static String drm_ssl_port = null;
+	public static String drm_agent_hostname = null;
+	public static String drm_agent_port = null;
+	public static String drm_admin_hostname = null;
+	public static String drm_admin_port = null;
 
-	public static String tks_hostname = null;
-	public static String tks_ssl_port = null;
+	public static String tks_agent_hostname = null;
+	public static String tks_agent_port = null;
+	public static String tks_admin_hostname = null;
+	public static String tks_admin_port = null;
 
 	public static String client_certdb_dir = null;
     public static String client_token_name = null;
@@ -170,6 +174,18 @@ public class ConfigureTPS
 
 	// Admin Certificate Request Panel
 	public static String requestor_name = null;
+
+	// CA Info Panel - SubsystemPanel()
+	public static String ca_issuance_url = null;
+
+	// TKS Info Panel - SubsystemPanel()
+	public static String tks_key_management_url = null;
+
+	// DRM Info Panel - SubsystemPanel()
+	public static String drm_server_side_keygen_url = null;
+
+	// Name Panel - CertSubjectPanel()
+	public static String ca_domain_url = null;
 
 	public ConfigureTPS ()
 	{
@@ -344,13 +360,23 @@ public class ConfigureTPS
 		px.prettyprintxml();
 
 		sleep_time();
-		// 'ca_url' is not used, but refers to
-		// the CA EE hostname and the CA EE port
-		String ca_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
 
 		// CA choice panel
+		String ca_url = null;
+        if ( ( ca_issuance_url != null )       &&
+             ( !ca_issuance_url.equals( "" ) ) &&
+             ( !ca_issuance_url.equals( "empty" ) ) ) {
+			ca_url = ca_issuance_url;
+		} else {
+			// Use the CA EE hostname and the CA EE port
+			ca_url = "https://" + ca_hostname + ":" + ca_ssl_port;
+		}
+        System.out.println("SubsystemPanel() ca_url='" +
+                           ca_url + "'.");
+
 		query_string = "p=6" +
-						"&urls=0" +
+						"&urls=" +
+						URLEncoder.encode(ca_url) +
 						"&op=next" +
 						"&xml=true" ;
 
@@ -361,13 +387,27 @@ public class ConfigureTPS
 		px.prettyprintxml();
 
 		sleep_time();
+
 		// TKS choice panel
-        //
-		// 'tks_url' is not used, but refers to
-		// the TKS Agent hostname and the TKS Agent port
-		String tks_url = "https://" + tks_hostname + ":" + tks_ssl_port ;
+		String tks_url = null;
+        if ( ( tks_key_management_url != null )       &&
+             ( !tks_key_management_url.equals( "" ) ) &&
+             ( !tks_key_management_url.equals( "empty" ) ) ) {
+			tks_url = tks_key_management_url;
+		} else {
+			// Use the TKS Agent hostname and the TKS Agent port
+			tks_url = "https://" + tks_agent_hostname + ":" + tks_agent_port;
+		}
+        System.out.println("SubsystemPanel() tks_url='" +
+                           tks_url + "'.");
+
 		query_string = "p=7" +
-						"&urls=0" +
+						"&urls=" +
+						URLEncoder.encode(tks_url) +
+						"&adminhost=" +
+						URLEncoder.encode(tks_admin_hostname) +
+						"&adminport=" +
+						tks_admin_port +
 						"&op=next" +
 						"&xml=true" ;
 
@@ -377,21 +417,34 @@ public class ConfigureTPS
 		px.parse(bais);
 		px.prettyprintxml();
 
-		// DRM / server side keygen panel
-		
 		sleep_time();
+		
+		// DRM / server side keygen panel
 		if(ss_keygen.equalsIgnoreCase("true"))
 		{
 			ss_keygen = "keygen";
 		}
 
-		// 'drm_url' is not used, but refers to
-		// the DRM Agent hostname and the DRM Agent port
-		String drm_url = "https://" + drm_hostname + ":" + drm_ssl_port ;
+		String drm_url = null;
+        if ( ( drm_server_side_keygen_url != null )       &&
+             ( !drm_server_side_keygen_url.equals( "" ) ) &&
+             ( !drm_server_side_keygen_url.equals( "empty" ) ) ) {
+			drm_url = drm_server_side_keygen_url;
+		} else {
+			// Use the DRM Agent hostname and the DRM Agent port
+			drm_url = "https://" + drm_agent_hostname + ":" + drm_agent_port;
+		}
+        System.out.println("SubsystemPanel() drm_url='" +
+                           drm_url + "'.");
 
 		query_string = "p=8" +
 						"&choice=" + ss_keygen +
-						"&urls=0" +
+						"&urls=" +
+						URLEncoder.encode(drm_url) +
+						"&adminhost=" +
+						URLEncoder.encode(drm_admin_hostname) +
+						"&adminport=" +
+						drm_admin_port +
 						"&op=next" +
 						"&xml=true" ;
 
@@ -578,9 +631,17 @@ public class ConfigureTPS
 		ArrayList dn_list = null;
 		ArrayList friendly_list = null;
 
-		// 'ca_url' is not used, but refers to
-		// the CA EE hostname and the CA EE port
-		String ca_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
+		String ca_url = null;
+        if ( ( ca_domain_url != null )       &&
+             ( !ca_domain_url.equals( "" ) ) &&
+             ( !ca_domain_url.equals( "empty" ) ) ) {
+			ca_url = ca_domain_url;
+		} else {
+			// Use the CA EE hostname and the CA EE port
+			ca_url = "https://" + ca_hostname + ":" + ca_ssl_port;
+		}
+        System.out.println("CertSubjectPanel() ca_url='" +
+                           ca_url + "'.");
 
 		String query_string = "p=12" +
 					"&sslserver=" +
@@ -595,7 +656,8 @@ public class ConfigureTPS
 					URLEncoder.encode(tps_audit_signing_cert_subject_name) +
 					"&audit_signing_nick=" +
 					URLEncoder.encode(tps_audit_signing_cert_nickname) +
-					"&urls=0" +
+					"&urls=" +
+					URLEncoder.encode(ca_url) +
 					"&op=next" +
 					"&xml=true" ;
 
@@ -959,11 +1021,15 @@ public class ConfigureTPS
 		StringHolder x_ca_ssl_port = new StringHolder();
 		StringHolder x_ca_admin_port = new StringHolder();
 
-		StringHolder x_drm_hostname = new StringHolder();
-		StringHolder x_drm_ssl_port = new StringHolder();
+		StringHolder x_drm_agent_hostname = new StringHolder();
+		StringHolder x_drm_agent_port = new StringHolder();
+		StringHolder x_drm_admin_hostname = new StringHolder();
+		StringHolder x_drm_admin_port = new StringHolder();
 
-		StringHolder x_tks_hostname = new StringHolder();
-		StringHolder x_tks_ssl_port = new StringHolder();
+		StringHolder x_tks_agent_hostname = new StringHolder();
+		StringHolder x_tks_agent_port = new StringHolder();
+		StringHolder x_tks_admin_hostname = new StringHolder();
+		StringHolder x_tks_admin_port = new StringHolder();
 
 		StringHolder x_client_certdb_dir = new StringHolder();
 		StringHolder x_client_token_name = new StringHolder();
@@ -1023,6 +1089,18 @@ public class ConfigureTPS
 		// subsystemName
 		StringHolder x_subsystem_name = new StringHolder();
 
+		// CA Info Panel - SubsystemPanel()
+		StringHolder x_ca_issuance_url = new StringHolder();
+
+		// TKS Info Panel - SubsystemPanel()
+		StringHolder x_tks_key_management_url = new StringHolder();
+
+		// DRM Info Panel - SubsystemPanel()
+		StringHolder x_drm_server_side_keygen_url = new StringHolder();
+
+		// Name Panel - CertSubjectPanel()
+		StringHolder x_ca_domain_url = new StringHolder();
+
 
 		// parse the args
 		ArgParser parser = new ArgParser("ConfigureTPS");
@@ -1058,17 +1136,25 @@ public class ConfigureTPS
 		parser.addOption ("-ca_admin_port %s #CA SSL Admin port",
 							x_ca_admin_port); 
 
-		parser.addOption ("-drm_hostname %s #DRM Hostname",
-							x_drm_hostname); 
-		parser.addOption ("-drm_ssl_port %s #DRM SSL port",
-							x_drm_ssl_port); 
+		parser.addOption ("-drm_agent_hostname %s #DRM Agent Hostname",
+							x_drm_agent_hostname); 
+		parser.addOption ("-drm_agent_port %s #DRM Agent SSL port",
+							x_drm_agent_port); 
 		parser.addOption ("-ss_keygen %s #Enable Server Side Keygen [true,false]",
 							x_ss_keygen); 
+		parser.addOption ("-drm_admin_hostname %s #DRM Admin Hostname",
+							x_drm_admin_hostname); 
+		parser.addOption ("-drm_admin_port %s #DRM SSL Admin port",
+							x_drm_admin_port); 
 
-		parser.addOption ("-tks_hostname %s #TKS Hostname",
-							x_tks_hostname); 
-		parser.addOption ("-tks_ssl_port %s #TKS SSL port",
-							x_tks_ssl_port); 
+		parser.addOption ("-tks_agent_hostname %s #TKS Agent Hostname",
+							x_tks_agent_hostname); 
+		parser.addOption ("-tks_agent_port %s #TKS Agent SSL port",
+							x_tks_agent_port); 
+		parser.addOption ("-tks_admin_hostname %s #TKS Admin Hostname",
+							x_tks_admin_hostname); 
+		parser.addOption ("-tks_admin_port %s #TKS SSL Admin port",
+							x_tks_admin_port); 
 
 		parser.addOption ("-client_certdb_dir %s #Client CertDB dir",
 							x_client_certdb_dir); 
@@ -1158,6 +1244,22 @@ public class ConfigureTPS
 		"-subsystem_name %s #CA subsystem name",
 							x_subsystem_name); 
 
+		parser.addOption (
+		"-ca_issuance_url %s #URL to CA used to Issue Certificates",
+							x_ca_issuance_url);
+
+		parser.addOption (
+		"-tks_key_management_url %s #URL to TKS used for Key Management",
+							x_tks_key_management_url);
+
+		parser.addOption (
+		"-drm_server_side_keygen_url %s #URL to DRM used for Server-Side Keygen",
+							x_drm_server_side_keygen_url);
+
+		parser.addOption (
+		"-ca_domain_url %s #URL to CA used to Issue Certificates for TPS Instance Creation",
+							x_ca_domain_url);
+
 
 		// and then match the arguments
 		String [] unmatched = null;
@@ -1189,11 +1291,15 @@ public class ConfigureTPS
 		ca_ssl_port = x_ca_ssl_port.value;
 		ca_admin_port = x_ca_admin_port.value;
 
-		tks_hostname = x_tks_hostname.value;
-		tks_ssl_port = x_tks_ssl_port.value;
+		tks_agent_hostname = x_tks_agent_hostname.value;
+		tks_agent_port = x_tks_agent_port.value;
+		tks_admin_hostname = x_tks_admin_hostname.value;
+		tks_admin_port = x_tks_admin_port.value;
 
-		drm_hostname = x_drm_hostname.value;
-		drm_ssl_port = x_drm_ssl_port.value;
+		drm_agent_hostname = x_drm_agent_hostname.value;
+		drm_agent_port = x_drm_agent_port.value;
+		drm_admin_hostname = x_drm_admin_hostname.value;
+		drm_admin_port = x_drm_admin_port.value;
 
 		client_certdb_dir = x_client_certdb_dir.value;
         client_token_name = x_client_token_name.value;
@@ -1251,6 +1357,14 @@ public class ConfigureTPS
 			x_tps_audit_signing_cert_nickname.value;
 
 		subsystem_name = x_subsystem_name.value ;
+
+		ca_issuance_url = x_ca_issuance_url.value;
+
+		tks_key_management_url = x_tks_key_management_url.value;
+
+		drm_server_side_keygen_url = x_drm_server_side_keygen_url.value;
+
+		ca_domain_url = x_ca_domain_url.value;
 
 
 

@@ -90,9 +90,11 @@ pki_ca_admin_host=
 
 ##  PKI KRA Subsystem Hosts (FQDN)
 pki_kra_agent_host=
+pki_kra_admin_host=
 
 ##  PKI TKS Subsystem Hosts (FQDN)
 pki_tks_agent_host=
+pki_tks_admin_host=
 
 ##  PKI TPS Subsystem Host (computed by default)
 pki_host=`hostname`
@@ -101,27 +103,27 @@ pki_host=`hostname`
 ##  NOTE:  Default PKI CA Instance Ports
 ##
 ##          9180 - non-secure port (not role specific)
-##          9701 - non-secure Tomcat port
-##          9443 - secure EE port
-##          9444 - secure Agent port
+##          9443 - secure Agent port
+##          9444 - secure EE port
 ##          9445 - secure Admin port
 ##          9446 - secure EE Client Auth port (not necessarily labeled)
+##          9701 - non-secure Tomcat port
 ##
 ##  NOTE:  Default PKI DRM Instance Ports
 ##
 ##         10180 - non-secure port (not role specific)
-##         10701 - non-secure Tomcat port
-##         10443 - secure EE port
-##         10444 - secure Agent port
+##         10443 - secure Agent port
+##         10444 - secure EE port
 ##         10445 - secure Admin port
+##         10701 - non-secure Tomcat port
 ##
 ##  NOTE:  Default PKI TKS Instance Ports
 ##
 ##         13180 - non-secure port (not role specific)
-##         13701 - non-secure Tomcat port
-##         13443 - secure EE port
-##         13444 - secure Agent port
+##         13443 - secure Agent port
+##         13444 - secure EE port
 ##         13445 - secure Admin port
+##         13701 - non-secure Tomcat port
 ##
 ##  NOTE:  Default PKI TPS Instance Ports
 ##
@@ -134,23 +136,40 @@ pki_host=`hostname`
 ##
 ##      semanage port -l | grep pki
 ##
-##      pki_ca_port_t          tcp      9180, 9701, 9443, 9444, 9445
-##      pki_kra_port_t         tcp      10180, 10701, 10443, 10444, 10445
-##      pki_tks_port_t         tcp      13180, 13701, 13443, 13444, 13445
-##      pki_tps_port_t         tcp      7890, 7888, 7889
+##      pki_ca_port_t          tcp      9180, 9443, 9444, 9445, 9701
+##      pki_kra_port_t         tcp      10180, 10443, 10444, 10445, 10701
+##      pki_tks_port_t         tcp      13180, 13443, 13444, 13445, 13701
+##      pki_tps_port_t         tcp      7888, 7889, 7890
 ##
 
-## CA ports
+## PKI CA ports (Security Domain)
 pki_ca_nonssl_port=
-pki_ca_ee_port=
 pki_ca_agent_port=
+pki_ca_ee_port=
 pki_ca_admin_port=
+
+## PKI Subordinate CA ports (not a Security Domain)
+##
+##     NOTE:  Replace the CA EE Security Domain Host and Port to optionally use
+##            a Subordinate CA to Issue Certificates for Requests Submitted via
+##            this TPS
+##
+pki_alternate_subca_ee_host=${pki_ca_ee_host}
+pki_alternate_subca_ee_port=${pki_ca_ee_port}
+##
+##     NOTE:  Replace the CA EE Security Domain Host and Port to optionally use
+##            a Subordinate CA to Issue Certificates for TPS Instance Creation
+##
+pki_subca_ee_host=${pki_ca_ee_host}
+pki_subca_ee_port=${pki_ca_ee_port}
 
 ## DRM ports
 pki_kra_agent_port=
+pki_kra_admin_port=
 
 ## TKS ports
 pki_tks_agent_port=
+pki_tks_admin_port=
 
 ## TPS ports
 pki_tps_clientauth_port=
@@ -202,6 +221,28 @@ pki_email_name=
 pki_email_company=
 pki_email_domain=
 
+##
+##  TPS Variables
+##
+##      IMPORTANT:  The 'tps_ldap_auth_base_dn' should contain individual 
+##                  comma separated 'dc=<component>' values for each
+##                  portion of the value returned by 'dnsdomainname' on
+##                  the machine which hosts the LDAP server.
+##
+##                  For example, if 'dnsdomain' returns 'foo.example.com',
+##                  then:
+##
+##                      tps_ldap_auth_base_dn="dc=foo,dc=example,dc=com"
+##
+##                  Using this example, the following command may be
+##                  executed to test for a valid base DN:
+##
+##                      /usr/bin/ldapsearch -x -h ${pki_ldap_host}
+##                      -p ${pki_ldap_port} -b 'dc=foo,dc=example,dc=com'
+##                      -s base 'objectclass=*'
+##
+tps_ldap_auth_base_dn="dc=${pki_email_company},dc=${pki_email_domain}"
+
 ##  PKI Silent Admin Variables
 ##  (e. g. - Import Admin Certificate into PKI Silent "browser" database)
 pki_silent_admin_user=admin
@@ -216,6 +257,89 @@ pki_tps_instance_name="pki-tps"
 
 ##  PKI Silent Log Files
 pki_silent_tps_log=/tmp/tps.log
+
+## URL to CA used to Issue Certificates for Requests Submitted via TPS
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain
+##     * referenced CA must reside within the same security domain
+##       as the associated TPS instance
+##
+##     NOTE:  To pass in a value of an empty string, specify the value "empty"
+##            instead of "" since ArgParser() throws away empty strings.
+##
+##            This special "empty" string value may be specified for any of
+##            the following variables:
+##
+##                * pki_tps_chosen_ca_issuance_url="empty"
+##                * pki_tps_chosen_tks_key_management_url="empty"
+##                * pki_tps_chosen_drm_server_side_keygen_url="empty"
+##                * pki_tps_instance_ca_domain_url="empty"
+##
+pki_tps_chosen_ca_issuance_url="https://${pki_alternate_subca_ee_host}:${pki_alternate_subca_ee_port}"
+
+## URL to TKS used for Key Management for TPS
+##
+##     * each 'hostname:port' must be a TKS Agent Hostname and TKS Agent Port
+##     * referenced TKS must reside within the same security domain
+##       as the associated TPS instance
+##
+pki_tps_chosen_tks_key_management_url="https://${pki_tks_agent_host}:${pki_tks_agent_port}"
+
+## URL to optional DRM used for Server-Side Keygen for TPS (tps_ss_keygen=true)
+##
+##     * each 'hostname:port' must be a DRM Agent Hostname and DRM Agent Port
+##     * referenced DRM must reside within the same security domain
+##       as the associated TPS instance
+##
+pki_tps_chosen_drm_server_side_keygen_url="https://${pki_kra_agent_host}:${pki_kra_agent_port}"
+
+## URL to CA used to Issue Certificates for TPS Instance Creation
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain (see CAVEAT)
+##     * referenced CA must reside within the same security domain
+##       as this TPS instance
+##
+##       CAVEAT:   If the chosen CA is a security domain:
+##
+##                     * all TPS subsystem certificates (including the
+##                       'Subsystem' certificates) will be stored on this CA
+##                     * the TPS subsystem client 'Administration'
+##                       certificate will automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this TPS subsystem
+##                     * the 'pkisilent' client security databases may be
+##                       used inside a firefox browser with no further
+##                       changes
+##
+##                 If the chosen CA is NOT a security domain:
+##
+##                     * all TPS subsystem certificates EXCEPT the TPS
+##                       'Subsystem' certificate will be stored on this CA;
+##                       the TPS 'Subsystem' certificate will be stored on
+##                       the CA that is the security domain for this TPS
+##                       subsystem
+##                     * the TPS subsystem client 'Administration'
+##                       certificate will NOT automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this TPS subsystem;
+##                       import will fail with something similar to the
+##                       following message:
+##
+##                           ERROR: exception importing cert: Security
+##                                  library failed to decode certificate
+##                                  package: (-8183) security library:
+##                                  improperly formatted DER-encoded
+##                                  message.
+##
+##                     * in order to utilize the 'pkisilent' client
+##                       security databases inside a firefox browser,
+##                       one will need to manually import the TPS
+##                       'Administration' certificate for the TPS subsystem
+##                       stored in this non-security domain CA
+##
+pki_tps_instance_ca_domain_url="https://${pki_subca_ee_host}:${pki_subca_ee_port}"
 
 
 
@@ -295,17 +419,20 @@ tps_chosen_ca_admin_hostname=${pki_ca_admin_host}
 tps_chosen_ca_nonssl_port=${pki_ca_nonssl_port}
 tps_chosen_ca_ssl_port=${pki_ca_ee_port}
 tps_chosen_ca_admin_port=${pki_ca_admin_port}
-tps_chosen_tks_hostname=${pki_tks_agent_host}
-tps_chosen_tks_ssl_port=${pki_tks_agent_port}
-tps_chosen_drm_hostname=${pki_kra_agent_host}
-tps_chosen_drm_ssl_port=${pki_kra_agent_port}
+tps_chosen_tks_agent_hostname=${pki_tks_agent_host}
+tps_chosen_tks_agent_port=${pki_tks_agent_port}
+tps_chosen_tks_admin_hostname=${pki_tks_admin_host}
+tps_chosen_tks_admin_port=${pki_tks_admin_port}
+tps_chosen_drm_agent_hostname=${pki_kra_agent_host}
+tps_chosen_drm_agent_port=${pki_kra_agent_port}
+tps_chosen_drm_admin_hostname=${pki_kra_admin_host}
+tps_chosen_drm_admin_port=${pki_kra_admin_port}
 tps_agent_name="TPS\ Administrator\'s\ ${pki_security_domain_name}\ ID"
 tps_agent_key_size=2048
 tps_agent_key_type=rsa
 tps_agent_cert_subject="cn=TPS\ Administrator,uid=admin,e=${pki_silent_admin_email},o=${pki_security_domain_name}"
 tps_ldap_auth_host="${pki_ldap_host}"
 tps_ldap_auth_port=${pki_ldap_port}
-tps_ldap_auth_base_dn="dc=${pki_email_company},dc=${pki_email_domain}"
 tps_base_dn="dc=${pki_host}-${pki_tps_instance_name}"
 tps_db_name="${pki_host}-${pki_tps_instance_name}"
 tps_key_size=2048
@@ -348,8 +475,16 @@ if [ "${pki_kra_agent_host}" = "" ] ; then
     printf "${usage_error_preamble} 'pki_kra_agent_host'!\n"
     usage_errors=`expr ${usage_errors} + 1`
 fi
+if [ "${pki_kra_admin_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_kra_admin_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
 if [ "${pki_tks_agent_host}" = "" ] ; then
     printf "${usage_error_preamble} 'pki_tks_agent_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_tks_admin_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_tks_admin_host'!\n"
     usage_errors=`expr ${usage_errors} + 1`
 fi
 if [ "${pki_ca_nonssl_port}" = "" ] ; then
@@ -372,8 +507,16 @@ if [ "${pki_kra_agent_port}" = "" ] ; then
     printf "${usage_error_preamble} 'pki_kra_agent_port'!\n"
     usage_errors=`expr ${usage_errors} + 1`
 fi
+if [ "${pki_kra_admin_port}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_kra_admin_port'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
 if [ "${pki_tks_agent_port}" = "" ] ; then
     printf "${usage_error_preamble} 'pki_tks_agent_port'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_tks_admin_port}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_tks_admin_port'!\n"
     usage_errors=`expr ${usage_errors} + 1`
 fi
 if [ "${pki_tps_clientauth_port}" = "" ] ; then
@@ -542,11 +685,18 @@ pkisilent ConfigureTPS \
     -ca_port ${tps_chosen_ca_nonssl_port} \
     -ca_ssl_port ${tps_chosen_ca_ssl_port} \
     -ca_admin_port ${tps_chosen_ca_admin_port} \
-    -drm_hostname ${tps_chosen_drm_hostname} \
-    -drm_ssl_port ${tps_chosen_drm_ssl_port} \
+    -ca_issuance_url "${pki_tps_chosen_ca_issuance_url}" \
+    -drm_agent_hostname ${tps_chosen_drm_agent_hostname} \
+    -drm_agent_port ${tps_chosen_drm_agent_port} \
+    -drm_admin_hostname ${tps_chosen_drm_admin_hostname} \
+    -drm_admin_port ${tps_chosen_drm_admin_port} \
+    -drm_server_side_keygen_url "${pki_tps_chosen_drm_server_side_keygen_url}" \
     -ss_keygen ${tps_ss_keygen} \
-    -tks_hostname ${tps_chosen_tks_hostname} \
-    -tks_ssl_port ${tps_chosen_tks_ssl_port} \
+    -tks_agent_hostname ${tps_chosen_tks_agent_hostname} \
+    -tks_agent_port ${tps_chosen_tks_agent_port} \
+    -tks_admin_hostname ${tps_chosen_tks_admin_hostname} \
+    -tks_admin_port ${tps_chosen_tks_admin_port} \
+    -tks_key_management_url "${pki_tps_chosen_tks_key_management_url}" \
     -client_certdb_dir ${pki_silent_security_database_repository} \
     -client_certdb_pwd ${pki_silent_security_token_password} \
     -client_token_name ${pki_silent_security_token_name} \
@@ -570,6 +720,7 @@ pkisilent ConfigureTPS \
     -agent_key_type ${tps_agent_key_type} \
     -agent_cert_subject "${tps_agent_cert_subject}" \
     -subsystem_name ${pki_tps_subsystem_name} \
+    -ca_domain_url "${pki_tps_instance_ca_domain_url}" \
     -ldap_auth_host ${tps_ldap_auth_host} \
     -ldap_auth_port ${tps_ldap_auth_port} \
     -ldap_auth_base_dn ${tps_ldap_auth_base_dn} \

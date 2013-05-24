@@ -179,6 +179,9 @@ public class ConfigureDRM
 
     public static String subsystem_name = null;
 
+    // Name Panel - CertSubjectPanel()
+    public static String ca_domain_url = null;
+
     // cloning
     public static boolean clone = false;
     public static String clone_uri = null;
@@ -576,7 +579,17 @@ public class ConfigureDRM
         ArrayList dn_list = null;
         String query_string = null;
 
-        String domain_url = "https://" + ca_hostname + ":" + ca_ssl_port ;
+        String domain_url = null;
+        if ( ( ca_domain_url != null )       &&
+             ( !ca_domain_url.equals( "" ) ) &&
+             ( !ca_domain_url.equals( "empty" ) ) ) {
+            domain_url = ca_domain_url;
+        } else {
+            // Use the CA EE hostname and the CA EE port
+            domain_url = "https://" + ca_hostname + ":" + ca_ssl_port;
+        }
+        System.out.println("CertSubjectPanel() domain_url='" +
+                           domain_url + "'.");
 
         if (!clone) {
             query_string = "p=9" + "&op=next" + "&xml=true" +
@@ -1143,6 +1156,9 @@ public class ConfigureDRM
         // subsystemName
         StringHolder x_subsystem_name = new StringHolder();
 
+        // Name Panel - CertSubjectPanel()
+        StringHolder x_ca_domain_url = new StringHolder();
+
         //clone parameters
         StringHolder x_clone = new StringHolder();
         StringHolder x_clone_uri = new StringHolder();
@@ -1281,6 +1297,10 @@ public class ConfigureDRM
         "-subsystem_name %s #CA subsystem name",
                             x_subsystem_name); 
 
+        parser.addOption (
+        "-ca_domain_url %s #URL to CA used to Issue Certificates for DRM Instance Creation",
+                            x_ca_domain_url);
+
         parser.addOption(
         "-drm_audit_signing_cert_subject_name %s #DRM audit signing cert subject name",
                             x_drm_audit_signing_cert_subject_name);
@@ -1386,6 +1406,8 @@ public class ConfigureDRM
                 drm_audit_signing_cert_subject_name = x_drm_audit_signing_cert_subject_name.value;
         
         subsystem_name = x_subsystem_name.value;
+
+        ca_domain_url = x_ca_domain_url.value;
 
         if ((x_clone.value != null) && (x_clone.value.equalsIgnoreCase("true"))) {
             clone = true;

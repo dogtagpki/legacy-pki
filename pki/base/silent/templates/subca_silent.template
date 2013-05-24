@@ -148,31 +148,48 @@ subca_instance_name="pki-ca1"
 ##      CA:
 ##
 ##          *180 - non-secure port (not role specific)
-##          *701 - non-secure Tomcat port
-##          *443 - secure EE port
-##          *444 - secure Agent port
+##          *443 - secure Agent port
+##          *444 - secure EE port
 ##          *445 - secure Admin port
+##          *701 - non-secure Tomcat port
 ##
 ##
 ##  For Example:
 ##
 ##      semanage port -l | grep pki
 ##
-##      pki_ca_port_t          tcp      9180, 9701, 9443, 9444, 9445
-##      pki_ca1_port_t         tcp      9580, 9801, 9543, 9544, 9545
+##      pki_ca_port_t          tcp      9180, 9443, 9444, 9445, 9701
+##      pki_ca1_port_t         tcp      9580, 9543, 9544, 9545, 9801
 ##
 
-## CA ports
+## CA ports (Security Domain)
 ca_nonssl_port=9180
 ca_agent_port=9443
 ca_ee_port=9444
 ca_admin_port=9445
 
-## Subordinate CA ports
+## Subordinate CA ports (not a Security Domain)
 subca_nonssl_port=9580
 subca_agent_port=9543
 subca_ee_port=9544
 subca_admin_port=9545
+
+## URL to CA used to Issue Certificates for Subordinate CA Instance Creation
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain
+##     * referenced CA must reside within the same security domain 
+##       as this Subordinate CA instance
+##
+##     NOTE:  To pass in a value of an empty string, specify the value "empty"
+##            instead of "" since ArgParser() throws away empty strings.
+##
+##            This special "empty" string value may be specified for any of
+##            the following variables:
+##
+##                * subca_instance_ca_domain_url="empty"
+##
+subca_instance_ca_domain_url="https://${pki_security_domain_host}:${ca_ee_port}"
 
 
 
@@ -499,6 +516,7 @@ pkisilent ConfigureSubCA \
     -save_p12 ${subca_save_p12} \
 	-backup_pwd ${subca_backup_password} \
 	-subsystem_name "${ca_subsystem_name}" \
+	-ca_domain_url "${subca_instance_ca_domain_url}" \
 	-subca_sign_cert_subject_name "${subca_sign_cert_subject_name}" \
 	-subca_subsystem_cert_subject_name "${subca_subsystem_cert_subject_name}" \
 	-subca_ocsp_cert_subject_name "${subca_ocsp_cert_subject_name}" \

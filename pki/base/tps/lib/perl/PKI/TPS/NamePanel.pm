@@ -300,18 +300,28 @@ GEN_CERT:
                       "auth_hostname=" . $sdom_url->host . "&" .
                       "auth_port=" . $sdom_url->port;
 
+                # NOTE:  Must save the original values of '$ca_ee_host' and
+                #        '$https_ee_port' because if 'subsystem' is not
+                #        the last value specifed in 'CS.cfg::preop.cert.list',
+                #        it was discovered that the following code was
+                #        resetting these values for every value that follows.
+                my $sslget_ca_ee_host = "";
+                my $sslget_https_ee_port = "";
                 if ($certtag eq "subsystem") {
-                    $ca_ee_host = $sdom_url->host;
-                    $https_ee_port = $sdom_url->port;
+                    $sslget_ca_ee_host = $sdom_url->host;
+                    $sslget_https_ee_port = $sdom_url->port;
+                } else {
+                    $sslget_ca_ee_host = $ca_ee_host;
+                    $sslget_https_ee_port = $https_ee_port;
                 }
                 if ($changed eq "true") {
                 # nickname changed is true, using token passwd for calling sslget
-$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_ee_host:$https_ee_port";
-$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_ee_host:$https_ee_port";
+$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $sslget_ca_ee_host:$sslget_https_ee_port";
+$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $sslget_ca_ee_host:$sslget_https_ee_port";
                 } else {
                 # nickname changed is false, using internal passwd for calling sslget
-$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_ee_host:$https_ee_port";
-$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $ca_ee_host:$https_ee_port";
+$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $sslget_ca_ee_host:$sslget_https_ee_port";
+$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $sslget_ca_ee_host:$sslget_https_ee_port";
                 }
 
                 &PKI::TPS::Wizard::debug_log("debug_req = " . $debug_req);

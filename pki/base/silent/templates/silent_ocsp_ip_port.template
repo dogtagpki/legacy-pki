@@ -85,41 +85,49 @@ pki_ca_ee_host=
 pki_ca_admin_host=
 
 ##  PKI OCSP Subsystem Hosts (FQDN)
-pki_ocsp_ee_host=
 pki_ocsp_agent_host=
+pki_ocsp_ee_host=
 pki_ocsp_admin_host=
 
 ##
 ##  NOTE:  Default PKI CA Instance Ports
 ##
 ##          9180 - non-secure port (not role specific)
-##          9701 - non-secure Tomcat port
-##          9443 - secure EE port
-##          9444 - secure Agent port
+##          9443 - secure Agent port
+##          9444 - secure EE port
 ##          9445 - secure Admin port
 ##          9446 - secure EE Client Auth port (not necessarily labeled)
+##          9701 - non-secure Tomcat port
 ##
 ##  NOTE:  Default PKI OCSP Instance Ports
 ##
 ##         11180 - non-secure port (not role specific)
-##         11701 - non-secure Tomcat port
-##         11443 - secure EE port
-##         11444 - secure Agent port
+##         11443 - secure Agent port
+##         11444 - secure EE port
 ##         11445 - secure Admin port
+##         11701 - non-secure Tomcat port
 ##
 ##  For Example:
 ##
 ##      semanage port -l | grep pki
 ##
-##      pki_ca_port_t          tcp      9180, 9701, 9443, 9444, 9445
-##      pki_ocsp_port_t        tcp      11180, 11701, 11443, 11444, 11445
+##      pki_ca_port_t          tcp      9180, 9443, 9444, 9445, 9701
+##      pki_ocsp_port_t        tcp      11180, 11443, 11444, 11445, 11701
 ##
 
-## PKI CA ports
+## PKI CA ports (Security Domain)
 pki_ca_nonssl_port=
-pki_ca_ee_port=
 pki_ca_agent_port=
+pki_ca_ee_port=
 pki_ca_admin_port=
+
+## PKI Subordinate CA ports (not a Security Domain)
+##
+##     NOTE:  Replace the CA EE Security Domain Host and Port to optionally use
+##            a Subordinate CA to Issue Certificates for OCSP Instance Creation
+##
+pki_subca_ee_host=${pki_ca_ee_host}
+pki_subca_ee_port=${pki_ca_ee_port}
 
 ## PKI OCSP ports
 pki_ocsp_admin_port=
@@ -199,6 +207,61 @@ pki_ocsp_instance_name="pki-ocsp"
 
 ##  PKI Silent Log Files
 pki_silent_ocsp_log=/tmp/ocsp.log
+
+## URL to CA used to Issue Certificates for OCSP Instance Creation
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain (see CAVEAT)
+##     * referenced CA must reside within the same security domain
+##       as this OCSP instance
+##
+##       CAVEAT:   If the chosen CA is a security domain:
+##
+##                     * all OCSP subsystem certificates (including the
+##                       'Subsystem' certificates) will be stored on this CA
+##                     * the OCSP subsystem client 'Administration'
+##                       certificate will automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this OCSP subsystem
+##                     * the 'pkisilent' client security databases may be
+##                       used inside a firefox browser with no further
+##                       changes
+##
+##                 If the chosen CA is NOT a security domain:
+##
+##                     * all OCSP subsystem certificates EXCEPT the OCSP
+##                       'Subsystem' certificate will be stored on this CA;
+##                       the OCSP 'Subsystem' certificate will be stored on
+##                       the CA that is the security domain for this OCSP
+##                       subsystem
+##                     * the OCSP subsystem client 'Administration'
+##                       certificate will NOT automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this OCSP subsystem;
+##                       import will fail with something similar to the
+##                       following message:
+##
+##                           ERROR: exception importing cert: Security
+##                                  library failed to decode certificate
+##                                  package: (-8183) security library:
+##                                  improperly formatted DER-encoded
+##                                  message.
+##
+##                     * in order to utilize the 'pkisilent' client
+##                       security databases inside a firefox browser,
+##                       one will need to manually import the OCSP
+##                       'Administration' certificate for the OCSP subsystem
+##                       stored in this non-security domain CA
+##
+##     NOTE:  To pass in a value of an empty string, specify the value "empty"
+##            instead of "" since ArgParser() throws away empty strings.
+##
+##            This special "empty" string value may be specified for any of
+##            the following variables:
+##
+##                * pki_ocsp_instance_ca_domain_url="empty"
+##
+pki_ocsp_instance_ca_domain_url="https://${pki_subca_ee_host}:${pki_subca_ee_port}"
 
 
 
@@ -532,6 +595,7 @@ pkisilent ConfigureOCSP \
     -agent_key_type ${ocsp_agent_key_type} \
     -agent_cert_subject "${ocsp_agent_cert_subject}" \
     -subsystem_name ${pki_ocsp_subsystem_name} \
+    -ca_domain_url "${pki_ocsp_instance_ca_domain_url}" \
     -save_p12 ${ocsp_save_p12} \
     -backup_pwd ${pki_ocsp_backup_password} \
     -ocsp_sign_cert_subject_name "${ocsp_sign_cert_subject_name}" \
