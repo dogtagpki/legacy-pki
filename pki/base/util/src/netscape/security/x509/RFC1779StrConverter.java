@@ -17,10 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
-import java.io.IOException;
+import java.io.*;
 
-import netscape.security.util.DerValue;
-import netscape.security.util.ObjectIdentifier;
+import netscape.security.util.*;
 
 /**
  * Converts a RFC 1779 string to a X500Name, RDN or AVA object and vice versa.

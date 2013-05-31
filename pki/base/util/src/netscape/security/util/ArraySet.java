@@ -17,12 +17,7 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.util;
 
-import java.util.AbstractSet;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.*;
 
 /**
  * This class implements the Set interface, backed by an ArrayList.  It is

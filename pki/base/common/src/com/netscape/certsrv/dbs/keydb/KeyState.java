@@ -18,7 +18,10 @@
 package com.netscape.certsrv.dbs.keydb;
 
 
-import java.io.Serializable;
+import java.util.*;
+import java.io.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
 
 
 /**

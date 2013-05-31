@@ -19,15 +19,15 @@ package netscape.security.extensions;
 
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Vector;
+import java.io.*;
+import java.util.*;
 
-import netscape.security.util.BigInt;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.ObjectIdentifier;
+import java.security.cert.CertificateException;
+import netscape.security.x509.*;
+import netscape.security.util.*;
 
 /**
  * This represents a KerberosName as defined in

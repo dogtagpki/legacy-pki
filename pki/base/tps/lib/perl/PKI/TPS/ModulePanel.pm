@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -48,7 +48,7 @@ sub new {
     $self->{"update"} = \&update;
     $self->{"panelvars"} = \&display;
 
-    my $flavor = "pki";
+    my $flavor = `pkiflavor`;
     $flavor =~ s/\n//g;
 
     my $pkiroot = $ENV{PKI_ROOT};

@@ -18,19 +18,17 @@
 package com.netscape.certsrv.dbs.certdb;
 
 
-import java.math.BigInteger;
+import java.math.*;
+import java.util.*;
+import java.io.*;
+import java.security.*;
+import java.security.cert.*;
 import java.security.cert.Certificate;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
-
-import netscape.ldap.LDAPEntry;
-import netscape.security.x509.X509CertImpl;
-
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.MetaInfo;
-import com.netscape.certsrv.dbs.ModificationSet;
-import com.netscape.certsrv.dbs.repository.IRepository;
+import netscape.security.x509.*;
+import netscape.ldap.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.repository.*;
 
 
 /**

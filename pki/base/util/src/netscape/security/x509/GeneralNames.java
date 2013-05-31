@@ -21,8 +21,7 @@ import java.io.IOException;
 import java.util.Enumeration;
 import java.util.Vector;
 
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * This object class represents the GeneralNames type required in

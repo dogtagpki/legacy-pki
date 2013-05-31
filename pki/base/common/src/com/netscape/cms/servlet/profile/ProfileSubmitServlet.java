@@ -18,59 +18,31 @@
 package com.netscape.cms.servlet.profile;
 
 
+import java.util.*;
 import java.math.BigInteger;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.X509Certificate;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.StringTokenizer;
+import java.security.cert.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.x509.BasicConstraintsExtension;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
-
-import org.w3c.dom.Node;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authority.IAuthority;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.MetaInfo;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.certdb.ICertRecord;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.profile.EDeferException;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.ERejectException;
-import com.netscape.certsrv.profile.IEnrollProfile;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.profile.IProfileAuthenticator;
-import com.netscape.certsrv.profile.IProfileContext;
-import com.netscape.certsrv.profile.IProfileInput;
-import com.netscape.certsrv.profile.IProfileOutput;
-import com.netscape.certsrv.profile.IProfileSubsystem;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.INotify;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.certsrv.request.RequestId;
-import com.netscape.certsrv.request.RequestStatus;
-import com.netscape.certsrv.template.ArgList;
-import com.netscape.certsrv.template.ArgSet;
-import com.netscape.certsrv.util.IStatsSubsystem;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.template.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.cms.servlet.common.*;
 import com.netscape.cms.servlet.common.AuthCredentials;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cmsutil.util.Cert;
-import com.netscape.cmsutil.xml.XMLObject;
+import com.netscape.cmsutil.xml.*;
+import com.netscape.cmsutil.util.*;
+import org.w3c.dom.*;
+import netscape.security.x509.*;
 
 
 /**
@@ -93,6 +65,7 @@ public class ProfileSubmitServlet extends ProfileServlet {
     private String mReqType = null;
     private String mAuthorityId = null;
 
+    private final static byte EOL[] = { Character.LINE_SEPARATOR };
     private final static String[]
         SIGNED_AUDIT_AUTOMATED_REJECTION_REASON = new String[] {
             
@@ -458,16 +431,10 @@ public class ProfileSubmitServlet extends ProfileServlet {
         HttpServletResponse response = cmsReq.getHttpResp();
         boolean xmlOutput = false;
 
-        String v = request.getParameter("xml");
+        String v = request.getParameter("xmlOutput");
         if ((v != null) && (v.equalsIgnoreCase("true"))) {
-            xmlOutput = true;
-        }
-        v = request.getParameter("xmlOutput");
-        if ((v != null) && (v.equalsIgnoreCase("true"))) {
-            xmlOutput = true;
-        }
-        if (xmlOutput) {
             CMS.debug("xmlOutput true");
+            xmlOutput = true;
         } else {
             CMS.debug("xmlOutput false");
         }
@@ -840,7 +807,7 @@ public class ProfileSubmitServlet extends ProfileServlet {
             } else {
                 args.set(ARG_ERROR_CODE, "1");
                 args.set(ARG_ERROR_REASON, CMS.getUserMessage(locale,
-                    "CMS_PROFILE_NOT_FOUND", profileId));
+                    "CMS_PROFILE_NOT_FOUND", escapeJavaScriptString(profileId)));
                 outputTemplate(request, response, args);
             }
             return;
@@ -851,7 +818,7 @@ public class ProfileSubmitServlet extends ProfileServlet {
             } else {
                 args.set(ARG_ERROR_CODE, "1");
                 args.set(ARG_ERROR_REASON, CMS.getUserMessage(locale,
-                    "CMS_PROFILE_NOT_FOUND", renewProfileId));
+                    "CMS_PROFILE_NOT_FOUND", escapeJavaScriptString(renewProfileId)));
                 outputTemplate(request, response, args);
             }
             return;
@@ -865,7 +832,7 @@ public class ProfileSubmitServlet extends ProfileServlet {
             } else {
                 args.set(ARG_ERROR_CODE, "1");
                 args.set(ARG_ERROR_REASON, CMS.getUserMessage(locale,
-                    "CMS_PROFILE_NOT_FOUND", profileId));
+                    "CMS_PROFILE_NOT_FOUND", escapeJavaScriptString(profileId)));
                 outputTemplate(request, response, args);
             }
             if (statsSub != null) {
@@ -883,7 +850,7 @@ public class ProfileSubmitServlet extends ProfileServlet {
             } else {
                 args.set(ARG_ERROR_CODE, "1");
                 args.set(ARG_ERROR_REASON, CMS.getUserMessage(locale,
-                    "CMS_PROFILE_NOT_FOUND", renewProfileId));
+                    "CMS_PROFILE_NOT_FOUND", escapeJavaScriptString(renewProfileId)));
                 outputTemplate(request, response, args);
             }
             return;

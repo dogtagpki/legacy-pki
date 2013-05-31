@@ -17,10 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.acl;
 
-import java.security.Principal;
-import java.security.acl.Group;
-import java.util.Enumeration;
-import java.util.Vector;
+import java.util.*;
+import java.security.*;
+import java.security.acl.*;
 
 /**
  * This class implements a group of principals.

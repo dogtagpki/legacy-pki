@@ -18,29 +18,30 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.util.IncorrectPasswordException;
-import org.mozilla.jss.util.Password;
+import javax.servlet.http.*;
+import javax.servlet.*;
 
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.util.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.password.PlainPasswordReader;
-import com.netscape.cmsutil.password.PlainPasswordWriter;
+import com.netscape.certsrv.property.*;
+import com.netscape.cmsutil.crypto.*;
+import java.util.*;
+import java.io.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.pkcs11.*;
+import org.mozilla.jss.util.Password;
+import org.mozilla.jss.util.PasswordCallback;
+import org.mozilla.jss.util.IncorrectPasswordException;
+import com.netscape.cmsutil.password.*;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class ConfigHSMLoginPanel extends WizardPanelBase {
     private CryptoManager mCryptoManager = null;
@@ -156,7 +157,7 @@ public class ConfigHSMLoginPanel extends WizardPanelBase {
 
         password = new Password(tokPwd.toCharArray());
 
-        {
+        if (password != null) {
             try {
                 if (token.passwordIsInitialized()) {
                     CMS.debug(
@@ -188,6 +189,10 @@ public class ConfigHSMLoginPanel extends WizardPanelBase {
                 context.put("errorString", e.toString());
                 rv = false;
             }
+        } else { // no password in password file, get from user
+            CMS.debug(
+                    "ConfigHSMLoginPanel:  loginToken():no password in cache, getting from user");
+            rv = false;
         }
         return rv;
     }
@@ -240,7 +245,6 @@ public class ConfigHSMLoginPanel extends WizardPanelBase {
             CMS.debug("ConfigHSMLoginPanel: password not found");
             context.put("error", "no password");
             context.put("panel", "admin/console/config/config_hsmloginpanel.vm");
-            context.put("updateStatus", "no password");
             return;
         } else {
             CMS.debug("ConfigHSMLoginPanel: got password");
@@ -262,7 +266,6 @@ public class ConfigHSMLoginPanel extends WizardPanelBase {
                             "ConfigHSMLoginPanel:loginToken failed for "
                                     + uTokName);
                     context.put("error", "tokenLoginFailed");
-                    context.put("updateStatus", "login failed");
                     context.put("panel",
                             "admin/console/config/config_hsmloginpanel.vm");
                     return;
@@ -275,6 +278,26 @@ public class ConfigHSMLoginPanel extends WizardPanelBase {
                 pw.putPassword("hardware-"+uTokName, uPasswd);
                 pw.commit();
 
+                // also store reference in CS.cfg in case we want to remove password.conf
+                String tokenList = cs.getString("cms.tokenPasswordList", "");
+                String [] tokens = tokenList.split(",");
+                boolean foundToken = false;
+                for (int i=0; i< tokens.length; i++) {
+                    if (tokens[i].equals(uTokName)) {
+                       foundToken = true;
+                       break;
+                    }
+                }
+                if (! foundToken) {
+                    if (tokenList.equals("")) {
+                        tokenList = uTokName;
+                    } else {
+                        tokenList = tokenList + "," + uTokName;
+                    }
+                    cs.putString("cms.tokenPasswordList", tokenList);
+                    cs.commit(true);
+                    CMS.debug("ConfigHSMLoginPanel: update(): Added " + uTokName + "to cms.tokenPasswordList");
+                }
             } catch (FileNotFoundException e) {
                 CMS.debug(
                         "ConfigHSMLoginPanel: update(): Exception caught: "
@@ -296,7 +319,6 @@ public class ConfigHSMLoginPanel extends WizardPanelBase {
         context.put("panel", "admin/console/config/config_hsmloginpanel.vm");
         context.put("status", "update");
         context.put("error", "");
-        context.put("updateStatus", "success");
 
     }
 

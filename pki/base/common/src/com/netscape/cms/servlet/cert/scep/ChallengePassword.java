@@ -17,16 +17,15 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.cert.scep;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.security.cert.CertificateException;
-import java.util.Enumeration;
-import java.util.Hashtable;
+import java.io.*;
+import java.security.*;
+import java.util.Properties;
+import java.util.*;
 
-import netscape.security.util.DerValue;
-import netscape.security.x509.CertAttrSet;
+import netscape.security.util.*;
+import netscape.security.x509.*;
+import com.netscape.cmsutil.scep.*;
+import java.security.cert.CertificateException;
 
 /**
  * Class for handling the decoding of a SCEP Challenge Password

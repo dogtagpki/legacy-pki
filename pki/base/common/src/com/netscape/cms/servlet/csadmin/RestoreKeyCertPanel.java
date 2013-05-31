@@ -18,61 +18,35 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.Principal;
-import java.security.PublicKey;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.ldap.LDAPDN;
-import netscape.security.x509.X509CertImpl;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.asn1.ANY;
-import org.mozilla.jss.asn1.BMPString;
-import org.mozilla.jss.asn1.OBJECT_IDENTIFIER;
-import org.mozilla.jss.asn1.OCTET_STRING;
-import org.mozilla.jss.asn1.SEQUENCE;
-import org.mozilla.jss.asn1.SET;
-import org.mozilla.jss.crypto.Cipher;
-import org.mozilla.jss.crypto.CryptoStore;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.crypto.EncryptionAlgorithm;
-import org.mozilla.jss.crypto.IVParameterSpec;
-import org.mozilla.jss.crypto.InternalCertificate;
-import org.mozilla.jss.crypto.KeyGenAlgorithm;
-import org.mozilla.jss.crypto.KeyGenerator;
-import org.mozilla.jss.crypto.KeyWrapAlgorithm;
-import org.mozilla.jss.crypto.KeyWrapper;
-import org.mozilla.jss.crypto.SymmetricKey;
-import org.mozilla.jss.crypto.X509Certificate;
-import org.mozilla.jss.pkcs11.PK11Store;
-import org.mozilla.jss.pkcs12.AuthenticatedSafes;
-import org.mozilla.jss.pkcs12.CertBag;
-import org.mozilla.jss.pkcs12.PFX;
-import org.mozilla.jss.pkcs12.PasswordConverter;
-import org.mozilla.jss.pkcs12.SafeBag;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.security.*;
+import java.math.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import java.io.*;
+import java.net.URL;
+import com.netscape.certsrv.base.*;
+import java.util.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.util.*;
+import org.mozilla.jss.pkcs12.*;
+import org.mozilla.jss.pkcs11.*;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.crypto.PrivateKey.Type;
+import org.mozilla.jss.pkix.primitive.*;
 import org.mozilla.jss.pkix.primitive.Attribute;
-import org.mozilla.jss.pkix.primitive.EncryptedPrivateKeyInfo;
-import org.mozilla.jss.pkix.primitive.PrivateKeyInfo;
-import org.mozilla.jss.util.Password;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
+import com.netscape.cms.servlet.wizard.*;
+import netscape.ldap.*;
+import java.security.interfaces.*;
 
 public class RestoreKeyCertPanel extends WizardPanelBase {
 
@@ -206,7 +180,6 @@ public class RestoreKeyCertPanel extends WizardPanelBase {
             s = HttpInput.getPassword(request, "__password");
             if (s == null || s.equals("")) {
                 CMS.debug("RestoreKeyCertPanel validate: password is empty");
-                context.put("updateStatus", "validate-failure");
                 throw new IOException("Empty password");
             }
         }
@@ -229,7 +202,6 @@ public class RestoreKeyCertPanel extends WizardPanelBase {
             } catch (EBaseException e) {
             }
             getConfigEntriesFromMaster(request, response, context);
-            context.put("updateStatus", "success");
             return;
         }
         String pwd = HttpInput.getPassword(request, "__password");
@@ -327,7 +299,6 @@ public class RestoreKeyCertPanel extends WizardPanelBase {
             
                 importkeycert(pkeyinfo_collection, cert_collection);
             } else {
-                context.put("updateStatus", "failure");
                 throw new IOException("The pkcs12 file is not correct.");
             }
         }
@@ -347,7 +318,6 @@ public class RestoreKeyCertPanel extends WizardPanelBase {
             if (!cloneReady) {
                 CMS.debug("RestoreKeyCertPanel update: clone does not have all the certificates.");
                 context.put("errorString", "Make sure you have copied the certificate database over to the clone");
-                context.put("updateStatus", "failure");
                 throw new IOException("Clone is not ready");
             }
         }
@@ -359,7 +329,6 @@ public class RestoreKeyCertPanel extends WizardPanelBase {
         }
 
         getConfigEntriesFromMaster(request, response, context);
-        context.put("updateStatus", "success");
     }
 
     private void getConfigEntriesFromMaster(HttpServletRequest request,
