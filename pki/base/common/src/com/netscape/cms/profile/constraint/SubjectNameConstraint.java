@@ -209,9 +209,6 @@ public class SubjectNameConstraint extends EnrollConstraint {
         if ( UID != null && UID.length() > UID_NAME_MAX) {
              fieldError = true;
              incorrectFields += " , UID";
-             throw new ERejectException(
-                    CMS.getUserMessage(getLocale(request),
-                        "CMS_PROFILE_INVALID_SUBJECT_NAME",sn500.toString()));
         }   
 
         if ( fieldError == true ) {
