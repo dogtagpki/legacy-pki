@@ -3491,7 +3491,8 @@ char **get_attribute_values(LDAPMessage *entry, const char *attribute)
     unsigned int j;
     struct berval **bvals;
     CERTCertificate *cert;
-    char buffer[2048];
+#define     BUF_SIZE 4096 
+    char buffer[BUF_SIZE];
     int c = 0;
     char **ret = NULL;
 
@@ -3509,7 +3510,8 @@ char **get_attribute_values(LDAPMessage *entry, const char *attribute)
        for (i = 0; bvals[i] != NULL; i++ ) {
          char *tmp = BTOA_DataToAscii((unsigned char *)bvals[i]->bv_val,
                         (int)bvals[i]->bv_len);
-         sprintf(buffer, "%s", tmp); 
+
+         snprintf(buffer, BUF_SIZE, "%s", tmp); 
          PORT_Free(tmp);
 
          /* remove \r\n that javascript does not like */
@@ -4406,7 +4408,7 @@ char *get_pwd_from_conf(char *filepath, char *name)
                 PR_fprintf(debug_fd, "get_pwd_from_conf unable to initialize connection to Watchdog");
                 return NULL;
             } 
-            sprintf(line, "Please enter the password for %s:", name);
+            snprintf(line, MAX_CFG_LINE_LEN, "Please enter the password for %s:", name);
             val = call_WatchdogClient_getPassword(line, 0); 
             if (val == NULL) {
                 PR_fprintf(debug_fd, "get_pwd_from_conf failed to get password from watchdog");
