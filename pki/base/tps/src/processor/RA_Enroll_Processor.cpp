@@ -5102,13 +5102,14 @@ int RA_Enroll_Processor::GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx)
 }
 
 //Unrevoke a cert that has been recovered
-int RA_Enroll_Processor::UnrevokeRecoveredCert(const LDAPMessage *e, char *&statusString)
+int RA_Enroll_Processor::UnrevokeRecoveredCert(LDAPMessage *e, char *&statusString)
 {
     char configname[256];
     CertEnroll certEnroll;
     //Default to error return
     int statusNum = 0;
     char serial[100]="";
+    CERTCertificate **attr_certificate = NULL;
 
     RA::Debug("RA_Enroll_Processor::ProcessRecovery",
                       "About to unrevoke recovered certificate.");
@@ -5146,13 +5147,19 @@ int RA_Enroll_Processor::UnrevokeRecoveredCert(const LDAPMessage *e, char *&stat
         if (connid) {
             PR_snprintf( serial, 100, "0x%s", attr_serial );
 
+            attr_certificate= RA::ra_get_certificates(e);
             //Actually make call to the CA to unrevoke
-            statusNum = certEnroll.UnrevokeCertificate(serial, connid, statusString);
+            statusNum = certEnroll.RevokeCertificate(
+                false,
+                attr_certificate[0], "", serial, connid, statusString);
 
             RA::Debug("RA_Enroll_Processor::UnrevokeRecoveredCert",
                "Recovered Cert statusNum %d statusString %s \n", statusNum, statusString);
        } 
     }
+
+    if (attr_certificate[0] != NULL)
+        CERT_DestroyCertificate(attr_certificate[0]);
 
     if (attr_serial) {
         PL_strfree(attr_serial);
