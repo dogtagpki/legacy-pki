@@ -17,30 +17,28 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cmstools;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.net.Socket;
-import java.net.SocketException;
-import java.util.StringTokenizer;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.security.*;
 
+import org.mozilla.jss.*;
+import org.mozilla.jss.util.*;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.ssl.*;
+import org.mozilla.jss.pkix.primitive.*;
 import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.crypto.CryptoStore;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.crypto.X509Certificate;
-import org.mozilla.jss.ssl.SSLHandshakeCompletedEvent;
-import org.mozilla.jss.ssl.SSLHandshakeCompletedListener;
-import org.mozilla.jss.ssl.SSLSocket;
-import org.mozilla.jss.util.Password;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.CertDatabaseException;
+import org.mozilla.jss.pkcs11.*;
+import org.mozilla.jss.pkcs11.PK11Token;
+
+import netscape.security.x509.X509CertImpl;
+import netscape.security.x509.X509Key;
+import netscape.security.x509.X500Name;
+
+import com.netscape.cmsutil.ocsp.*;
+import com.netscape.cmsutil.ocsp.Request;
 
 
 /**
@@ -50,6 +48,7 @@ import org.mozilla.jss.util.Password;
  */
 public class HttpClient
 {
+    public static final String PR_INTERNAL_TOKEN_NAME = "internal";
     private String _host = null;
     private int _port = 0;
     private boolean _secure = false;
@@ -62,6 +61,18 @@ public class HttpClient
             SSLSocket.SSL3_RSA_EXPORT_WITH_RC4_40_MD5,
             SSLSocket.SSL3_RSA_EXPORT_WITH_RC2_CBC_40_MD5,
             SSLSocket.SSL3_RSA_WITH_NULL_MD5,
+            SSLSocket.TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,
+            SSLSocket.TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
+            SSLSocket.TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
+            SSLSocket.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+            SSLSocket.TLS_RSA_WITH_AES_128_CBC_SHA,
+            SSLSocket.TLS_RSA_WITH_AES_256_CBC_SHA,
+            SSLSocket.TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+            SSLSocket.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+            SSLSocket.TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+            SSLSocket.TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+            SSLSocket.TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+            SSLSocket.TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
             0
     };
 
@@ -103,7 +114,7 @@ public class HttpClient
     }
 
 
-    public void send(String ifilename, String ofilename, String dbdir, 
+    public void send(String ifilename, String ofilename, String tokenName, String dbdir, 
       String nickname, String password, String servlet, String clientmode) 
          throws Exception
     {
@@ -118,13 +129,24 @@ public class HttpClient
                 CryptoManager.InitializationValues vals =
                   new CryptoManager.InitializationValues(dbdir, "", "", "secmod.db");
                 CryptoManager.initialize(vals);
-                SSLSocket socket = new SSLSocket(_host, _port);
+                CryptoManager cm = CryptoManager.getInstance();
+                CryptoToken token = null;
+                if ((tokenName == null) || (tokenName.equals(""))) {
+                    token = cm.getInternalKeyStorageToken();
+                    tokenName = PR_INTERNAL_TOKEN_NAME;
+                } else {
+                    token = cm.getTokenByName(tokenName);
+                }
+                cm.setThreadToken(token);
+                Password pass = new Password(password.toCharArray()); 
+                token.login(pass);
+
                 int i;
 
                 for (i = SSLSocket.SSL2_RC4_128_WITH_MD5;
                     i <= SSLSocket.SSL2_RC2_128_CBC_EXPORT40_WITH_MD5; ++i) {
                     try {
-                        socket.setCipherPreference(i, true);
+                        SSLSocket.setCipherPreferenceDefault(i, false);
                     } catch( SocketException e) {
                     }
                 }
@@ -132,39 +154,49 @@ public class HttpClient
                 for (i = SSLSocket.SSL2_DES_64_CBC_WITH_MD5;
                     i <= SSLSocket.SSL2_DES_192_EDE3_CBC_WITH_MD5; ++i) {
                     try { 
-                        socket.setCipherPreference(i, true);
+                        SSLSocket.setCipherPreferenceDefault(i, false);
                     } catch( SocketException e) {
                     }
                 }
                 for (i = 0; cipherSuites[i] != 0; ++i) {
                     try {
-                        socket.setCipherPreference(cipherSuites[i], true);
+                        SSLSocket.setCipherPreferenceDefault(cipherSuites[i], true);
                     } catch( SocketException e) {
                     }
                 }
+                SSLSocket socket = new SSLSocket(_host, _port);
+
                 SSLHandshakeCompletedListener listener = new ClientHandshakeCB(this);
                 socket.addHandshakeCompletedListener(listener); 
 
+                CryptoToken tt = cm.getThreadToken();
+                System.out.println("after SSLSocket created, thread token is "+ tt.getName());
+
                 if (clientmode != null && clientmode.equals("true")) {
-                    CryptoManager cm = CryptoManager.getInstance();
-                    CryptoToken token = cm.getInternalKeyStorageToken();
-                    Password pass = new Password(password.toCharArray()); 
-                    token.login(pass);
                     CryptoStore store = token.getCryptoStore(); 
-                    X509Certificate cert = cm.findCertByNickname(nickname); 
-                    if (cert == null)
+                    StringBuffer certname = new StringBuffer();
+                    if (!token.equals(cm.getInternalKeyStorageToken())) {
+                        certname.append(tokenName);
+                        certname.append(":");
+                    }
+                    certname.append(nickname);
+
+                    X509Certificate cert =
+                        cm.findCertByNickname(certname.toString()); 
+                    if (cert == null) {
                         System.out.println("client cert is null"); 
-                    else
+                        System.exit(1);
+                    } else
                         System.out.println("client cert is not null"); 
                     socket.setUseClientMode(true);
-                    socket.setClientCertNickname(nickname);
+                    socket.setClientCertNickname(certname.toString());
                 }
 
                 socket.forceHandshake();
                 dos = new DataOutputStream(socket.getOutputStream());
                 is = socket.getInputStream();
             } catch (Exception e) {
-                System.out.println("Exception: "+e.toString());
+                System.out.println("Exception : "+e.toString());
                 return;
             }
         } else {
@@ -178,6 +210,7 @@ public class HttpClient
             System.out.println("Missing servlet name.");
             printUsage();
         } else {
+            System.out.println("writing to socket");
             String s = "POST "+servlet+" HTTP/1.0\r\n";
             dos.writeBytes(s);
         } 
@@ -243,6 +276,7 @@ public class HttpClient
         System.out.println("port=1025");
         System.out.println("");
         System.out.println("#secure: true for secure connection, false for nonsecure connection");
+        System.out.println("#For secure connection, in an ECC setup, must set environment variable 'export NSS_USE_DECODED_CKA_EC_POINT=1' prior to running this command");
         System.out.println("secure=false");
         System.out.println("");
         System.out.println("#input: full path for the enrollment request, the content must be in binary format");
@@ -250,6 +284,10 @@ public class HttpClient
         System.out.println("");
         System.out.println("#output: full path for the response in binary format");
         System.out.println("output=/u/doc/cmcResp");
+        System.out.println("");
+        System.out.println("#tokenname: name of token where SSL client authentication cert can be found (default is internal)");
+        System.out.println("#This parameter will be ignored if secure=false");
+        System.out.println("tokenname=hsmname");
         System.out.println("");
         System.out.println("#dbdir: directory for cert8.db, key3.db and secmod.db");
         System.out.println("#This parameter will be ignored if secure=false");
@@ -275,7 +313,7 @@ public class HttpClient
 
     public static void main(String args[]) 
     { 
-        String host = null, portstr = null, secure = null, dbdir = null, nickname = null ;
+        String host = null, portstr = null, secure = null, tokenName = null, dbdir = null, nickname = null ;
         String password = null, ofilename = null, ifilename = null;
         String servlet = null;
         String clientmode = null;
@@ -321,6 +359,8 @@ public class HttpClient
                             portstr = val;
                         } else if (name.equals("secure")) {
                             secure = val;
+                        } else if (name.equals("tokenname")) {
+                            tokenName = val;
                         } else if (name.equals("dbdir")) {
                             dbdir = val;
                         } else if (name.equals("nickname")) {
@@ -392,7 +432,7 @@ public class HttpClient
         try {
             HttpClient client = 
                new HttpClient(host, port, secure);
-            client.send(ifilename, ofilename, dbdir, nickname, password, servlet, clientmode);
+            client.send(ifilename, ofilename, tokenName, dbdir, nickname, password, servlet, clientmode);
         } catch (Exception e) {
             System.out.println("Error: " + e.toString());
         }

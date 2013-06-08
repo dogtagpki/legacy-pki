@@ -18,7 +18,8 @@
 package com.netscape.certsrv.authentication;
 
 
-import java.security.cert.X509Certificate;
+import java.security.cert.*;
+import java.util.*;
 
 
 /**

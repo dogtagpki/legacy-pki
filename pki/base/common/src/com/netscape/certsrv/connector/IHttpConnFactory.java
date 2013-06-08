@@ -18,7 +18,9 @@
 package com.netscape.certsrv.connector;
 
 
-import com.netscape.certsrv.base.EBaseException;
+import netscape.ldap.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.connector.*;
 
 /**
  * Maintains a pool of connections to to a Remote Authority.

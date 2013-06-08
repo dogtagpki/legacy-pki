@@ -119,7 +119,7 @@ int	verbose;
 SECItem	bigBuf;
 
 
-static char *ownPasswd( PK11SlotInfo *slot, PRBool retry, void *arg)
+char * ownPasswd( PK11SlotInfo *slot, PRBool retry, void *arg)
 {
     char *passwd = NULL;
 
@@ -175,7 +175,7 @@ Usage(const char *progName)
 
 
 static void
-errWarn(const char * funcString)
+errWarn(char * funcString)
 {
     PRErrorCode  perr      = PR_GetError();
 
@@ -183,7 +183,7 @@ errWarn(const char * funcString)
 }
 
 static void
-errExit(const char * funcString)
+errExit(char * funcString)
 {
     errWarn(funcString);
     exit(1);
@@ -213,7 +213,7 @@ mySSLAuthCertificate(void *arg, PRFileDesc *fd, PRBool checkSig,
     return rv;  
 }
 
-static SECStatus
+static SECStatus 
 myBadCertHandler( void *arg, PRFileDesc *fd)
 {
     /* int err = PR_GetError(); */
@@ -223,9 +223,9 @@ myBadCertHandler( void *arg, PRFileDesc *fd)
 }
 
 
-static SECStatus
+SECStatus
 my_GetClientAuthData(void *                       arg,
-                      PRFileDesc *                 sock,
+                      PRFileDesc *                 socket,
               struct CERTDistNamesStr *    caNames,
               struct CERTCertificateStr ** pRetCert,
               struct SECKEYPrivateKeyStr **pRetKey)
@@ -238,14 +238,14 @@ my_GetClientAuthData(void *                       arg,
 
   FPRINTF(stderr,"Called mygetclientauthdata - nickname = %s\n",chosenNickName);
 
-  proto_win = SSL_RevealPinArg(sock);
+  proto_win = SSL_RevealPinArg(socket);
 
   if (chosenNickName) {
     cert = PK11_FindCertFromNickname(chosenNickName, proto_win);
-    FPRINTF(stderr,"   mygetclientauthdata - cert = %p\n", cert);
+    FPRINTF(stderr,"   mygetclientauthdata - cert = %x\n",(unsigned int)cert);
     if ( cert ) {
       privkey = PK11_FindKeyByAnyCert(cert, proto_win);
-      FPRINTF(stderr,"   mygetclientauthdata - privkey = %p\n", privkey);
+      FPRINTF(stderr,"   mygetclientauthdata - privkey = %x\n",(unsigned int)privkey);
       if ( privkey ) {
     rv = SECSuccess;
       } else {
@@ -291,7 +291,7 @@ my_GetClientAuthData(void *                       arg,
 
 
 
-static void
+void 
 printSecurityInfo(PRFileDesc *fd)
 {
     char * cp;	/* bulk cipher name */
@@ -335,7 +335,7 @@ static const char outHeader[] = {
 };
 
 
-static PRInt32
+PRInt32
 do_writes(
     void *       a
 )
@@ -362,15 +362,14 @@ do_writes(
     	/* PR_Shutdown(ssl_sock, PR_SHUTDOWN_SEND);  */
     }
 
-    FPRINTF(stderr, "do_writes exiting with (failure = %d)\n",
-            (sent < bigBuf.len) == SECFailure);
+    FPRINTF(stderr, "do_writes exiting with (failure = %d)\n",sent<bigBuf.len == SECFailure);
     return (sent < bigBuf.len) ? SECFailure : SECSuccess;
 }
 
 
 
 
-static SECStatus
+SECStatus
 do_io( PRFileDesc *ssl_sock, int connection)
 {
     int	    countRead = 0;
@@ -437,7 +436,7 @@ do_io( PRFileDesc *ssl_sock, int connection)
     return SECSuccess;	/* success */
 }
 
-static int
+int
 do_connect(
     PRNetAddr *addr,
     PRFileDesc *model_sock,
@@ -504,12 +503,11 @@ do_connect(
     return SECSuccess;
 }
 
-#if 0
 /* Returns IP address for hostname as PRUint32 in Host Byte Order.
 ** Since the value returned is an integer (not a string of bytes), 
 ** it is inherently in Host Byte Order. 
 */
-static PRUint32
+PRUint32
 getIPAddress(const char * hostName) 
 {
     const unsigned char *p;
@@ -530,9 +528,8 @@ getIPAddress(const char * hostName)
     rv = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
     return rv;
 }
-#endif
 
-static void
+void
 client_main(
     unsigned short      port, 
     int                 connections, 
@@ -543,11 +540,6 @@ client_main(
 {
     PRFileDesc *model_sock = NULL;
     int         rv;
-    PRAddrInfo *ai;
-    void *iter;
-    PRNetAddr addr;
-    int family = PR_AF_INET;
-
 
 
     FPRINTF(stderr, "port: %d\n", port);
@@ -563,6 +555,11 @@ client_main(
     /*
      *  Rifle through the values for the host
      */
+
+    PRAddrInfo *ai;
+    void *iter;
+    PRNetAddr addr;
+    int family = PR_AF_INET;
 
     ai = PR_GetAddrInfoByName(hostName, PR_AF_UNSPEC, PR_AI_ADDRCONFIG);
     if (ai) {
@@ -629,7 +626,7 @@ client_main(
 }
 
 
-static SECStatus
+SECStatus
 createRequest(char *progName, char *path)
 {
     char *temp;
@@ -674,7 +671,7 @@ createRequest(char *progName, char *path)
 int
 main(int argc, char **argv)
 {
-    const char *        dir         = ".";
+    char *              dir         = ".";
     char *              hostName    = NULL;
     char *              nickName    = NULL;
     char *              progName    = NULL;

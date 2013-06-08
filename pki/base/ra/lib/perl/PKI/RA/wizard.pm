@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This program is free software; you can redistribute it and/or modify
@@ -71,6 +71,7 @@ use PKI::RA::CAInfoPanel;
 use PKI::RA::DisplayCertChain2Panel;
 use PKI::RA::AdminAuthPanel;
 use PKI::RA::AgentAuthPanel;
+use PKI::RA::AuthDBPanel;
 use PKI::RA::DatabasePanel;
 use PKI::RA::ModulePanel;
 use PKI::RA::SizePanel;
@@ -88,7 +89,7 @@ package PKI::RA::Wizard;
 $PKI::RA::Wizard::VERSION = '1.00';
 
 # read configuration file
-my $flavor = "pki";
+my $flavor = `pkiflavor`;
 $flavor =~ s/\n//g;
 
 my $pkiroot = $ENV{PKI_ROOT};
@@ -290,7 +291,7 @@ sub render_panel
     }
     $symbol{p}        = $panelnum;
     $symbol{subpanelno}        = $panelnum+1;
-    $symbol{productversion}    =  $::config->get("preop.product.version");
+    $symbol{productversion}    =  $::config->get("cms.product.version");
     $symbol{csstate}        = "1";
 
 #    $symbol{urls}        = [ "cert1", "cert2" ];  #createsubsystem

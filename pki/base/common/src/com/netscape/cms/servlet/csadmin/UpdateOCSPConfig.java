@@ -17,28 +17,33 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.csadmin;
 
-import java.io.IOException;
-import java.util.Locale;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.w3c.dom.Node;
-
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import java.math.*;
+import javax.servlet.*;
+import java.security.cert.*;
+import javax.servlet.http.*;
+import netscape.ldap.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.logging.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.authorization.EAuthzAccessDenied;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.base.UserInfo;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.ICMSTemplateFiller;
-import com.netscape.cmsutil.xml.XMLObject;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.certsrv.publish.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.cms.servlet.*;
+import com.netscape.cmsutil.xml.*;
+import org.w3c.dom.*;
+import org.apache.xerces.parsers.DOMParser;
+import org.apache.xerces.dom.*;
+import javax.xml.parsers.*;
+import javax.xml.transform.*;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 
 public class UpdateOCSPConfig extends CMSServlet {
@@ -112,24 +117,22 @@ public class UpdateOCSPConfig extends CMSServlet {
 
         String ocsphost = httpReq.getParameter("ocsp_host");
         String ocspport = httpReq.getParameter("ocsp_port");
+        String ocspname = ocsphost.replace('.', '-')+"-"+ocspport;
+        String publisherPrefix = "ca.publish.publisher.instance.OCSPPublisher-"+ocspname;
+        String rulePrefix = "ca.publish.rule.instance.ocsprule-"+ocspname;
         try {
             cs.putString("ca.publish.enable", "true");
-            cs.putString("ca.publish.publisher.instance.OCSPPublisher.host", 
-              ocsphost);
-            cs.putString("ca.publish.publisher.instance.OCSPPublisher.port", 
-              ocspport);
-            cs.putString("ca.publish.publisher.instance.OCSPPublisher.nickName", 
-              nickname);
-            cs.putString("ca.publish.publisher.instance.OCSPPublisher.path",
-              "/ocsp/agent/ocsp/addCRL");
-            cs.putString("ca.publish.publisher.instance.OCSPPublisher.pluginName", "OCSPPublisher");
-            cs.putString("ca.publish.publisher.instance.OCSPPublisher.enableClientAuth", "true");
-            cs.putString("ca.publish.rule.instance.ocsprule.enable", "true");
-            cs.putString("ca.publish.rule.instance.ocsprule.mapper", "NoMap");
-            cs.putString("ca.publish.rule.instance.ocsprule.pluginName", "Rule");
-            cs.putString("ca.publish.rule.instance.ocsprule.publisher", 
-              "OCSPPublisher");
-            cs.putString("ca.publish.rule.instance.ocsprule.type", "crl");
+            cs.putString(publisherPrefix+".host", ocsphost);
+            cs.putString(publisherPrefix+".port", ocspport);
+            cs.putString(publisherPrefix+".nickName", nickname);
+            cs.putString(publisherPrefix+".path", "/ocsp/agent/ocsp/addCRL");
+            cs.putString(publisherPrefix+".pluginName", "OCSPPublisher");
+            cs.putString(publisherPrefix+".enableClientAuth", "true");
+            cs.putString(rulePrefix+".enable", "true");
+            cs.putString(rulePrefix+".mapper", "NoMap");
+            cs.putString(rulePrefix+".pluginName", "Rule");
+            cs.putString(rulePrefix+".publisher", "OCSPPublisher-"+ocspname);
+            cs.putString(rulePrefix+".type", "crl");
             cs.commit(false);
             // insert info
             CMS.debug("UpdateOCSPConfig: Sending response");
@@ -142,6 +145,16 @@ public class UpdateOCSPConfig extends CMSServlet {
             byte[] cb = xmlObj.toByteArray();
 
             outputResult(httpResp, "application/xml", cb);
+
+            ICertificateAuthority ca = (ICertificateAuthority) CMS.getSubsystem("ca");
+            IPublisherProcessor pp = ca.getPublisherProcessor();
+            IConfigStore c = cs.getSubStore("ca.publish.publisher.instance");
+            CMS.debug("UpdateOCSPConfig process: adding publisher instance: OCSPPublisher-"+ocspname);
+            pp.addPublisherInstance("OCSPPublisher-"+ocspname, c);
+            c = cs.getSubStore("ca.publish.rule.instance");
+            CMS.debug("UpdateOCSPConfig process: adding rule instance: ocsprule-"+ocspname);
+            pp.addRuleInstance("ocsprule-"+ocspname, c);
+            CMS.debug("UpdateOCSPConfig process: publishing processor updated");
         } catch (Exception e) {
             CMS.debug("UpdateOCSPConfig: Failed to update OCSP configuration. Exception: "+e.toString());
             outputError(httpResp, "Error: Failed to update OCSP configuration.");

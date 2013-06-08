@@ -1,0 +1,615 @@
+#!/bin/bash
+##  BEGIN COPYRIGHT BLOCK
+##  (C) 2009 Red Hat, Inc.
+##  All rights reserved.
+##  END COPYRIGHT BLOCK
+
+
+##  Always switch into this base directory
+##  prior to script execution so that all
+##  of its output is written to this directory
+
+cd `dirname $0`
+
+
+##  Disallow script to be run as the name of this template
+pki_silent_script=`basename $0`
+if [ "${pki_silent_script}" = "silent_tks_ip_port.template" ] ; then
+    printf "\n"
+    printf "Usage:  (1) Install AND configure a directory server instance.\n\n"
+    printf "        (2) Install AND configure a Root CA subsystem instance\n"
+    printf "            that is its own security domain.\n\n"
+    printf "        (3) Install, but do NOT configure a\n"
+    printf "            PKI TKS instance\n"
+    printf "            using the IP Port Separation Mode.\n\n"
+    printf "        (4) Install the 'pki-silent' package.\n\n"
+    printf "        (5) Copy '$0' to a new script name\n"
+    printf "            without the '.template' extension\n"
+    printf "            (e .g. - 'configure_tks_ip_port_instance').\n\n"
+    printf "        (6) Fill in all MANDATORY user-defined variables\n"
+    printf "            in the new script.\n\n"
+    printf "        (7) Change any OPTIONAL user-defined variables\n"
+    printf "            in the new script as desired.\n\n"
+    printf "        (8) Become the 'root' user, and execute the new script to\n"
+    printf "            configure this PKI TKS subsystem instance.\n\n"
+    exit 255
+fi
+
+
+##
+##  This script MUST be run as root!
+##
+
+ROOTUID=0
+
+OS=`uname`
+if [ "${OS}" = "Linux" ] ; then
+    MY_EUID=`/usr/bin/id -u`
+    MY_UID=`/usr/bin/id -ur`
+    USERNAME=`/usr/bin/id -un`
+else
+    printf "ERROR:  Unsupported operating system '${OS}'!\n"
+    exit 255
+fi
+
+if [ "${MY_UID}"  != "${ROOTUID}" ] &&
+   [ "${MY_EUID}" != "${ROOTUID}" ] ; then
+    printf "ERROR:  The '$0' script must be run as root!\n"
+    exit 255
+fi
+
+
+
+##############################################################################
+##############################################################################
+##                                                                          ##
+##  P K I   S I L E N T  -  V A R I A B L E   D E C L A R A T I O N         ##
+##                                                                          ##
+##############################################################################
+##############################################################################
+
+##############################################################################
+##  U S E R - D E F I N E D   V A R I A B L E S   ( M A N D A T O R Y )     ##
+##############################################################################
+
+##
+##  IMPORTANT:  'Escape' ALL spaces in EACH variable specified below!
+##
+##              For Example:
+##
+##                  pki_security_domain_name="My\ Security\ Domain"
+##
+
+##  PKI CA Subsystem Hosts (FQDN)
+pki_ca_ee_host=
+pki_ca_admin_host=
+
+##  PKI TKS Subsystem Hosts (FQDN)
+pki_tks_agent_host=
+pki_tks_ee_host=
+pki_tks_admin_host=
+
+##
+##  NOTE:  Default PKI CA Instance Ports
+##
+##          9180 - non-secure port (not role specific)
+##          9443 - secure Agent port
+##          9444 - secure EE port
+##          9445 - secure Admin port
+##          9446 - secure EE Client Auth port (not necessarily labeled)
+##          9701 - non-secure Tomcat port
+##
+##  NOTE:  Default PKI TKS Instance Ports
+##
+##         13180 - non-secure port (not role specific)
+##         13443 - secure Agent port
+##         13444 - secure EE port
+##         13445 - secure Admin port
+##         13701 - non-secure Tomcat port
+##
+##  For Example:
+##
+##      semanage port -l | grep pki
+##
+##      pki_ca_port_t          tcp      9180, 9443, 9444, 9445, 9701
+##      pki_tks_port_t         tcp      13180, 13443, 13444, 13445, 13701
+##
+
+## PKI CA ports (Security Domain)
+pki_ca_nonssl_port=
+pki_ca_agent_port=
+pki_ca_ee_port=
+pki_ca_admin_port=
+
+## PKI Subordinate CA ports (not a Security Domain)
+##
+##     NOTE:  Replace the CA EE Security Domain Host and Port to optionally use
+##            a Subordinate CA to Issue Certificates for TKS Instance Creation
+##
+pki_subca_ee_host=${pki_ca_ee_host}
+pki_subca_ee_port=${pki_ca_ee_port}
+
+## PKI TKS ports
+pki_tks_admin_port=
+
+##  PKI Silent Security Database Variables
+##  (e. g. - PKI Silent "browser" database)
+pki_silent_security_database_repository="/tmp"
+pki_silent_security_token_password=
+pki_silent_security_token_name=internal
+
+##  PKI Security Domain Variables
+##  (e. g. - Security Domain Login Panel)
+pki_security_domain_name=
+pki_security_domain_host="${pki_ca_admin_host}"
+pki_security_domain_admin_name=admin
+pki_security_domain_admin_password=
+
+##  PKI Internal LDAP Database Variables
+##  (e. g. - Database Panel)
+##  If the LDAP server is located locally, specify:
+##
+##      pki_ldap_host=localhost
+##
+##  However, if the LDAP server is located remotely, specify the FQDN:
+##
+##      pki_ldap_host="ds_host.example.com" (for example)
+##
+pki_ldap_host=
+pki_ldap_port=389
+pki_bind_dn="cn=Directory\ Manager"
+pki_bind_password=
+##
+## For first time configurations, the default case is to set:
+##
+##     pki_remove_data=false
+##
+## For testing, however, it is often convenient to simply OVERWRITE any
+## existing data in the LDAP database.  If this is desirable, set:
+##
+##     pki_remove_data=true
+##
+pki_remove_data=
+
+##  PKI Instance-Specific Token Variables
+##  (e. g. - Module Panel)
+pki_tks_token_name=internal
+pki_tks_token_password=
+
+##  PKI Instance-Specific Backup Variables
+##  (e. g. - Backup Key and Certificates Panel)
+pki_tks_backup_password=
+
+##  PKI Email Variables
+##
+##      For example, to specify 'pkitest@example.com':
+##
+##          pki_email_name=pkitest
+##          pki_email_company=example
+##          pki_email_domain=com
+##
+pki_email_name=
+pki_email_company=
+pki_email_domain=
+
+##  PKI Silent Admin Variables
+##  (e. g. - Import Admin Certificate into PKI Silent "browser" database)
+pki_silent_admin_user=admin
+pki_silent_admin_password=
+pki_silent_admin_email="${pki_email_name}\@${pki_email_company}\.${pki_email_domain}"
+
+##  PKI Subsystem Names
+pki_tks_subsystem_name="Token\ Key\ Service"
+
+##  PKI Subsystem Instance Names
+pki_tks_instance_name="pki-tks"
+
+##  PKI Silent Log Files
+pki_silent_tks_log=/tmp/tks.log
+
+## URL to CA used to Issue Certificates for TKS Instance Creation
+##
+##     * each 'hostname:port' must be a CA EE Hostname and CA EE Port
+##     * referenced CA does not need to be a Security Domain (see CAVEAT)
+##     * referenced CA must reside within the same security domain
+##       as this TKS instance
+##
+##       CAVEAT:   If the chosen CA is a security domain:
+##
+##                     * all TKS subsystem certificates (including the
+##                       'Subsystem' certificates) will be stored on this CA
+##                     * the TKS subsystem client 'Administration'
+##                       certificate will automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this TKS subsystem
+##                     * the 'pkisilent' client security databases may be
+##                       used inside a firefox browser with no further
+##                       changes
+##
+##                 If the chosen CA is NOT a security domain:
+##
+##                     * all TKS subsystem certificates EXCEPT the TKS
+##                       'Subsystem' certificate will be stored on this CA;
+##                       the TKS 'Subsystem' certificate will be stored on
+##                       the CA that is the security domain for this TKS
+##                       subsystem
+##                     * the TKS subsystem client 'Administration'
+##                       certificate will NOT automatically be imported into
+##                       the NSS client security databases associated with
+##                       the 'pkisilent' invocation of this TKS subsystem;
+##                       import will fail with something similar to the
+##                       following message:
+##
+##                           ERROR: exception importing cert: Security
+##                                  library failed to decode certificate
+##                                  package: (-8183) security library:
+##                                  improperly formatted DER-encoded
+##                                  message.
+##
+##                     * in order to utilize the 'pkisilent' client
+##                       security databases inside a firefox browser,
+##                       one will need to manually import the TKS
+##                       'Administration' certificate for the TKS subsystem
+##                       stored in this non-security domain CA
+##
+##     NOTE:  To pass in a value of an empty string, specify the value "empty"
+##            instead of "" since ArgParser() throws away empty strings.
+##
+##            This special "empty" string value may be specified for any of
+##            the following variables:
+##
+##                * pki_tks_instance_ca_domain_url="empty"
+##
+pki_tks_instance_ca_domain_url="https://${pki_subca_ee_host}:${pki_subca_ee_port}"
+
+
+
+##############################################################################
+##  U S E R - D E F I N E D   V A R I A B L E S   ( O P T I O N A L )       ##
+##############################################################################
+
+##
+## NOTE:  For comparison's sake, if the default instances were manually
+##        configured using a Firefox browser, the content of the corresponding
+##        Firefox browser's security libraries would be something similar
+##        to this:
+##
+##            Certificate Nickname                          Trust Attributes
+##                                                          SSL,S/MIME,JAR/XPI
+##
+##            Certificate Authority - ${pki_security_domain_name}     CT,C,C
+##            TKS Administrator of Instance ${pki_tks_instance_name}'s
+##                              ${pki_security_domain_name} ID        u,u,u
+##
+##        where:
+##
+##                Nickname:  "Certificate Authority - "
+##                        +  "${pki_security_domain_name}"
+##            Subject Name:  "cn=Certificate Authority,"
+##                        +  "o=${pki_security_domain_name}"
+##
+##                Nickname:  "TKS Administrator of Instance "
+##                        +  "${pki_tks_instance_name}'s "
+##                        +  "${pki_security_domain_name} ID"
+##            Subject Name:  "cn=TKS Administrator of Instance "
+##                        +  "${pki_tks_instance_name},"
+##                        +  "uid=admin,"
+##                        +  "e=${pki_silent_admin_email},"
+##                        +  "o=${pki_security_domain_name}"
+##
+
+
+##  Miscellaneous TKS Variables
+##
+##  REMINDER:  'Escape' ALL spaces in EACH variable specified below!
+##
+##  NOTE:  For comparison's sake, if the default instances were manually
+##         configured using a Firefox browser, the content of the corresponding
+##         "/var/lib/${pki_tks_instance_name}/alias/" security libraries would
+##         be something similar to this:
+##
+##             Certificate Nickname                         Trust Attributes
+##                                                          SSL,S/MIME,JAR/XPI
+##
+##             subsystemCert cert-${pki_tks_instance_name}              u,u,u
+##             DRM Transport Certificate - ${pki_security_domain_name}  c,c,c
+##             Certificate Authority - ${pki_security_domain_name}      CT,c,
+##             Server-Cert cert-${pki_tks_instance_name}                u,u,u
+##             auditSigningCert cert-${pki_tks_instance_name}           u,u,u
+##
+##         where:
+##
+##                 Nickname:  "subsystemCert cert-${pki_tks_instance_name}"
+##             Subject Name:  "cn=TKS Subsystem Certificate,"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "DRM Transport Certificate - "
+##                         +  "${pki_security_domain_name}"
+##             Subject Name:  "cn=DRM Transport Certificate,"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "Certificate Authority - "
+##                         +  "${pki_security_domain_name}"
+##             Subject Name:  "cn=Certificate Authority,"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "Server-Cert cert-${pki_tks_instance_name}"
+##             Subject Name:  "cn=${pki_tks_ee_host},"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "auditSigningCert cert-${pki_tks_instance_name}"
+##             Subject Name:  "cn=TKS Audit Signing Certificate,"
+##                         +  "o=${pki_security_domain_name}"
+##
+
+tks_agent_name="TKS\ Administrator\ of\ Instance\ ${pki_tks_instance_name}\'s\ ${pki_security_domain_name}\ ID"
+tks_agent_key_size=2048
+tks_agent_key_type=rsa
+tks_agent_cert_subject="cn=TKS\ Administrator\ of\ Instance\ ${pki_tks_instance_name},uid=admin,e=${pki_silent_admin_email},o=${pki_security_domain_name}"
+tks_base_dn="dc=${pki_tks_admin_host}-${pki_tks_instance_name}"
+tks_db_name="${pki_tks_admin_host}-${pki_tks_instance_name}"
+tks_key_size=2048
+tks_key_type=rsa
+tks_save_p12=false
+tks_subsystem_cert_subject_name="cn=TKS\ Subsystem\ Certificate,o=${pki_security_domain_name}"
+tks_server_cert_subject_name="cn=${pki_tks_ee_host},o=${pki_security_domain_name}"
+tks_audit_signing_cert_subject_name="cn=TKS\ Audit\ Signing\ Certificate,o=${pki_security_domain_name}"
+
+
+
+##############################################################################
+##############################################################################
+##                                                                          ##
+##  P K I   S I L E N T  -  S U B S Y S T E M   C O N F I G U R A T I O N   ##
+##                                                                          ##
+##############################################################################
+##############################################################################
+
+##############################################################################
+##  P K I   S I L E N T   I N I T I A L I Z A T I O N                       ##
+##############################################################################
+
+## (1) Make certain that user has defined all MANDATORY user-defined variables!
+usage_errors=0
+usage_error_preamble="ERROR:  User MUST define a value for"
+
+if [ "${pki_ca_ee_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_ee_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_admin_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_admin_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_tks_agent_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_tks_agent_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_tks_ee_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_tks_ee_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_tks_admin_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_tks_admin_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_nonssl_port}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_nonssl_port'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_agent_port}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_agent_port'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_ee_port}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_ee_port'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_admin_port}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_admin_port'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_tks_admin_port}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_tks_admin_port'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_silent_security_token_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_silent_security_token_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_security_domain_name}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_security_domain_name'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_security_domain_admin_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_security_domain_admin_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ldap_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ldap_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_bind_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_bind_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_remove_data}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_remove_data'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_tks_token_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_tks_token_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_tks_backup_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_tks_backup_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_email_name}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_email_name'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_email_company}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_email_company'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_email_domain}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_email_domain'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_silent_admin_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_silent_admin_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+
+
+## (2) Make certain that a PKI instance of the specified name EXISTS,
+##     but has NOT been previously CONFIGURED!
+existence_errors=0
+existence_error_preamble="ERROR:  No PKI Instance named"
+configuration_errors=0
+configuration_error_preamble="ERROR:  A PKI Instance named"
+configuration_error_postamble="EXISTS,\n        but has PREVIOUSLY been CONFIGURED!"
+
+if [ ! -f "/var/lib/${pki_tks_instance_name}/conf/CS.cfg" ] ; then
+    printf "${existence_error_preamble} '${pki_tks_instance_name}' EXISTS!\n"
+    existence_errors=`expr ${existence_errors} + 1`
+else
+    tks_configuration_check=`grep -c preop /var/lib/${pki_tks_instance_name}/conf/CS.cfg`
+    if [ ${tks_configuration_check} -eq 0 ] ; then
+        printf "${configuration_error_preamble} '${pki_tks_instance_name}' "
+        printf "${configuration_error_postamble}\n"
+        configuration_errors=`expr ${configuration_errors} + 1`
+    fi
+fi
+
+
+if [ ${usage_errors} -ne 0 ]     ||
+   [ ${existence_errors} -ne 0 ] ||
+   [ ${configuration_errors} -ne 0 ] ; then
+    printf "\n"
+    printf "Please correct ALL errors listed above and re-run\n"
+    printf "the '$0' script!\n\n"
+    exit 255
+fi
+
+
+## (3) Make certain that 'pkisilent' exists and is executable on this system.
+if [ ! -x "/usr/bin/pkisilent" ] ; then
+    printf "\n"
+    printf "ERROR:  Please install the 'pki-silent' package and re-run\n"
+    printf "the '$0' script!\n\n"
+    exit 255
+fi
+
+
+## (4) Check for old PKI Silent Security Databases, but DO NOT remove them!
+##     Instead, just inform the user.
+if [ -f "${pki_silent_security_database_repository}/cert8.db" ] ||
+   [ -f "${pki_silent_security_database_repository}/key3.db" ] ||
+   [ -f "${pki_silent_security_database_repository}/secmod.db" ] ; then
+    printf "\n"
+    printf "WARNING:  The existing security databases\n"
+    printf "          (i. e. - 'cert8.db', 'key3.db', and/or 'secmod.db')\n"
+    printf "          required by '${pki_silent_script}' at the\n"
+    printf "          specified location '${pki_silent_security_database_repository}'\n"
+    printf "          will be used.\n\n"
+fi
+
+
+## (5) Remove any old PKI Silent log file named '${pki_silent_tks_log}'
+printf "Removing old PKI Silent log files:\n"
+if [ -f ${pki_silent_tks_log} ] ; then
+    printf "    Removing old '${pki_silent_tks_log}' . . . "
+    rm ${pki_silent_tks_log}
+    printf "done.\n"
+fi
+printf "Done.\n\n"
+
+
+
+##############################################################################
+##  C A L C U L A T E   P K I   I N S T A N C E   P I N S                   ##
+##############################################################################
+
+##  PKI Subsystem Instance PINS
+tks_preop_pin=`cat /var/lib/${pki_tks_instance_name}/conf/CS.cfg \
+    | grep preop.pin | grep -v grep | awk -F= '{print $2}'`
+
+
+
+##############################################################################
+##  T O K E N   K E Y   S E R V I C E                                       ##
+##############################################################################
+##
+##  For example, upon completion,
+##  execute '/sbin/service ${pki_tks_instance_name} status':
+##
+##      ${pki_tks_instance_name} (pid 14129) is running ...
+##
+##          Unsecure Port     = http://${pki_tks_ee_host}:13180/tks/ee/tks
+##          Secure Agent Port = https://${pki_tks_agent_host}:13443/tks/agent/tks
+##          Secure EE Port    = https://${pki_tks_ee_host}:13444/tks/ee/tks
+##          Secure Admin Port = https://${pki_tks_admin_host}:13445/tks/services
+##          PKI Console Port  = pkiconsole https://${pki_tks_admin_host}:13445/tks
+##          Tomcat Port       = 13701 (for shutdown)
+##
+##
+##          Security Domain URL:
+##          ==================================================================
+##          https://${pki_ca_admin_host}:9445
+##          ==================================================================
+##
+
+##  Configure TKS
+printf "'${pki_silent_script}':  Configuring '${pki_tks_instance_name}' . . .\n"
+pkisilent ConfigureTKS \
+    -cs_hostname "${pki_tks_admin_host}" \
+    -cs_port ${pki_tks_admin_port} \
+    -sd_hostname "${pki_security_domain_host}" \
+    -sd_ssl_port ${pki_ca_ee_port} \
+    -sd_agent_port ${pki_ca_agent_port} \
+    -sd_admin_port ${pki_ca_admin_port} \
+    -sd_admin_name "${pki_security_domain_admin_name}" \
+    -sd_admin_password ${pki_security_domain_admin_password} \
+    -ca_hostname ${pki_ca_ee_host} \
+    -ca_port ${pki_ca_nonssl_port} \
+    -ca_ssl_port ${pki_ca_ee_port} \
+    -client_certdb_dir ${pki_silent_security_database_repository} \
+    -client_certdb_pwd ${pki_silent_security_token_password} \
+    -client_token_name ${pki_silent_security_token_name} \
+    -preop_pin ${tks_preop_pin} \
+    -domain_name "${pki_security_domain_name}" \
+    -admin_user ${pki_silent_admin_user} \
+    -admin_password ${pki_silent_admin_password} \
+    -admin_email "${pki_silent_admin_email}" \
+    -agent_name ${tks_agent_name} \
+    -ldap_host ${pki_ldap_host} \
+    -ldap_port ${pki_ldap_port} \
+    -bind_dn "${pki_bind_dn}" \
+    -bind_password ${pki_bind_password} \
+    -base_dn "${tks_base_dn}" \
+    -db_name "${tks_db_name}" \
+    -remove_data "${pki_remove_data}" \
+    -key_size ${tks_key_size} \
+    -key_type ${tks_key_type} \
+    -token_name ${pki_tks_token_name} \
+    -token_pwd ${pki_tks_token_password} \
+    -agent_key_size ${tks_agent_key_size} \
+    -agent_key_type ${tks_agent_key_type} \
+    -agent_cert_subject "${tks_agent_cert_subject}" \
+    -subsystem_name ${pki_tks_subsystem_name} \
+    -ca_domain_url "${pki_tks_instance_ca_domain_url}" \
+    -save_p12 ${tks_save_p12} \
+    -backup_pwd ${pki_tks_backup_password} \
+    -tks_subsystem_cert_subject_name "${tks_subsystem_cert_subject_name}" \
+    -tks_server_cert_subject_name "${tks_server_cert_subject_name}" \
+    -tks_audit_signing_cert_subject_name \
+    "${tks_audit_signing_cert_subject_name}" \
+    | tee ${pki_silent_tks_log}
+
+## restart tks
+/sbin/service ${pki_tks_instance_name} restart
+
+exit 0
+

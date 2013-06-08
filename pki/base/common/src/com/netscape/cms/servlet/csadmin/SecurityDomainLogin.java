@@ -18,18 +18,16 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.net.URL;
-import java.net.URLDecoder;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import java.util.*;
+import java.net.*;
 import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
 import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.base.*;
 
 public class SecurityDomainLogin extends BaseServlet {
 

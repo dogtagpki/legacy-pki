@@ -18,9 +18,15 @@
 package com.netscape.cmsutil.http;
 
 
-import java.net.SocketException;
+import java.net.*;
+import java.io.*;
+import netscape.ldap.*;
+import org.mozilla.jss.ssl.*;
 
-import com.netscape.cmsutil.net.ISocketFactory;
+import com.netscape.cmsutil.net.*;
+import org.mozilla.jss.CryptoManager;
+import org.mozilla.jss.crypto.X509Certificate;
+import org.mozilla.jss.crypto.X509Certificate;
 
 
 public class ConnectAsync extends Thread {

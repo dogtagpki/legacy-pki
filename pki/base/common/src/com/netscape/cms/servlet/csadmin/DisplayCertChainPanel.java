@@ -18,27 +18,34 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.net.URLEncoder;
-import java.util.Locale;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.util.CertPrettyPrint;
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
+import org.apache.velocity.context.Context;
+import org.xml.sax.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.certsrv.template.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.cmsutil.xml.*;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.ldap.*;
+import com.netscape.cmsutil.http.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.asn1.*;
+import netscape.security.util.*;
 import netscape.security.x509.X509CertImpl;
 
-import org.apache.velocity.context.Context;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.CryptoUtil;
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.cms.servlet.wizard.*;
 
 public class DisplayCertChainPanel extends WizardPanelBase {
 
@@ -187,9 +194,9 @@ public class DisplayCertChainPanel extends WizardPanelBase {
             int panel = getPanelNo()+1;
             IConfigStore cs = CMS.getConfigStore();
             try {
-                String sd_hostname = cs.getString("securitydomain.host", "");
+                String sd_hostname = cs.getString("securitydomain.adminhost", "");
                 int sd_port = cs.getInteger("securitydomain.httpsadminport", -1);
-                String cs_hostname = cs.getString("machineName", "");
+                String cs_hostname = cs.getString("adminMachineName", "");
                 int cs_port = cs.getInteger("pkicreate.admin_secure_port", -1);
                 String subsystem = cs.getString("cs.type", "");
                 String urlVal = "https://"+cs_hostname+":"+cs_port+"/"+toLowerCaseSubsystemType(subsystem)+"/admin/console/config/wizard?p="+panel+"&subsystem="+subsystem;
@@ -198,20 +205,33 @@ public class DisplayCertChainPanel extends WizardPanelBase {
                 response.sendRedirect(sdurl);
 
                 // The user previously specified the CA Security Domain's
-                // SSL Admin port in the "Security Domain Panel";
-                // now retrieve this specified CA Security Domain's
-                // non-SSL EE, SSL Agent, and SSL EE ports:
+                // Admin hostname and SSL Admin port in the
+                // "Security Domain Panel"; now retrieve this specified
+                // CA Security Domain's Host, Agent, EE, and EE clientauth
+                // hostnames, as well as its non-SSL EE, SSL Agent, SSL EE,
+                // and SSL EE clientauth ports:
+                cs.putString("securitydomain.host", 
+                              getSecurityDomainHost( cs, "EEHost" ) );
+                cs.putString( "securitydomain.agenthost", 
+                              getSecurityDomainHost( cs, "AgentHost" ) );
+                cs.putString("securitydomain.eehost", 
+                              getSecurityDomainHost( cs, "EEHost" ) );
+                cs.putString("securitydomain.eecahost", 
+                              getSecurityDomainHost( cs,
+                                                     "EEClientAuthHost" ) );
                 cs.putString( "securitydomain.httpport", 
                               getSecurityDomainPort( cs, "UnSecurePort" ) );
                 cs.putString("securitydomain.httpsagentport", 
                               getSecurityDomainPort( cs, "SecureAgentPort" ) );
                 cs.putString("securitydomain.httpseeport", 
                               getSecurityDomainPort( cs, "SecurePort" ) );
+                cs.putString("securitydomain.httpseecaport", 
+                              getSecurityDomainPort( cs,
+                                               "SecureEEClientAuthPort" ) );
             } catch (Exception ee) {
                 CMS.debug("DisplayCertChainPanel Exception="+ee.toString());
             }
         }
-        context.put("updateStatus", "success");
     }
 
     /**

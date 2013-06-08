@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -85,26 +85,27 @@ sub update
 
     &PKI::TPS::Wizard::debug_log("NamePanel: update - selected ca= $count");
 
-    my $host = "";
+    my $ca_ee_host = "";
     my $https_ee_port = "";
 
     my $useExternalCA = "off";
     if ($count =~ /http/) {
+      # this is for pkisilent
       my $info = new URI::URL($count);
-      $host = $info->host;
+      $ca_ee_host = $info->host;
       $https_ee_port = $info->port;
     } else {
-      $host = $::config->get("preop.securitydomain.ca$count.host");
-      if ($host eq "") {
+      $ca_ee_host = $::config->get("preop.securitydomain.ca$count.eehost");
+      if ($ca_ee_host eq "") {
           $useExternalCA = "on";
       } else {
           $https_ee_port = $::config->get("preop.securitydomain.ca$count.secureport");
-          &PKI::TPS::Wizard::debug_log("NamePanel: update - host= $host, https_ee_port= $https_ee_port");
+          &PKI::TPS::Wizard::debug_log("NamePanel: update - ca_ee_host= $ca_ee_host, https_ee_port= $https_ee_port");
       }
     }
     $::config->put("preop.certenroll.useExternalCA", $useExternalCA);
 
-    $::config->put("preop.ca.url", "https://" . $host . ":" . $https_ee_port);
+    $::config->put("preop.ca.url", "https://" . $ca_ee_host . ":" . $https_ee_port);
 
     my $tokenname = $::config->get("preop.module.token");
     &PKI::TPS::Wizard::debug_log("NamePanel: update got token name = $tokenname");
@@ -175,7 +176,7 @@ sub update
         if ($keytype eq "rsa") {
             $keysize = 2048;
         } elsif ($keytype eq "ecc") {
-            $keysize = 256;
+            $keysize = "nistp256";
         }
 
         if (($select eq "") || ($select eq "default")) {
@@ -188,14 +189,10 @@ sub update
             if ($size ne "") {
                 $keysize = $size;
             }
-            if (($keytype eq "ecc") && ($keysize ne 256)) {
-                &PKI::TPS::Wizard::debug_log("NamePanel: update got keysize from config= $keysize changing to 256, the only supported ECC strength");
-                $keysize = 256;
-            }
         }
 
         &PKI::TPS::Wizard::debug_log("NamePanel: update got key type $keytype");
-        my $req;
+        my $req = "";
         my $debug_req;
         my $filename = "/tmp/random.$$";
         `dd if\=/dev/urandom of\=\"$filename\" count\=256 bs\=1`;
@@ -207,10 +204,24 @@ sub update
             $req = `cat $tmpfile`;
             system("rm $tmpfile");
         } elsif ($keytype eq "ecc") {
-            #only support curve nistp256 for now
             my $tmpfile = "/tmp/req$$";
-            system("certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -R -s \"$cert_dn\" -k ec -q nistp256 -a -z $filename> $tmpfile");
+            # try first without specific flags
+            system("certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -R -s \"$cert_dn\" -k ec -q $keysize -a -z $filename> $tmpfile");
             $req = `cat $tmpfile`;
+
+            # try the flags that work with nethsm
+            if ($req eq "") {
+                system("certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -R --keyAttrFlags \"token,private,sensitive,unextractable\" --keyOpFlagsOff derive -s \"$cert_dn\" -k ec -q $keysize -a -z $filename> $tmpfile");
+                $req = `cat $tmpfile`;
+            }
+            # try the flags that work with lunasa
+            if ($req eq "") {
+                system("certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -R --keyAttrFlags \"private,unextractable\" --keyOpFlagsOff derive -s \"$cert_dn\" -k ec -q $keysize -a -z $filename> $tmpfile");
+                $req = `cat $tmpfile`;
+            }
+            if ($req eq "") {
+                &PKI::TPS::Wizard::debug_log("NamePanel: key generation failed on $tokenname.  Please check to see if this is a supported hardware.");
+            }
             system("rm $tmpfile");
         } else {
             &PKI::TPS::Wizard::debug_log("NamePanel: update unsupported keytype $keytype");
@@ -289,16 +300,28 @@ GEN_CERT:
                       "auth_hostname=" . $sdom_url->host . "&" .
                       "auth_port=" . $sdom_url->port;
 
+                # NOTE:  Must save the original values of '$ca_ee_host' and
+                #        '$https_ee_port' because if 'subsystem' is not
+                #        the last value specifed in 'CS.cfg::preop.cert.list',
+                #        it was discovered that the following code was
+                #        resetting these values for every value that follows.
+                my $sslget_ca_ee_host = "";
+                my $sslget_https_ee_port = "";
                 if ($certtag eq "subsystem") {
-                    $host = $sdom_url->host;
-                    $https_ee_port = $sdom_url->port;
+                    $sslget_ca_ee_host = $sdom_url->host;
+                    $sslget_https_ee_port = $sdom_url->port;
+                } else {
+                    $sslget_ca_ee_host = $ca_ee_host;
+                    $sslget_https_ee_port = $https_ee_port;
                 }
                 if ($changed eq "true") {
-$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
-$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
+                # nickname changed is true, using token passwd for calling sslget
+$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$token_pwd\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $sslget_ca_ee_host:$sslget_https_ee_port";
+$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $sslget_ca_ee_host:$sslget_https_ee_port";
                 } else {
-$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
-$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $host:$https_ee_port";
+                # nickname changed is false, using internal passwd for calling sslget
+$req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"$db_password\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $sslget_ca_ee_host:$sslget_https_ee_port";
+$debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sensitive)\" -v -n \"$sslnickname\" -r \"/ca/ee/ca/profileSubmit\" $sslget_ca_ee_host:$sslget_https_ee_port";
                 }
 
                 &PKI::TPS::Wizard::debug_log("debug_req = " . $debug_req);
@@ -367,7 +390,12 @@ $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sen
             }
 
             &PKI::TPS::Wizard::debug_log("NamePanel: update: try to import cert from $cert_fn");
-            $tmp = `certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -A -n "$nickname" -t "u,u,u" -a -i $cert_fn`;
+            if ($certtag ne "audit_signing") {
+                $tmp = `certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -A -n "$nickname" -t "u,u,u" -a -i $cert_fn`;
+            } else {
+               $tmp = `certutil -d $instanceDir/alias $hw -f $instanceDir/conf/.pwfile -A -n "$nickname" -t "u,u,Pu" -a -i $cert_fn`;
+            }
+
             # changed the cert, need to change nickname too, if necessary
             if ($hw ne "") {
                 if ($certtag eq "sslserver") {
@@ -375,13 +403,15 @@ $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sen
                         $::config->put("preop.cert.$certtag.nickname", "$tk$nickname");
                     }
                     $changed = "true";
-                }
-                if ($certtag eq "subsystem") {
+                } elsif ($certtag eq "subsystem") {
                     &PKI::TPS::Wizard::debug_log("NamePanel: update: sslnickname changed");
                     $::config->put("preop.cert.$certtag.nickname", "$tk$nickname");
                     $::config->put("conn.ca1.clientNickname", "$tk$nickname");
                     $::config->put("conn.drm1.clientNickname", "$tk$nickname");
                     $::config->put("conn.tks1.clientNickname", "$tk$nickname");
+                } else {
+                    &PKI::TPS::Wizard::debug_log("NamePanel: update: $certtag changed");
+                    $::config->put("preop.cert.$certtag.nickname", "$tk$nickname");
                 }
                 $::config->commit();
              } else {
@@ -405,38 +435,20 @@ $debug_req = "/usr/bin/sslget -e \"$params\" -d \"$instanceDir/alias\" -p \"(sen
     my $selftestNickname = $::config->get( "preop.cert.subsystem.nickname" );
     my $selftestNickname_sslserver = $::config->get( "preop.cert.sslserver.nickname" );
     my $selftestNickname_audit_signing = $::config->get( "preop.cert.audit_signing.nickname" );
-    if ($hw ne "") {
-        $::config->put( "selftests.plugin.TPSPresence.nickname",
-                        "$tk$selftestNickname" );
-        $::config->put( "selftests.plugin.TPSValidity.nickname", 
-                        "$tk$selftestNickname" );
+    $::config->put( "selftests.plugin.TPSPresence.nickname",
+                    "$selftestNickname" );
+    $::config->put( "selftests.plugin.TPSValidity.nickname", 
+                    "$selftestNickname" );
 
-        $::config->put( "tps.cert.sslserver.nickname",
-                        "$tk$selftestNickname_sslserver" );
-        $::config->put( "tps.cert.subsystem.nickname",
-                        "$tk$selftestNickname" );
-        $::config->put( "tps.cert.audit_signing.nickname",
-                        "$tk$selftestNickname_audit_signing" );
+    $::config->put( "tps.cert.sslserver.nickname",
+                    "$selftestNickname_sslserver" );
+    $::config->put( "tps.cert.subsystem.nickname",
+                    "$selftestNickname" );
+    $::config->put( "tps.cert.audit_signing.nickname",
+                    "$selftestNickname_audit_signing" );
 
-        $::config->put( "logging.audit.signedAuditCertNickname",
-                        "$tk$selftestNickname_audit_signing" );
-    } else {
-        $::config->put( "selftests.plugin.TPSPresence.nickname",
-                        "$selftestNickname" );
-        $::config->put( "selftests.plugin.TPSValidity.nickname", 
-                        "$selftestNickname" );
-
-        $::config->put( "tps.cert.sslserver.nickname",
-                        "$selftestNickname_sslserver" );
-        $::config->put( "tps.cert.subsystem.nickname",
-                        "$selftestNickname" );
-        $::config->put( "tps.cert.audit_signing.nickname",
-                        "$selftestNickname_audit_signing" );
-
-        $::config->put( "logging.audit.signedAuditCertNickname",
-                        "$selftestNickname_audit_signing" );
-    }
-    $::config->commit();
+    $::config->put( "logging.audit.signedAuditCertNickname",
+                    "$selftestNickname_audit_signing" );
 
 DONE:
     $::config->put("preop.namepanel.done", "true");
@@ -515,13 +527,13 @@ sub display
     my $count = 0;
 
     while (1) {
-      my $host = $::config->get("preop.securitydomain.ca$count.host") || "";
-      if ($host eq "") {
+      my $ca_ee_host = $::config->get("preop.securitydomain.ca$count.eehost") || "";
+      if ($ca_ee_host eq "") {
         goto DONE;
       }
       my $https_ee_port = $::config->get("preop.securitydomain.ca$count.secureport");
       my $name = $::config->get("preop.securitydomain.ca$count.subsystemname");
-      my $item = $name . " - https://" . $host . ":" . $https_ee_port;
+      my $item = $name . " - https://" . $ca_ee_host . ":" . $https_ee_port;
       $::symbol{urls}[$count++] = $item;
 
     }

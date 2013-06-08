@@ -18,10 +18,9 @@
 package com.netscape.certsrv.dbs;
 
 
-import netscape.ldap.LDAPSearchResults;
-
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.ISubsystem;
+import java.util.*;
+import netscape.ldap.*;
+import com.netscape.certsrv.base.*;
 
 
 /**

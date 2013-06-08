@@ -18,40 +18,24 @@
 package com.netscape.cmscore.dbs;
 
 
-import java.math.BigInteger;
-import java.util.Hashtable;
-
-import netscape.ldap.LDAPAttribute;
-import netscape.ldap.LDAPAttributeSchema;
-import netscape.ldap.LDAPAttributeSet;
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPEntry;
-import netscape.ldap.LDAPException;
-import netscape.ldap.LDAPModification;
-import netscape.ldap.LDAPObjectClassSchema;
-import netscape.ldap.LDAPSchema;
-import netscape.ldap.LDAPSearchResults;
-import netscape.ldap.LDAPv3;
-import netscape.security.x509.CertificateValidity;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.dbs.EDBException;
-import com.netscape.certsrv.dbs.EDBNotAvailException;
-import com.netscape.certsrv.dbs.IDBRegistry;
-import com.netscape.certsrv.dbs.IDBSSession;
-import com.netscape.certsrv.dbs.IDBSubsystem;
-import com.netscape.certsrv.dbs.crldb.ICRLIssuingPointRecord;
-import com.netscape.certsrv.dbs.repository.IRepositoryRecord;
-import com.netscape.certsrv.ldap.ELdapException;
-import com.netscape.certsrv.ldap.ELdapServerDownException;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.cmscore.base.PropConfigStore;
-import com.netscape.cmscore.ldapconn.LdapAuthInfo;
-import com.netscape.cmscore.ldapconn.LdapBoundConnFactory;
-import com.netscape.cmscore.ldapconn.LdapConnInfo;
+import java.math.*;
+import java.io.*;
+import java.util.*;
+import netscape.ldap.*;
+import netscape.ldap.util.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.keydb.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.dbs.crldb.*;
+import com.netscape.certsrv.dbs.repository.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.cmscore.base.*;
+import com.netscape.cmscore.ldapconn.*;
+import com.netscape.cmscore.cert.*;
 
 
 /**
@@ -156,8 +140,6 @@ public class DBSubsystem implements IDBSubsystem {
     private static final String PROP_INCREMENT = "increment";
     private static final String PROP_INCREMENT_NAME = "increment_name";
     private static final String PROP_RANGE_DN="rangeDN";
-
-    private static final BigInteger BI_ONE = new BigInteger("1");
 
     private ILogger mLogger = null;
  
@@ -434,9 +416,18 @@ public class DBSubsystem implements IDBSubsystem {
             nextRange = (String) attr.getStringValues().nextElement();
 
             BigInteger nextRangeNo = new BigInteger(nextRange);
+            if (nextRangeNo == null) {
+               throw new EBaseException("nextRangeNo is null!");
+            }
+
             BigInteger incrementNo = new BigInteger((String) h.get(PROP_INCREMENT));
+            if (incrementNo == null) {
+               throw new EBaseException("incrementNo is null!");
+            }
+
             // To make sure attrNextRange always increments, first delete the current value and then 
             // increment.  Two operations in the same transaction 
+
             LDAPAttribute attrNextRange = new LDAPAttribute(PROP_NEXT_RANGE,  nextRangeNo.add(incrementNo).toString());
             LDAPModification [] mods = {
                 new LDAPModification( LDAPModification.DELETE, attr), 
@@ -444,7 +435,7 @@ public class DBSubsystem implements IDBSubsystem {
             conn.modify( dn, mods );
 
             // Add new range object
-            String endRange = nextRangeNo.add(incrementNo).subtract(BI_ONE).toString();
+            String endRange = nextRangeNo.add(incrementNo).subtract(BigInteger.ONE).toString();
             LDAPAttributeSet attrs = new LDAPAttributeSet();
             attrs.add(new LDAPAttribute("objectClass", "top"));
             attrs.add(new LDAPAttribute("objectClass", "pkiRange"));
@@ -456,6 +447,8 @@ public class DBSubsystem implements IDBSubsystem {
             String dn2 = "cn=" + nextRange + "," + rangeDN;
             LDAPEntry rangeEntry = new LDAPEntry(dn2, attrs);
             conn.add(rangeEntry);
+            CMS.debug("DBSubsystem: getNextRange  Next range has been added: " +
+                      nextRange + " - " + endRange);
         } catch (Exception e) {
             CMS.debug("DBSubsystem: getNextRange. Unable to provide next range :" + e);
             e.printStackTrace();
@@ -554,6 +547,7 @@ public class DBSubsystem implements IDBSubsystem {
                 PROP_NEXT_SERIAL_NUMBER, "0"), 16);
 
             mEnableSerialMgmt = mDBConfig.getBoolean(PROP_ENABLE_SERIAL_MGMT, false);
+            CMS.debug("DBSubsystem: init()  mEnableSerialMgmt="+mEnableSerialMgmt);
 
             // populate the certs hash entry
             Hashtable certs = new Hashtable();
@@ -807,12 +801,59 @@ public class DBSubsystem implements IDBSubsystem {
                 reg.registerAttribute(IRepositoryRecord.ATTR_PUB_STATUS,
                     new StringMapper(RepositorySchema.LDAP_ATTR_PUB_STATUS));
             }
+            if (!reg.isAttributeRegistered(IRepositoryRecord.ATTR_DESCRIPTION)) {
+                reg.registerAttribute(IRepositoryRecord.ATTR_DESCRIPTION,
+                    new StringMapper(RepositorySchema.LDAP_ATTR_DESCRIPTION));
+            }
 
         } catch (EBaseException e) {
             if (CMS.isPreOpMode())
                 return;
             throw e;
         }
+    }
+
+    public String getEntryAttribute(String dn, String attrName,
+                                    String defaultValue, String errorValue) {
+        LDAPConnection conn = null;
+        String attrValue = null;
+        //CMS.debug("DBSubsystem: getEntryAttribute:  dn="+dn+"  attrName="+attrName+
+        //          "  defaultValue="+defaultValue+"  errorValue="+errorValue);
+        try {
+            conn = mLdapConnFactory.getConn();
+            String[] attrs = { attrName };
+            LDAPEntry entry = conn.read(dn, attrs);
+            if (entry != null) {
+                LDAPAttribute attr =  entry.getAttribute(attrName);
+                if (attr != null) {
+                    attrValue = (String) attr.getStringValues().nextElement();
+                } else {
+                    attrValue = defaultValue;
+                }
+            } else {
+                attrValue = errorValue;
+            }
+        } catch (LDAPException e) {
+            CMS.debug("DBSubsystem: getEntryAttribute  LDAPException  code="+e.getLDAPResultCode());
+            if (e.getLDAPResultCode() == LDAPException.NO_SUCH_OBJECT) {
+                attrValue = defaultValue;
+            }
+        } catch (Exception e) {
+            CMS.debug("DBSubsystem: getEntryAttribute. Unable to retrieve '"+attrName+"': "+ e);
+            attrValue = errorValue;
+        } finally {
+            try {
+                if ((conn != null) && (mLdapConnFactory != null)) {
+                    CMS.debug("Releasing ldap connection");
+                    mLdapConnFactory.returnConn(conn);
+                }
+            } catch (Exception e) {
+                CMS.debug("Error releasing the ldap connection" + e.toString());
+            }
+        }
+        CMS.debug("DBSubsystem: getEntryAttribute:  dn="+dn+"  attr="+attrName+":"+attrValue+";");
+
+        return attrValue;
     }
 
     /**
@@ -822,10 +863,17 @@ public class DBSubsystem implements IDBSubsystem {
     }
 	
     /**
-     * Retrieves configuration store.
+     * Retrieves internal DB configuration store.
      */
     public IConfigStore getConfigStore() {
         return mConfig;
+    }
+
+    /**
+     * Retrieves DB subsystem configuration store.
+     */
+    public IConfigStore getDBConfigStore() {
+        return mDBConfig;
     }
 
     /**

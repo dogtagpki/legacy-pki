@@ -18,7 +18,8 @@
 package com.netscape.certsrv.publish;
 
 
-import com.netscape.certsrv.base.Plugin;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.ldap.*;
 
 
 /**
