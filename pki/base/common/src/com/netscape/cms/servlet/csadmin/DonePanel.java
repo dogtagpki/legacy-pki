@@ -491,7 +491,7 @@ public class DonePanel extends WizardPanelBase {
                     endRequestNumStr = cs.getString("dbs.endRequestNumber", "");
                     endSerialNumStr = cs.getString("dbs.endSerialNumber", "");
                     BigInteger endRequestNum = new BigInteger(endRequestNumStr);
-                    BigInteger endSerialNum = new BigInteger(endSerialNumStr);
+                    BigInteger endSerialNum = new BigInteger(endSerialNumStr, 16);
                     BigInteger oneNum = new BigInteger("1");
 
                     // update global next range entries
