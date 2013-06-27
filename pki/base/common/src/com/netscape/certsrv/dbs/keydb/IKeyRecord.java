@@ -18,10 +18,9 @@
 package com.netscape.certsrv.dbs.keydb;
 
 
-import java.math.BigInteger;
-import java.util.Date;
-
-import com.netscape.certsrv.base.EBaseException;
+import java.util.*;
+import java.math.*;
+import com.netscape.certsrv.base.*;
 
 
 /**
@@ -86,6 +85,13 @@ public interface IKeyRecord {
      * @exception EBaseException failed to retrieve key length
      */
     public Integer getKeySize() throws EBaseException; 
+
+    /**
+     * Retrieves meta info.
+     *
+     * @return MetaInfo 
+     */
+    public MetaInfo getMetaInfo(); 
 
     /**
      * Retrieves archiver identifier.

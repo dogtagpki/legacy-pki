@@ -18,52 +18,44 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.net.URLEncoder;
-import java.security.cert.X509Certificate;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.ldap.LDAPException;
-import netscape.security.pkcs.ContentInfo;
-import netscape.security.pkcs.PKCS10;
-import netscape.security.pkcs.PKCS7;
-import netscape.security.pkcs.SignerInfo;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.CertificateChain;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509Key;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
-import org.mozilla.jss.asn1.SEQUENCE;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.cmsutil.http.*;
+import com.netscape.certsrv.template.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.ca.*;
+import java.io.*;
+import java.util.*;
+import java.security.*;
+import java.security.cert.*;
+import java.net.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.ldap.*;
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
+import com.netscape.cmsutil.xml.*;
+import org.xml.sax.*;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.pkix.*;
+import org.mozilla.jss.pkix.primitive.*;
+import org.mozilla.jss.pkix.crmf.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.usrgrp.IGroup;
-import com.netscape.certsrv.usrgrp.IUGSubsystem;
-import com.netscape.certsrv.usrgrp.IUser;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.CryptoUtil;
-import com.netscape.cmsutil.http.HttpClient;
-import com.netscape.cmsutil.http.HttpRequest;
-import com.netscape.cmsutil.http.HttpResponse;
-import com.netscape.cmsutil.http.JssSSLSocketFactory;
-import com.netscape.cmsutil.xml.XMLObject;
+import com.netscape.cms.servlet.wizard.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.dbs.certdb.*;
 
 public class AdminPanel extends WizardPanelBase {
 
@@ -213,28 +205,20 @@ public class AdminPanel extends WizardPanelBase {
         context.put("admin_pwd_again", pwd_again);
         context.put("import", "true");
 
-        if (name == null || name.equals("")) {
-            context.put("updateStatus", "validate-failure");
+        if (name == null || name.equals(""))
             throw new IOException("Name is empty");
-        }
 
-        if (email == null || email.equals("")) {
-            context.put("updateStatus", "validate-failure");
+        if (email == null || email.equals(""))
             throw new IOException("Email is empty");
-        }
 
-        if (uid == null || uid.equals("")) {
-            context.put("updateStatus", "validate-failure");
+        if (uid == null || uid.equals(""))
             throw new IOException("Uid is empty");
-        }
 
         if (!pwd.equals(pwd_again)) {
-            context.put("updateStatus", "validate-failure");
             throw new IOException("Password and password again are not the same.");
         }
 
         if (email == null || email.length() == 0) {
-            context.put("updateStatus", "validate-failure");
             throw new IOException("Email address is empty string.");
         }
     }
@@ -282,7 +266,6 @@ public class AdminPanel extends WizardPanelBase {
             createAdmin(request);
         } catch (IOException e) {
             context.put("errorString", "Failed to create administrator.");
-            context.put("updateStatus", "failure");
             throw e;
         }
 
@@ -302,12 +285,11 @@ public class AdminPanel extends WizardPanelBase {
                 CMS.debug("AdminPanel update: Exception: " + e.toString());
                 context.put("errorString",
                         "Failed to create administrator certificate.");
-                context.put("updateStatus", "failure");
                 throw e;
             }
         } else {
-            String ca_hostname = null;
-            int ca_port = -1;
+            String ca_ee_hostname = null;
+            int ca_ee_port = -1;
 
             // REMINDER:  This panel is NOT used by "clones"
             CMS.debug( "AdminPanel update:  "
@@ -316,19 +298,22 @@ public class AdminPanel extends WizardPanelBase {
 
             if (type.equals("sdca")) {
                 try {
-                    ca_hostname = config.getString("preop.ca.hostname");
-                    ca_port = config.getInteger("preop.ca.httpsport");
+                    ca_ee_hostname = config.getString("preop.ca.hostname");
+                    ca_ee_port = config.getInteger("preop.ca.httpsport");
                 } catch (Exception e) {
                 }
             } else {
                 try {
-                    ca_hostname = config.getString("securitydomain.host", "");
-                    ca_port = config.getInteger("securitydomain.httpseeport");
+                    ca_ee_hostname = config.getString(
+                                         "securitydomain.eehost", "");
+                    ca_ee_port = config.getInteger(
+                                     "securitydomain.httpseeport");
                 } catch (Exception e) {
                 }
             }
 
-            submitRequest(ca_hostname, ca_port, request, response, context);
+            submitRequest(ca_ee_hostname, ca_ee_port, request, response,
+                          context);
         }
 
         try {
@@ -340,8 +325,6 @@ public class AdminPanel extends WizardPanelBase {
         try {
             config.commit(false);
         } catch (Exception e) {}
-
-        context.put("updateStatus", "success");
     
     }
 
@@ -450,14 +433,14 @@ public class AdminPanel extends WizardPanelBase {
         }
     }
 
-    private void submitRequest(String ca_hostname, int ca_port, HttpServletRequest request,
+    private void submitRequest(String ca_ee_hostname, int ca_ee_port, HttpServletRequest request,
             HttpServletResponse response, Context context) throws IOException {
         IConfigStore config = CMS.getConfigStore();
         String sd_hostname = null;
         int sd_port = -1;
 
         try {
-            sd_hostname = config.getString("securitydomain.host", "");
+            sd_hostname = config.getString("securitydomain.eehost", "");
             sd_port = config.getInteger("securitydomain.httpseeport");
         } catch (Exception e) {}
 
@@ -483,7 +466,7 @@ public class AdminPanel extends WizardPanelBase {
             JssSSLSocketFactory factory = new JssSSLSocketFactory();
 
             httpclient = new HttpClient(factory);
-            httpclient.connect(ca_hostname, ca_port);
+            httpclient.connect(ca_ee_hostname, ca_ee_port);
             HttpRequest httprequest = new HttpRequest();
             httprequest.setMethod(HttpRequest.POST);
             httprequest.setURI("/ca/ee/ca/profileSubmit");

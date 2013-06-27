@@ -50,8 +50,8 @@ class WIServerCertDNPage extends WICertDNPage {
         if (wizardInfo.isMigrationEnable() || wizardInfo.isSSLLocalCertDone() ||
           wizardInfo.isSSLCertRequestDone() || wizardInfo.isSSLCertInstalledDone())
             return false;
-        String machineName = wizardInfo.getMachineName();
-//        dnDesc.setText("CN="+machineName+", O=Netscape Communications, C=US");
+        String adminMachineName = wizardInfo.getMachineName();
+//        dnDesc.setText("CN="+adminMachineName+", O=Netscape Communications, C=US");
         String str = wizardInfo.getSSLSubjectName();
 /*
         if (wizardInfo.isCAInstalled()) { // It is for SSL Server cert for CA
@@ -72,7 +72,7 @@ class WIServerCertDNPage extends WICertDNPage {
         String CComp = wizardInfo.getCComponent();
 
         if (str == null || str.equals("")) {
-            str = "CN="+machineName;
+            str = "CN="+adminMachineName;
             if (OUComp != null && !OUComp.equals("")) {
                 str = str+", OU="+OUComp;
             }

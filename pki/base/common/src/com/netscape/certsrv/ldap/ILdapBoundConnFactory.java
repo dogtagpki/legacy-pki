@@ -18,6 +18,8 @@
 package com.netscape.certsrv.ldap;
 
 
+import netscape.ldap.*;
+import com.netscape.certsrv.base.*;
 
 
 /**

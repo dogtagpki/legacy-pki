@@ -18,47 +18,35 @@
 package com.netscape.cmscore.ldap;
 
 
-import java.math.BigInteger;
-import java.security.cert.X509CRL;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
 import java.security.cert.X509Certificate;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Vector;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.security.cert.*;
+import netscape.ldap.*;
+import netscape.security.util.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.publish.*;
 
-import netscape.ldap.LDAPConnection;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X509CRLImpl;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authority.ICertAuthority;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.base.MetaInfo;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.Modification;
-import com.netscape.certsrv.dbs.ModificationSet;
-import com.netscape.certsrv.dbs.certdb.ICertRecord;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.ldap.ELdapException;
-import com.netscape.certsrv.ldap.ILdapConnModule;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.publish.ILdapExpression;
-import com.netscape.certsrv.publish.ILdapMapper;
-import com.netscape.certsrv.publish.ILdapPublisher;
-import com.netscape.certsrv.publish.ILdapRule;
-import com.netscape.certsrv.publish.IPublisherProcessor;
-import com.netscape.certsrv.publish.IXcertPublisherProcessor;
-import com.netscape.certsrv.publish.LdapCertMapResult;
-import com.netscape.certsrv.publish.MapperPlugin;
-import com.netscape.certsrv.publish.MapperProxy;
-import com.netscape.certsrv.publish.PublisherPlugin;
-import com.netscape.certsrv.publish.PublisherProxy;
-import com.netscape.certsrv.publish.RulePlugin;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestNotifier;
-import com.netscape.cmscore.dbs.CertRecord;
+import com.netscape.cmscore.util.*;
+import com.netscape.cmscore.cert.*;
+import com.netscape.cmscore.dbs.*;
 import com.netscape.cmscore.util.Debug;
 
 
@@ -103,6 +91,143 @@ public class PublisherProcessor implements
         return mConfig;
     }
 
+    public void addPublisherInstance(String insName, IConfigStore c)
+        throws EBaseException {
+
+        String implName = c.getString(insName + "." + 
+                PROP_PLUGIN);
+        PublisherPlugin plugin =
+            (PublisherPlugin) mPublisherPlugins.get(implName);
+
+        if (plugin == null) { 
+            log(ILogger.LL_FAILURE, 
+		CMS.getLogMessage("CMSCORE_LDAP_PLUGIN_NOT_FIND", implName));
+            throw new ELdapException(implName);
+        }
+        String className = plugin.getClassPath();
+
+        // Instantiate and init the publisher.
+        boolean isEnable = false;
+        ILdapPublisher publisherInst = null;
+
+        try {
+            publisherInst = (ILdapPublisher)
+                    Class.forName(className).newInstance();
+            IConfigStore pConfig = 
+                c.getSubStore(insName);
+
+            publisherInst.init(pConfig);
+            isEnable = true;
+
+        } catch (ClassNotFoundException e) {
+            String errMsg = "PublisherProcessor:: init()-" + e.toString();
+
+            log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
+            throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
+        } catch (IllegalAccessException e) {
+            String errMsg = "PublisherProcessor:: init()-" + e.toString();
+
+            log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
+            throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
+        } catch (InstantiationException e) {
+            String errMsg = "PublisherProcessor: init()-" + e.toString();
+
+            log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
+            throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
+        } catch (Throwable e) {
+            log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_SKIP_PUBLISHER", insName, e.toString()));
+            // Let the server continue if it is a
+            // mis-configuration. But the instance
+            // will be skipped. This give another
+            // chance to the user to re-configure
+            // the server via console.
+        }
+
+        if (publisherInst == null) {
+            throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
+        }
+
+        if (insName == null) {
+            throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", insName));
+        }
+
+        // add publisher instance to list.
+        mPublisherInsts.put(insName, new 
+            PublisherProxy(isEnable, publisherInst));
+        log(ILogger.LL_INFO, "publisher instance " + insName + " added");
+        if (Debug.ON)
+            Debug.trace("loaded publisher instance " + insName + " impl " + implName);
+
+    }
+
+    public void addRuleInstance(String insName, IConfigStore c)
+        throws EBaseException {
+
+        String implName = c.getString(insName + "." + 
+                PROP_PLUGIN);
+        RulePlugin plugin =
+            (RulePlugin) mRulePlugins.get(implName);
+
+        if (plugin == null) { 
+            log(ILogger.LL_FAILURE, 
+		CMS.getLogMessage("CMSCORE_LDAP_RULE_NOT_FIND", implName));
+            throw new ELdapException(implName);
+        }
+        String className = plugin.getClassPath();
+
+        if (Debug.ON)
+            Debug.trace("loaded rule className=" + className);
+
+            // Instantiate and init the rule
+        IConfigStore mConfig = null;
+
+        try {
+            ILdapRule ruleInst = null;
+
+            ruleInst = (ILdapRule)
+                    Class.forName(className).newInstance();
+            mConfig = c.getSubStore(insName);
+            ruleInst.init(this, mConfig);
+            ruleInst.setInstanceName(insName);
+
+            // add manager instance to list.
+            if (Debug.ON)
+                Debug.trace("ADDING RULE " + insName + "  " + ruleInst);
+            mRuleInsts.put(insName, ruleInst);
+            log(ILogger.LL_INFO, "rule instance " + 
+                insName + " added");
+        } catch (ClassNotFoundException e) {
+            String errMsg = "PublisherProcessor:: init()-" + e.toString();
+
+            log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
+            throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
+        } catch (IllegalAccessException e) {
+            String errMsg = "PublisherProcessor:: init()-" + e.toString();
+
+            log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
+            throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
+        } catch (InstantiationException e) {
+            String errMsg = "PublisherProcessor: init()-" + e.toString();
+
+            log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
+            throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
+        } catch (Throwable e) {
+            if (mConfig == null) {
+                throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
+            }
+            mConfig.putString(ILdapRule.PROP_ENABLE, 
+                "false");
+            log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_SKIP_RULE", insName, e.toString()));
+            // Let the server continue if it is a
+            // mis-configuration. But the instance
+            // will be skipped. This give another
+            // chance to the user to re-configure
+            // the server via console.
+        }
+        if (Debug.ON)
+            Debug.trace("loaded rule instance " + insName + " impl " + implName);
+    }
+
     public void init(ISubsystem authority, IConfigStore config)
         throws EBaseException {
         mConfig = config;
@@ -130,69 +255,7 @@ public class PublisherProcessor implements
 
         while (instances.hasMoreElements()) {
             String insName = (String) instances.nextElement();
-            String implName = c.getString(insName + "." + 
-                    PROP_PLUGIN);
-            PublisherPlugin plugin =
-                (PublisherPlugin) mPublisherPlugins.get(implName);
-
-            if (plugin == null) { 
-                log(ILogger.LL_FAILURE, 
-			CMS.getLogMessage("CMSCORE_LDAP_PLUGIN_NOT_FIND", implName));
-                throw new ELdapException(implName);
-            }
-            String className = plugin.getClassPath();
-
-            // Instantiate and init the publisher.
-            boolean isEnable = false;
-            ILdapPublisher publisherInst = null;
-
-            try {
-                publisherInst = (ILdapPublisher)
-                        Class.forName(className).newInstance();
-                IConfigStore pConfig = 
-                    c.getSubStore(insName);
-
-                publisherInst.init(pConfig);
-                isEnable = true;
-
-            } catch (ClassNotFoundException e) {
-                String errMsg = "PublisherProcessor:: init()-" + e.toString();
-
-                log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
-                throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
-            } catch (IllegalAccessException e) {
-                String errMsg = "PublisherProcessor:: init()-" + e.toString();
-
-                log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
-                throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
-            } catch (InstantiationException e) {
-                String errMsg = "PublisherProcessor: init()-" + e.toString();
-
-                log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
-                throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
-            } catch (Throwable e) {
-                log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_SKIP_PUBLISHER", insName, e.toString()));
-                // Let the server continue if it is a
-                // mis-configuration. But the instance
-                // will be skipped. This give another
-                // chance to the user to re-configure
-                // the server via console.
-            }
-
-            if (publisherInst == null) {
-                throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
-            }
-
-            if (insName == null) {
-                throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", insName));
-            }
-
-            // add publisher instance to list.
-            mPublisherInsts.put(insName, new 
-                PublisherProxy(isEnable, publisherInst));
-            log(ILogger.LL_INFO, "publisher instance " + insName + " added");
-            if (Debug.ON)
-                Debug.trace("loaded publisher instance " + insName + " impl " + implName);
+            addPublisherInstance(insName, c);
         }
 
         // load mapper implementation
@@ -299,69 +362,7 @@ public class PublisherProcessor implements
         instances = c.getSubStoreNames();
         while (instances.hasMoreElements()) {
             String insName = (String) instances.nextElement();
-            String implName = c.getString(insName + "." + 
-                    PROP_PLUGIN);
-            RulePlugin plugin =
-                (RulePlugin) mRulePlugins.get(implName);
-
-            if (plugin == null) { 
-                log(ILogger.LL_FAILURE, 
-			CMS.getLogMessage("CMSCORE_LDAP_RULE_NOT_FIND", implName));
-                throw new ELdapException(implName);
-            }
-            String className = plugin.getClassPath();
-
-            if (Debug.ON)
-                Debug.trace("loaded rule className=" + className);
-
-                // Instantiate and init the rule
-            IConfigStore mConfig = null;
-
-            try {
-                ILdapRule ruleInst = null;
-
-                ruleInst = (ILdapRule)
-                        Class.forName(className).newInstance();
-                mConfig = c.getSubStore(insName);
-                ruleInst.init(this, mConfig);
-                ruleInst.setInstanceName(insName);
-
-                // add manager instance to list.
-                if (Debug.ON)
-                    Debug.trace("ADDING RULE " + insName + "  " + ruleInst);
-                mRuleInsts.put(insName, ruleInst);
-                log(ILogger.LL_INFO, "rule instance " + 
-                    insName + " added");
-            } catch (ClassNotFoundException e) {
-                String errMsg = "PublisherProcessor:: init()-" + e.toString();
-
-                log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
-                throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
-            } catch (IllegalAccessException e) {
-                String errMsg = "PublisherProcessor:: init()-" + e.toString();
-
-                log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
-                throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
-            } catch (InstantiationException e) {
-                String errMsg = "PublisherProcessor: init()-" + e.toString();
-
-                log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_PUBLISHER_INIT_FAILED", e.toString()));
-                throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
-            } catch (Throwable e) {
-                if (mConfig == null) {
-                    throw new ELdapException(CMS.getUserMessage("CMS_LDAP_FAIL_LOAD_CLASS", className));
-                }
-                mConfig.putString(ILdapRule.PROP_ENABLE, 
-                    "false");
-                log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_LDAP_SKIP_RULE", insName, e.toString()));
-                // Let the server continue if it is a
-                // mis-configuration. But the instance
-                // will be skipped. This give another
-                // chance to the user to re-configure
-                // the server via console.
-            }
-            if (Debug.ON)
-                Debug.trace("loaded rule instance " + insName + " impl " + implName);
+            addRuleInstance(insName, c);
         }
 
         startup();

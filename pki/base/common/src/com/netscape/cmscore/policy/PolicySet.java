@@ -21,6 +21,9 @@ package com.netscape.cmscore.policy;
 import java.util.Enumeration;
 import java.util.Vector;
 
+import netscape.security.x509.X509CertImpl;
+import netscape.security.x509.X509CertInfo;
+
 import com.netscape.certsrv.apps.CMS;
 import com.netscape.certsrv.logging.ILogger;
 import com.netscape.certsrv.policy.IExpression;

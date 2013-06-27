@@ -18,32 +18,36 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.math.BigInteger;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.ldap.LDAPException;
-import netscape.security.x509.X509CertImpl;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.certsrv.template.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import java.io.*;
+import java.math.*;
+import java.util.*;
+import java.security.*;
+import java.security.cert.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.ldap.*;
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.usrgrp.IUGSubsystem;
-import com.netscape.certsrv.usrgrp.IUser;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.CryptoUtil;
+import org.mozilla.jss.asn1.*;
+import com.netscape.cms.servlet.wizard.*;
 
 public class ImportAdminCertPanel extends WizardPanelBase {
 
@@ -106,6 +110,7 @@ public class ImportAdminCertPanel extends WizardPanelBase {
 
         try {
             String serialno = cs.getString("preop.admincert.serialno.0");
+            CMS.debug("ImportAdminCertPanel: serialno=" + serialno);
             
             context.put("serialNumber", serialno);
         } catch (Exception e) {
@@ -122,35 +127,62 @@ public class ImportAdminCertPanel extends WizardPanelBase {
             context.put("ca", "true");
         }
 
-        String caHost = "";
-        String caPort = "";
+        String ca_admin_host = "";
+        String ca_admin_port = "";
         String info = "";
 
         if (ca == null) {
             if (type.equals("otherca")) {
                 try {
-                    // this is a non-CA system that has elected to have its certificates 
-                    // signed by a CA outside of the security domain.
-                    // in this case, we submitted the cert request for the admin cert to
-                    // to security domain host.
-                    caHost = cs.getString("securitydomain.host", "");
-                    caPort = cs.getString("securitydomain.httpsadminport", "");
+                    // This is a non-CA system that has elected to have its
+                    // certificates  signed by a CA outside of the security
+                    // domain.  In this case, we submitted the cert request
+                    // for the admin cert to the security domain Admin host
+                    // and Admin port.
+                    ca_admin_host = cs.getString(
+                                        "securitydomain.adminhost", "");
+                    ca_admin_port = cs.getString(
+                                        "securitydomain.httpsadminport", "");
+                    CMS.debug("ImportAdminCertPanel: otherca " + 
+                              "ca_admin_host=" + ca_admin_host +
+                              " ca_admin_port=" + ca_admin_port);
                 } catch (Exception e) {}
             } else if (type.equals("sdca")) {
                 try {
-                    // this is a non-CA system that submitted its certs to a CA
-                    // within the security domain.  In this case, we submitted the cert
-                    // request for the admin cert to this CA
-                    caHost = cs.getString("preop.ca.hostname", "");
-                    caPort = cs.getString("preop.ca.httpsadminport", "");
+                    // This is a non-CA system that submitted its certs to
+                    // a CA within the security domain.  In this case, we
+                    // submitted the cert request for the admin cert to
+                    // this CA via the CA Admin host and CA Admin port
+                    // after using the associated CA EE host and CA EE port
+                    // to look them up in the security domain.
+                    String ca_ee_host = cs.getString("preop.ca.hostname", "");
+                    String ca_ee_port = cs.getString("preop.ca.httpsport", "");
+                    ca_admin_host = getSecurityDomainAdminHost(cs,
+                                                               ca_ee_host,
+                                                               ca_ee_port,
+                                                               "CA");
+                    ca_admin_port = getSecurityDomainAdminPort(cs,
+                                                               ca_ee_host,
+                                                               ca_ee_port,
+                                                               "CA");
+                    CMS.debug("ImportAdminCertPanel: sdca " + 
+                              "ca_ee_host=" + ca_ee_host +
+                              " ca_ee_port=" + ca_ee_port +
+                              " ca_admin_host=" + ca_admin_host +
+                              " ca_admin_port=" + ca_admin_port);
                 } catch (Exception e) {}
             }
         } else {
             // for CAs, we always generate our own admin certs
-            // send our own connection details
+            // send our own connection details which must utilize
+            // the CA Admin Host and CA Admin Port since the EE
+            // connection for this CA is not yet available
             try {
-                caHost = cs.getString("service.machineName", "");
-                caPort = cs.getString("pkicreate.admin_secure_port", "");
+                ca_admin_host = cs.getString("service.adminMachineName", "");
+                ca_admin_port = cs.getString("pkicreate.admin_secure_port", "");
+                CMS.debug("ImportAdminCertPanel: ca " + 
+                          "ca_admin_host=" + ca_admin_host +
+                          " ca_admin_port=" + ca_admin_port);
             } catch (Exception e) {}
         }
 
@@ -161,8 +193,8 @@ public class ImportAdminCertPanel extends WizardPanelBase {
         }
 
         context.put("pkcs7", pkcs7);
-        context.put("caHost", caHost);
-        context.put("caPort", caPort);
+        context.put("caHost", ca_admin_host);
+        context.put("caPort", ca_admin_port);
         context.put("info", info);
     }
 
@@ -225,7 +257,6 @@ public class ImportAdminCertPanel extends WizardPanelBase {
             } catch (Exception e) {
                 CMS.debug(
                         "ImportAdminCertPanel update: Failed to get request id.");
-                context.put("updateStatus", "failure");
                 throw new IOException("Failed to get request id.");
             }
 
@@ -291,14 +322,12 @@ public class ImportAdminCertPanel extends WizardPanelBase {
         } catch (LDAPException e) {
             CMS.debug("ImportAdminCertPanel update: failed to add certificate to the internal database. Exception: "+e.toString());
             if (e.getLDAPResultCode() != LDAPException.ATTRIBUTE_OR_VALUE_EXISTS) {
-                context.put("updateStatus", "failure");
                 throw new IOException(e.toString());
             }
         } catch (Exception e) {
             CMS.debug(
                     "ImportAdminCertPanel update: failed to add certificate. Exception: "
                             + e.toString());
-            context.put("updateStatus", "failure");
             throw new IOException(e.toString());
         }
 
@@ -306,7 +335,6 @@ public class ImportAdminCertPanel extends WizardPanelBase {
         context.put("info", "");
         context.put("title", "Import Administrator Certificate");
         context.put("panel", "admin/console/config/importadmincertpanel.vm");
-        context.put("updateStatus", "success");
     }
 
     public boolean shouldSkip() {

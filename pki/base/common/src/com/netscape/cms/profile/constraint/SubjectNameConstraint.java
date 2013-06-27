@@ -18,25 +18,17 @@
 package com.netscape.cms.profile.constraint;
 
 
-import java.io.IOException;
-import java.util.Locale;
+import java.util.*;
+import java.io.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.cms.profile.common.*;
+import com.netscape.cms.profile.def.*;
 
-import netscape.security.x509.CertificateSubjectName;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X509CertInfo;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.ERejectException;
-import com.netscape.certsrv.profile.IPolicyDefault;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.cms.profile.def.NoDefault;
-import com.netscape.cms.profile.def.SubjectNameDefault;
-import com.netscape.cms.profile.def.UserSubjectNameDefault;
+import netscape.security.x509.*;
 
 
 /**
@@ -49,6 +41,16 @@ import com.netscape.cms.profile.def.UserSubjectNameDefault;
 public class SubjectNameConstraint extends EnrollConstraint {
 
     public static final String CONFIG_PATTERN = "pattern";
+
+
+    private static final int COMMON_NAME_MAX = 64;
+    private static final int LOCALITY_NAME_MAX = 128;
+    private static final int STATE_NAME_MAX = 128;
+    private static final int ORG_NAME_MAX = 64;
+    private static final int ORG_UNIT_NAME_MAX = 64;
+    private static final int EMAIL_NAME_MAX = 255;
+    private static final int COUNTRY_NAME_MAX = 3;
+    private static final int UID_NAME_MAX = 64;
 
     public SubjectNameConstraint() {
         // configuration names
@@ -117,6 +119,104 @@ public class SubjectNameConstraint extends EnrollConstraint {
                     CMS.getUserMessage(getLocale(request), 
                         "CMS_PROFILE_SUBJECT_NAME_NOT_MATCHED", 
                         sn500.toString()));
+        }
+
+        String incorrectFields = " [ Invalid fields: ";
+        String country = null;
+        boolean fieldError = false;
+
+        String commonName = null;
+        try {
+            commonName = sn500.getCommonName();
+        } catch (Exception e) {
+        }
+        if ( commonName != null && commonName.length() > COMMON_NAME_MAX ) {
+            fieldError = true;
+            incorrectFields += " Common Name "; 
+
+        }
+
+        try { 
+             country =  sn500.getCountry();
+        } catch (Exception e) {
+        }
+
+        if ( country != null && country.length() > COUNTRY_NAME_MAX ) {
+            fieldError = true;
+            incorrectFields += " , Country ";
+        }
+
+        String ou = null ;
+        try {
+            ou = sn500.getOrganizationalUnit();
+        } catch (Exception e) {
+        }
+
+        if ( ou != null && ou.length() > ORG_UNIT_NAME_MAX) {
+            fieldError = true;
+            incorrectFields += " , Org Unit ";
+        }
+
+        String o = null; 
+        try {
+            o = sn500.getOrganization();
+        } catch (Exception e) {
+        }
+
+        if ( o != null && o.length() > ORG_NAME_MAX) {
+            fieldError = true;
+            incorrectFields += " , Org ";
+        }
+
+        String locality = null;
+        try {
+            locality =  sn500.getLocality();
+        } catch (Exception e) {
+        }
+
+        if ( locality != null && locality.length() > LOCALITY_NAME_MAX ) {
+            fieldError = true;
+            incorrectFields += " , Locality ";
+        }
+
+        String state =  null; 
+        try {
+            state = sn500.getState();
+        } catch (Exception e) {
+        }
+
+        if ( state != null && state.length() > STATE_NAME_MAX ) {
+            fieldError = true;
+            incorrectFields += " , State "; 
+        }
+
+        String email =  null; 
+        try {
+            email = sn500.getEmail();
+        } catch (Exception e) {
+        }
+
+        if ( email != null && email.length() > EMAIL_NAME_MAX ) {
+            fieldError = true;
+            incorrectFields += " , Email ";
+        }
+
+        String UID =  null;
+        try {
+            UID = sn500.getUserID();
+        } catch (Exception e) {
+        }
+        
+        if ( UID != null && UID.length() > UID_NAME_MAX) {
+             fieldError = true;
+             incorrectFields += " , UID";
+        }   
+
+        if ( fieldError == true ) {
+            throw new ERejectException(
+                    CMS.getUserMessage(getLocale(request),
+                        "CMS_PROFILE_INVALID_SUBJECT_NAME",sn500.toString() + incorrectFields + " ] "));
+
         }
     }
 

@@ -18,25 +18,19 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.util.Locale;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.base.IConfigStore;
+import com.netscape.certsrv.template.ArgList;
+import com.netscape.certsrv.template.ArgSet;
+import com.netscape.cms.servlet.*;
 import com.netscape.certsrv.logging.ILogger;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
 
 public class MainPageServlet extends CMSServlet {
     private static final String PROP_AUTHORITY_ID="authorityId";
@@ -85,10 +79,13 @@ public class MainPageServlet extends CMSServlet {
         try {
             ServletOutputStream out = response.getOutputStream();
 
-            {
+            if (error == null) {
                 cmsReq.setStatus(CMSRequest.SUCCESS);
                 response.setContentType("text/html");
                 form.renderOutput(out, argSet);
+            } else {
+                cmsReq.setStatus(CMSRequest.ERROR);
+                cmsReq.setError(error);
             }
         } catch (IOException e) {
             log(ILogger.LL_FAILURE,
@@ -106,13 +103,17 @@ public class MainPageServlet extends CMSServlet {
         IArgBlock rarg = null;
         IConfigStore cs = CMS.getConfigStore();
         int state = 0;
-        String host = "";
+        String agentHost = "";
+        String eeHost = "";
+        String adminHost = "";
         String adminInterface = "";
         String eeInterface = "";
         String agentInterface = "";
         try {
             state = cs.getInteger("cs.state", 0);
-            host = cs.getString("machineName", "");
+            adminHost = cs.getString("adminMachineName", "");
+            agentHost = cs.getString("agentMachineName", "");
+            eeHost = cs.getString("eeMachineName", "");
             adminInterface = cs.getString("admin.interface.uri", "");
             eeInterface = cs.getString("ee.interface.uri", "");
             agentInterface = cs.getString("agent.interface.uri", "");
@@ -125,7 +126,7 @@ public class MainPageServlet extends CMSServlet {
             rarg.addStringValue("prefix", "http");
             rarg.addIntegerValue("port", 
               Integer.valueOf(CMS.getEENonSSLPort()).intValue());
-            rarg.addStringValue("host", host);
+            rarg.addStringValue("host", adminHost);
             rarg.addStringValue("uri", adminInterface);
             argSet.addRepeatRecord(rarg);
             num++;
@@ -136,7 +137,7 @@ public class MainPageServlet extends CMSServlet {
                 rarg.addStringValue("prefix", "https");
                 rarg.addIntegerValue("port", 
                   Integer.valueOf(CMS.getEESSLPort()).intValue());
-                rarg.addStringValue("host", host);
+                rarg.addStringValue("host", eeHost);
                 rarg.addStringValue("uri", eeInterface);
                 argSet.addRepeatRecord(rarg);
                 num++;
@@ -147,7 +148,7 @@ public class MainPageServlet extends CMSServlet {
                 rarg.addStringValue("prefix", "https");
                 rarg.addIntegerValue("port", 
                   Integer.valueOf(CMS.getAgentPort()).intValue());
-                rarg.addStringValue("host", host);
+                rarg.addStringValue("host", agentHost);
                 rarg.addStringValue("uri", agentInterface);
                 argSet.addRepeatRecord(rarg);
                 num++;

@@ -45,19 +45,21 @@ function serialNumberRangeCrit()
     var canonicalFrom = "", canonicalTo = "";
 
     if (document.serialNumberRangeCritForm.serialFrom.value != "") {
-        if (isHex(document.serialNumberRangeCritForm.serialFrom.value)) {
-          canonicalFrom = parseInt(stripPrefix(document.serialNumberRangeCritForm.serialFrom.value),16);
-        } else {
+        // bug 951501 - parseInt is failing to handle big numbers
+        //if (isHex(document.serialNumberRangeCritForm.serialFrom.value)) {
+        //  canonicalFrom = parseInt(stripPrefix(document.serialNumberRangeCritForm.serialFrom.value),16);
+        //} else {
           canonicalFrom = document.serialNumberRangeCritForm.serialFrom.value;
-        }
+        //}
         crit[next++] = "keySerialNumber >= " + canonicalFrom;
     }
     if (document.serialNumberRangeCritForm.serialTo.value != "") {
-        if (isHex(document.serialNumberRangeCritForm.serialTo.value)) {
-          canonicalTo = parseInt(stripPrefix(document.serialNumberRangeCritForm.serialTo.value),16);
-        } else {
+        // bug 951501 - parseInt is failing to handle big numbers
+        //if (isHex(document.serialNumberRangeCritForm.serialTo.value)) {
+        //  canonicalTo = parseInt(stripPrefix(document.serialNumberRangeCritForm.serialTo.value),16);
+        //} else {
           canonicalTo = document.serialNumberRangeCritForm.serialTo.value;
-        }
+        //}
         crit[next++] = "keySerialNumber <= " +canonicalTo;
     }
 
@@ -318,8 +320,8 @@ Note: Archiver information is available only when the Certificate Manager or Reg
 <TR>
 <TD align="right" bgcolor="#eeeeee">
 <input type="button" value="Show Key" onClick='doSubmit(queryForm)'>
-<!-- <input type="button" value=Help
-onClick="help('/manual/agt_gide/kraagt.htm#1019227')"> -->
+<input type="button" value=Help
+onClick="help('/manual/agt_gide/kraagt.htm#1019227')">
 </TD>
 </TR>
 </TABLE>

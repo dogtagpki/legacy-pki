@@ -18,21 +18,36 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.certsrv.template.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import java.io.*;
+import java.math.*;
+import java.util.*;
+import java.security.*;
+import java.security.cert.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.ldap.*;
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.cms.servlet.wizard.WizardServlet;
+import org.mozilla.jss.asn1.*;
+import com.netscape.cms.servlet.wizard.*;
 
 public class ImportCAChainPanel extends WizardPanelBase {
 
@@ -85,13 +100,11 @@ public class ImportCAChainPanel extends WizardPanelBase {
 
         IConfigStore cs = CMS.getConfigStore();
         try {
-            context.put("machineName", cs.getString("machineName"));
-            context.put("https_port", cs.getString("pkicreate.ee_secure_port"));
-            context.put("http_port", cs.getString("pkicreate.unsecure_port"));
-        } catch (EBaseException e) {
-            CMS.debug("ImportCACertChain:display: Exception: " + e.toString()); 
-            context.put("errorString", "Error loading values for Import CA Certificate Panel");
-        }
+            context.put("eeMachineName", cs.getString("eeMachineName"));
+            context.put("https_ee_port", CMS.getEESSLPort());
+            context.put("http_ee_port", CMS.getEENonSSLPort());
+        } catch (EBaseException e) {}
+
 
         ISubsystem ca = (ISubsystem) CMS.getSubsystem("ca");
 
@@ -123,7 +136,6 @@ public class ImportCAChainPanel extends WizardPanelBase {
         context.put("errorString", "");
         context.put("title", "Import CA's Certificate Chain");
         context.put("panel", "admin/console/config/importcachainpanel.vm");
-        context.put("updateStatus", "success");
     }
 
     /**
@@ -136,9 +148,9 @@ public class ImportCAChainPanel extends WizardPanelBase {
         /* This should never be called */
         IConfigStore cs = CMS.getConfigStore();
         try {
-            context.put("machineName", cs.getString("machineName"));
-            context.put("https_port", cs.getString("pkicreate.ee_secure_port"));
-            context.put("http_port", cs.getString("pkicreate.unsecure_port"));
+            context.put("eeMachineName", cs.getString("eeMachineName"));
+            context.put("https_ee_port", CMS.getEESSLPort());
+            context.put("http_ee_port", CMS.getEENonSSLPort());
             context.put("title", "Import CA's Certificate Chain");
             context.put("panel", "admin/console/config/importcachainpanel.vm");
         } catch (EBaseException e) {}

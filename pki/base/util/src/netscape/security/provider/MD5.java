@@ -17,8 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.provider;
 
-import java.security.DigestException;
-import java.security.MessageDigestSpi;
+import java.util.*;
+import java.lang.*;
+import java.security.*;
 
 /**
  * The MD5 class is used to compute an MD5 message digest over a given

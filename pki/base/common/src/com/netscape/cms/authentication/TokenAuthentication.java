@@ -17,33 +17,30 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.authentication;
 
-import java.io.ByteArrayInputStream;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.Vector;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.AuthToken;
-import com.netscape.certsrv.authentication.EInvalidCredentials;
-import com.netscape.certsrv.authentication.EMissingCredential;
-import com.netscape.certsrv.authentication.IAuthCredentials;
-import com.netscape.certsrv.authentication.IAuthManager;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.profile.IProfileAuthenticator;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.usrgrp.IUGSubsystem;
-import com.netscape.cmsutil.http.HttpClient;
-import com.netscape.cmsutil.http.HttpRequest;
-import com.netscape.cmsutil.http.HttpResponse;
-import com.netscape.cmsutil.http.JssSSLSocketFactory;
-import com.netscape.cmsutil.xml.XMLObject;
+import java.io.*;
+import java.util.*;
+import java.lang.Class;
+import java.security.cert.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.policy.*;
+import com.netscape.cmsutil.http.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.ra.*;
+import com.netscape.certsrv.kra.*;
+import javax.servlet.http.HttpServletRequest;
+import com.netscape.cmsutil.xml.*;
+import org.w3c.dom.*;
 
 /**
  * Token authentication.  
@@ -135,7 +132,7 @@ public class TokenAuthentication implements IAuthManager,
         // force SSL handshake
         SessionContext context = SessionContext.getExistingContext();
 
-        // retreive certificate from socket
+        // retrieve certificate from socket
         AuthToken authToken = new AuthToken(this);
 
         // get group name from configuration file
@@ -143,30 +140,38 @@ public class TokenAuthentication implements IAuthManager,
 
         String sessionId = (String)authCred.get(CRED_SESSION_ID);
         String givenHost = (String)authCred.get("clientHost");
-        String auth_host = sconfig.getString("securitydomain.host");
-        int auth_port = sconfig.getInteger("securitydomain.httpseeport");
+        String authAdminHost = sconfig.getString("securitydomain.adminhost");
+        String authEEHost = sconfig.getString("securitydomain.eehost");
+        int authAdminPort = sconfig.getInteger("securitydomain.httpsadminport");
+        int authEEPort = sconfig.getInteger("securitydomain.httpseeport");
+        String authAdminURL = "/ca/admin/ca/tokenAuthenticate";
+        String authEEURL = "/ca/ee/ca/tokenAuthenticate";
 
-        HttpClient httpclient = new HttpClient();
+        String content = CRED_SESSION_ID + "=" + sessionId + "&hostname=" + givenHost;
+        CMS.debug("TokenAuthentication: content=" + content);
+
         String c = null;
         try {
-            JssSSLSocketFactory factory = new JssSSLSocketFactory();
-            httpclient = new HttpClient(factory);
-            String content = CRED_SESSION_ID+"="+sessionId+"&hostname="+givenHost;
-            CMS.debug("TokenAuthentication: content=" + content);
-            httpclient.connect(auth_host, auth_port);
-            HttpRequest httprequest = new HttpRequest();
-            httprequest.setMethod(HttpRequest.POST);
-            httprequest.setURI("/ca/ee/ca/tokenAuthenticate");
-            httprequest.setHeader("user-agent", "HTTPTool/1.0");
-            httprequest.setHeader("content-length", "" + content.length());
-            httprequest.setHeader("content-type",
-                    "application/x-www-form-urlencoded");
-            httprequest.setContent(content);
-            HttpResponse httpresponse = httpclient.send(httprequest);
-
-            c = httpresponse.getContent();
+            c = sendAuthRequest(authAdminHost, authAdminPort, authAdminURL, content);
+            // in case where the new interface does not exist, EE will return a badly
+            // formatted response which will throw an exception during parsing
+            if (c != null) {
+                @SuppressWarnings("unused")
+                XMLObject parser = new XMLObject(new ByteArrayInputStream(c.getBytes()));
+            }
         } catch (Exception e) { 
-            CMS.debug("TokenAuthentication authenticate Exception="+e.toString());
+            CMS.debug("TokenAuthenticate: failed to contact admin host:port "
+                    + authAdminHost + ":" + authAdminPort + " " + e);
+            // Retry against the EE host:port combination
+            CMS.debug("TokenAuthenticate: attempting ee host:port " + authEEHost + ":" + authEEPort);
+
+            try {
+                c = sendAuthRequest(authEEHost, authEEPort, authEEURL, content);
+            } catch (IOException e1) {
+                CMS.debug("TokenAuthenticate: failed to contact EE host:port "
+                        + authEEHost + ":" + authEEPort + " " + e1);
+                throw new EBaseException(e1.getMessage());
+            }
         }
 
         if (c != null) {
@@ -209,6 +214,29 @@ public class TokenAuthentication implements IAuthManager,
         }
 
         return authToken;
+    }
+
+    private String sendAuthRequest(String authHost, int authPort, String authUrl, String content) 
+        throws IOException {
+        HttpClient httpclient = new HttpClient();
+        String c = null;
+
+        JssSSLSocketFactory factory = new JssSSLSocketFactory();
+        httpclient = new HttpClient(factory);
+        httpclient.connect(authHost, authPort);
+        HttpRequest httprequest = new HttpRequest();
+        httprequest.setMethod(HttpRequest.POST);
+        httprequest.setURI(authUrl);
+        httprequest.setHeader("user-agent", "HTTPTool/1.0");
+        httprequest.setHeader("content-length", "" + content.length());
+        httprequest.setHeader("content-type",
+                "application/x-www-form-urlencoded");
+        httprequest.setContent(content);
+
+        HttpResponse httpresponse = httpclient.send(httprequest);
+        c = httpresponse.getContent();
+
+        return c;
     }
 
     /**

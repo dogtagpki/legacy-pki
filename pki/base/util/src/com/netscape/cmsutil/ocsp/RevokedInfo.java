@@ -17,18 +17,8 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cmsutil.ocsp;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-
-import org.mozilla.jss.asn1.ASN1Template;
-import org.mozilla.jss.asn1.ASN1Value;
-import org.mozilla.jss.asn1.EXPLICIT;
-import org.mozilla.jss.asn1.GeneralizedTime;
-import org.mozilla.jss.asn1.INTEGER;
-import org.mozilla.jss.asn1.InvalidBERException;
-import org.mozilla.jss.asn1.SEQUENCE;
-import org.mozilla.jss.asn1.Tag;
+import java.io.*;
+import org.mozilla.jss.asn1.*;
 
 /**
  * RFC 2560:

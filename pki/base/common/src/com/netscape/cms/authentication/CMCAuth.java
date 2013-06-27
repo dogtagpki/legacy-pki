@@ -26,72 +26,61 @@ package com.netscape.cms.authentication;
 ///////////////////////
 
 /* cert server imports */
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.math.BigInteger;
-import java.security.MessageDigest;
-import java.security.PublicKey;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Locale;
-import java.util.Vector;
-
-import netscape.security.pkcs.PKCS10;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
-import netscape.security.x509.X509Key;
-
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.asn1.ASN1Util;
-import org.mozilla.jss.asn1.INTEGER;
-import org.mozilla.jss.asn1.InvalidBERException;
-import org.mozilla.jss.asn1.OBJECT_IDENTIFIER;
-import org.mozilla.jss.asn1.OCTET_STRING;
-import org.mozilla.jss.asn1.SEQUENCE;
-import org.mozilla.jss.asn1.SET;
-import org.mozilla.jss.crypto.DigestAlgorithm;
-import org.mozilla.jss.crypto.PrivateKey;
-import org.mozilla.jss.pkcs10.CertificationRequest;
-import org.mozilla.jss.pkcs11.PK11PubKey;
-import org.mozilla.jss.pkix.cert.Certificate;
-import org.mozilla.jss.pkix.cert.CertificateInfo;
-import org.mozilla.jss.pkix.cmc.PKIData;
-import org.mozilla.jss.pkix.cmc.TaggedAttribute;
-import org.mozilla.jss.pkix.cmc.TaggedCertificationRequest;
-import org.mozilla.jss.pkix.cmc.TaggedRequest;
-import org.mozilla.jss.pkix.cms.EncapsulatedContentInfo;
-import org.mozilla.jss.pkix.cms.IssuerAndSerialNumber;
-import org.mozilla.jss.pkix.cms.SignedData;
-import org.mozilla.jss.pkix.cms.SignerIdentifier;
-import org.mozilla.jss.pkix.crmf.CertReqMsg;
-import org.mozilla.jss.pkix.crmf.CertRequest;
-import org.mozilla.jss.pkix.crmf.CertTemplate;
-import org.mozilla.jss.pkix.primitive.AlgorithmIdentifier;
-import org.mozilla.jss.pkix.primitive.Name;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.AuthToken;
-import com.netscape.certsrv.authentication.EInvalidCredentials;
-import com.netscape.certsrv.authentication.EMissingCredential;
-import com.netscape.certsrv.authentication.IAuthCredentials;
-import com.netscape.certsrv.authentication.IAuthManager;
-import com.netscape.certsrv.authentication.IAuthSubsystem;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.base.EBaseException;
+import com.netscape.cms.authentication.*;
+import com.netscape.certsrv.authentication.*;
 import com.netscape.certsrv.base.IConfigStore;
+import com.netscape.certsrv.base.EBaseException;
 import com.netscape.certsrv.base.IExtendedPluginInfo;
 import com.netscape.certsrv.base.SessionContext;
 import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.profile.IProfileAuthenticator;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.cmsutil.util.Utils;
+
+import com.netscape.cmsutil.util.*;
+import netscape.security.util.DerValue;
+import netscape.security.x509.*;
+
+/* java sdk imports */
+import java.io.*;
+import java.util.*;
+import java.util.Properties;
+import java.util.Vector;
+import com.netscape.certsrv.apps.*;
+import java.util.Hashtable;
+import java.security.MessageDigest;
+import java.security.PublicKey;
+
+import org.mozilla.jss.asn1.SET;
+import org.mozilla.jss.asn1.SEQUENCE;
+import org.mozilla.jss.asn1.INTEGER;
+import org.mozilla.jss.asn1.OCTET_STRING;
+import org.mozilla.jss.pkix.crmf.CertTemplate;
+import org.mozilla.jss.pkix.crmf.CertReqMsg;
+import org.mozilla.jss.pkix.crmf.CertRequest;
+import org.mozilla.jss.pkix.crmf.ChallengeResponseException;
+import org.mozilla.jss.pkix.primitive.SubjectPublicKeyInfo;
+import org.mozilla.jss.pkix.primitive.Name;
+import org.mozilla.jss.pkix.primitive.AlgorithmIdentifier;
+import org.mozilla.jss.asn1.InvalidBERException;
+import org.mozilla.jss.asn1.OBJECT_IDENTIFIER;
+import org.mozilla.jss.asn1.ANY;
+import org.mozilla.jss.pkix.cms.*;
+import org.mozilla.jss.pkix.cmc.*;
+import org.mozilla.jss.pkcs10.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.pkix.cert.Certificate;
+import org.mozilla.jss.pkix.cert.CertificateInfo;
+import org.mozilla.jss.asn1.ASN1Util;
+import org.mozilla.jss.pkcs11.*;
+
+import com.netscape.certsrv.usrgrp.*;
+
+import netscape.security.pkcs.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import java.math.BigInteger;
+import org.mozilla.jss.CryptoManager;
+import org.mozilla.jss.CryptoManager.NotInitializedException;
 
 //import com.netscape.cmscore.util.*;
 //////////////////////
@@ -359,6 +348,10 @@ public class CMCAuth implements IAuthManager, IExtendedPluginInfo,
                 String uid = "defUser";
                 if (checkSignerInfo) {
                     IAuthToken agentToken = verifySignerInfo(authToken,cmcFullReq);
+                    if (agentToken == null) {
+                        CMS.debug("CMCAuth: authenticate() agentToken null");
+                        throw new EBaseException("CMCAuth: agent verifySignerInfo failure");
+                    }
                     userid = agentToken.getInString("userid");
                     uid = agentToken.getInString("cn");
                 } else {
@@ -492,7 +485,7 @@ public class CMCAuth implements IAuthManager, IExtendedPluginInfo,
                         TaggedRequest.Type type = taggedRequest.getType();
 
                         if (type.equals(TaggedRequest.PKCS10)) {
-                            CMS.debug("CMCAuth: in PKCS10");
+                            CMS.debug("CMCAuth: type is PKCS10");
                             TaggedCertificationRequest tcr =
                                 taggedRequest.getTcr();
                             int p10Id = tcr.getBodyPartID().intValue();
@@ -507,9 +500,31 @@ public class CMCAuth implements IAuthManager, IExtendedPluginInfo,
                                 new ByteArrayOutputStream();
 
                             p10.encode(ostream);
+                            boolean sigver = true;
+                            boolean tokenSwitched = false;
+                            CryptoManager cm = null;
+                            CryptoToken signToken = null;
+                            CryptoToken savedToken = null;
+                            sigver = CMS.getConfigStore().getBoolean("ca.requestVerify.enabled", true);
                             try {
+                                cm = CryptoManager.getInstance();
+                                if (sigver == true) {
+                                    String tokenName =
+                                        CMS.getConfigStore().getString("ca.requestVerify.token", "internal");
+                                    savedToken = cm.getThreadToken();
+                                    if (tokenName.equals("internal")) {
+                                        signToken = cm.getInternalCryptoToken();
+                                    } else {
+                                        signToken = cm.getTokenByName(tokenName);
+                                    }
+                                    if (!savedToken.getName().equals(signToken.getName())) {
+                                        cm.setThreadToken(signToken);
+                                        tokenSwitched = true;
+                                    }
+                                }
+
                                 PKCS10 pkcs10 =
-                                    new PKCS10(ostream.toByteArray());
+                                    new PKCS10(ostream.toByteArray(), sigver);
 
                                 // xxx do we need to do anything else?
                                 X509CertInfo certInfo =
@@ -555,10 +570,14 @@ public class CMCAuth implements IAuthManager, IExtendedPluginInfo,
 
                                 e.printStackTrace();    
                                 throw new EBaseException(e.toString());
+                            } finally {
+                                if ((sigver == true) && (tokenSwitched == true)){
+                                    cm.setThreadToken(savedToken);
+                                }
                             }
                         } else if (type.equals(TaggedRequest.CRMF)) {
 
-                            CMS.debug("CMCAuth: in CRMF");
+                            CMS.debug("CMCAuth: type is CRMF");
                             try {
                                 CertReqMsg crm =
                                     taggedRequest.getCrm();
@@ -780,7 +799,12 @@ public class CMCAuth implements IAuthManager, IExtendedPluginInfo,
         OBJECT_IDENTIFIER id = ci.getContentType();
         OCTET_STRING content = ci.getContent();
         
+        boolean tokenSwitched = false;
+        CryptoToken signToken = null;
+        CryptoToken savedToken = null;
+        CryptoManager cm = null;
         try {
+            cm = CryptoManager.getInstance();
             ByteArrayInputStream s = new ByteArrayInputStream(content.toByteArray());
             PKIData pkiData = (PKIData) (new PKIData.Template()).decode(s);
             
@@ -865,23 +889,47 @@ public class CMCAuth implements IAuthManager, IExtendedPluginInfo,
                             CMS.debug("CMCAuth: verifying signature");
                             si.verify(digest, id);
                         } else {
+                            CMS.debug("CMCAuth: found signing cert... verifying");
                             PublicKey signKey = cert.getPublicKey();
                             PrivateKey.Type keyType = null;
                             String alg = signKey.getAlgorithm();
 
+                            PK11PubKey pubK = null;
                             if (alg.equals("RSA")) {
+                                CMS.debug("CMCAuth: signing key alg=RSA");
                                 keyType = PrivateKey.RSA;
+                                pubK = PK11PubKey.fromRaw(keyType, ((X509Key) signKey).getKey());
+                            } else if (alg.equals("EC")) {
+                                CMS.debug("CMCAuth: signing key alg=EC");
+                                keyType = PrivateKey.EC;
+                                byte publicKeyData[] = ((X509Key) signKey).getEncoded();
+                                pubK = (PK11PubKey) PK11ECPublicKey.fromSPKI(/*keyType,*/ publicKeyData);
                             } else if (alg.equals("DSA")) {
+                                CMS.debug("CMCAuth: signing key alg=DSA");
                                 keyType = PrivateKey.DSA;
+                                pubK = PK11PubKey.fromSPKI(/*keyType,*/ ((X509Key) signKey).getKey());
                             }
-                            PK11PubKey pubK = PK11PubKey.fromRaw(keyType, ((X509Key) signKey).getKey());
+
+                            String tokenName =
+                                CMS.getConfigStore().getString("ca.requestVerify.token", "internal");
+                            // by default JSS will use internal crypto token
+                            if (!tokenName.equals("internal")) {
+                                savedToken = cm.getThreadToken();
+                                signToken = cm.getTokenByName(tokenName);
+                                if(signToken != null) {
+                                    cm.setThreadToken(signToken);
+                                    tokenSwitched = true;
+                                    CMS.debug("CMCAuth: verifySignerInfo token switched:"+ tokenName);
+                                } else {
+                                    CMS.debug("CMCAuth: verifySignerInfo token not found:"+ tokenName+ ", trying internal");
+                                }
+                            }
 
                             CMS.debug("CMCAuth: verifying signature with public key");
                             si.verify(digest, id, pubK);
                         }
                         CMS.debug("CMCAuth: finished checking signature");
                          // verify signer's certificate using the revocator
-                        CryptoManager cm = CryptoManager.getInstance(); 
                         if( ! cm.isCertValid( certByteArray, true,CryptoManager.CertUsage.SSLClient) )
                             throw new EInvalidCredentials(CMS.getUserMessage("CMS_AUTHENTICATION_INVALID_CREDENTIAL"));
 
@@ -903,12 +951,36 @@ public class CMCAuth implements IAuthManager, IExtendedPluginInfo,
                         return tempToken;
                         
                     }
+
                     // find from internaldb if it's ca. (ra does not have that.)
                     // find from internaldb usrgrp info
                     
-                    {
+                    CMS.debug("CMCAuth: how to get here?");
+                    if (cert == null) {
                         // find from certDB
                         si.verify(digest, id);
+                    } else {
+                        PublicKey signKey = cert.getPublicKey();
+                        PrivateKey.Type keyType = null;
+                        String alg = signKey.getAlgorithm();
+
+                        PK11PubKey pubK = null;
+                        if (alg.equals("RSA")) {
+                            CMS.debug("CMCAuth: signing key alg=RSA");
+                            keyType = PrivateKey.RSA;
+                            pubK = PK11PubKey.fromRaw(keyType, ((X509Key) signKey).getKey());
+                        } else if (alg.equals("EC")) {
+                            CMS.debug("CMCAuth: signing key alg=EC");
+                            keyType = PrivateKey.EC;
+                            byte publicKeyData[] = ((X509Key) signKey).getEncoded();
+                            pubK = (PK11PubKey) PK11ECPublicKey.fromSPKI(/*keyType,*/ publicKeyData);   
+                        } else if (alg.equals("DSA")) {
+                            CMS.debug("CMCAuth: signing key alg=DSA");
+                            keyType = PrivateKey.DSA;
+                            pubK = PK11PubKey.fromSPKI(/*keyType,*/ ((X509Key) signKey).getKey());
+                        }
+
+                        si.verify(digest, id, pubK);
                     }
                     
                 } // 
@@ -917,8 +989,16 @@ public class CMCAuth implements IAuthManager, IExtendedPluginInfo,
             CMS.debug("CMCAuth: " + e.toString());
         } catch (IOException e) {
             CMS.debug("CMCAuth: " + e.toString());
+        } catch (NotInitializedException e) {
+            CMS.debug("CMCAuth: " + e.toString());
         } catch (Exception e) {
-            throw new EInvalidCredentials(CMS.getUserMessage("CMS_AUTHENTICATION_INVALID_CREDENTIAL"));
+            CMS.debug("CMCAuth: " + e.toString());
+            throw new EInvalidCredentials(CMS.getUserMessage("CMS_AUTHENTICATION_INVALID_CREDENTIAL")+":"+e.toString());
+        } finally {
+            if ((tokenSwitched == true) && (savedToken != null)){
+                cm.setThreadToken(savedToken);
+                CMS.debug("CMCAuth: verifySignerInfo token restored");
+            }
         }
         return (IAuthToken) null;
         

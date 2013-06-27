@@ -18,35 +18,28 @@
 package com.netscape.kra;
 
 
-import java.io.CharConversionException;
-import java.io.IOException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-
-import org.mozilla.jss.crypto.BadPaddingException;
-import org.mozilla.jss.crypto.Cipher;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.crypto.EncryptionAlgorithm;
-import org.mozilla.jss.crypto.IVParameterSpec;
-import org.mozilla.jss.crypto.IllegalBlockSizeException;
-import org.mozilla.jss.crypto.KeyGenAlgorithm;
-import org.mozilla.jss.crypto.KeyWrapAlgorithm;
-import org.mozilla.jss.crypto.KeyWrapper;
-import org.mozilla.jss.crypto.PrivateKey;
-import org.mozilla.jss.crypto.SymmetricKey;
-import org.mozilla.jss.crypto.TokenException;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.security.IEncryptionUnit;
+import java.util.*;
+import java.io.*;
+import java.net.*;
+import java.security.*;
+import java.security.cert.*;
+import java.security.cert.X509Certificate;
+import netscape.security.x509.*;
+//import netscape.security.provider.*;
+import netscape.security.util.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.cmscore.util.*;
 import com.netscape.cmscore.util.Debug;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.kra.*;
+import com.netscape.certsrv.security.*;
+//import com.netscape.cmscore.kra.*;
+import com.netscape.cmscore.cert.*;
+import com.netscape.certsrv.apps.CMS;
+import org.mozilla.jss.util.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.PrivateKey;
 
 
 /**
@@ -378,6 +371,7 @@ public abstract class EncryptionUnit implements IEncryptionUnit {
 
            PrivateKey.Type keytype = null;
             String alg = pubKey.getAlgorithm();
+            CMS.debug("EncryptionUnit.unwrap alg ="+ alg);
             if (alg.equals("DSA")) {
                 keytype = PrivateKey.DSA;
             } else if (alg.equals("EC")) {
@@ -392,21 +386,26 @@ public abstract class EncryptionUnit implements IEncryptionUnit {
         } catch (TokenException e) {
             CMS.getLogger().log(ILogger.EV_SYSTEM, null, ILogger.S_KRA, ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_KRA_ENCRYPTION_UNWRAP", e.toString()));
             Debug.trace("EncryptionUnit::unwrap " + e.toString());
+            CMS.debug("EncryptionUnit.unwrap "+ e.toString());
             return null;
         } catch (NoSuchAlgorithmException e) {
             CMS.getLogger().log(ILogger.EV_SYSTEM, null, ILogger.S_KRA, ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_KRA_ENCRYPTION_UNWRAP", e.toString()));
             Debug.trace("EncryptionUnit::unwrap " + e.toString());
+            CMS.debug("EncryptionUnit.unwrap "+ e.toString());
             return null;
         } catch (InvalidAlgorithmParameterException e) {
             CMS.getLogger().log(ILogger.EV_SYSTEM, null, ILogger.S_KRA, ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_KRA_ENCRYPTION_UNWRAP", e.toString()));
             Debug.trace("EncryptionUnit::unwrap " + e.toString());
+            CMS.debug("EncryptionUnit.unwrap "+ e.toString());
             return null;
         } catch (InvalidKeyException e) {
             CMS.getLogger().log(ILogger.EV_SYSTEM, null, ILogger.S_KRA, ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_KRA_ENCRYPTION_UNWRAP", e.toString()));
             Debug.trace("EncryptionUnit::unwrap " + e.toString());
+            CMS.debug("EncryptionUnit.unwrap "+ e.toString());
             return null;
         } catch (Exception e) {
             CMS.debug("EncryptionUnit.unwrap : Exception:"+e.toString());
+            CMS.debug("EncryptionUnit.unwrap "+ e.toString());
             return null;
         }
     }

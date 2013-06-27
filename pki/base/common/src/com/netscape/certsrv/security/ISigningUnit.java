@@ -18,14 +18,13 @@
 package com.netscape.certsrv.security;
 
 
-import java.security.PublicKey;
-
-import netscape.security.x509.X509CertImpl;
-
-import org.mozilla.jss.crypto.SignatureAlgorithm;
-import org.mozilla.jss.crypto.X509Certificate;
-
-import com.netscape.certsrv.base.EBaseException;
+import java.security.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.util.*;
+import org.mozilla.jss.crypto.Signature;
+import com.netscape.certsrv.base.*;
+import netscape.security.x509.*;
 
 /**
  * A class represents the signing unit which is

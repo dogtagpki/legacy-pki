@@ -18,32 +18,31 @@
 package com.netscape.cms.servlet.admin;
 
 
-import java.io.File;
-import java.io.IOException;
-import java.net.UnknownHostException;
-import java.util.Enumeration;
-import java.util.Locale;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+import java.security.cert.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.security.util.*;
+import netscape.security.x509.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.IExtendedPluginInfo;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.ca.ICMSCRLExtensions;
-import com.netscape.certsrv.ca.ICRLIssuingPoint;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.common.Constants;
-import com.netscape.certsrv.common.NameValuePairs;
-import com.netscape.certsrv.common.OpDef;
-import com.netscape.certsrv.common.ScopeDef;
-import com.netscape.certsrv.logging.ILogger;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*; 
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.dbs.crldb.*;
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.cmsutil.util.*; 
 import com.netscape.certsrv.request.IRequestListener;
-import com.netscape.cmsutil.util.Utils;
 
 
 /**
@@ -1480,6 +1479,10 @@ public class CAAdminServlet extends AdminServlet {
         getSigningAlgConfig(params);
         getSerialConfig(params);
         getMaxSerialConfig(params);
+        params.add(Constants.PR_SN_MANAGEMENT,
+            Boolean.toString(mCA.getDBSubsystem().getEnableSerialMgmt()));
+        params.add(Constants.PR_RANDOM_SN,
+            Boolean.toString(mCA.getCertificateRepository().getEnableRandomSerialNumbers()));
   
         sendResponse(SUCCESS, null, params, resp);
     }
@@ -1523,6 +1526,8 @@ public class CAAdminServlet extends AdminServlet {
          */
         IConfigStore eeConfig = null;
 
+        if (eeGateway != null) 
+            eeConfig = eeGateway.getConfigStore();
         IConfigStore caConfig = mCA.getConfigStore();
 
         Enumeration enum1 = req.getParameterNames();
@@ -1554,6 +1559,11 @@ public class CAAdminServlet extends AdminServlet {
                 mCA.setStartSerial(value);
             } else if (key.equals(Constants.PR_MAXSERIAL)) {
                 mCA.setMaxSerial(value);
+            } else if (key.equals(Constants.PR_SN_MANAGEMENT)) {
+                mCA.getDBSubsystem().setEnableSerialMgmt(Boolean.valueOf(value));
+                //mCA.getCertificateRepository().setEnableSerialMgmt(Boolean.valueOf(value));
+            } else if (key.equals(Constants.PR_RANDOM_SN)) {
+                mCA.getCertificateRepository().setEnableRandomSerialNumbers(Boolean.valueOf(value), true, false);
             }
         }
 

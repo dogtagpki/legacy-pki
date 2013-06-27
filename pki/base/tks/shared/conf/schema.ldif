@@ -401,6 +401,26 @@ attributeTypes: ( UnSecurePort-oid NAME 'UnSecurePort'  SYNTAX 1.3.6.1.4.1.1466.
 dn: cn=schema
 changetype: modify
 add: attributeTypes
+attributeTypes: ( AgentHost-oid NAME 'AgentHost'  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE X-ORIGIN 'user defined' )
+
+dn: cn=schema
+changetype: modify
+add: attributeTypes
+attributeTypes: ( EEHost-oid NAME 'EEHost'  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE X-ORIGIN 'user defined' )
+
+dn: cn=schema
+changetype: modify
+add: attributeTypes
+attributeTypes: ( AdminHost-oid NAME 'AdminHost'  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE X-ORIGIN 'user defined' )
+
+dn: cn=schema
+changetype: modify
+add: attributeTypes
+attributeTypes: ( EEClientAuthHost-oid NAME 'EEClientAuthHost'  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE X-ORIGIN 'user defined' )
+
+dn: cn=schema
+changetype: modify
+add: attributeTypes
 attributeTypes: ( SubsystemName-oid NAME 'SubsystemName'  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE X-ORIGIN 'user defined' )
 
 dn: cn=schema
@@ -461,7 +481,7 @@ objectClasses: ( pkiSecurityGroup-oid NAME 'pkiSecurityGroup' DESC 'CMS defined 
 dn: cn=schema
 changetype: modify
 add: objectClasses
-objectClasses: ( pkiSubsystem-oid NAME 'pkiSubsystem' DESC 'CMS defined class' SUP top STRUCTURAL MUST ( cn $ Host $ SecurePort $ SubsystemName $ Clone ) MAY ( DomainManager $ SecureAgentPort $ SecureAdminPort $SecureEEClientAuthPort $ UnSecurePort ) X-ORIGIN 'user defined' ) 
+objectClasses: ( pkiSubsystem-oid NAME 'pkiSubsystem' DESC 'CMS defined class' SUP top STRUCTURAL MUST ( cn $ Host $ SecurePort $ SubsystemName $ Clone ) MAY ( DomainManager $ SecureAgentPort $ SecureAdminPort $ SecureEEClientAuthPort $ UnSecurePort $ AgentHost $ EEHost $ AdminHost $ EEClientAuthHost ) X-ORIGIN 'user defined' ) 
 
 dn: cn=schema
 changetype: modify
@@ -472,3 +492,13 @@ dn: cn=schema
 changetype: modify
 add: objectClasses
 objectClasses: ( securityDomainSessionEntry-oid NAME 'securityDomainSessionEntry' DESC 'CMS defined class' SUP top STRUCTURAL MUST ( cn $ host $ uid $ cmsUserGroup $ dateOfCreate ) X-ORIGIN 'user defined' ) 
+
+dn: cn=schema
+changetype: modify
+add: objectClasses
+objectClasses: ( pkiCA-oid NAME 'pkiCA' DESC 'CMS defined class' SUP top AUXILIARY MAY ( cACertificate $ certificateRevocationList $ authorityRevocationList $ crossCertificatePair ) X-ORIGIN 'user defined' ) 
+
+dn: cn=schema
+changetype: modify
+add: objectClasses
+objectClasses: ( deltaCRL-oid NAME 'deltaCRL' DESC 'CMS defined class' SUP top AUXILIARY MAY deltaRevocationList X-ORIGIN 'user defined' ) 
