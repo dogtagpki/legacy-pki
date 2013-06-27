@@ -987,7 +987,7 @@ public class WizardPanelBase implements IWizardPanel {
                 Vector v_hostname =
                        parser.getValuesFromContainer( nodeList.item(i),
                                                       "AdminHost" );
-                if ( v_hostname == null ) {
+                if ( v_hostname.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_hostname = parser.getValuesFromContainer(
                                             nodeList.item(i), "Host" );
@@ -1089,7 +1089,7 @@ public class WizardPanelBase implements IWizardPanel {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
                                                      "EEClientAuthHost" );
                 }
-                if ( v_host == null ) {
+                if (v_host.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
                                                             "Host" );
@@ -1181,16 +1181,19 @@ public class WizardPanelBase implements IWizardPanel {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
                                                      "EEClientAuthHost" );
                 }
-                if ( v_host == null ) {
+                if (v_host.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
                                                             "Host" );
                 }
                 Vector v_port = parser.getValuesFromContainer(nodeList.item(i),
                         portType);
-                Vector v_admin_host =
-                       parser.getValuesFromContainer( nodeList.item(i),
-                                                      "AdminHost" );
+                Vector v_admin_host = parser.getValuesFromContainer( nodeList.item(i),
+                           "AdminHost");
+                if (v_admin_host.isEmpty()) {
+                    v_admin_host = v_host;
+                }
+
                 Vector v_admin_port = parser.getValuesFromContainer(nodeList.item(i),
                         "SecureAdminPort");
               
@@ -1212,6 +1215,7 @@ public class WizardPanelBase implements IWizardPanel {
                 }
             }
         } catch (Exception e) {
+            e.printStackTrace();
             CMS.debug(e.toString());
         }
 
@@ -1249,7 +1253,7 @@ public class WizardPanelBase implements IWizardPanel {
                 Vector v_hostname =
                        parser.getValuesFromContainer( nodeList.item(i),
                                                       "EEHost" );
-                if ( v_hostname == null ) {
+                if ( v_hostname.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_hostname = parser.getValuesFromContainer(
                                             nodeList.item(i), "Host" );
@@ -1274,7 +1278,7 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug( e.toString() );
         }
 
-        return( https_admin_port );
+        return https_admin_port;
     }
 
     // Given an HTTPS Hostname and EE port,
@@ -1311,15 +1315,14 @@ public class WizardPanelBase implements IWizardPanel {
                 Vector v_https_admin_host =
                        parser.getValuesFromContainer( nodeList.item(i),
                                                       "AdminHost" );
-                if ( v_hostname == null ) {
+                if (v_hostname.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_hostname = parser.getValuesFromContainer(
                                             nodeList.item(i), "Host" );
                 }
-                if ( v_https_admin_host == null ) {
+                if (v_https_admin_host.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
-                    v_https_admin_host = parser.getValuesFromContainer(
-                                            nodeList.item(i), "Host" );
+                    v_https_admin_host = v_hostname;
                 }
 
                 Vector v_https_ee_port =
@@ -1337,7 +1340,7 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug( e.toString() );
         }
 
-        return( https_admin_host );
+        return https_admin_host;
     }
 
     public String getSecurityDomainPort( IConfigStore config,
@@ -1403,7 +1406,7 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug( e.toString() );
         }
 
-        return( port );
+        return port;
     }
 
     public String getSecurityDomainHost( IConfigStore config,
@@ -1439,7 +1442,7 @@ public class WizardPanelBase implements IWizardPanel {
                 Vector v_admin_host =
                        parser.getValuesFromContainer( nodeList.item(i),
                                                       "AdminHost" );
-                if( v_admin_host == null ) {
+                if(v_admin_host.isEmpty()) {
                     v_admin_host =
                         parser.getValuesFromContainer( nodeList.item(i),
                                                        "Host" );
@@ -1470,7 +1473,7 @@ public class WizardPanelBase implements IWizardPanel {
                 if( ( v_admin_host.elementAt( 0 ).equals( hostname ) ) &&
                     ( v_admin_port.elementAt( 0 ).equals(
                       new Integer( httpsadminport ).toString() ) ) ) {
-                    if ( v_host != null ) {
+                    if (! v_host.isEmpty()) {
                         // Security Domain is using IP Port Separation Schema
                         host = v_host.elementAt( 0 ).toString();
                     } else {
@@ -1484,7 +1487,7 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug( e.toString() );
         }
 
-        return( host );
+        return host;
     }
 
     public String pingCS( String hostname, int port, boolean https,
