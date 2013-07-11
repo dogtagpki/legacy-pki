@@ -41,6 +41,7 @@
 #include "main/SecureId.h"
 #include "main/RA_Session.h"
 #include "authentication/AuthParams.h"
+#include "authentication/ExternalRegAttrs.h"
 #include "apdu/APDU.h"
 #include "apdu/APDU_Response.h"
 #include "channel/Secure_Channel.h"
@@ -198,6 +199,40 @@ class RA_Processor
                                 const char * a_prefix,
                                 const char * a_configname,
                                 const char * a_tokenType);
+
+        bool RequestUserId(
+                const char * a_prefix,
+                RA_Session * a_session,
+                NameValueSet *extensions,
+                const char * a_configname,
+                const char * a_tokenType,
+                char *a_cuid,
+                AuthParams *& o_login,  // out 
+                const char *&o_userid,   // out 
+                RA_Status &o_status //out 
+                );
+
+        bool AuthenticateUser(
+                const char * a_prefix,
+                RA_Session * a_session,
+                const char * a_configname,
+                char *a_cuid,
+                NameValueSet *a_extensions,
+                const char *a_tokenType,
+                AuthParams *& a_login, 
+                const char *&o_userid,
+                RA_Status &o_status
+                );
+
+        bool AuthenticateUserLDAP(
+                const char * op,
+                RA_Session *a_session,
+                NameValueSet *extensions,
+                char *a_cuid,
+                AuthenticationEntry *a_auth,
+                AuthParams *& o_login,
+                RA_Status &o_status,
+                                const char *token_type);
 
 	protected:
                 RA_Status Format(RA_Session *session, NameValueSet *extensions, bool skipAuth);

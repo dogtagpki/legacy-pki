@@ -1309,268 +1309,6 @@ loser:
 	return r;
 }
 
-/**
- * Authenticate user with LDAP plugin
- * @return true if authentication was successful
- */
-bool RA_Enroll_Processor::AuthenticateUserLDAP(
-		RA_Session *a_session,
-                NameValueSet *a_extensions,
-		char *a_cuid,
-		AuthenticationEntry *a_auth,
-		AuthParams *&login,
-		RA_Status &o_status,
-                const char *a_token_type
-)
-{
-	const char *FN = "RA_Enroll_Processor::AuthenticateUserLDAP";
-	int retry_limit = a_auth->GetAuthentication()->GetNumOfRetries();
-	int retries = 0;
-	int rc;
-	bool r=false;
-
-	RA::Debug(LL_PER_PDU, FN, "LDAP_Authentication is invoked.");
-	rc = a_auth->GetAuthentication()->Authenticate(login);
-
-	RA::Debug(FN, "Authenticate returned: %d", rc);
-
-	// rc: (0:login correct) (-1:LDAP error)  (-2:User not found) (-3:Password error)
-
-	// XXX replace with proper enums
-	// XXX evaluate rc==0 as specific case - this is success, it shouldn't be the default
-
-	while ((rc == TPS_AUTH_ERROR_USERNOTFOUND || 
-			rc == TPS_AUTH_ERROR_PASSWORDINCORRECT ) 
-				&& (retries < retry_limit)) {
-		login = RequestLogin(a_session, 0 /* invalid_pw */, 0 /* blocked */);
-		retries++;
-        if (login != NULL)
-		    rc = a_auth->GetAuthentication()->Authenticate(login);
-	}
-
-	switch (rc) {
-	case TPS_AUTH_OK:
-		RA::Debug(LL_PER_PDU, FN, "Authentication successful.");
-		r=true;
-		break;
-	case TPS_AUTH_ERROR_LDAP:
-		RA::Error(FN, "Authentication failed. LDAP Error");
-		o_status = STATUS_ERROR_LDAP_CONN;
-		RA::Debug(LL_PER_PDU, FN, "Authentication status=%d rc=%d", o_status,rc);
-		RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "authentication error", "", a_token_type);
-		r = false;
-		break;
-	case TPS_AUTH_ERROR_USERNOTFOUND:
-		RA::Error(FN, "Authentication failed. User not found");
-		o_status = STATUS_ERROR_LOGIN;
-		RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "authentication error",  "", a_token_type);
-		r = false;
-		break;
-	case TPS_AUTH_ERROR_PASSWORDINCORRECT:
-		RA::Error(FN, "Authentication failed. Password Incorrect");
-		o_status = STATUS_ERROR_LOGIN;
-		RA::Debug(LL_PER_PDU, FN, "Authentication status=%d rc=%d", o_status,rc);
-		RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "authentication error", "", a_token_type);
-		r = false;
-		break;
-	default:
-		RA::Error(FN, "Undefined LDAP Auth Error.");
-		r = false;
-		break;
-	}
-
-	return r;
-}
-
-/**
- * Request Login info and user id from user, if necessary
- * This call will allocate a new Login structure,
- * and a char* for the user id. The caller is responsible
- * for freeing this memory
- * @return true of success, false if failure
- */
-bool RA_Enroll_Processor::RequestUserId(
-			RA_Session * a_session,
-                        NameValueSet *a_extensions,
-			const char * a_configname, 
-			const char * a_tokenType, 
-			char *a_cuid,
-			AuthParams *& o_login, const char *&o_userid, RA_Status &o_status) 
-{
-
-	if (RA::GetConfigStore()->GetConfigAsBool(a_configname, 1)) {
-		if (a_extensions != NULL && 
-		    a_extensions->GetValue("extendedLoginRequest") != NULL) 
-                {
-                   // XXX - extendedLoginRequest
-                   RA::Debug("RA_Enroll_Processor::RequestUserId",
-				"Extended Login Request detected");
-                   AuthenticationEntry *entry = GetAuthenticationEntry(
-			OP_PREFIX, a_configname, a_tokenType);
-                   char **params = NULL;
-                   char pb[1024];
-                   char *locale = NULL;
-		   if (a_extensions != NULL && 
-		       a_extensions->GetValue("locale") != NULL) 
-                   {
-                           locale = a_extensions->GetValue("locale");
-                   } else {
-                           locale = ( char * ) "en"; /* default to english */
-                   }
-                   int n = entry->GetAuthentication()->GetNumOfParamNames();
-                   if (n > 0) {
-                       RA::Debug("RA_Enroll_Processor::RequestUserId",
-				"Extended Login Request detected n=%d", n);
-                       params = (char **) PR_Malloc(n);
-                       for (int i = 0; i < n; i++) {
-                         sprintf(pb,"id=%s&name=%s&desc=%s&type=%s&option=%s",
-                             entry->GetAuthentication()->GetParamID(i),
-                             entry->GetAuthentication()->GetParamName(i, locale),
-                             entry->GetAuthentication()->GetParamDescription(i, locale),
-                             entry->GetAuthentication()->GetParamType(i),
-                             entry->GetAuthentication()->GetParamOption(i)
-                             );
-                         params[i] = PL_strdup(pb);
-                   RA::Debug("RA_Enroll_Processor::RequestUserId", 
-				"params[i]=%s", params[i]);
-                       }
-                   }
-                   RA::Debug("RA_Enroll_Processor::RequestUserId", "Extended Login Request detected calling RequestExtendedLogin() locale=%s", locale);
-
-                   char *title = PL_strdup(entry->GetAuthentication()->GetTitle(locale));
-                   RA::Debug("RA_Enroll_Processor::RequestUserId", "title=%s", title);
-                   char *description = PL_strdup(entry->GetAuthentication()->GetDescription(locale));
-                   RA::Debug("RA_Enroll_Processor::RequestUserId", "description=%s", description);
-		   o_login = RequestExtendedLogin(a_session, 0 /* invalid_pw */, 0 /* blocked */, params, n, title, description);
-
-                   if (params != NULL) {
-                       for (int nn=0; nn < n; nn++) {
-                           if (params[nn] != NULL) {
-                               PL_strfree(params[nn]);
-                               params[nn] = NULL;
-                           }
-                       }
-                       free(params);
-                       params = NULL;
-                   }
-
-                   if (title != NULL) {
-                       PL_strfree(title);
-                       title = NULL;
-                   }
-
-                   if (description != NULL) {
-                       PL_strfree(description);
-                       description = NULL;
-                   }
-
-		  if (o_login == NULL) {
-			RA::Error("RA_Enroll_Processor::Process", 
-					"login not provided");
-			o_status = STATUS_ERROR_LOGIN;
-			RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, 
-					"enrollment", "failure", "login not found", "", a_tokenType);
-			return false;
-		  }
-
-                   RA::Debug("RA_Enroll_Processor::RequestUserId",
-	"Extended Login Request detected calling RequestExtendedLogin() login=%x", o_login);
-		  o_userid = PL_strdup( o_login->GetUID() );
-		  RA::Debug("RA_Enroll_Processor::Process", 
-				"userid = '%s'", o_userid);
-                } else {
-		  o_login = RequestLogin(a_session, 0 /* invalid_pw */, 0 /* blocked */);
-		  if (o_login == NULL) {
-			RA::Error("RA_Enroll_Processor::Process", 
-					"login not provided");
-			o_status = STATUS_ERROR_LOGIN;
-			RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, 
-					"enrollment", "failure", "login not found", o_userid, a_tokenType);
-			return false;
-		  }
-		  o_userid = PL_strdup( o_login->GetUID() );
-		  RA::Debug("RA_Enroll_Processor::Process", 
-				"userid = '%s'", o_userid);
-                }
-	}
-	return true;
-}
-
-/**
- *  Authenticate the user with the configured authentication plugin
- * @return true if authentication successful
- */
-
-bool RA_Enroll_Processor::AuthenticateUser(
-			RA_Session * a_session,
-			const char * a_configname, 
-			char *a_cuid,
-			NameValueSet *a_extensions,
-			const char *a_tokenType,
-			AuthParams *& a_login, const char *&o_userid, RA_Status &o_status
-			)
-{
-	bool r=false;
-
-	RA::Debug("RA_Enroll_Processor::AuthenticateUser", "started");
-	if (RA::GetConfigStore()->GetConfigAsBool(a_configname, false)) {
-		if (a_login == NULL) {
-			RA::Error("RA_Enroll_Processor::AuthenticateUser", "Login Request Disabled. Authentication failed.");
-			o_status = STATUS_ERROR_LOGIN;
-			goto loser;
-		}
-
-		RA::Debug("RA_Enroll_Processor::AuthenticateUser",
-				"Authentication enabled");
-		char configname[256];
-		PR_snprintf((char *)configname, 256, "%s.%s.auth.id", OP_PREFIX, a_tokenType);
-		const char *authid = RA::GetConfigStore()->GetConfigAsString(configname);
-		if (authid == NULL) {
-			o_status = STATUS_ERROR_LOGIN;
-			RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "login not found", "", a_tokenType);
-			goto loser;
-		}
-		AuthenticationEntry *auth = RA::GetAuth(authid);
-
-		if (auth == NULL) {
-			o_status = STATUS_ERROR_LOGIN;
-			RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "authentication error", "", a_tokenType);
-			goto loser;
-		}
-
-		StatusUpdate(a_session, a_extensions, 2, "PROGRESS_START_AUTHENTICATION");
-
-		char *type = auth->GetType();
-		if (type == NULL) {
-			o_status = STATUS_ERROR_LOGIN;
-			RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "authentication is missing param type", "", a_tokenType);
-			r = false;
-			goto loser;
-		}
-
-		if (strcmp(type, "LDAP_Authentication") == 0) {
-	                RA::Debug("RA_Enroll_Processor::AuthenticateUser", "LDAP started");
-			r = AuthenticateUserLDAP(a_session, a_extensions, a_cuid, auth, a_login, o_status, a_tokenType);
-			o_status = STATUS_ERROR_LOGIN;
-			goto loser;
-		} else {
-			RA::Error("RA_Enroll_Processor::AuthenticateUser", "No Authentication type was found.");
-			o_status = STATUS_ERROR_LOGIN;
-			RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, "enrollment", "failure", "authentication error", "", a_tokenType);
-			r = false;
-			goto loser;
-		}
-	} else {
-		r = true;
-		RA::Debug("RA_Enroll_Processor::AuthenticateUser",
-				"Authentication has been disabled.");
-	}
-	loser:
-		return r;
-}
-
-
-
 
     /**
      * Checks if the token has the required key version.
@@ -1958,6 +1696,9 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
                       session->GetRemoteIP());
     RA::Debug(LL_PER_PDU, FN, "Begin enroll process");
 
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+
     // XXX need to validate all user input (convert to 'string' types)
     // to ensure that no buffer overruns
     start = PR_IntervalNow();
@@ -1970,12 +1711,49 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
         /*by ref*/ major_version, minor_version, 
         app_major_version, app_minor_version )) goto loser;
 
-    if (!GetTokenType(OP_PREFIX, major_version, minor_version, 
+    if (isExternalReg) {
+        /*
+          need to reach out to the Registration DB (authid)
+          Entire user entry should be retrieved and parsed
+          The following are retrieved:
+              externalReg.tokenTypeAttributeName=tokenType
+              externalReg.certs.recoverAttributeName=certsToRecover
+              externalReg.certs.deleteAttributeName=certsToDelete 
+              externalReg.tokenCuidName=userKey
+         */
+        /* get user login and password - set in "login" */
+        RA::Debug(LL_PER_PDU, FN, "isExternalReg: calling RequestUserId");
+        if (!RequestUserId(OP_PREFIX, session, extensions, NULL /*configname*/, NULL /*tokenType*/, cuid, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "RequestUserId error");
+            goto loser;
+        }
+        if (!AuthenticateUser(OP_PREFIX, session, NULL /*configname*/, cuid, extensions, 
+                NULL /*tokenType*/, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "AuthenticateUser error");
+            goto loser;
+        }
+/* check token owner the externalReg way 
+        if (!ExternalReg_CheckTokenOwner(OP_PREFIX, session, cuid)) {
+            goto loser;
+        }
+*/
+
+        RA::Debug(LL_PER_PDU, FN, "isExternalReg: get tokenType, etc.");
+        tokenType = session->getExternalRegAttrs()->getTokenType();
+        if (tokenType != NULL)
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tokenType);
+        else {
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to userKey");
+            tokenType = "userKey";
+        }
+    } else {
+       if (!GetTokenType(OP_PREFIX, major_version, minor_version, 
             cuid, msn, extensions,
             status, tokenType)) { /* last two are 'out' params */
         /* ADE figure out what to do here for this line*/
         // RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "token type not found", "");
-        goto loser;
+           goto loser;
+       }
     }
 
     // check if profile is enabled here
@@ -1990,35 +1768,41 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
     if (RA::ra_is_token_present(cuid)) {
 
-        int token_status = RA::ra_get_token_status(cuid);
+        if (!isExternalReg) {
+            int token_status = RA::ra_get_token_status(cuid);
 
-        // As far as the ui states, state "enrolled" maps to the state of "FOUND" or 4;
+            // As far as the ui states, state "enrolled" maps to the state of "FOUND" or 4;
 
-        RA::Debug(FN, "Found token %s status %d", cuid, token_status);
+            RA::Debug(FN, "Found token %s status %d", cuid, token_status);
 
-        int STATUS_FOUND = 4;
-        if (token_status == -1 || !RA::transition_allowed(token_status, STATUS_FOUND)) {
-            RA::Error(FN, "Operation for CUID %s Disabled illegal transition attempted %d:%d", cuid,token_status, STATUS_FOUND);
-            status = STATUS_ERROR_DISABLED_TOKEN;
+            int STATUS_FOUND = 4;
+            if (token_status == -1 || !RA::transition_allowed(token_status, STATUS_FOUND)) {
+                RA::Error(FN, "Operation for CUID %s Disabled illegal transition attempted %d:%d", cuid,token_status, STATUS_FOUND);
+                status = STATUS_ERROR_DISABLED_TOKEN;
 
-            PR_snprintf(audit_msg, 512, "Operation for CUID %s Disabled, illegal transition attempted %d:%d.", cuid,token_status, STATUS_FOUND);
-            goto loser;
-        }
+                PR_snprintf(audit_msg, 512, "Operation for CUID %s Disabled, illegal transition attempted %d:%d.", cuid,token_status, STATUS_FOUND);
+                goto loser;
+            }
 
-        // at this point, token is either active or uninitialized (formatted)
-        // or the adminstrator has called for a force format.
+            // at this point, token is either active or uninitialized (formatted)
+            // or the adminstrator has called for a force format.
 
-        do_force_format = RA::ra_force_token_format(cuid);
+            do_force_format = RA::ra_force_token_format(cuid);
 
-        RA::Debug("RA_Enroll_Processor::Process","force format flag %d", do_force_format);
+            RA::Debug("RA_Enroll_Processor::Process","force format flag %d", do_force_format);
 
-        if (!RA::ra_allow_token_reenroll(cuid) &&
-            !RA::ra_allow_token_renew(cuid) &&
-            !do_force_format) {
-            RA::Error(FN, "CUID %s Re-Enrolled Disallowed", cuid);
-            status = STATUS_ERROR_DISABLED_TOKEN;
-            PR_snprintf(audit_msg, 512, "token re-enrollment or renewal disallowed");
-            goto loser;
+            if (!RA::ra_allow_token_reenroll(cuid) &&
+                !RA::ra_allow_token_renew(cuid) &&
+                !do_force_format) {
+                RA::Error(FN, "CUID %s Re-Enrolled Disallowed", cuid);
+                status = STATUS_ERROR_DISABLED_TOKEN;
+                PR_snprintf(audit_msg, 512, "token re-enrollment or renewal disallowed");
+                goto loser;
+            }
+        } else {
+            //isExternalReg  still allows force format?
+            do_force_format = RA::ra_force_token_format(cuid);
+            RA::Debug("RA_Enroll_Processor::Process","force format flag %d", do_force_format);
         }
     } else {
         RA::Debug(FN, "Not Found token %s", cuid);
@@ -2075,32 +1859,36 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
         }
 
 	PR_snprintf((char *)configname, 256, "%s.%s.loginRequest.enable", OP_PREFIX, tokenType);
-	if (!RequestUserId(session, extensions, configname, tokenType, cuid, login, userid, status)){
+
+// isExternalReg : user already authenticated earlier... need to handle audit earlier
+    if (!isExternalReg) {
+        if (!RequestUserId(OP_PREFIX, session, extensions, configname, tokenType, cuid, login, userid, status)){
                 PR_snprintf(audit_msg, 512, "RequestUserId error");
-		goto loser;
-	}
+            goto loser;
+        }
     
-    PR_snprintf((char *)configname, 256, "%s.%s.auth.enable", OP_PREFIX, tokenType);
+        PR_snprintf((char *)configname, 256, "%s.%s.auth.enable", OP_PREFIX, tokenType);
 
-	if (!AuthenticateUser(session, configname, cuid, extensions, 
-				tokenType, login, userid, status)){
+        if (!AuthenticateUser(OP_PREFIX, session, configname, cuid, extensions, 
+            tokenType, login, userid, status)){
                 PR_snprintf(audit_msg, 512, "AuthenticateUser error");
-		goto loser;
-	}
+            goto loser;
+        }
 
-    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
-        userid != NULL ? userid : "",
-        cuid != NULL ? cuid : "",
-        msn != NULL ? msn : "",
-        "success",
-        "enrollment",
-        final_applet_version != NULL ? final_applet_version : "",
-        keyVersion != NULL ? keyVersion : "",
-        "token login successful");
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+            userid != NULL ? userid : "",
+            cuid != NULL ? cuid : "",
+            msn != NULL ? msn : "",
+            "success",
+            "enrollment",
+            final_applet_version != NULL ? final_applet_version : "",
+            keyVersion != NULL ? keyVersion : "",
+            "token login successful");
 
         // get authid for audit log
         PR_snprintf((char *)configname, 256, "%s.%s.auth.id", OP_PREFIX, tokenType);
         authid = RA::GetConfigStore()->GetConfigAsString(configname);
+    }
 
 	StatusUpdate(session, extensions, 4, "PROGRESS_APPLET_UPGRADE");
 
@@ -2410,19 +2198,28 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
 	StatusUpdate(session, extensions, 15, "PROGRESS_PROCESS_PROFILE");
 
+// isExternalReg - what to do here? do we still want to check at least "destroyed"?
     tokentype = (char *)malloc(256 * sizeof(char)) ;
     PL_strcpy(tokentype, tokenType);
+
     /* generate signing key on netkey */
-    if (!GenerateCertsAfterRecoveryPolicy(login, session, origins, ktypes, tokentype, pkcs11objx, 
+    if (!isExternalReg &&
+          !GenerateCertsAfterRecoveryPolicy(login, session, origins, ktypes, tokentype, pkcs11objx, 
       pkcs11obj_enable, extensions, channel, wrapped_challenge, 
       key_check, plaintext_challenge, cuid, msn, final_applet_version, 
       khex, userid, status, certificates, o_certNums, tokenTypes)) {
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - GenerateCertsAfterRecoveryPolicy returns false");
         goto loser;
     } else {
-        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - GenerateCertsAfterRecoveryPolicy returns true");
+        if (!isExternalReg) {
+            RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - GenerateCertsAfterRecoveryPolicy returns true");
+        } else {
+            RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - isExternalReg, skipped GenerateCertsAfterRecoveryPolicy call");
+        }
         if (status == STATUS_NO_ERROR) {
-            RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - after GenerateCertsAfterRecoveryPolicy", "status is STATUS_NO_ERROR");
+            if (!isExternalReg) {
+                RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - after GenerateCertsAfterRecoveryPolicy", "status is STATUS_NO_ERROR");
+            }
             if (!GenerateCertificates(login, session, origins, ktypes, tokentype, pkcs11objx, 
               pkcs11obj_enable, extensions, channel, wrapped_challenge, 
               key_check, plaintext_challenge, cuid, msn, final_applet_version, 
@@ -2433,6 +2230,23 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
                 goto loser;
             } else {
                 RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after GenerateCertificates"," returns true");
+
+/*isExternalReg - recovery and delete/revoke happens
+                recover certsToRecover
+                delete/revoke certsToDelete
+*/
+                if (isExternalReg) {
+                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
+                        "about to call ExternalRegRecover()."); 
+                    ExternalRegRecover(session, pkcs11objx, channel,
+                         cuid, status);
+                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegRecover", "status is %d", status);
+                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
+                        "about to call ExternalRegDelete()."); 
+                    ExternalRegDelete(session, status);
+                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegDelete", "status is %d", status);
+                    /* now call UpdateToken() */
+                }
             }
         } else {
             RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after GenerateCertsAfterRecoveryPolicy", "status is %d", status);
@@ -2966,6 +2780,8 @@ bool RA_Enroll_Processor::GenerateCertificates(AuthParams *login, RA_Session *se
 	const char *FN = "RA_Enroll_Processor::GenerateCertificates";
     RA_Status lastErrorStatus = STATUS_NO_ERROR;
 
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
 
     RA::Debug(LL_PER_CONNECTION,FN, "tokenType=%s", tokenType); 
     PR_snprintf((char *)configname, 256, "%s.%s.keyGen.keyType.num", OP_PREFIX, tokenType);
@@ -3012,7 +2828,9 @@ bool RA_Enroll_Processor::GenerateCertificates(AuthParams *login, RA_Session *se
             
     }
 
-    if (noFailedCerts == true) {
+    //isExternalReg will process RevokeCertificates later
+
+    if (!isExternalReg && (noFailedCerts == true)) {
     //In this special case of re-enroll
     //Revoke  current certs for this token  
     // before the just enrolled certs are written to the db
@@ -3034,6 +2852,247 @@ bool RA_Enroll_Processor::GenerateCertificates(AuthParams *login, RA_Session *se
         o_status = lastErrorStatus;
     }
     return noFailedCerts;
+}
+
+
+/* (for isExternalReg)
+ * RA_Enroll_Processor::ExternalRegRecover
+ *    reach out to DRM for key recovery.
+ *    All the certs to have keys recovered are in
+ *    session->getExternalRegAttrs()->getCertsToRecover()
+ *
+ * when returned successfully, ExternalRegCertToRecover should
+ * 1. recovered listed certs/keys
+ * 2. have its ExternalRegCertKeyInfo *certKeyInfo filled in with relevant data
+ *       All such data are carried in session
+ */
+bool RA_Enroll_Processor::ExternalRegRecover(
+        RA_Session *session,
+        PKCS11Obj *pkcs11objx,
+        Secure_Channel *channel,
+        char *cuid,
+        RA_Status &o_status)
+{
+	const char *FN="RA_Enroll_Processor::ExternalRegRecover";
+    RA::Debug(LL_PER_CONNECTION, FN,
+            "begins");
+    o_status = STATUS_ERROR_RECOVERY_IS_PROCESSED;
+
+    CertEnroll *certEnroll = new CertEnroll();
+    ExternalRegAttrs *erAttrs = session->getExternalRegAttrs();
+    ExternalRegCertToRecover **erCertsToRecover =
+            erAttrs->getCertsToRecover();
+    int count = erAttrs->getCertsToRecoverCount();
+    for (int i = 0; i< count; i++) {
+        ExternalRegCertToRecover *erCertToRecover =
+               erCertsToRecover[i];
+        PRUint64 keyid = erCertToRecover->getKeyid();
+        PRUint64 serial = erCertToRecover->getSerial();
+        const char *caConn = erCertToRecover->getCaConn();
+        const char *drmConn = erCertToRecover->getDrmConn();
+        RA::Debug(LL_PER_CONNECTION, FN,
+            "drmConn=%s, caConn=%s", drmConn, caConn);
+        Buffer *cert = NULL;
+        CERTCertificate *o_cert = NULL;
+        char *cert_string = NULL;
+        char *o_pub = NULL;
+        char *o_priv = NULL;
+        char *ivParam = NULL;
+        char error_msg[512];
+        error_msg[0] = 0;
+        RA::Debug(LL_PER_CONNECTION, FN,
+            "calling RA::RecoverKey() for serial no: %d, keyid: %d",
+                serial, keyid);
+        RA::RecoverKey(session, cuid, "userid" /*ToDo:need userid...fix later*/,
+                channel->getDrmWrappedDESKey(), keyid,
+                &o_pub, &o_priv,
+                drmConn, &ivParam);
+        /*ToDo: construct certKeyInfo and attach to erCertsToRecover for UpdateToken() later*/
+        ExternalRegCertKeyInfo *erCertKeyInfo = new ExternalRegCertKeyInfo();
+        cert = certEnroll->RetrieveCertificate(serial, caConn, error_msg);
+        if (cert == NULL) {
+            continue;
+        }
+        if (error_msg[0] != 0) {
+        // handle error
+        //    *error_code = 1;
+        RA::Debug(LL_PER_CONNECTION, FN,
+            "RetrieveCertificate() returns error: %s", error_msg);
+        } else {
+        RA::Debug(LL_PER_CONNECTION, FN,
+            "RetrieveCertificate() succeeded");
+        }
+        cert_string = (char *) cert->string();
+        o_cert = CERT_DecodeCertFromPackage((char *) cert_string, 
+            (int) cert->size());
+        if (cert_string)
+            free(cert_string);
+        if (o_cert != NULL) {
+            RA::Debug(LL_PER_CONNECTION, FN,
+                "CERT_DecodeCertFromPackage() succeeded, add to inject");
+            erCertKeyInfo->setCert(o_cert);
+            erCertToRecover->setCertKeyInfo(erCertKeyInfo);
+        }
+    }
+/*ToDo: make sure the tokendb entry is updated if needed*/
+loser:
+    /* return true for now */
+    RA::Debug(LL_PER_CONNECTION, FN,
+            "ends");
+    if (certEnroll) {
+        delete certEnroll;
+        certEnroll = NULL;
+    }
+
+    return true;
+}
+
+/*
+ *(for isExternalReg)
+ *
+ * when returned successfully, ExternalRegCertToDelete should
+ * 1. revoked all the certs marked to be revoked
+ * 2. have its ExternalRegCertKeyInfo *certKeyInfo filled in with relevant data
+ */
+bool RA_Enroll_Processor::ExternalRegDelete(
+        RA_Session *session,
+        RA_Status &o_status)
+{
+    CertEnroll *certEnroll = new CertEnroll();
+	const char *FN="RA_Enroll_Processor::ExternalRegDelete";
+    RA::Debug(LL_PER_CONNECTION, FN,
+            "begins");
+
+    ExternalRegAttrs *erAttrs = session->getExternalRegAttrs();
+    ExternalRegCertToDelete **erCertsToDelete =
+            erAttrs->getCertsToDelete();
+    int count = erAttrs->getCertsToDeleteCount();
+    LDAPMessage *e = NULL;
+    LDAPMessage *result = NULL;
+ 
+    for (int i = 0; i< count; i++) {
+        ExternalRegCertToDelete *erCertToDelete =
+               erCertsToDelete[i];
+        PRUint64 serial = erCertToDelete->getSerial();
+
+/*ToDo: for "alternative base design", get "revoke" flag from tokendb*/
+        bool revoke = erCertToDelete->getRevoke();
+        if (revoke) {
+            int statusNum = 1;
+            char activity_msg[512];
+            const char *caConn = erCertToDelete->getCaConn();
+
+            if (caConn) {
+                char serial_s[128];
+                char *statusString = NULL;
+                CERTCertificate **certs = NULL;
+                char i_serial[100]="";
+                PR_snprintf( i_serial, 100, "0x%d", (int)serial );
+                RA::Debug(FN,
+                    "Revoke to happen on token %s for serial %s", erAttrs->getTokenCUID(), i_serial);
+                char filter[256];
+                PR_snprintf(filter, 256, "(tokenID=%s)",
+                    erAttrs->getTokenCUID());       
+                int rc = RA::ra_find_tus_certificate_entries_by_order_no_vlv(filter,
+                    &result, 1);
+                if (rc != LDAP_SUCCESS) {
+                    RA::Debug(FN,
+                        "RA::ra_find_tus_certificate_entries_by_order_no_vlv() failed on tokenID:%s", erAttrs->getTokenCUID());
+                    goto loser;
+                }
+
+                bool found = false;
+                int num = 0;
+                RA::Debug(FN,
+                    "begin caling RA::ra_get_first_entry() etc...");
+                char *attr_cn = NULL;
+                for( e = RA::ra_get_first_entry( result );
+                       e != NULL;
+                       e = RA::ra_get_next_entry( e )) {
+                    RA::Debug(FN,
+                        "got an entry from ldap");
+                    certs = RA::ra_get_certificates(e);
+                    if (certs[0] == NULL) {
+                        RA::Debug(FN,
+                            "certs has no entries");
+                    }
+                    num = 0;
+                    while(certs[num] != NULL) {
+                        RA::Debug(FN,
+                            "certs[%d] to be processed...",num);
+                        SECItem serial_SEC = certs[num]->serialNumber;
+                        Buffer buf;
+                        for (int j =0; j < serial_SEC.len; j++) {
+                            buf = Buffer(1, serial_SEC.data[j]) + buf;
+                        }
+                        char serialt_s[128];
+                        PR_snprintf( serialt_s, 128, "%s", Util::Buffer2String(buf));
+                        RA::Debug(FN,
+                            "found on token cert serial: %s", serialt_s);
+
+                        PR_snprintf( serial_s, 128, "%d", (int) serial);
+                        RA::Debug(FN,
+                            "cert to revoke serial: %s", serial_s);
+
+                        PRUint64 i_serialt = DER_GetInteger(&serial_SEC);
+                        if (i_serialt ==  serial) {
+                            //found certs, get out
+                            RA::Debug(FN,
+                                "cert to revoke found in tokendb");
+                            found = true;
+                            break;
+                        }
+                        num++;
+                    } /*while */
+                    if (found) {
+                         attr_cn = RA::ra_get_cert_cn(e);
+                         break;
+                    }
+                }
+
+                if (found == false) {
+                    RA::Debug(FN,
+                       "cert to revoke not found in tokendb");
+                    /* watch out when later we don't store certs in db */
+                    goto loser;
+                }
+                //Actually make call to the CA to revoke
+                RA::Debug(FN,
+                   "calling certEnroll->RevokeCertificate()");
+                statusNum = certEnroll->RevokeCertificate(
+                    true,
+                    certs[num], "0", serial_s, caConn, statusString);
+               /* make reason flexible*/
+
+                RA::Debug(FN,
+                   "Revoke Cert statusNum %d statusString %s \n", statusNum, statusString);
+                if (statusNum == 0) {
+//remember to change the userid
+                    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_CERT_STATUS_CHANGE, "userid",
+                                  "Success", "revoke", serial_s, caConn, "");
+                    PR_snprintf(activity_msg, 512, "certificate %s revoked", serial_s);
+                    RA::tdb_activity(session->GetRemoteIP(), (char *)erAttrs->getTokenCUID(), "format", "success", activity_msg, "", (char *)erAttrs->getTokenType());
+                    RA::ra_update_cert_status(attr_cn, "revoked");
+                } else {
+                    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_CERT_STATUS_CHANGE, "userid",
+                                  "Failure", "revoke", serial_s, caConn, statusString);
+                    PR_snprintf(activity_msg, 512, "error in revoking certificate %s: %s", serial_s, statusString);
+                    RA::tdb_activity(session->GetRemoteIP(), (char *)erAttrs->getTokenCUID(), "format", "failure", activity_msg, "", (char *)erAttrs->getTokenType());
+                }
+            } 
+        }
+    /* ToDo: fill in session->CertInfo for calling UpdateToken() later */
+    }
+
+loser:
+    RA::Debug(LL_PER_CONNECTION, FN,
+            "ends");
+    if (certEnroll) {
+        delete certEnroll;
+        certEnroll = NULL;
+    }
+    /* return true for now */
+    return true;
 }
 
 bool RA_Enroll_Processor::GenerateCertificate(AuthParams *login, int keyTypeNum, const char *keyTypeValue, int i, RA_Session *session, 
@@ -4569,6 +4628,9 @@ bool RA_Enroll_Processor::ProcessRecovery(AuthParams *login, char *reason, RA_Se
                             "ivParam = %s", ivParam);
                         }
                        
+/*isExternalReg - need to pull the following injection code out to a separate function to be called by both isExternalReg and the !isExternalReg code
+  maybe into RA_Processor.cpp? e.g.  RA_Processor::UpdateToken(...) */
+
 			RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::ProcessRecovery()", "key injection for RecoverKey occurs here");
 			/*
 			 * the following code converts b64-encoded public key info into SECKEYPublicKey

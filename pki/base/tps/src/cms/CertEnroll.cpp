@@ -80,7 +80,7 @@ TOKENDB_PUBLIC int CertEnroll::RevokeCertificate(const char *reason, const char 
 {
     char parameters[5000];
     char configname[5000];
-    int num;
+    int num=0;
 
     PR_snprintf((char *)parameters, 5000, "op=revoke&revocationReason=%s&revokeAll=(certRecordId%%3D%s)&totalRecordCount=1", reason, serialno);
 
@@ -120,7 +120,7 @@ TOKENDB_PUBLIC int CertEnroll::UnrevokeCertificate(const char *serialno, const c
 {
     char parameters[5000];
     char configname[5000];
-    int num;
+    int num=0;
 
     PR_snprintf((char *)parameters, 5000, "serialNumber=%s",serialno);
 
@@ -462,6 +462,62 @@ cleanup:
         CERT_DestroyCertificate(caCert);
     }
     return ret;
+}
+
+/*
+ * RetrieveCertificate - retrieves certificate from CA by serial number
+ * @param serialno serial number of the cert to retrieve
+ * @param connid connection id of the ca
+ * @param error_msg error message for return
+ * @return
+ *      The certificate in Buffer if success
+ *      NULL if failure
+ */
+TOKENDB_PUBLIC Buffer *CertEnroll::RetrieveCertificate(PRUint64 serialno, const char *connid, char *error_msg)
+{
+    const char *FN = "CertEnroll::RetrieveCertificate";
+    char parameters[5000];
+    char configname[5000];
+
+    RA::Debug(FN, "begins.");
+    // on CA, GetBySerial expects parameter "serialNumber"
+    PR_snprintf((char *)parameters, 5000, "serialNumber=%u", (int)serialno);
+    //PR_snprintf((char *)parameters, 5000, "serialNumber=%x", (int)serialno);
+
+    RA::Debug(FN, "got parameters =%s", parameters);
+    //e.g. conn.ca1.servlet.getcert=/ca/ee/ca/getBySerial
+    PR_snprintf((char *)configname, 256, "conn.%s.servlet.getBySerial", connid);
+    const char *servlet = RA::GetConfigStore()->GetConfigAsString(configname);
+        if (servlet == NULL) {
+            RA::Debug(FN,
+                "Missing the configuration parameter for %s", configname);
+            PR_snprintf(error_msg, 512, "Missing the configuration parameter for %s", configname);
+            return NULL;
+        }
+
+    PSHttpResponse *resp =  sendReqToCA(servlet, parameters, connid);
+    // XXX - need to parse response
+    Buffer * certificate = NULL;
+    if (resp != NULL) {
+      RA::Debug(LL_PER_PDU, FN,
+          "sendReqToCA done");
+
+      certificate = parseResponse(resp, "certChainBase64");
+      RA::Debug(LL_PER_PDU, FN,
+          "parseResponse done");
+
+      if( resp != NULL ) { 
+          delete resp;
+          resp = NULL;
+      }
+    } else {
+      RA::Error(FN,
+        "sendReqToCA failure");
+      PR_snprintf(error_msg, 512, "sendReqToCA failure");
+      return NULL;
+    }
+
+    return certificate;
 }
 
 TOKENDB_PUBLIC Buffer *CertEnroll::RenewCertificate(PRUint64 serialno, const char *connid, const char *profileId, char *error_msg)
@@ -939,14 +995,20 @@ PSHttpResponse * CertEnroll::sendReqToCA(const char *servlet, const char *parame
     return response;
 }
 
+Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
+{
+    return parseResponse(resp, "outputVal");
+}
+
 /**
  * parse the http response and retrieve the certificate.
  * @param resp the response returned from http request
+ * @param certB64Param the string pattern that represents the param name of the cert in response
  * @return
  *      The certificate in Buffer if success
  *      NULL if failure
  */
-Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
+Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
 {
     unsigned int i;
     unsigned char blob[8192]; /* cert returned */
@@ -976,19 +1038,18 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
     char pattern[20] = "errorCode=\"0\"";
     char * err = strstr((char *)response, (char *)pattern);
 
-    RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
-          "begin parsing err: %s", err);
-
     if (err == NULL) {
-      RA::Error("CertEnroll::parseResponse",
-		"can't find pattern for cert request response");
-      goto endParseResp;
+      RA::Debug("CertEnroll::parseResponse",
+		"can't find errorCode.");
+    } else {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+          "begin parsing but with err: %s", err);
     }
 
-    // if success, look for "outputList.outputVal=" to extract
+    // if success, look for "<certB64Param>=" to extract
     // the cert
-    certB64 = strstr((char *)response, "outputVal=");
-    certB64 = &certB64[11]; // point pass open "
+    certB64 = strstr((char *)response, certB64Param);
+    certB64 = &certB64[strlen(certB64Param)+2]; // point pass open "
 
     certB64End = strstr(certB64, "\";");
     *certB64End = '\0';

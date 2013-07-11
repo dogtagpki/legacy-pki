@@ -1086,14 +1086,45 @@ SecurityLevel RA::GetGlobalSecurityLevel() {
 
 
 /*
+ * RecoverKey - by keyid
+ */
+void RA::RecoverKey(RA_Session *session, const char* cuid,
+                    const char *userid, char* desKey_s,
+                    PRUint64 keyid, char **publicKey_s,
+                    char **wrappedPrivateKey_s, const char *connId,
+                    char **ivParam_s)
+{
+    RA::RecoverKey(session, cuid,
+                    userid, desKey_s,
+                    NULL, keyid, publicKey_s,
+                    wrappedPrivateKey_s, connId, ivParam_s);
+}
+
+/*
+ * RecoverKey - by cert 
+ */
+void RA::RecoverKey(RA_Session *session, const char* cuid,
+                    const char *userid, char* desKey_s,
+                    char *b64cert, char **publicKey_s,
+                    char **wrappedPrivateKey_s, const char *connId,
+                    char **ivParam_s)
+{
+    RA::RecoverKey(session, cuid,
+                    userid, desKey_s,
+                    b64cert, -1, publicKey_s,
+                    wrappedPrivateKey_s, connId, ivParam_s);
+}
+
+/*
  * recovers user encryption key that was previously archived.
- * It expects DRM to search its archival db by cert.
+ * It expects DRM to search its archival db either by cert or by keyid.
  *
  * input:
  * @param cuid (cuid of the recovering key's token)
- * @param userid (uid of the recovering key owner
- * @param desKey_s (came from TKS - session key wrapped with DRM transport
+ * @param userid (uid of the recovering key owner)
+ * @param desKey_s (came from TKS - session key wrapped with DRM transport)
  * @param cert (base64 encoded cert of the recovering key)
+ * @param keyid (serail number of the cert to be recovered)
  * @param connId (drm connectoin id)
  *
  * output:
@@ -1103,7 +1134,7 @@ SecurityLevel RA::GetGlobalSecurityLevel() {
  */
 void RA::RecoverKey(RA_Session *session, const char* cuid,
                     const char *userid, char* desKey_s,
-                    char *b64cert, char **publicKey_s,
+                    char *b64cert, PRUint64 keyid, char **publicKey_s,
                     char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s)
 {
     int status;
@@ -1133,8 +1164,8 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       RA::Debug(" RA:: RecoverKey", "in RecoverKey, userid NULL");
       goto loser;
     }
-    if (b64cert == NULL) {
-      RA::Debug(" RA:: RecoverKey", "in RecoverKey, b64cert NULL");
+    if ((b64cert == NULL) && (keyid == -1)) {
+      RA::Debug(" RA:: RecoverKey", "in RecoverKey, b64cert or keyid NULL");
       goto loser;
     }
     if (desKey_s == NULL) {
@@ -1147,7 +1178,9 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     }
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, desKey_s=%s, connId=%s",desKey_s,  connId);
 
-    cert_s = Util::URLEncode(b64cert);
+    if (b64cert != NULL) {
+        cert_s = Util::URLEncode(b64cert);
+    }
     drmConn = RA::GetDRMConn(connId);
     if (drmConn == NULL) {
         RA::Debug(" RA:: RecoverKey", "in RecoverKey, failed getting drmconn");
@@ -1162,8 +1195,15 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, wrappedDESKey_s=%s", wrappedDESKey_s);
 
-    PR_snprintf((char *)body, MAX_BODY_LEN, 
-		"CUID=%s&userid=%s&drm_trans_desKey=%s&cert=%s",cuid, userid, wrappedDESKey_s, cert_s);
+    if (cert_s != NULL) {
+        RA::Debug(" RA:: RecoverKey", "in RecoverKey, recover by cert");
+        PR_snprintf((char *)body, MAX_BODY_LEN, 
+	    	"CUID=%s&userid=%s&drm_trans_desKey=%s&cert=%s",cuid, userid, wrappedDESKey_s, cert_s);
+    } else {
+        RA::Debug(" RA:: RecoverKey", "in RecoverKey, recover by keyid number");
+        PR_snprintf((char *)body, MAX_BODY_LEN, 
+	    	"CUID=%s&userid=%s&drm_trans_desKey=%s&keyid=%d",cuid, userid, wrappedDESKey_s, (int) keyid);
+    }
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, body=%s", body);
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.TokenKeyRecovery", connId);
         servletID = GetConfigStore()->GetConfigAsString(configname);

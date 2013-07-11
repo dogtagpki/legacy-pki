@@ -299,6 +299,7 @@ libtps_la_SOURCES =	src/main/Buffer.cpp                        \
 					src/main/PKCS11Obj.cpp                     \
                                         src/main/LogFile.cpp                       \
                                         src/main/RollingLogFile.cpp                \
+					src/main/ExternalRegAttrs.cpp              \
 					src/httpClient/httpClient.cpp              \
 					src/httpClient/Cache.cpp                   \
 					src/httpClient/engine.cpp                  \

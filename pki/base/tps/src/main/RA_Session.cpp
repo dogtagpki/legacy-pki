@@ -73,3 +73,19 @@ RA_Msg *RA_Session::ReadMsg()
 void RA_Session::WriteMsg(RA_Msg *msg)
 {
 }
+
+/**
+ * Attach the ExternalRegAttrs
+ */
+void RA_Session::setExternalRegAttrs (ExternalRegAttrs *erAttrs)
+{
+    extRegAttrs = erAttrs;
+}
+
+/**
+ * retrieve the ExternalRegAttrs
+ */
+ExternalRegAttrs *RA_Session::getExternalRegAttrs()
+{
+    return extRegAttrs;
+}

@@ -152,6 +152,7 @@ public interface IRequest {
     public final static String NETKEY_ATTR_SERVERSIDE_MUSCLE_FLAG ="serverSideMuscle";
     public final static String NETKEY_ATTR_ENC_PRIVKEY_FLAG ="encryptPrivKey";
     public final static String NETKEY_ATTR_USER_CERT = "cert";
+    public final static String NETKEY_ATTR_KEYID = "keyid";
     public final static String NETKEY_ATTR_KEY_SIZE = "keysize";
 
     // requestor type values.

@@ -91,6 +91,17 @@ class RA_Enroll_Processor : public RA_Processor
                 CERTCertificate **o_cert, 
                 char *error_msg, int *error_code);
 
+        bool ExternalRegRecover(
+                RA_Session *session,
+                PKCS11Obj *pkcs11objx,
+                Secure_Channel *channel,
+                char *cuid,
+                RA_Status &o_status);
+
+        bool ExternalRegDelete(
+                RA_Session *session,
+                RA_Status &o_status);
+
         bool GenerateCertificate(AuthParams *login,
                 int keyTypeNum, 
                 const char *keyTypeValue, 
@@ -227,38 +238,6 @@ class RA_Enroll_Processor : public RA_Processor
 				RA_Status &status,              // out
 				char * &o_appletVersion       // out
 				);
-
-		bool RequestUserId(
-				RA_Session * a_session,
-				NameValueSet *extensions,
-				const char * a_configname,
-				const char * a_tokenType,
-				char *a_cuid,
-				AuthParams *& o_login,  // out 
-				const char *&o_userid,   // out 
-				RA_Status &o_status //out 
-				);
-
-
-		bool AuthenticateUser(
-				RA_Session * a_session,
-				const char * a_configname,
-				char *a_cuid,
-				NameValueSet *a_extensions,
-				const char *a_tokenType,
-				AuthParams *& a_login, 
-				const char *&o_userid,
-				RA_Status &o_status
-				);
-
-		bool AuthenticateUserLDAP(
-				RA_Session *a_session,
-				NameValueSet *extensions,
-				char *a_cuid,
-				AuthenticationEntry *a_auth,
-				AuthParams *& o_login,
-				RA_Status &o_status,
-                                const char *token_type);
 
 		bool CheckAndUpgradeApplet(
 				RA_Session *a_session,

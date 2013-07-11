@@ -41,6 +41,7 @@
 #include "main/SecureId.h"
 #include "main/RA_Session.h"
 #include "authentication/Authentication.h"
+//#include "authentication/ExternalRegAttrs.h"
 
 class LDAP_Authentication : public Authentication
 {
@@ -49,6 +50,8 @@ class LDAP_Authentication : public Authentication
 	  ~LDAP_Authentication();
   public:
           int Authenticate(AuthParams *params);
+          int Authenticate(AuthParams *params, RA_Session *session);
+          //int Authenticate(AuthParams *params, ExternalRegAttrs *erAttrs);
           void Initialize(int index);
   public:
           bool IsSSL();
