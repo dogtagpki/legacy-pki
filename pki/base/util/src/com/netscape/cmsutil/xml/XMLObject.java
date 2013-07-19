@@ -122,12 +122,17 @@ public class XMLObject
     }
 
     public Vector getValuesFromContainer(Node container, String tagname) {
+        return getValuesFromContainer(container, tagname, false);
+    }
+
+    public Vector getValuesFromContainer(Node container, String tagname, boolean ignoreCase) {
         Vector v = new Vector();
         NodeList c = container.getChildNodes();
         int len = c.getLength();
         for (int i=0; i<len; i++) {
             Node subchild = c.item(i);
-            if (subchild.getNodeName().equals(tagname)) {
+            if (subchild.getNodeName().equals(tagname) ||
+               (ignoreCase && subchild.getNodeName().equalsIgnoreCase(tagname))) {
                 NodeList grandchildren = subchild.getChildNodes();
                 if (grandchildren.getLength() > 0) {
                     Node grandchild = grandchildren.item(0);

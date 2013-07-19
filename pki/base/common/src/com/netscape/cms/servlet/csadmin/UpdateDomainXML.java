@@ -107,6 +107,34 @@ public class UpdateDomainXML extends CMSServlet {
        return status;
     }
 
+    private void add_attributes(String dn, LDAPModificationSet attrs)
+        throws LDAPException, Exception {
+        ILdapConnFactory connFactory = null;
+        LDAPConnection conn = null;
+        IConfigStore cs = CMS.getConfigStore();
+        try {
+            CMS.debug("UpdateDomainXML: add_attributes - " +
+                      "establishing ldap connection to DN '" + dn + "'");
+            IConfigStore ldapConfig = cs.getSubStore("internaldb");
+            connFactory = CMS.getLdapBoundConnFactory();
+            connFactory.init(ldapConfig);
+            conn = connFactory.getConn();
+            conn.modify(dn, attrs);
+        } finally {
+            try {
+                if ((conn != null) && (connFactory!= null)) {
+                    CMS.debug("UpdateDomainXML: add_attributes - " +
+                              "releasing ldap connection to DN '" + dn + "'");
+                    connFactory.returnConn(conn);
+                }
+            } catch (Exception e) {
+                CMS.debug("UpdateDomainXML: add_attributes - " +
+                          "error releasing ldap connection to DN '" +
+                          dn + "' - Exception " + e.toString());
+            }
+        }
+    }
+
     private String remove_attribute(String dn, LDAPModification mod) {
         CMS.debug("UpdateDomainXML: remove_attribute: starting dn: " + dn);
         String status = SUCCESS;
@@ -127,6 +155,7 @@ public class UpdateDomainXML extends CMSServlet {
                 CMS.debug("Failed to modify entry" + e.toString());
             }
        } catch (Exception e) {
+            status = FAILED;
             CMS.debug("Failed to modify entry" + e.toString());
        } finally {
             try {
@@ -350,18 +379,6 @@ public class UpdateDomainXML extends CMSServlet {
             if ((eecaport != null) && (!eecaport.equals(""))) {
                 attrs.add(new LDAPAttribute("SecureEEClientAuthPort", eecaport));
             }
-            if ((agenthost != null) && (!agenthost.equals(""))) {
-                attrs.add(new LDAPAttribute("AgentHost", agenthost));
-            }
-            if ((eehost != null) && (!eehost.equals(""))) {
-                attrs.add(new LDAPAttribute("EEHost", eehost));
-            }
-            if ((adminhost != null) && (!adminhost.equals(""))) {
-                attrs.add(new LDAPAttribute("AdminHost", adminhost));
-            }
-            if ((eecahost != null) && (!eecahost.equals(""))) {
-                attrs.add(new LDAPAttribute("EEClientAuthHost", eecahost));
-            }
             if ((domainmgr != null) && (!domainmgr.equals(""))) {
                 attrs.add(new LDAPAttribute("DomainManager", domainmgr.toUpperCase()));
             }
@@ -422,7 +439,73 @@ public class UpdateDomainXML extends CMSServlet {
                         }
                     }
             } else {
-                    status = add_to_ldap(entry, dn);
+                status = add_to_ldap(entry, dn);
+
+                if (status.equals(SUCCESS)) {
+                    CMS.debug("UpdateDomainXML: " +
+                              "Successfully added PKI Security Domain " +
+                              "attributes to DN '" + dn + "'");
+
+                    // Attempt to modify this LDAP entry by
+                    // trying to add IP Port Separation attributes
+                    LDAPModificationSet mods = null;
+                    mods = new LDAPModificationSet();
+                    if ((agenthost != null) && (!agenthost.equals(""))) {
+                        mods.add(LDAPModification.ADD, 
+                                 new LDAPAttribute("AgentHost", agenthost));
+                    }
+                    if ((eehost != null) && (!eehost.equals(""))) {
+                        mods.add(LDAPModification.ADD, 
+                                 new LDAPAttribute("EEHost", eehost));
+                    }
+                    if ((adminhost != null) && (!adminhost.equals(""))) {
+                        mods.add(LDAPModification.ADD, 
+                                 new LDAPAttribute("AdminHost", adminhost));
+                    }
+                    if ((eecahost != null) && (!eecahost.equals(""))) {
+                        mods.add(LDAPModification.ADD, 
+                                 new LDAPAttribute("EEClientAuthHost",
+                                                   eecahost));
+                    }
+
+                    try {
+                        if (mods.size() > 0) {
+                            add_attributes(dn, mods);
+                            CMS.debug("UpdateDomainXML: " +
+                                      "Successfully added " +
+                                      "IP Port Separation Security Domain " +
+                                      "attributes to DN '" + dn + "'");
+                        }
+                    } catch (LDAPException e) {
+                        int errorCode = e.getLDAPResultCode();
+                        if ((errorCode == LDAPException.NO_SUCH_ATTRIBUTE) ||
+                            (errorCode == LDAPException.OBJECT_CLASS_VIOLATION))
+                        {
+                            // ignore this type of error
+                            CMS.debug("UpdateDomainXML: " +
+                                      "Unable to add " +
+                                      "IP Port Separation Security Domain " +
+                                      "attributes to DN '" + dn +
+                                      "' (server contains old schema)");
+                        } else {
+                            e.printStackTrace();
+                            CMS.debug("UpdateDomainXML: " +
+                                      "LDAPException - Failed to add " +
+                                      "IP Port Separation Security Domain " +
+                                      "attributes to DN '" + dn + "' - " + 
+                                      e.toString());
+                            status = FAILED;
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        CMS.debug("UpdateDomainXML: " +
+                                  "Exception - Failed to add " +
+                                  "IP Port Separation Security Domain " +
+                                  "attributes to DN '" + dn + "' - " + 
+                                  e.toString());
+                        status = FAILED;
+                    }
+                }
             }
         }
         else { 
@@ -447,9 +530,9 @@ public class UpdateDomainXML extends CMSServlet {
 
                     for (int i = 0; i < len; i++) {
                         Node nn = (Node) nodeList.item(i);
-                        Vector v_name = parser.getValuesFromContainer(nn, "SubsystemName");
-                        Vector v_host = parser.getValuesFromContainer(nn, "Host");
-                        Vector v_adminport = parser.getValuesFromContainer(nn, "SecureAdminPort");
+                        Vector v_name = parser.getValuesFromContainer(nn, "SubsystemName", true);
+                        Vector v_host = parser.getValuesFromContainer(nn, "Host", true);
+                        Vector v_adminport = parser.getValuesFromContainer(nn, "SecureAdminPort", true);
                         if ((v_name.elementAt(0).equals(name)) && (v_host.elementAt(0).equals(host))
                             && (v_adminport.elementAt(0).equals(adminsport))) {
                                 Node parent = nn.getParentNode();

@@ -986,20 +986,23 @@ public class WizardPanelBase implements IWizardPanel {
                 // is using an IP Port Separation Schema:
                 Vector v_hostname =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "AdminHost" );
+                                                      "AdminHost",
+                                                      true );
                 if ( v_hostname.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_hostname = parser.getValuesFromContainer(
-                                            nodeList.item(i), "Host" );
+                                            nodeList.item(i), "Host", true );
                 }
 
                 Vector v_https_admin_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecureAdminPort" );
+                                                      "SecureAdminPort",
+                                                      true );
 
                 Vector v_domain_mgr =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "DomainManager" );
+                                                      "DomainManager",
+                                                      true );
 
                 if( v_hostname.elementAt( 0 ).equals( hostname ) &&
                     v_https_admin_port.elementAt( 0 ).equals( Integer.toString(httpsadminport) ) ) {
@@ -1064,38 +1067,44 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug("Len " + len);
             for (int i = 0; i < len; i++) {
                 Vector v_clone = parser.getValuesFromContainer(nodeList.item(i),
-                  "Clone");
+                  "Clone", true);
                 String clone = (String)v_clone.elementAt(0);
                 if (clone.equalsIgnoreCase("true"))
                     continue;
                 Vector v_name = parser.getValuesFromContainer(nodeList.item(i),
-                        "SubsystemName");
+                        "SubsystemName", true);
                 // First, check to see if the Security Domain
                 // is using an IP Port Separation Schema:
                 Vector v_host = null;
                 if( portType.equals( "UnSecurePort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "EEHost" );
+                                                            "EEHost",
+                                                            true );
                 } else if( portType.equals( "SecureAgentPort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "AgentHost" );
+                                                            "AgentHost",
+                                                            true );
                 } else if( portType.equals( "SecurePort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "EEHost" );
+                                                            "EEHost",
+                                                            true );
                 } else if( portType.equals( "SecureAdminPort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "AdminHost" );
+                                                            "AdminHost",
+                                                            true );
                 } else if( portType.equals( "SecureEEClientAuthPort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                     "EEClientAuthHost" );
+                                                     "EEClientAuthHost",
+                                                     true );
                 }
                 if (v_host.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "Host" );
+                                                            "Host",
+                                                            true );
                 }
                 Vector v_port = parser.getValuesFromContainer(nodeList.item(i),
-                        portType);
+                        portType, true);
 
                 v.addElement( v_name.elementAt(0)
                             + " - https://"
@@ -1161,41 +1170,47 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug("Len " + len);
             for (int i = 0; i < len; i++) {
                 Vector v_name = parser.getValuesFromContainer(nodeList.item(i),
-                        "SubsystemName");
+                        "SubsystemName", true);
                 // First, check to see if the Security Domain
                 // is using an IP Port Separation Schema:
                 Vector v_host = null;
                 if( portType.equals( "UnSecurePort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "EEHost" );
+                                                            "EEHost",
+                                                            true );
                 } else if( portType.equals( "SecureAgentPort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "AgentHost" );
+                                                            "AgentHost",
+                                                            true );
                 } else if( portType.equals( "SecurePort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "EEHost" );
+                                                            "EEHost",
+                                                            true );
                 } else if( portType.equals( "SecureAdminPort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "AdminHost" );
+                                                            "AdminHost",
+                                                            true );
                 } else if( portType.equals( "SecureEEClientAuthPort" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                     "EEClientAuthHost" );
+                                                     "EEClientAuthHost",
+                                                      true );
                 }
                 if (v_host.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "Host" );
+                                                            "Host",
+                                                            true );
                 }
                 Vector v_port = parser.getValuesFromContainer(nodeList.item(i),
-                        portType);
+                        portType, true);
                 Vector v_admin_host = parser.getValuesFromContainer( nodeList.item(i),
-                           "AdminHost");
+                           "AdminHost", true);
                 if (v_admin_host.isEmpty()) {
                     v_admin_host = v_host;
                 }
 
                 Vector v_admin_port = parser.getValuesFromContainer(nodeList.item(i),
-                        "SecureAdminPort");
+                        "SecureAdminPort", true);
               
                 if( ( v_admin_host.elementAt( 0 ).equals( hostname ) ) &&
                     ( v_admin_port.elementAt( 0 ).equals(
@@ -1252,20 +1267,23 @@ public class WizardPanelBase implements IWizardPanel {
                 // is using an IP Port Separation Schema:
                 Vector v_hostname =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "EEHost" );
+                                                      "EEHost",
+                                                      true );
                 if ( v_hostname.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_hostname = parser.getValuesFromContainer(
-                                            nodeList.item(i), "Host" );
+                                            nodeList.item(i), "Host", true );
                 }
 
                 Vector v_https_ee_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecurePort" );
+                                                      "SecurePort",
+                                                      true );
 
                 Vector v_https_admin_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecureAdminPort" );
+                                                      "SecureAdminPort",
+                                                      true );
 
                 if( v_hostname.elementAt( 0 ).equals( hostname ) &&
                     v_https_ee_port.elementAt( 0 ).equals( https_ee_port ) ) {
@@ -1311,14 +1329,16 @@ public class WizardPanelBase implements IWizardPanel {
                 // is using an IP Port Separation Schema:
                 Vector v_hostname =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "EEHost" );
+                                                      "EEHost",
+                                                      true );
                 Vector v_https_admin_host =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "AdminHost" );
+                                                      "AdminHost",
+                                                      true );
                 if (v_hostname.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
                     v_hostname = parser.getValuesFromContainer(
-                                            nodeList.item(i), "Host" );
+                                            nodeList.item(i), "Host", true );
                 }
                 if (v_https_admin_host.isEmpty()) {
                     // No, the Security Domain is using a Port Separation Schema
@@ -1327,7 +1347,8 @@ public class WizardPanelBase implements IWizardPanel {
 
                 Vector v_https_ee_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecurePort" );
+                                                      "SecurePort",
+                                                      true );
 
                 if( v_hostname.elementAt( 0 ).equals( hostname ) &&
                     v_https_ee_port.elementAt( 0 ).equals( https_ee_port ) ) {
@@ -1375,24 +1396,30 @@ public class WizardPanelBase implements IWizardPanel {
             for( int i = 0; i < len; i++ ) {
                 Vector v_admin_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecureAdminPort" );
+                                                      "SecureAdminPort",
+                                                      true );
 
                 Vector v_port = null;
                 if( portType.equals( "UnSecurePort" ) ) {
                     v_port = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "UnSecurePort" );
+                                                            "UnSecurePort",
+                                                            true );
                 } else if( portType.equals( "SecureAgentPort" ) ) {
                     v_port = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "SecureAgentPort" );
+                                                            "SecureAgentPort",
+                                                            true );
                 } else if( portType.equals( "SecurePort" ) ) {
                     v_port = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "SecurePort" );
+                                                            "SecurePort",
+                                                            true );
                 } else if( portType.equals( "SecureAdminPort" ) ) {
                     v_port = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "SecureAdminPort" );
+                                                            "SecureAdminPort",
+                                                            true );
                 } else if( portType.equals( "SecureEEClientAuthPort" ) ) {
                     v_port = parser.getValuesFromContainer( nodeList.item(i),
-                                                     "SecureEEClientAuthPort" );
+                                                     "SecureEEClientAuthPort",
+                                                     true );
                 }
 
                 if( ( v_port != null ) &&
@@ -1441,33 +1468,41 @@ public class WizardPanelBase implements IWizardPanel {
             for( int i = 0; i < len; i++ ) {
                 Vector v_admin_host =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "AdminHost" );
+                                                      "AdminHost",
+                                                      true );
                 if(v_admin_host.isEmpty()) {
                     v_admin_host =
                         parser.getValuesFromContainer( nodeList.item(i),
-                                                       "Host" );
+                                                       "Host",
+                                                       true );
                 }
 
                 Vector v_admin_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecureAdminPort" );
+                                                      "SecureAdminPort",
+                                                      true );
 
                 Vector v_host = null;
                 if( hostType.equals( "Host" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "Host" );
+                                                            "Host",
+                                                            true );
                 } else if( hostType.equals( "AgentHost" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "AgentHost" );
+                                                            "AgentHost",
+                                                            true );
                 } else if( hostType.equals( "EEHost" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "EEHost" );
+                                                            "EEHost",
+                                                            true );
                 } else if( hostType.equals( "AdminHost" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "AdminHost" );
+                                                            "AdminHost",
+                                                            true );
                 } else if( hostType.equals( "EEClientAuthHost" ) ) {
                     v_host = parser.getValuesFromContainer( nodeList.item(i),
-                                                     "EEClientAuthHost" );
+                                                     "EEClientAuthHost",
+                                                     true );
                 }
 
                 if( ( v_admin_host.elementAt( 0 ).equals( hostname ) ) &&
