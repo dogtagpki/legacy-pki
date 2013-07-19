@@ -765,8 +765,6 @@ public class NamePanel extends WizardPanelBase {
             String cstype = config.getString("preop.subsystem.select", "");
             if (cstype.equals("clone")) {
                 CMS.debug("NamePanel: clone configuration detected");
-                // still need to handle SSL certificate
-                configCertWithTag(request, response, context, "sslserver");
                 String url = getURL(request, config);
                 if (url != null && !url.equals("External CA")) {
                    // preop.ca.url and admin port are required for setting KRA connector
@@ -780,6 +778,9 @@ public class NamePanel extends WizardPanelBase {
 
                 }
                 updateCloneConfig(config);
+
+                // still need to handle SSL certificate
+                configCertWithTag(request, response, context, "sslserver");
                 CMS.debug("NamePanel: clone configuration done");
                 context.put("updateStatus", "success");
                 return;

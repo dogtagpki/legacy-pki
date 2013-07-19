@@ -291,6 +291,12 @@ public class DatabasePanel extends WizardPanelBase {
         } catch (Exception e) {
         }
 
+        if (hostname == null || hostname.length() == 0) {
+            cs.putString("preop.database.errorString", "Host is empty string");
+            context.put("updateStatus", "validate-failure");
+            throw new IOException("Host is empty string");
+        }
+
         if (select.equals("clone")) {
             String masterhost = "";
             String masterport = "";
@@ -302,15 +308,13 @@ public class DatabasePanel extends WizardPanelBase {
             } catch (Exception e) {
             }
 
-            //get the real host name
-            String realhostname = "";
             if (hostname.equals("localhost")) {
-                try {
-                    realhostname = cs.getString("adminMachineName", "");
-                } catch (Exception ee) {
-                }
+                cs.putString("preop.database.errorString",
+                             "Use FQDN instead of localhost");
+                throw new IOException("Use FQDN instead of localhost");
             }
-            if (masterhost.equals(realhostname) && masterport.equals(portStr)) {
+
+            if (masterhost.equals(hostname) && masterport.equals(portStr)) {
                 context.put("updateStatus", "validate-failure");
                 throw new IOException("Master and clone must not share the same internal database");
             }
@@ -319,12 +323,6 @@ public class DatabasePanel extends WizardPanelBase {
                 context.put("updateStatus", "validate-failure");
                 throw new IOException("Master and clone should have the same base DN");
             }
-        }
-
-        if (hostname == null || hostname.length() == 0) {
-            cs.putString("preop.database.errorString", "Host is empty string");
-            context.put("updateStatus", "validate-failure");
-            throw new IOException("Host is empty string");
         }
 
         if (portStr != null && portStr.length() > 0) {

@@ -151,8 +151,17 @@ public class GetConfigEntries extends CMSServlet {
                     CMS.debug("Retrieving config name=" + name);
                     value = config.getString(name);
                     CMS.debug("Retrieving config value=" + value);
-                    if (value.equals("localhost"))
+                    if (value.equals("localhost")) {
                         value = config.getString("adminMachineName", "");
+                        if( value.isEmpty()) {
+                            value = config.getString("machineName", "");
+                            if( value.isEmpty()) {
+                                CMS.debug("GetConfigEntries process: "
+                                        + "WARNING - sending empty string for "
+                                        + name);
+                            }
+                        }
+                    }
                 } catch (Exception ee) {
                     if (name.equals("internaldb.ldapauth.password")) {
                         value = getLDAPPassword();

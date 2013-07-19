@@ -140,8 +140,14 @@ public class TokenAuthentication implements IAuthManager,
 
         String sessionId = (String)authCred.get(CRED_SESSION_ID);
         String givenHost = (String)authCred.get("clientHost");
-        String authAdminHost = sconfig.getString("securitydomain.adminhost");
-        String authEEHost = sconfig.getString("securitydomain.eehost");
+        String authAdminHost = sconfig.getString("securitydomain.adminhost","");
+        if( authAdminHost.isEmpty() ) {
+            authAdminHost = sconfig.getString("securitydomain.host");
+        }
+        String authEEHost = sconfig.getString("securitydomain.eehost","");
+        if( authEEHost.isEmpty() ) {
+            authEEHost = sconfig.getString("securitydomain.host");
+        }
         int authAdminPort = sconfig.getInteger("securitydomain.httpsadminport");
         int authEEPort = sconfig.getInteger("securitydomain.httpseeport");
         String authAdminURL = "/ca/admin/ca/tokenAuthenticate";
