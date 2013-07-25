@@ -572,15 +572,33 @@ TOKENDB_PUBLIC Buffer *CertEnroll::RenewCertificate(PRUint64 serialno, const cha
  * Sends certificate request to CA for enrollment.
  */
 Buffer * CertEnroll::EnrollCertificate( 
-					SECKEYPublicKey *pk_parsed,
-					const char *profileId,
-					const char *uid,
-					const char *cuid /*token id*/,
-					const char *connid, 
-                                        char *error_msg,
-                                        SECItem** encodedPublicKeyInfo)
+    SECKEYPublicKey *pk_parsed,
+    const char *profileId,
+    const char *uid,
+    const char *cuid /*token id*/,
+    const char *connid, 
+    char *error_msg,
+    SECItem** encodedPublicKeyInfo)
+{
+    return EnrollCertificate(pk_parsed, profileId, uid,
+         NULL /*subjectdn*/, 0, NULL /*url_SAN_ext*/,
+         cuid, connid, error_msg, encodedPublicKeyInfo);
+}
+
+Buffer * CertEnroll::EnrollCertificate( 
+    SECKEYPublicKey *pk_parsed,
+    const char *profileId,
+    const char *uid,
+    const char *subjectdn,
+    int san_num,
+    const char *url_SAN_ext,
+    const char *cuid /*token id*/,
+    const char *connid, 
+    char *error_msg,
+    SECItem** encodedPublicKeyInfo)
 {
     char parameters[5000];
+    Buffer * certificate = NULL;
  
     SECItem* si = SECKEY_EncodeDERSubjectPublicKeyInfo(pk_parsed);
     if (si == NULL) {
@@ -621,16 +639,32 @@ Buffer * CertEnroll::EnrollCertificate(
     char *url_pk = Util::URLEncode(pk_b64);
     char *url_uid = Util::URLEncode(uid);
     char *url_cuid = Util::URLEncode(cuid);
+    char *url_subjectdn = NULL;
     const char *servlet;
     char configname[256];
 
     PR_snprintf((char *)configname, 256, "conn.%s.servlet.enrollment", connid);
     servlet = RA::GetConfigStore()->GetConfigAsString(configname);
 
-    PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s", profileId, url_cuid, url_uid, url_pk);
+    if ((subjectdn == NULL) && (san_num == 0)) {
+        PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s", profileId, url_cuid, url_uid, url_pk);
+    } else {
+        RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",
+            "before sendReqToCA() with subjectdn and/or url_SAN_ext");
+        if ((subjectdn != NULL) && (san_num == 0)) {
+            url_subjectdn= Util::URLEncode(subjectdn);
+            PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s&subject=%s", profileId, url_cuid, url_uid, url_pk, url_subjectdn);
+        } else if ((subjectdn == NULL) && (san_num != 0)) {
+            PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s&%s&req_san_entries=%d", profileId, url_cuid, url_uid, url_pk, url_SAN_ext, san_num);
+        } else if ((subjectdn != NULL) && (san_num != 0)) {
+            url_subjectdn= Util::URLEncode(subjectdn);
+            PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s&subject=%s&%s&req_san_entries=%d", profileId, url_cuid, url_uid, url_pk, url_subjectdn, url_SAN_ext, san_num);
+        }
+    }
 
+    RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",
+        "parameters = %s", parameters);
     PSHttpResponse *resp =  sendReqToCA(servlet, parameters, connid);
-    Buffer * certificate = NULL;
     if (resp != NULL) {
       RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",
           "sendReqToCA done");
@@ -647,9 +681,10 @@ Buffer * CertEnroll::EnrollCertificate(
       RA::Error("CertEnroll::EnrollCertificate",
         "sendReqToCA failure");
       PR_snprintf(error_msg, 512, "sendReqToCA failure");
-      return NULL;
+      goto loser;
     }
 
+loser:
     if( pk_b64 != NULL ) {
         PR_Free( pk_b64 );
         pk_b64 = NULL;
@@ -666,6 +701,8 @@ Buffer * CertEnroll::EnrollCertificate(
         PR_Free( url_cuid );
         url_cuid = NULL;
     }
+    if (url_subjectdn != NULL)
+        PR_Free( url_subjectdn );
 
     return certificate;
 }

@@ -58,11 +58,20 @@ class CertEnroll
   SECKEYPublicKey *ParsePublicKeyBlob(unsigned char * /*blob*/,
 			 Buffer * /*challenge*/);
   Buffer *EnrollCertificate(SECKEYPublicKey * /*pk_parsed*/,
-		            const char *profileId,
-			    const char * /*uid*/,
-			    const char * /*token cuid*/, const char *connid,
-                            char *error_msg,
-			    	SECItem** encodedPublicKeyInfo = NULL);
+      const char *profileId,
+      const char * /*uid*/,
+      const char * /*token cuid*/, const char *connid,
+      char *error_msg,
+      SECItem** encodedPublicKeyInfo = NULL);
+  Buffer *EnrollCertificate(SECKEYPublicKey * /*pk_parsed*/,
+      const char *profileId,
+      const char * /*uid*/,
+      const char * /*subjectdn*/,
+      int /*san_num*/,
+      const char * /*url_SAN_ext*/,
+      const char * /*token cuid*/, const char *connid,
+      char *error_msg,
+      SECItem** encodedPublicKeyInfo = NULL);
   ReturnStatus verifyProof(SECKEYPublicKey* /*pk*/, SECItem* /*siProof*/,
 			   unsigned short /*pkeyb_len*/, unsigned char* /*pkeyb*/,
 			   Buffer* /*challenge*/);

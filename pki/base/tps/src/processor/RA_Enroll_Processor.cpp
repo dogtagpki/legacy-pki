@@ -230,6 +230,10 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
     float progress_block_size = (float) (end_progress - start_progress) / keyTypeNum;
     RA::Debug(LL_PER_CONNECTION,FN,
 	            "Start of keygen/certificate enrollment");
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+    PR_snprintf((char *)configname, 256, "externalReg.delegation.enable");
+    bool isDelegate = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
 
     // get key version for audit logs
     if (channel != NULL) {
@@ -537,9 +541,103 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 			(progress_block_size * 60/100) /* progress */, 
 			"PROGRESS_ENROLL_CERT");
 
-    cert = certEnroll->EnrollCertificate(
-                    pk_p, profileId, userid, cuid_label, 
-		    connid, audit_msg, ppEncodedPublicKeyInfo);
+    if (isExternalReg && isDelegate) {
+        const char *subjectdn = NULL;
+
+        RA::Debug(LL_PER_CONNECTION,FN, "isDelegate pre-enroll processing...");
+        /*
+         * isDelegate: process subjectdn
+         * e.g.
+         *     op.enroll.delegateISEtoken.keyGen.encryption.dnpattern=
+         *         cn=$auth.firstname$.$auth.lastname$.$auth.edipi$,e=$auth.mail$,o=TMS Org
+         *     becomes:
+         *       CN=Jane.Doe.0123456789,E=jdoe@redhat.com,O=TMS Org
+         */
+        PR_snprintf((char *)configname, 256, "%s.%s.keyGen.%s.dnpattern",
+                OP_PREFIX, tokenType, keyType);
+        const char *dnpattern =
+            RA::GetConfigStore()->GetConfigAsString(configname);
+        if (dnpattern != NULL) {
+            //RA::Debug(LL_PER_CONNECTION,FN, "dnpattern=%s", dnpattern);
+            subjectdn = MapPattern(&nv,  (char *) dnpattern);
+            //RA::Debug(LL_PER_CONNECTION,FN, "subjectdn=%s", subjectdn);
+        } else {
+            RA::Debug(LL_PER_CONNECTION,FN, "Delegation mode: dnpattern not set");
+        }
+
+        /*
+         * isDelegate: process SAN_ext
+         * e.g.
+         *     op.enroll.delegateISEtoken.keyGen.encryption.SANpattern=
+         *         $auth.edipi$.abc@redhat.com
+         *     becomes:
+         *       0123456789.abc@redhat.com
+         */
+        PR_snprintf((char *)configname, 256, "%s.%s.keyGen.%s.SANpattern",
+                OP_PREFIX, tokenType, keyType);
+        const char *SANpattern =
+            RA::GetConfigStore()->GetConfigAsString(configname);
+
+        char *url_san_ext = NULL;
+        char *SANpattern_str = PL_strdup(SANpattern);
+        int SANnum = 0;
+        if (SANpattern != NULL) {
+            char *lasts = NULL;
+            char *tok = NULL;
+            tok = PL_strtok_r((char *)SANpattern_str, ",", &lasts);
+            /*
+             * for every "tok" in pattern, 
+             * 1. MapPattern
+             * 2. URLEncode
+             * 3. append
+             * url_san_ext will look like san1&san2&san3...&
+             */
+            while (tok != NULL) {
+                const char *san_ext = NULL;
+                //RA::Debug(LL_PER_CONNECTION,FN, "tok%d=%s", SANnum, tok);
+                san_ext = MapPattern(&nv, (char *) tok);
+                char *url_san_ext1 = NULL;
+                url_san_ext1 = Util::URLEncode(san_ext);
+                if (url_san_ext == NULL) { //first one
+                    url_san_ext = PR_smprintf("req_san_pattern_%d=%s",
+                        SANnum, url_san_ext1);
+                } else {
+                    url_san_ext = PR_sprintf_append(url_san_ext,
+                        "&req_san_pattern_%d=%s", SANnum, url_san_ext1);
+                }
+                //RA::Debug(LL_PER_CONNECTION,FN, "url_san_ext1%d=%s", SANnum, url_san_ext1);
+                tok = PL_strtok_r(NULL, ":", &lasts);
+                SANnum++;
+                if (url_san_ext1 != NULL) {
+                    PR_Free(url_san_ext1 );
+                }
+            }
+        } else {
+            RA::Debug(LL_PER_CONNECTION,FN, "Delegation mode: SANpattern not set");
+        }
+
+        RA::Debug(LL_PER_CONNECTION,FN,
+            "before EnrollCertificate()");
+        cert = certEnroll->EnrollCertificate(
+            pk_p, profileId, userid, subjectdn, SANnum, url_san_ext,
+            cuid_label, connid, audit_msg, ppEncodedPublicKeyInfo);
+        RA::Debug(LL_PER_CONNECTION,FN,
+            "after EnrollCertificate()");
+        if (SANpattern_str != NULL)
+            PR_Free(SANpattern_str);
+        if (url_san_ext != NULL)
+            PR_Free(url_san_ext);
+        if (subjectdn != NULL)
+            PR_Free((char *)subjectdn);
+    } else {
+        RA::Debug(LL_PER_CONNECTION,FN,
+            "before EnrollCertificate()");
+        cert = certEnroll->EnrollCertificate(
+            pk_p, profileId, userid, cuid_label, 
+        connid, audit_msg, ppEncodedPublicKeyInfo);
+        RA::Debug(LL_PER_CONNECTION,FN,
+            "after EnrollCertificate()");
+    }
 
     if (cert == NULL) {
         status = STATUS_ERROR_MAC_ENROLL_PDU;
@@ -1032,7 +1130,7 @@ bool RA_Enroll_Processor::GetCardManagerAppletInfo(
     RA::DebugBuffer("RA_Enroll_Processor::process", "CPLC Data = ", 
 		    	cplc_data);
     if (cplc_data->size() < 47) {
-          RA::Error("RA_Format_Processor::Process",
+          RA::Error("RA_ENROLL_Processor::Process",
                         "Invalid CPLC Size");
           a_status = STATUS_ERROR_SECURE_CHANNEL;
 		  r = false;
@@ -1645,7 +1743,6 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     int pkcs11obj_enable = 0;
     int compress = 0;
     NameValueSet nv;
-    int o_certNums = 0;
 
     CertEnroll *certEnroll = NULL;
 
@@ -1682,6 +1779,9 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     const char *pattern = NULL;
     char *label = NULL;
     CERTCertificate **certificates = NULL;
+    int o_certNums = 0;
+    CERTCertificate **renewed_certificates = NULL;
+    int o_renewed_certNums = 0;
     char **ktypes = NULL;
     char **origins = NULL;
     char **tokenTypes = NULL;
@@ -1732,11 +1832,6 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
                 PR_snprintf(audit_msg, 512, "AuthenticateUser error");
             goto loser;
         }
-/* check token owner the externalReg way 
-        if (!ExternalReg_CheckTokenOwner(OP_PREFIX, session, cuid)) {
-            goto loser;
-        }
-*/
 
         RA::Debug(LL_PER_PDU, FN, "isExternalReg: get tokenType, etc.");
         tokenType = session->getExternalRegAttrs()->getTokenType();
@@ -1794,15 +1889,16 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
             if (!RA::ra_allow_token_reenroll(cuid) &&
                 !RA::ra_allow_token_renew(cuid) &&
                 !do_force_format) {
-                RA::Error(FN, "CUID %s Re-Enrolled Disallowed", cuid);
+                RA::Error(FN, "CUID %s RE_ENROLL Disallowed", cuid);
                 status = STATUS_ERROR_DISABLED_TOKEN;
-                PR_snprintf(audit_msg, 512, "token re-enrollment or renewal disallowed");
+                PR_snprintf(audit_msg, 512, "token RE_ENROLL or RENEW disallowed");
                 goto loser;
             }
         } else {
-            //isExternalReg  still allows force format?
+            // isExternalReg  still allows force format
             do_force_format = RA::ra_force_token_format(cuid);
             RA::Debug("RA_Enroll_Processor::Process","force format flag %d", do_force_format);
+            // isExternalReg always allow "RE_ENROLL"
         }
     } else {
         RA::Debug(FN, "Not Found token %s", cuid);
@@ -2224,26 +2320,59 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
               pkcs11obj_enable, extensions, channel, wrapped_challenge, 
               key_check, plaintext_challenge, cuid, msn, final_applet_version, 
               khex, userid, status, certificates, o_certNums, tokenTypes)) {
-                RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after GenerateCertificates"," returns false might as well clean up token.");
-                bool skip_auth = true;
-                Format(session,extensions,skip_auth);
+                // in case isExternalReg, leave the token alone, do not format
+                if(!isExternalReg) {
+                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after GenerateCertificates"," returns false might as well clean up token.");
+                    bool skip_auth = true;
+                    Format(session,extensions,skip_auth);
+                }
                 goto loser;
             } else {
                 RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after GenerateCertificates"," returns true");
 
-/*isExternalReg - recovery and delete/revoke happens
-                recover certsToRecover
-                delete/revoke certsToDelete
-*/
+                /*
+                 * isExternalReg - 
+                 *   Renew if token has "RENEW=YES" set by admin
+                 *   recovery and delete/revoke happens:
+                 *       recover certsToRecover
+                 *       delete/revoke certsToDelete
+                 */
                 if (isExternalReg) {
+                    // admin has to set RENEW=YES for token
+                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - isExternalReg", "checking if token set to renew...");
+                    if (RA::ra_allow_token_renew(cuid)) {
+                        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - isExternalReg", "token set to renew...");
+                        // RENEW allowed instead of RE_ENROLL
+                        bool r = ProcessRenewal(login, session, ktypes, origins,
+                                  (char *)tokenType, pkcs11objx, pkcs11obj_enable,
+                                  channel,
+                                  cuid, msn,
+                                  final_applet_version, userid,
+                                  status, renewed_certificates, o_renewed_certNums,
+                                  tokenTypes); 
+                        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - isExternalReg", "after ProcessRenewal, status=%d", status);
+                        if (r == true) {
+                            RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - isExternalReg", "renewal successful");
+                            renewed = true;
+                            // ToDo: merge the certificates and renewed_certificates, lists before injection
+                        } else {
+                            RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - isExternalReg", "renewal failed");
+                            // ToDo: bail or continue? 
+                        }
+                    }
+                    /*
+                     * ToDo: renew happens first, make sure whatever happens
+                     *       after don't lose your renewed certs/keys
+                     */
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
                         "about to call ExternalRegRecover()."); 
-                    ExternalRegRecover(session, pkcs11objx, channel,
+                    ExternalRegRecover(session, userid, pkcs11objx, channel,
                          cuid, status);
+                    // ToDo: make sure if the token already has the same cert/keys on it, the ExternalRegRecover is not going to cause it to be duplicated
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegRecover", "status is %d", status);
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
                         "about to call ExternalRegDelete()."); 
-                    ExternalRegDelete(session, status);
+                    ExternalRegDelete(session, userid, status);
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegDelete", "status is %d", status);
                     /* now call UpdateToken() */
                 }
@@ -2253,7 +2382,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
         }
     }
 
-    if ((status == STATUS_ERROR_RENEWAL_IS_PROCESSED) &&
+    if ((!isExternalReg) && (status == STATUS_ERROR_RENEWAL_IS_PROCESSED) &&
             RA::ra_allow_token_renew(cuid)) {
         renewed = true;
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "renewal happened.. "); 
@@ -2449,6 +2578,7 @@ op.enroll.certificates.caCert.label=caCert Label
           PR_snprintf(audit_msg, 512, "Applet memory exceeded when writing out final token data");
           bool skip_auth = true;
           if(!renewed) { //Renewal should leave what they have on the token.
+//ToDo:??
           	Format(session,extensions,skip_auth);
           }
           goto loser;
@@ -2547,6 +2677,10 @@ op.enroll.certificates.caCert.label=caCert Label
 
     RA::tdb_update_certificates(cuid, tokenTypes, (char*)userid, certificates, ktypes, origins, o_certNums);
     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "after tdb_update_certificates()");
+    if (renewed) {
+        RA::tdb_update_certificates(cuid, tokenTypes, (char*)userid, renewed_certificates, ktypes, origins, o_renewed_certNums);
+        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "after tdb_update_certificates() for renewed");
+    }
 
     rc = 1;
 
@@ -2639,6 +2773,18 @@ loser:
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "CERT_DestroyCertificate:  i=%i done", i);
         }
         free(certificates);
+        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "after CERT_DestroyCertificate");
+    }
+    if (renewed_certificates != NULL) {
+        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "before CERT_DestroyCertificate.  certNums=%d", o_renewed_certNums);
+        for (int i=0;i < o_renewed_certNums; i++) {
+        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "CERT_DestroyCertificate:  i=%d", i);
+            if (renewed_certificates[i] != NULL) {
+                   CERT_DestroyCertificate(renewed_certificates[i]);
+            }
+        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "CERT_DestroyCertificate:  i=%i done", i);
+        }
+        free(renewed_certificates);
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "after CERT_DestroyCertificate");
     }
 
@@ -2831,8 +2977,8 @@ bool RA_Enroll_Processor::GenerateCertificates(AuthParams *login, RA_Session *se
     //isExternalReg will process RevokeCertificates later
 
     if (!isExternalReg && (noFailedCerts == true)) {
-    //In this special case of re-enroll
-    //Revoke  current certs for this token  
+    // In this special case of RE_ENROLL
+    // Revoke  current certs for this token  
     // before the just enrolled certs are written to the db
          char error_msg[512];
          bool success = RevokeCertificates(session, cuid,error_msg,(char *)final_applet_version,
@@ -2868,6 +3014,7 @@ bool RA_Enroll_Processor::GenerateCertificates(AuthParams *login, RA_Session *se
  */
 bool RA_Enroll_Processor::ExternalRegRecover(
         RA_Session *session,
+        const char* userid,
         PKCS11Obj *pkcs11objx,
         Secure_Channel *channel,
         char *cuid,
@@ -2903,7 +3050,7 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         RA::Debug(LL_PER_CONNECTION, FN,
             "calling RA::RecoverKey() for serial no: %d, keyid: %d",
                 serial, keyid);
-        RA::RecoverKey(session, cuid, "userid" /*ToDo:need userid...fix later*/,
+        RA::RecoverKey(session, cuid, userid,
                 channel->getDrmWrappedDESKey(), keyid,
                 &o_pub, &o_priv,
                 drmConn, &ivParam);
@@ -2956,8 +3103,15 @@ loser:
  */
 bool RA_Enroll_Processor::ExternalRegDelete(
         RA_Session *session,
+        const char* userid,
         RA_Status &o_status)
 {
+    char configname[256];
+
+/* ToDo: do this after tokenUpdate()*/
+    PR_snprintf((char *)configname, 256, "externalReg.delete.deleteFromDB");
+    bool deleteFromDB = RA::GetConfigStore()->GetConfigAsBool(configname, false);
+
     CertEnroll *certEnroll = new CertEnroll();
 	const char *FN="RA_Enroll_Processor::ExternalRegDelete";
     RA::Debug(LL_PER_CONNECTION, FN,
@@ -3062,19 +3216,27 @@ bool RA_Enroll_Processor::ExternalRegDelete(
                 statusNum = certEnroll->RevokeCertificate(
                     true,
                     certs[num], "0", serial_s, caConn, statusString);
-               /* make reason flexible*/
+               /*ToDo: make reason flexible?*/
 
                 RA::Debug(FN,
                    "Revoke Cert statusNum %d statusString %s \n", statusNum, statusString);
                 if (statusNum == 0) {
-//remember to change the userid
-                    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_CERT_STATUS_CHANGE, "userid",
+                    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
                                   "Success", "revoke", serial_s, caConn, "");
                     PR_snprintf(activity_msg, 512, "certificate %s revoked", serial_s);
-                    RA::tdb_activity(session->GetRemoteIP(), (char *)erAttrs->getTokenCUID(), "format", "success", activity_msg, "", (char *)erAttrs->getTokenType());
-                    RA::ra_update_cert_status(attr_cn, "revoked");
+                    RA::tdb_activity(session->GetRemoteIP(), (char *)erAttrs->getTokenCUID(), "enrollment", "success", activity_msg, "", (char *)erAttrs->getTokenType());
+                    if (!deleteFromDB) {
+                        RA::ra_update_cert_status(attr_cn, "revoked");
+                    } else {
+                        /* ToDo: move this to after updateToken()
+                         */
+                        // you can't unrevoke if you do this
+                        RA::Debug(FN,
+                           "deleteFromDB enabled...calling RA::ra_delete_certificate_entry()");
+                        RA::ra_delete_certificate_entry(e);
+                    }
                 } else {
-                    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_CERT_STATUS_CHANGE, "userid",
+                    RA::Audit(EV_ENROLLMENT, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
                                   "Failure", "revoke", serial_s, caConn, statusString);
                     PR_snprintf(activity_msg, 512, "error in revoking certificate %s: %s", serial_s, statusString);
                     RA::tdb_activity(session->GetRemoteIP(), (char *)erAttrs->getTokenCUID(), "format", "failure", activity_msg, "", (char *)erAttrs->getTokenType());
@@ -3313,9 +3475,9 @@ bool RA_Enroll_Processor::GenerateCertsAfterRecoveryPolicy(AuthParams *login, RA
                 } else if (strcmp(tokenStatus, "active") == 0) {
                     r = true;
                     RA::Debug(LL_PER_CONNECTION,FN,
-			"This is the active token. You can re-enroll if the re-enroll=true; or renew if renew=true.");
+			"This is the active token. You can re-enroll if the RE_ENROLL=YES; or renew if RENEW=YES.");
                     if (RA::ra_allow_token_renew(cuid)) {
-                        // renewal allowed instead of re-enroll
+                        // RENEW allowed instead of RE_ENROLL
                         r = ProcessRenewal(login, session, ktypes, origins,
                                   tokenType, pkcs11objx, pkcs11obj_enable,
                                   channel,

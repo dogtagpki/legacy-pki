@@ -1142,7 +1142,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     HttpConnection *drmConn = NULL;
     char body[MAX_BODY_LEN];
     char configname[256];
-    char * cert_s;
+    char * cert_s = NULL;
     int drm_curr = 0;
     long s;
     char * content = NULL;

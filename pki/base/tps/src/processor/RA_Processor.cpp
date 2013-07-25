@@ -2601,7 +2601,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
 
         rc = 0;
         if (keyVersion != NULL) {
-            //Do this in format case only, could be called from a re-enroll operation
+            //Do this in format case only, could be called from a RE_ENROLL operation
             rc = RA::tdb_update("", cuid, (char *)final_applet_version, keyVersion, "uninitialized", "", tokenType);
         }
 
@@ -2779,7 +2779,8 @@ bool RA_Processor::AuthenticateUserLDAP(
     int retries = 0;
     int rc;
     bool r=false;
-              char configname[256]; 
+    char configname[256]; 
+
     PR_snprintf((char *)configname, 256, "externalReg.enable");
     bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
 
@@ -2794,6 +2795,27 @@ bool RA_Processor::AuthenticateUserLDAP(
             RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
         else {
             RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL");
+        }
+
+        /*
+         * If cuid is provided on the user registration record, then
+         * we have to compare that with the current token cuid;
+         *
+         * If, the cuid is not provided on the user registration record,
+         * then any token can be used.
+         */
+        const char *userreg_cuid = a_session->getExternalRegAttrs()->getTokenCUID();
+        if (userreg_cuid != NULL) {
+            if (PL_strcasecmp((const char*)a_cuid, userreg_cuid) != 0) {
+                RA::Debug(LL_PER_PDU, FN, "isExternalReg: ERROR: token cuid not matched");
+                o_status = STATUS_ERROR_NOT_TOKEN_OWNER;
+                r = false;
+                return r;
+            } else {
+                RA::Debug(LL_PER_PDU, FN, "isExternalReg: token cuid matched");
+            }
+        } else {
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: cuid not provided on user registration record... cuid not checked");
         }
     } else
         rc = ldapAuth->Authenticate(login);

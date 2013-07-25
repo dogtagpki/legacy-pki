@@ -93,6 +93,7 @@ class RA_Enroll_Processor : public RA_Processor
 
         bool ExternalRegRecover(
                 RA_Session *session,
+                const char *userid,
                 PKCS11Obj *pkcs11objx,
                 Secure_Channel *channel,
                 char *cuid,
@@ -100,6 +101,7 @@ class RA_Enroll_Processor : public RA_Processor
 
         bool ExternalRegDelete(
                 RA_Session *session,
+                const char *userid,
                 RA_Status &o_status);
 
         bool GenerateCertificate(AuthParams *login,

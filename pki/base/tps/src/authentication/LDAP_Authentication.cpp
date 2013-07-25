@@ -210,17 +210,28 @@ int LDAP_Authentication::Authenticate(AuthParams *params, RA_Session *session)
     char *uid = NULL;
     char *password = NULL;
     int retries = 0;
+    bool isPrototype = false;
     bool isExternalReg = false;
+    bool isDelegate = false;
     ExternalRegAttrs *erAttrs = NULL;
+    char configname[256];
 
     if (params == NULL) {
         status = TPS_AUTH_ERROR_USERNOTFOUND;
         goto loser;
     }
 
-    if (session != NULL) {
-        isExternalReg = true;
-        erAttrs = new ExternalRegAttrs();
+    PR_snprintf((char *)configname, 256, "externalReg.prototype.enable");
+    isPrototype = RA::GetConfigStore()->GetConfigAsBool(configname, false);
+
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+    if (isExternalReg == true) {
+        if (session != NULL)
+            erAttrs = new ExternalRegAttrs();
+
+        PR_snprintf((char *)configname, 256, "externalReg.delegation.enable");
+        isDelegate = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
     }
 
     uid = params->GetUID();
@@ -341,10 +352,13 @@ int LDAP_Authentication::Authenticate(AuthParams *params, RA_Session *session)
                 } 
             }
 #ifdef ExternalRegPrototype
-            if (isExternalReg) {
+            if ((isPrototype) && (isExternalReg) && (session != NULL)) {
                 RA::Debug("LDAP_Authentication::Authenticate:", " ExternalRegPrototype begins");
                 /*
-                 * For Prototype only, e.g.
+                 * For Prototype only,
+                 * in CS.cfg (instead of getting from ldap) e.g.
+                 *
+                 * externalReg.prototype.tokenType=delegateISEtoken
                  * externalReg.prototype.recoverNum=2
                  * externalReg.prototype.recover0.serial=6
                  * externalReg.prototype.recover0.caConn=ca1
@@ -360,7 +374,6 @@ int LDAP_Authentication::Authenticate(AuthParams *params, RA_Session *session)
                  * externalReg.prototype.delete1.caConn=ca1
                  * externalReg.prototype.delete1.revoke=true
                  */
-                char configname[256];
                 char proto_recover_prefix[256] = "externalReg.prototype.recover";
                 PR_snprintf((char *)configname, 256, "%sNum", proto_recover_prefix);
                 int protoNum = RA::GetConfigStore()->GetConfigAsInt(configname);
@@ -391,14 +404,28 @@ int LDAP_Authentication::Authenticate(AuthParams *params, RA_Session *session)
                     PR_snprintf((char *)configname, 256, "%s%d.caConn", proto_delete_prefix,i);
                     erCertToDelete->setCaConn(RA::GetConfigStore()->GetConfigAsString(configname));
                     PR_snprintf((char *)configname, 256, "%s%d.revoke", proto_delete_prefix,i);
-                    erCertToDelete->setRevoke(RA::GetConfigStore()->GetConfigAsBool(configname));
+                    erCertToDelete->setRevoke(RA::GetConfigStore()->GetConfigAsBool(configname, 0));
                     erAttrs->addCertToDelete(erCertToDelete);
                 }
-                erAttrs->setTokenType("userKey");
+                PR_snprintf((char *)configname, 256, "externalReg.prototype.tokenType");
+                erAttrs->setTokenType(RA::GetConfigStore()->GetConfigAsString(configname));
                 session->setExternalRegAttrs(erAttrs);
                 PR_snprintf((char *)configname, 256, "externalReg.prototype.cuid");
                 erAttrs->setTokenCUID(RA::GetConfigStore()->GetConfigAsString(configname));
-                RA::Debug("LDAP_Authentication::Authenticate:", " TPSEnhancementPrototype ends");
+                RA::Debug("LDAP_Authentication::Authenticate:", " ExternalRegPrototype ends");
+               /*
+                * isDelegate
+                */
+                if (isDelegate) {
+                    params->Add("lastname", "Doe");
+                    params->Add("firstname", "Jane");
+                    params->Add("edipi", "0123456789");
+                    params->Add("pcc", "BB");
+                    params->Add("mail", "jdoe@redhat.com");
+                    params->Add("exec-edipi", "9123456789");
+                    params->Add("exec-pcc", "AA");
+                    params->Add("exec-mail", "exec@redhat.com");
+                }
             }
 #endif /*ExternalRegPrototype*/
             RA::Debug("LDAP_Authentication::Authenticate:", " authentication completed for %s",uid);
