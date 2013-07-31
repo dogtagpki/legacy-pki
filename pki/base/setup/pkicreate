@@ -271,6 +271,7 @@ my $velocity_prop_base_name      = "velocity.properties";  # CA, KRA, OCSP, TKS
 my $web_xml_base_name            = "web.xml";              # CA, KRA, OCSP, TKS
 my $web_xml_runtime_base_name    = "web.xml.runtime";      # CA, KRA, OCSP, TKS
 my $profile_select_base_name     = "ProfileSelect.template"; #CA
+my $proxy_conf_base_name          = "proxy.conf";            # CA
 
 # Subdirectory names
 my $initd_base_subsystem_dir        = "init.d";      # CA, KRA, OCSP, TKS, RA, TPS
@@ -357,6 +358,7 @@ my $PKI_RANDOM_NUMBER_SLOT    = "PKI_RANDOM_NUMBER";
 my $PKI_SECURE_PORT_SLOT      = "PKI_SECURE_PORT";
 my $PKI_EE_SECURE_PORT_SLOT   = "PKI_EE_SECURE_PORT";
 my $PKI_EE_SECURE_CLIENT_AUTH_PORT_SLOT   = "PKI_EE_SECURE_CLIENT_AUTH_PORT";
+my $PKI_EE_SECURE_CLIENT_AUTH_PORT_UI_SLOT = "PKI_EE_SECURE_CLIENT_AUTH_PORT_UI";
 my $PKI_AGENT_SECURE_PORT_SLOT = "PKI_AGENT_SECURE_PORT";
 my $PKI_ADMIN_SECURE_PORT_SLOT = "PKI_ADMIN_SECURE_PORT";
 my $PKI_SERVER_XML_CONF       = "PKI_SERVER_XML_CONF";
@@ -380,6 +382,17 @@ my $PKI_OPEN_SEPARATE_PORTS_COMMENT_SERVER_SLOT  = "PKI_OPEN_SEPARATE_PORTS_SERV
 my $PKI_CLOSE_SEPARATE_PORTS_COMMENT_SERVER_SLOT = "PKI_CLOSE_SEPARATE_PORTS_SERVER_COMMENT";
 my $PKI_OPEN_SEPARATE_PORTS_COMMENT_WEB_SLOT  = "PKI_OPEN_SEPARATE_PORTS_WEB_COMMENT";
 my $PKI_CLOSE_SEPARATE_PORTS_COMMENT_WEB_SLOT = "PKI_CLOSE_SEPARATE_PORTS_WEB_COMMENT";
+my $PKI_OPEN_AJP_PORT_COMMENT_SLOT                     = "PKI_OPEN_AJP_PORT_COMMENT";
+my $PKI_CLOSE_AJP_PORT_COMMENT_SLOT                    = "PKI_CLOSE_AJP_PORT_COMMENT";
+my $PKI_OPEN_ENABLE_PROXY_COMMENT_SLOT                 = "PKI_OPEN_ENABLE_PROXY_COMMENT";
+my $PKI_CLOSE_ENABLE_PROXY_COMMENT_SLOT                = "PKI_CLOSE_ENABLE_PROXY_COMMENT";
+my $PKI_AJP_REDIRECT_PORT_SLOT                         = "PKI_AJP_REDIRECT_PORT";
+my $PKI_AJP_PORT_SLOT                                  = "PKI_AJP_PORT";
+my $PROXY_ADMIN_SECURE_PORT_SLOT                       = "PKI_PROXY_ADMIN_SECURE_PORT";
+my $PROXY_AGENT_SECURE_PORT_SLOT                       = "PKI_PROXY_AGENT_SECURE_PORT";
+my $PROXY_EE_SECURE_PORT_SLOT                          = "PKI_PROXY_EE_SECURE_PORT";
+my $PROXY_EECA_SECURE_PORT_SLOT                        = "PKI_PROXY_EECA_SECURE_PORT";
+my $PROXY_UNSECURE_PORT_SLOT                           = "PKI_PROXY_UNSECURE_PORT";
 my $PKI_UNSECURE_PORT_NAME      = "Unsecure";
 my $PKI_AGENT_SECURE_PORT_NAME  = "Agent";
 my $PKI_ADMIN_SECURE_PORT_NAME  = "Admin";
@@ -413,6 +426,11 @@ my $SELINUX_PORT_WRONGLY_DEFINED = 2;
 my $SELINUX_MODE_DISABLED = "Disabled";
 my $SELINUX_MODE_ENFORCING = "Enforcing";
 my $SELINUX_MODE_PERMISSIVE = "Permissive";
+
+#proxy defaults
+my $PROXY_SECURE_PORT_DEFAULT   = "443";
+my $PROXY_UNSECURE_PORT_DEFAULT = "80";
+my $AJP_PORT_DEFAULT            = "9447";
 
 # PKI banners
 $marked_header = "    <!-- ================= PKI Installation Wizard Header ================= -->";
@@ -451,6 +469,14 @@ my $agent_secure_port    = -1;
 my $ee_secure_port       = -1;
 my $ee_secure_client_auth_port = -1;
 my $admin_secure_port    = -1;
+my $proxy_admin_secure_port = -1;
+my $proxy_agent_secure_port = -1;
+my $proxy_ee_secure_port    = -1;
+my $proxy_eeca_secure_port  = -1;
+my $proxy_unsecure_port     = -1;
+my $ajp_port             = -1;
+my $enable_proxy         = undef;
+my $enable_ajp           = undef;
 my $agent_ip_addr        = "";
 my $ee_ip_addr           = "";
 my $ee_client_auth_ip_addr = "";
@@ -613,7 +639,9 @@ my $webinf_instance_path                      = "";  # CA, KRA, OCSP, TKS
 my $webinf_lib_instance_path                  = "";  # CA, KRA, OCSP, TKS
 my $webinf_subsystem_path                     = "";  # CA, KRA, OCSP, TKS
 my $profile_select_template_subsystem_file_path = ""; #CA
-my $profile_select_template_instance_file_path = "";  #CA
+my $profile_select_template_instance_file_path  = "";  #CA
+my $proxy_conf_subsystem_file_path            = undef;  #CA
+my $proxy_conf_instance_file_path             = undef;  #CA
 
 # PKI creation variables
 my $host = "";
@@ -884,6 +912,32 @@ sub usage()
          . "# Unique port for each\n"
          . "                                                   "
          . "# Tomcat instance\n\n"
+         . "          #####################################################################\n"
+         . "          ###   BEGIN proxy configuration                                   ###\n"
+         . "          #####################################################################\n\n"
+         . "          #####################################################################\n"
+         . "          ###  proxy configuration                                          ###\n"
+         . "          ###  if -enable_proxy is set, ajp_port, proxy_secure_port, and    ###\n"
+         . "          ###  proxy_unsecure_port are also set.                            ###\n"
+         . "          ###                                                               ###\n"
+         . "          ###  -enable_ajp must be set to enable the AJP port               ###\n"
+         . "          #####################################################################\n\n"
+         . "          [-enable_proxy]                           #enable proxy configuration\n"
+         . "          [-enable_ajp]                             #enable AJP configuration\n"
+         . "          [-ajp_port=<ajp_port>]                    #AJP port, default 9447\n\n"
+         . "          [-proxy_admin_secure_port=<proxy_secure_port>]   # Proxy secure port,\n" 
+         . "                                                           # default 443\n\n"
+         . "          [-proxy_agent_secure_port=<proxy_secure_port>]   # Proxy secure port,\n" 
+         . "                                                           # default 443\n\n"
+         . "          [-proxy_ee_secure_port=<proxy_secure_port>]      # Proxy secure port,\n" 
+         . "                                                           # default 443\n\n"
+         . "          [-proxy_eeca_secure_port=<proxy_secure_port>]    # Proxy secure port,\n" 
+         . "                                                           # default 443\n\n"
+         . "          [-proxy_unsecure_port=<unsecure_port>]           # Proxy unsecure port\n"
+         . "                                                           # default 80\n\n"
+         . "          #####################################################################\n"
+         . "          ###   END proxy configuration                                     ###\n"
+         . "          #####################################################################\n\n"
          . "          [-user=<username>]                       "
          . "# User ownership\n"
          . "                                                   "
@@ -1156,6 +1210,12 @@ sub parse_arguments()
     my $l_ee_secure_port     = -1;
     my $l_ee_secure_client_auth_port     = -1;
     my $l_admin_secure_port  = -1;
+    my $l_proxy_admin_secure_port  = -1;
+    my $l_proxy_agent_secure_port  = -1;
+    my $l_proxy_ee_secure_port  = -1;
+    my $l_proxy_eeca_secure_port  = -1;
+    my $l_proxy_unsecure_port  = -1;
+    my $l_ajp_port  = -1;
     my $l_agent_hostname     = "";
     my $l_ee_hostname        = "";
     my $l_ee_client_auth_hostname = "";
@@ -1179,6 +1239,14 @@ sub parse_arguments()
                           "admin_hostname=s" => \$l_admin_hostname,
                           "admin_secure_port:i" => \$l_admin_secure_port, 
                           "tomcat_server_port:i" => \$l_tomcat_server_port,
+                          "proxy_admin_secure_port:i"    => \$l_proxy_admin_secure_port,
+                          "proxy_agent_secure_port:i"    => \$l_proxy_agent_secure_port,
+                          "proxy_ee_secure_port:i"       => \$l_proxy_ee_secure_port,
+                          "proxy_eeca_secure_port:i"     => \$l_proxy_eeca_secure_port,
+                          "proxy_unsecure_port:i"  => \$l_proxy_unsecure_port,
+                          "ajp_port:i"             => \$l_ajp_port,
+                          "enable_proxy"           => \$enable_proxy,
+                          "enable_ajp"           => \$enable_ajp,
                           "user=s" => \$username,
                           "group=s" => \$groupname,
                           "audit_group=s" => \$audit_groupname,
@@ -1513,6 +1581,31 @@ sub parse_arguments()
             emit( "Must include value for admin_secure_port if agent_secure_port is given!\n", "error");
             $port_configuration_mode_errors++;
         }
+    }
+
+    if ($enable_proxy) {
+        $proxy_admin_secure_port = ($l_proxy_admin_secure_port >= 0) ? $l_proxy_admin_secure_port : 
+            $PROXY_SECURE_PORT_DEFAULT;
+        emit("    proxy_admin_secure_port   $proxy_admin_secure_port\n");
+
+        $proxy_agent_secure_port = ($l_proxy_agent_secure_port >= 0) ? $l_proxy_agent_secure_port : 
+            $PROXY_SECURE_PORT_DEFAULT;
+        emit("    proxy_agent_secure_port   $proxy_agent_secure_port\n");
+
+        $proxy_ee_secure_port = ($l_proxy_ee_secure_port >= 0) ? $l_proxy_ee_secure_port : 
+            $PROXY_SECURE_PORT_DEFAULT;
+        emit("    proxy_ee_secure_port   $proxy_ee_secure_port\n");
+
+        $proxy_eeca_secure_port = ($l_proxy_eeca_secure_port >= 0) ? $l_proxy_eeca_secure_port : 
+            $PROXY_SECURE_PORT_DEFAULT;
+        emit("    proxy_eeca_secure_port   $proxy_eeca_secure_port\n");
+
+        $proxy_unsecure_port = ($l_proxy_unsecure_port >= 0) ? $l_proxy_unsecure_port : 
+            $PROXY_UNSECURE_PORT_DEFAULT;
+        emit("    proxy_unsecure_port   $proxy_unsecure_port\n");
+
+        $ajp_port = ($l_ajp_port >= 0) ? $l_ajp_port : $AJP_PORT_DEFAULT;  
+        emit("    ajp_port   $ajp_port\n");
     }
 
     if( $port_configuration_mode_errors > 0 ) {
@@ -2067,8 +2160,10 @@ sub initialize_subdirectory_paths()
         $profile_select_template_instance_file_path = $webapps_subsystem_instance_path
                                                      . "/ee/". $subsystem_type 
                                                      . "/" . $profile_select_base_name;
+    
+        $proxy_conf_subsystem_file_path = $conf_subsystem_path 
+                                          . "/" . $proxy_conf_base_name;
     }
-
 
     ## Initialize subdirectory paths (RA, TPS subsystems)
     if( $subsystem_type eq $RA  || $subsystem_type eq $TPS ) {
@@ -2294,6 +2389,9 @@ sub process_pki_directories()
         $pki_cfg_instance_file_path       = $conf_instance_path
                                           . "/" . $pki_cfg_base_name;
 
+        $proxy_conf_instance_file_path    = $conf_instance_path
+                                          . "/" . $proxy_conf_base_name;
+
         if( $subsystem_type eq $RA || $subsystem_type eq $TPS ) {
             $httpd_conf_instance_file_path = "$conf_instance_path"
                                            . "/" . $httpd_conf_base_name;
@@ -2361,6 +2459,9 @@ sub process_pki_directories()
                                           . "/" . $pfile_base_name;
         $pki_cfg_instance_file_path       = $redirected_conf_path
                                           . "/" . $pki_cfg_base_name;
+        $proxy_conf_instance_file_path    = $redirected_conf_path
+                                          . "/" . $proxy_conf_base_name;
+
 
         # Populate optionally redirected instance directory path
         # and setup a symlink in the standard area
@@ -2907,7 +3008,8 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
             $slot_hash{$PKI_SECURE_PORT_SLOT}       = $agent_secure_port;
             $slot_hash{$PKI_AGENT_SECURE_PORT_SLOT} = $agent_secure_port;
             $slot_hash{$PKI_EE_SECURE_PORT_SLOT}    = $ee_secure_port; 
-            $slot_hash{$PKI_EE_SECURE_CLIENT_AUTH_PORT_SLOT}    = $ee_secure_client_auth_port; 
+            $slot_hash{$PKI_EE_SECURE_CLIENT_AUTH_PORT_SLOT}    = $ee_secure_client_auth_port;
+            $slot_hash{$PKI_EE_SECURE_CLIENT_AUTH_PORT_UI_SLOT}    = $secure_port;
             $slot_hash{$PKI_ADMIN_SECURE_PORT_SLOT} = $admin_secure_port;
 
             # Comment "Port Separation" appropriately
@@ -2960,7 +3062,42 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
             # Comment out the "Admin/Agent/EE" Filters
             $slot_hash{$PKI_OPEN_SEPARATE_PORTS_COMMENT_WEB_SLOT}  = $PKI_OPEN_COMMENT;
             $slot_hash{$PKI_CLOSE_SEPARATE_PORTS_COMMENT_WEB_SLOT} = $PKI_CLOSE_COMMENT;
-        } 
+        }
+
+        if ($enable_proxy) {
+            if ($use_port_separation) {
+                $slot_hash{$PKI_AJP_REDIRECT_PORT_SLOT}  = $ee_secure_port;
+            } else {
+                $slot_hash{$PKI_AJP_REDIRECT_PORT_SLOT}  = $secure_port;
+            }
+            $slot_hash{$PKI_EE_SECURE_CLIENT_AUTH_PORT_UI_SLOT} = $proxy_eeca_secure_port;
+            $slot_hash{$PKI_AJP_PORT_SLOT}                      = $ajp_port;
+            $slot_hash{$PKI_OPEN_ENABLE_PROXY_COMMENT_SLOT}     = "";
+            $slot_hash{$PKI_CLOSE_ENABLE_PROXY_COMMENT_SLOT}    = "";
+        } else {
+            $slot_hash{$PKI_OPEN_ENABLE_PROXY_COMMENT_SLOT}  = $PKI_OPEN_COMMENT;
+            $slot_hash{$PKI_CLOSE_ENABLE_PROXY_COMMENT_SLOT} = $PKI_CLOSE_COMMENT;
+        }
+
+        if ($enable_ajp) {
+            $slot_hash{$PKI_OPEN_AJP_PORT_COMMENT_SLOT}         = "";
+            $slot_hash{$PKI_CLOSE_AJP_PORT_COMMENT_SLOT}        = "";
+        } else {
+            $slot_hash{$PKI_OPEN_AJP_PORT_COMMENT_SLOT}      = $PKI_OPEN_COMMENT;
+            $slot_hash{$PKI_CLOSE_AJP_PORT_COMMENT_SLOT}     = $PKI_CLOSE_COMMENT;
+        }
+
+
+        $slot_hash{$PROXY_ADMIN_SECURE_PORT_SLOT}   = ($proxy_admin_secure_port >=0) ?
+            $proxy_admin_secure_port : "";
+        $slot_hash{$PROXY_AGENT_SECURE_PORT_SLOT}   = ($proxy_agent_secure_port >=0) ?
+            $proxy_agent_secure_port : "";
+        $slot_hash{$PROXY_EE_SECURE_PORT_SLOT}   = ($proxy_ee_secure_port >=0) ?
+            $proxy_ee_secure_port : "";
+        $slot_hash{$PROXY_EECA_SECURE_PORT_SLOT}   = ($proxy_eeca_secure_port >=0) ?
+            $proxy_eeca_secure_port : "";
+        $slot_hash{$PROXY_UNSECURE_PORT_SLOT} = ($proxy_unsecure_port>=0) ?
+            $proxy_unsecure_port : "";
 
         $slot_hash{$PKI_WEBAPPS_NAME}          = $webapps_base_subsystem_dir; 
         $slot_hash{$PKI_USER_SLOT}             = $pki_user;
@@ -3041,7 +3178,11 @@ LoadModule nss_module  /opt/fortitude/modules.local/libmodnss.so
         if( ! $result ) {
             return 0;
         }
- 
+
+        # process proxy.conf file
+        return 0 if !process_file_template($proxy_conf_subsystem_file_path,
+                                           $proxy_conf_instance_file_path,
+                                           \%slot_hash);
      }
 
 
@@ -4157,6 +4298,11 @@ sub process_pki_selinux_setup()
             }
         }
     }
+
+    if ($ajp_port != -1) {
+        &add_selinux_port($setype_p, $ajp_port);
+    }
+
 }
 
 # no args

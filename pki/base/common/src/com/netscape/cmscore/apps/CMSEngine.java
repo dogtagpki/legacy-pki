@@ -430,6 +430,7 @@ public class CMSEngine implements ICMSEngine {
             }
         }
         parseServerXML();
+        fixProxyPorts();
 
         String sd = mConfig.getString("securitydomain.select", "");
         if ((state == 1) && (!sd.equals("existing"))) {
@@ -455,6 +456,38 @@ public class CMSEngine implements ICMSEngine {
         if (startedByWD) {
             WatchdogClient.sendEndInit(0);
         }
+    }
+
+    private void fixProxyPorts() throws EBaseException {
+        try {
+            String port = mConfig.getString("proxy.eeSecurePort", "");
+            if (!port.isEmpty()) {
+                info[EE_SSL][PORT] = port;
+            }
+
+            port = mConfig.getString("proxy.adminSecurePort", "");
+            if (!port.isEmpty()) {
+                info[ADMIN][PORT] = port;
+            }
+
+            port = mConfig.getString("proxy.agentSecurePort", "");
+            if (!port.isEmpty()) {
+                info[AGENT][PORT] = port;
+            }
+
+            port = mConfig.getString("proxy.eecaSecurePort", "");
+            if (!port.isEmpty()) {
+                info[EE_CLIENT_AUTH_SSL][PORT] = port;
+            }
+
+            port = mConfig.getString("proxy.unsecurePort", "");
+            if (!port.isEmpty()) {
+                info[EE_NON_SSL][PORT] = port;
+            }
+        } catch (EBaseException e) {
+            CMS.debug("CMSEngine: fixProxyPorts exception: " + e.toString());
+            throw e;
+        }   
     }
 
     public int testLDAPConnection(String name, String host, String port, String pwd, String binddn, String secure, String authType, String clientNick) {
