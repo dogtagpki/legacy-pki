@@ -425,8 +425,10 @@ public class DonePanel extends WizardPanelBase {
 
                 // Fetch the "updated" security domain and display it
                 CMS.debug( "Dump contents of updated Security Domain . . ." );
+                CMS.debug( "Note: if proxy ports are used, we may not be able to connect and a benign exception may be thrown"); 
                 String c = getDomainXML( sd_admin_host, sd_admin_port_int, true );
             } catch (Exception e) {
+                CMS.debug("DonePanel: exception thrown when updating security domain. " + e);
                 context.put("errorString", "Failed to update the security domain on the domain master.");
                 //return;
             }
