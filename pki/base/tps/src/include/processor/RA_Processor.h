@@ -40,6 +40,7 @@
 #include "main/Login.h"
 #include "main/SecureId.h"
 #include "main/RA_Session.h"
+#include "main/PKCS11Obj.h"
 #include "authentication/AuthParams.h"
 #include "authentication/ExternalRegAttrs.h"
 #include "apdu/APDU.h"
@@ -235,6 +236,8 @@ class RA_Processor
                                 const char *token_type);
 
 	protected:
+                int GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx);
+                RA_Status UpdateTokenRecoveredCerts(RA_Session *session, PKCS11Obj *pkcs11objx, Secure_Channel *channel);
                 RA_Status Format(RA_Session *session, NameValueSet *extensions, bool skipAuth);
                 bool RevokeCertificates(RA_Session *session, char *cuid, char *audit_msg,
                 		char *final_applet_version,

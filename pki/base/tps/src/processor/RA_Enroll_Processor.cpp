@@ -1791,6 +1791,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     int token_present = 0;
     bool renewed = false;
     bool do_force_format = false;
+    ExternalRegAttrs *regAttrs = NULL;
 
     RA::Debug("RA_Enroll_Processor::Process", "Client %s", 
                       session->GetRemoteIP());
@@ -1811,7 +1812,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
         /*by ref*/ major_version, minor_version, 
         app_major_version, app_minor_version )) goto loser;
 
-    if (isExternalReg) {
+    if (isExternalReg ) {
         /*
           need to reach out to the Registration DB (authid)
           Entire user entry should be retrieved and parsed
@@ -1833,8 +1834,14 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
             goto loser;
         }
 
+        regAttrs = session->getExternalRegAttrs();
+
+        if (regAttrs == NULL) {
+            goto loser;
+        }
+
         RA::Debug(LL_PER_PDU, FN, "isExternalReg: get tokenType, etc.");
-        tokenType = session->getExternalRegAttrs()->getTokenType();
+        tokenType = regAttrs->getTokenType();
         if (tokenType != NULL)
             RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tokenType);
         else {
@@ -2370,11 +2377,15 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
                          cuid, status);
                     // ToDo: make sure if the token already has the same cert/keys on it, the ExternalRegRecover is not going to cause it to be duplicated
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegRecover", "status is %d", status);
-                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
+/*                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
                         "about to call ExternalRegDelete()."); 
                     ExternalRegDelete(session, userid, status);
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegDelete", "status is %d", status);
+*/
                     /* now call UpdateToken() */
+
+                    status = UpdateTokenRecoveredCerts(session, pkcs11objx , channel);
+                  
                 }
             }
         } else {
@@ -3020,6 +3031,11 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         char *cuid,
         RA_Status &o_status)
 {
+
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo *erCertKeyInfo = NULL;
+    PRUint64 keyid = 0;
+    PRUint64 serial = 0;
 	const char *FN="RA_Enroll_Processor::ExternalRegRecover";
     RA::Debug(LL_PER_CONNECTION, FN,
             "begins");
@@ -3029,23 +3045,32 @@ bool RA_Enroll_Processor::ExternalRegRecover(
     ExternalRegAttrs *erAttrs = session->getExternalRegAttrs();
     ExternalRegCertToRecover **erCertsToRecover =
             erAttrs->getCertsToRecover();
+    
     int count = erAttrs->getCertsToRecoverCount();
-    for (int i = 0; i< count; i++) {
-        ExternalRegCertToRecover *erCertToRecover =
-               erCertsToRecover[i];
-        PRUint64 keyid = erCertToRecover->getKeyid();
-        PRUint64 serial = erCertToRecover->getSerial();
-        const char *caConn = erCertToRecover->getCaConn();
-        const char *drmConn = erCertToRecover->getDrmConn();
-        RA::Debug(LL_PER_CONNECTION, FN,
-            "drmConn=%s, caConn=%s", drmConn, caConn);
-        Buffer *cert = NULL;
+
+    Buffer *cert = NULL;
         CERTCertificate *o_cert = NULL;
         char *cert_string = NULL;
         char *o_pub = NULL;
         char *o_priv = NULL;
         char *ivParam = NULL;
         char error_msg[512];
+
+    for (int i = 0; i< count; i++) {
+
+        erCertToRecover = erCertsToRecover[i];
+        keyid = erCertToRecover->getKeyid();
+        serial = erCertToRecover->getSerial();
+        const char *caConn = erCertToRecover->getCaConn();
+        const char *drmConn = erCertToRecover->getDrmConn();
+        RA::Debug(LL_PER_CONNECTION, FN,
+            "drmConn=%s, caConn=%s", drmConn, caConn);
+        Buffer *cert = NULL;
+        CERTCertificate *o_cert = NULL;
+        cert_string = NULL;
+        o_pub = NULL;
+        o_priv = NULL;
+        ivParam = NULL;
         error_msg[0] = 0;
         RA::Debug(LL_PER_CONNECTION, FN,
             "calling RA::RecoverKey() for serial no: %d, keyid: %d",
@@ -3055,8 +3080,44 @@ bool RA_Enroll_Processor::ExternalRegRecover(
                 &o_pub, &o_priv,
                 drmConn, &ivParam);
         /*ToDo: construct certKeyInfo and attach to erCertsToRecover for UpdateToken() later*/
-        ExternalRegCertKeyInfo *erCertKeyInfo = new ExternalRegCertKeyInfo();
+
+        if (o_pub == NULL) {
+            RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_pub is NULL");
+            o_status = STATUS_ERROR_RECOVERY_FAILED;
+            goto loser;
+        } else {
+            RA::Debug(LL_PER_PDU, "DoEnrollment", "o_pub = %s", o_pub);
+
+            if (o_priv == NULL) {
+               RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_priv is NULL");
+            } else {
+               RA::Debug(LL_PER_PDU, "DoEnrollment", "o_priv = %s", o_priv);
+
+               if (ivParam == NULL) {
+                   RA::Debug(LL_PER_CONNECTION,"RA_Enroll_Processor::ExternalRegRecover",
+                   "ProcessRecovery called, ivParam is NULL");
+                   o_status = STATUS_ERROR_RECOVERY_FAILED;
+                   goto loser;
+               } else {
+                   RA::Debug(LL_PER_CONNECTION,"ProcessRecovery",
+                   "ivParam = %s", ivParam);
+               }
+           }
+        }
+
+        erCertKeyInfo = new ExternalRegCertKeyInfo();
+
+        if (erCertKeyInfo == NULL) {
+            continue;
+        }
+
+        erCertToRecover->setCertKeyInfo(erCertKeyInfo);
+        erCertKeyInfo->setWrappedPrivKey(o_priv);
+        erCertKeyInfo->setPublicKey(o_pub);
+        erCertKeyInfo->setIVParam(ivParam);
+
         cert = certEnroll->RetrieveCertificate(serial, caConn, error_msg);
+
         if (cert == NULL) {
             continue;
         }
@@ -3078,9 +3139,9 @@ bool RA_Enroll_Processor::ExternalRegRecover(
             RA::Debug(LL_PER_CONNECTION, FN,
                 "CERT_DecodeCertFromPackage() succeeded, add to inject");
             erCertKeyInfo->setCert(o_cert);
-            erCertToRecover->setCertKeyInfo(erCertKeyInfo);
         }
     }
+
 /*ToDo: make sure the tokendb entry is updated if needed*/
 loser:
     /* return true for now */
@@ -5289,40 +5350,6 @@ int RA_Enroll_Processor::DoPublish(const char *cuid,SECItem *encodedPublicKeyInf
             CERT_DestroyCertificate(certObj);
         }
         return res;
-}
-
-int RA_Enroll_Processor::GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx)
-{
-    if(!pkcs11objx)
-        return 0;
-
-    //Look through the objects actually currently on the token
-    //to determine an appropriate free certificate id
-
-     int num_objs = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
-    char objid[2];
-
-    int highest_cert_id = 0;
-    for (int i = 0; i< num_objs; i++) {
-        ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
-        unsigned long oid = os->GetObjectID();
-        objid[0] = (char)((oid >> 24) & 0xff);
-        objid[1] = (char)((oid >> 16) & 0xff);
-
-        if(objid[0] == 'C') { //found a certificate
-
-            int id_int = objid[1] - '0';
-
-            if(id_int > highest_cert_id) {
-                highest_cert_id = id_int;
-            }
-          }
-    }
-
-    RA::Debug(LL_PER_CONNECTION,
-                                  "RA_Enroll_Processor::GetNextFreeCertIdNumber",
-                                   "returning id number: %d", highest_cert_id + 1);
-    return highest_cert_id + 1;
 }
 
 //Unrevoke a cert that has been recovered

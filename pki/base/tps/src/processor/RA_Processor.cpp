@@ -24,6 +24,15 @@
 #include <string.h>
 #include <math.h>
 #include "plstr.h"
+
+#include "secder.h"
+#include "pk11func.h"
+#include "cryptohi.h"
+#include "keyhi.h"
+#include "base64.h"
+#include "nssb64.h"
+
+
 #include "engine/RA.h"
 #include "authentication/LDAP_Authentication.h"
 #include "main/Buffer.h"
@@ -75,6 +84,7 @@
 #include "apdu/APDU_Response.h"
 #include "channel/Secure_Channel.h"
 #include "main/Memory.h"
+#include "main/PKCS11Obj.h"
 
 #if 0
 #ifdef __cplusplus
@@ -2641,6 +2651,7 @@ bool RA_Processor::RequestUserId(
     bool isExternalReg = false;
     const char *authid = NULL;
     const char *op = NULL;
+    char configname[512] = "";
     if (strcmp(a_prefix, "op.enroll") == 0) {
         op = "enrollment";
     } else if (strcmp(a_prefix, "op.format") == 0) {
@@ -2670,8 +2681,8 @@ bool RA_Processor::RequestUserId(
             entry = GetAuthenticationEntry(
             a_prefix, a_configname, a_tokenType);
         } else {
-            PR_snprintf((char *)a_configname, 256, "externalReg.authId");
-            authid = (char *) RA::GetConfigStore()->GetConfigAsString(a_configname);
+            PR_snprintf((char *)configname, 256, "externalReg.authId");
+            authid = (char *) RA::GetConfigStore()->GetConfigAsString(configname);
             entry = RA::GetAuth(authid);
             /* a "fake" tokenType that will be reassigned once we reach ldap */
             a_tokenType = "externalRegNoTokenTypeYet";
@@ -2780,16 +2791,33 @@ bool RA_Processor::AuthenticateUserLDAP(
     int rc;
     bool r=false;
     char configname[256]; 
+    ExternalRegAttrs *regAttrs = NULL;
 
     PR_snprintf((char *)configname, 256, "externalReg.enable");
     bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
 
     RA::Debug(LL_PER_PDU, FN, "LDAP_Authentication is invoked.");
     LDAP_Authentication *ldapAuth = (LDAP_Authentication *)a_auth->GetAuthentication();
-    if (isExternalReg) {
+    if (isExternalReg ) {
+
         rc = ldapAuth->Authenticate(login, a_session);
         /*ToDo: compare token cuid from reg user record with a_cuid
           if reg user record has it. If not, assume it's ok*/
+
+        regAttrs = a_session->getExternalRegAttrs();
+
+        if (regAttrs == NULL) {
+             RA::Debug(LL_PER_PDU,FN, "Misconfigured External Registration!");
+             RA::Error(FN, "Misconfigured External Registration!");
+             r = false;
+             return r;
+        }
+
+
+        if (rc == 0 ) {
+            regAttrs->setTokenCUID(a_cuid);
+            regAttrs->setUserId(login->GetUID());
+        }
         const char *tt = a_session->getExternalRegAttrs()->getTokenType();
         if (tt != NULL)
             RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
@@ -2833,9 +2861,10 @@ bool RA_Processor::AuthenticateUserLDAP(
         login = RequestLogin(a_session, 0 /* invalid_pw */, 0 /* blocked */);
         retries++;
         if (login != NULL) {
-            if (isExternalReg) {
+            if (isExternalReg && regAttrs) {
                 rc = ldapAuth->Authenticate(login, a_session);
                 a_session->getExternalRegAttrs()->setTokenCUID(a_cuid);
+                a_session->getExternalRegAttrs()->setUserId(login->GetUID());
                 const char *tt = a_session->getExternalRegAttrs()->getTokenType();
                 if (tt != NULL)
                     RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
@@ -2975,8 +3004,12 @@ bool RA_Processor::AuthenticateUser(
         if ((isExternalReg) && (r == true)) {
             RA::Debug(FN, "AuthenticateUserLDAP() returned; session set with ExternalRegAttrs.");
         }
-        //isExternalReg: why is the status set to error here in orig code?
-        //        o_status = STATUS_ERROR_LOGIN;
+
+        if(r == false) {
+            o_status = STATUS_ERROR_LOGIN;
+            goto loser;
+        }
+
         goto loser;
     } else {
         RA::Error(FN, "No Authentication type was found.");
@@ -3045,6 +3078,8 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     char *xuserid = NULL;
     char audit_msg[512] = "";
     char *profile_state = NULL;
+    ExternalRegAttrs *regAttrs = NULL;
+
 
     Buffer *CardManagerAID = RA::GetConfigStore()->GetConfigAsBuffer(
 		   RA::CFG_APPLET_CARDMGR_INSTANCE_AID, 
@@ -3072,6 +3107,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
 
     PR_snprintf((char *)configname, 256, "externalReg.enable");
     bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+
 
     SelectApplet(session, 0x04, 0x00, CardManagerAID);
     cplc_data = GetData(session);
@@ -3150,8 +3186,15 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
             goto loser;
         }
 
+        regAttrs = session->getExternalRegAttrs();
+
+        if (regAttrs == NULL) {
+            PR_snprintf(audit_msg,512, "External Registration Misconfiguration!");
+            goto loser;
+        }
+
         RA::Debug(LL_PER_PDU, "RA_Processor::Format", "isExternalReg: get tokenType, etc.");
-        tokenType = session->getExternalRegAttrs()->getTokenType();
+        tokenType = regAttrs->getTokenType();
 
     } else {
 
@@ -3776,6 +3819,381 @@ loser:
     return status;
 }
 
+RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Obj *pkcs11objx, Secure_Channel *channel)
+{
+    static const char *OP_PREFIX = "op.enroll";
+    char audit_msg[512] = "";
+    char keyTypePrefix[200] = "";
+    char configname[200] = "";
+    RA_Status status = STATUS_NO_ERROR;
+    int count = 0;
+
+    const char *userid = NULL;
+    const char *cuid = NULL;
+    const char *msn = NULL;
+
+    SECItem si_mod;
+    Buffer *modulus=NULL;
+    CERTSubjectPublicKeyInfo*  spkix = NULL;
+    SECItem *si_kid = NULL;
+    Buffer *keyid=NULL;
+    SECItem si_exp;
+    Buffer *exponent=NULL;
+    int keysize = 0;
+    int keyUser = 0;
+    int keyUsage = 0;
+    const char *tokenType = NULL;
+
+    BYTE objid[4];
+
+    SECStatus rv;
+    SECItem der;
+    CERTSubjectPublicKeyInfo*  spki = NULL;
+    SECKEYPublicKey *pk_p = NULL;
+    CERTCertificate *cert = NULL;
+
+    char * o_pub = NULL;
+    char * o_priv = NULL;
+    char *ivParam = NULL;
+    char *label = NULL;
+    char finalLabel[200] = "";
+
+    const char *pattern = NULL;
+    NameValueSet nv;
+
+    objid[0] = 0xFF;
+    objid[1] = 0x00;
+    objid[2] = 0xFF;
+    objid[3] = 0xF3;
+
+    ExternalRegAttrs *erAttrs = NULL;
+    ExternalRegCertToRecover **erCertsToRecover = NULL;
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo * erCertKeyInfo = NULL;
+
+    erAttrs = session->getExternalRegAttrs();
+
+    if (erAttrs == NULL) {
+        status = STATUS_ERROR_RECOVERY_FAILED;
+        goto loser;
+    }
+
+    erCertsToRecover = erAttrs->getCertsToRecover();
+
+    if (erCertsToRecover == NULL) {
+        status = STATUS_ERROR_RECOVERY_FAILED;
+        goto loser;
+    }
+
+    count = erAttrs->getCertsToRecoverCount();
+
+    if (count == 0) {
+        goto loser;
+    }
+
+    tokenType = erAttrs->getTokenType();
+
+    snprintf(keyTypePrefix, 200,"op.enroll.%s.keyGen.encryption",tokenType);
+    userid = erAttrs->getUserId();
+    cuid = erAttrs->getTokenCUID();
+    msn = erAttrs->getTokenMSN();
+
+    // set allowable $$ config patterns
+    //pretty_cuid = GetPrettyPrintCUID(cuid);
+
+    //nv.Add("pretty_cuid", pretty_cuid);
+    nv.Add("cuid", cuid);
+    nv.Add("msn", msn);
+    nv.Add("userid", userid);
+
+    PR_snprintf((char *)configname, 256, "%s.%s.keyGen.%s.label",
+                            OP_PREFIX, tokenType, "encryption");
+    pattern =  RA::GetConfigStore()->GetConfigAsString(configname);
+
+    if (pattern) {
+        label = MapPattern(&nv, (char *) pattern);
+    }
+
+    if (!label) {
+        status = STATUS_ERROR_RECOVERY_FAILED;
+        goto loser;
+    }
+
+    RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "Actually write %d recovered certs to token object. \n", count);
+
+    for (int i = 0; i< count; i++) {
+
+        erCertToRecover = erCertsToRecover[i];
+
+        if (!erCertToRecover)
+            continue;
+       
+        erCertKeyInfo = erCertToRecover->getCertKeyInfo(); 
+
+        if (!erCertKeyInfo)
+            continue;
+
+        o_pub =  erCertKeyInfo->getPublicKey();
+        o_priv = erCertKeyInfo->getWrappedPrivKey();
+        ivParam = erCertKeyInfo->getIVParam();
+
+        if (o_pub == NULL || o_priv == NULL || ivParam == NULL) {
+            continue;
+        }
+
+        int pubKeyNumber = 0;
+        int priKeyNumber = 0;
+        cert = erCertKeyInfo->getCert();
+
+        int newCertId = 0;
+        
+        char certId[3];
+        char certAttrId[3];
+        char privateKeyAttrId[3];
+        char publicKeyAttrId[3];
+
+        newCertId = GetNextFreeCertIdNumber(pkcs11objx);
+
+        certId[0] = 'C';
+        certId[1] = '0' + newCertId;
+        certId[2] = 0;
+
+        certAttrId[0] = 'c';
+        certAttrId[1] = '0' + newCertId;
+        certAttrId[2] = 0;
+
+        pubKeyNumber = 2 * newCertId + 1;
+        priKeyNumber = 2 * newCertId;
+
+        privateKeyAttrId[0] = 'k';
+        privateKeyAttrId[1] = '0' + priKeyNumber;
+        privateKeyAttrId[2] = 0;
+
+        publicKeyAttrId[0] = 'k';
+        publicKeyAttrId[1] = '0' + pubKeyNumber;
+        publicKeyAttrId[2] = 0;
+ 
+        der.type = (SECItemType) 0; /* initialize it, since convertAsciiToItem does not set it */
+        rv = ATOB_ConvertAsciiToItem (&der, o_pub);
+
+        if (rv != SECSuccess){
+            RA::Debug("RA_Processor::UpdateTokenRecoveredCert", "after converting public key, rv is failure");
+            SECITEM_FreeItem(&der, PR_FALSE);
+            status = STATUS_ERROR_RECOVERY_FAILED;
+            PR_snprintf(audit_msg, 512, "Key Recovery failed. after converting public key, rv is failure");
+            goto loser;
+	}else {
+            RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "item len=%d, item type=%d",der.len, der.type);
+
+            spki = SECKEY_DecodeDERSubjectPublicKeyInfo(&der);
+            SECITEM_FreeItem(&der, PR_FALSE);
+
+            if (spki != NULL) {
+                RA::Debug("RA__Processor::UpdateTokenRecoveredCert", "after converting public key spki is not NULL");
+                pk_p = SECKEY_ExtractPublicKey(spki);
+                if (pk_p != NULL)
+                    RA::Debug("RA_Processor::UpdateTokenRecoveredCert", "after converting public key pk_p is not NULL");
+                else
+                    RA::Debug("RA_Processor::UpdateTokenRecoveredCert", "after converting public key, pk_p is NULL");
+            } else
+                          RA::Debug("RA_Processor::UpdateTokenRecoveredCert", "after converting public key, spki is NULL");
+        }
+
+        SECKEY_DestroySubjectPublicKeyInfo(spki);
+
+        if( pk_p == NULL ) {
+            RA::Debug("RA_Processor::UpdateTokenRecoveredCert",
+                         "pk_p is NULL; unable to continue");
+                          status = STATUS_ERROR_RECOVERY_FAILED;
+                          PR_snprintf(audit_msg, 512, "Key Recovery failed. pk_p is NULL; unable to continue");
+            goto loser;
+        }
+
+        si_mod = pk_p->u.rsa.modulus;
+        modulus = new Buffer((BYTE*) si_mod.data, si_mod.len);
+
+        keysize = si_mod.len * 8;
+        spkix = SECKEY_CreateSubjectPublicKeyInfo(pk_p);
+
+        /* 
+	 * RFC 3279
+	 * The keyIdentifier is composed of the 160-bit SHA-1 hash of the
+         * value of the BIT STRING subjectPublicKey (excluding the tag,
+         * length, and number of unused bits).
+          */
+        spkix->subjectPublicKey.len >>= 3;
+        si_kid = PK11_MakeIDFromPubKey(&spkix->subjectPublicKey);
+        spkix->subjectPublicKey.len <<= 3;
+        SECKEY_DestroySubjectPublicKeyInfo(spkix);
+
+        keyid = new Buffer((BYTE*) si_kid->data, si_kid->len);
+        si_exp = pk_p->u.rsa.publicExponent;
+        exponent =  new Buffer((BYTE*) si_exp.data, si_exp.len);
+
+        RA::Debug(LL_PER_PDU, "RA_Processor::UpdateRecoveredTokenCerts",
+				  " keyid, modulus and exponent are retrieved");
+
+        // Create KeyBlob for private key, but first b64 decode it
+        /* url decode o_priv */
+        {
+            Buffer priv_keyblob;
+            Buffer *decodeKey = Util::URLDecode(o_priv);
+	    //RA::DebugBuffer("cfu debug"," private key =",decodeKey);
+            priv_keyblob =
+            Buffer(1, 0x01) + // encryption
+			    Buffer(1, 0x09)+ // keytype is RSAPKCS8Pair
+			    Buffer(1,(BYTE)(keysize/256)) + // keysize is two bytes
+			    Buffer(1,(BYTE)(keysize%256)) +
+			    Buffer((BYTE*) *decodeKey, decodeKey->size());
+            delete decodeKey;
+
+            //inject PKCS#8 private key
+            BYTE perms[6];
+            perms[0] = 0x40;
+            perms[1] = 0x00;
+            perms[2] = 0x40;
+            perms[3] = 0x00;
+            perms[4] = 0x40;
+            perms[5] = 0x00;
+
+            if (channel->CreateObject(objid, perms, priv_keyblob.size()) != 1) {
+                PR_snprintf(audit_msg, 512, "Failed to write key to token. CreateObject failed.");
+                goto loser;
+            }
+
+            if (channel->WriteObject(objid, (BYTE*)priv_keyblob, priv_keyblob.size()) != 1) {
+                 PR_snprintf(audit_msg, 512, "Failed to write key to token. WriteObject failed.");
+                 goto loser;
+            }
+        }
+
+        /* url decode the wrapped kek session key and keycheck*/
+        {
+            Buffer data;
+            Buffer *decodeKey = Util::URLDecode(channel->getKekWrappedDESKey());
+
+            char *keycheck = channel->getKeycheck();
+            Buffer *decodeKeyCheck = Util::URLDecode(keycheck);
+            if (keycheck)
+                PL_strfree(keycheck);
+
+            BYTE alg = 0x80;
+            if(decodeKey && decodeKey->size()) {
+                alg = 0x81;
+            }
+
+            //Get iv data returned by DRM
+
+            Buffer *iv_decoded = Util::URLDecode(ivParam);
+
+            if(iv_decoded == NULL) {
+                 PR_snprintf(audit_msg, 512, "ProcessRecovery: store keys in token failed, iv data not found");
+                 delete decodeKey;
+                 delete decodeKeyCheck;
+                 goto loser;
+            }
+
+            data =
+                Buffer((BYTE*)objid, 4)+ // object id
+                Buffer(1,alg) +
+                //Buffer(1, 0x08) + // key type is DES3: 8
+                Buffer(1, (BYTE) decodeKey->size()) + // 1 byte length
+                Buffer((BYTE *) *decodeKey, decodeKey->size())+ // key -encrypted to 3des block
+                // check size
+                // key check
+                Buffer(1, (BYTE) decodeKeyCheck->size()) + //keycheck size
+                Buffer((BYTE *) *decodeKeyCheck , decodeKeyCheck->size())+ // keycheck
+                Buffer(1, iv_decoded->size())+ // IV_Length
+                Buffer((BYTE*)*iv_decoded, iv_decoded->size());
+
+            //RA::DebugBuffer("cfu debug", "ImportKeyEnc data buffer =", &data);
+
+            RA::Debug("RA_Processor::UpdateTokenRecoveredCert", " priKeyNumber %d pubKeyNumber %d \n", priKeyNumber, pubKeyNumber);
+
+            delete decodeKey;
+            delete decodeKeyCheck;
+            delete iv_decoded;
+
+            if (channel->ImportKeyEnc((keyUser << 4)+priKeyNumber,
+                (keyUsage << 4)+pubKeyNumber, &data) != 1) {
+                PR_snprintf(audit_msg, 512, "Failed to write key to token. ImportKeyEnc failed.");
+                goto loser;
+            }
+        }
+
+        {
+            Buffer *certbuf = new Buffer(cert->derCert.data, cert->derCert.len);
+            ObjectSpec *objSpec = 
+                ObjectSpec::ParseFromTokenData(
+                (certId[0] << 24) +
+                (certId[1] << 16),
+                certbuf);
+            pkcs11objx->AddObjectSpec(objSpec);
+        }
+
+        snprintf(finalLabel,200,"%s %s",label, certAttrId);
+
+        {
+            Buffer b = channel->CreatePKCS11CertAttrsBuffer(
+                KEY_TYPE_ENCRYPTION , certAttrId, finalLabel, keyid);
+                ObjectSpec *objSpec = 
+                    ObjectSpec::ParseFromTokenData(
+                    (certAttrId[0] << 24) +
+                    (certAttrId[1] << 16),
+                    &b);
+                pkcs11objx->AddObjectSpec(objSpec);
+        }
+
+        {
+            Buffer b = channel->CreatePKCS11PriKeyAttrsBuffer(KEY_TYPE_ENCRYPTION, 
+                privateKeyAttrId, finalLabel, keyid, modulus, OP_PREFIX, 
+                tokenType, keyTypePrefix);
+            ObjectSpec *objSpec = 
+                ObjectSpec::ParseFromTokenData(
+                (privateKeyAttrId[0] << 24) +
+                (privateKeyAttrId[1] << 16),
+                &b);
+            pkcs11objx->AddObjectSpec(objSpec);
+        }
+
+        {
+            Buffer b = channel->CreatePKCS11PubKeyAttrsBuffer(KEY_TYPE_ENCRYPTION, 
+                publicKeyAttrId,finalLabel, keyid, 
+                exponent, modulus, OP_PREFIX, tokenType, keyTypePrefix);
+                ObjectSpec *objSpec = 
+                ObjectSpec::ParseFromTokenData(
+                    (publicKeyAttrId[0] << 24) +
+                    (publicKeyAttrId[1] << 16),
+                    &b);
+            pkcs11objx->AddObjectSpec(objSpec);
+        }
+
+    }
+loser:
+
+    if( modulus != NULL ) {
+        delete modulus;
+        modulus = NULL;
+    }
+
+    if( keyid != NULL ) {
+        delete keyid;
+        keyid = NULL;
+    }
+    if( exponent != NULL ) {
+        delete exponent;
+        exponent = NULL;
+    }
+
+    if( label != NULL ) {
+        free(label);
+        label = NULL;
+    }
+
+    return status;
+}
+
+
 /**
  * Process the current session. It does nothing in the base
  * class.
@@ -3784,4 +4202,38 @@ RA_Status RA_Processor::Process(RA_Session *session, NameValueSet *extensions)
 {
     return STATUS_NO_ERROR;
 } /* Process */
+
+int RA_Processor::GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx)
+{
+    if(!pkcs11objx)
+        return 0;
+
+    //Look through the objects actually currently on the token
+    //to determine an appropriate free certificate id
+
+     int num_objs = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
+    char objid[2];
+
+    int highest_cert_id = 0;
+    for (int i = 0; i< num_objs; i++) {
+        ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
+        unsigned long oid = os->GetObjectID();
+        objid[0] = (char)((oid >> 24) & 0xff);
+        objid[1] = (char)((oid >> 16) & 0xff);
+
+        if(objid[0] == 'C') { //found a certificate
+
+            int id_int = objid[1] - '0';
+
+            if(id_int > highest_cert_id) {
+                highest_cert_id = id_int;
+            }
+          }
+    }
+
+    RA::Debug(LL_PER_CONNECTION,
+                                  "RA_Enroll_Processor::GetNextFreeCertIdNumber",
+                                   "returning id number: %d", highest_cert_id + 1);
+    return highest_cert_id + 1;
+}
 

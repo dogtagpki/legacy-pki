@@ -73,7 +73,7 @@ class PKCS11Obj
 	unsigned short m_objectVersion;
 	Buffer m_CUID;
 	Buffer m_tokenName;
-#define MAX_OBJECT_SPEC 20
+#define MAX_OBJECT_SPEC 100
 	ObjectSpec *m_objSpec[MAX_OBJECT_SPEC];
 };
 

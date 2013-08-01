@@ -30,23 +30,57 @@
 #endif /* !XP_WIN32 */
 
 ExternalRegCertKeyInfo::ExternalRegCertKeyInfo() {
+
+    publicKeyAttrId[0] = 0;
+    privateKeyAttrId[0] = 0;
+    privateKeyNumber = 0;
+    publicKeyNumber = 0;
+    ivParam[0] = 0;
+    label[0] = 0;
+    certAttrId[0] = 0;
+    certId[0] = 0;
+    cuid_label[0] = 0;
+    public_key = NULL;
+    wrappedPrivKey = NULL;
+    certificate = NULL;
 }
 
 ExternalRegCertKeyInfo::~ExternalRegCertKeyInfo() {
 /*ToDo: free stuff*/
+
+    if (public_key) {
+        free(public_key);
+        public_key = NULL;
+    }
+
+    if (wrappedPrivKey) {
+        free(wrappedPrivKey);
+        wrappedPrivKey;
+    }
+
+    if (certificate) {
+        CERT_DestroyCertificate(certificate);
+        certificate = NULL;
+    }
 }
+
+
 
 TPS_PUBLIC void ExternalRegCertKeyInfo::setCert(CERTCertificate *cert) {
     certificate = cert;
 }
 
-TPS_PUBLIC CERTCertificate *ExternalRegCertKeyInfo::getCert() {
+
+ TPS_PUBLIC CERTCertificate *ExternalRegCertKeyInfo::getCert() {
     return certificate;
 }
 
 ExternalRegCertToRecover::ExternalRegCertToRecover() {
     caConn = NULL;
     drmConn = NULL;
+    certKeyInfo = NULL;
+    keyid = 0;
+    serial = 0;
 }
 
 ExternalRegCertToRecover::~ExternalRegCertToRecover() {
@@ -132,6 +166,8 @@ TPS_PUBLIC bool ExternalRegCertToDelete::getRevoke() {
 TPS_PUBLIC ExternalRegAttrs::ExternalRegAttrs() {
     tokenCUID = NULL;
     tokenType = NULL;
+    userId = NULL;
+    tokenMSN = NULL;
 
     for (int i = 0; i < MAX_EXTERNAL_REG_CERTS; i++) {
         certsToRecover[i] = NULL;
@@ -153,10 +189,24 @@ ExternalRegAttrs::~ExternalRegAttrs() {
             certsToDelete[i] = NULL;
         }
     }
+
+    if (tokenType)
+        free(tokenType);
+
+    if (tokenCUID)
+        free(tokenCUID);
+
+    if (userId)
+        free(userId);
+
+    if (tokenMSN)
+        free(tokenMSN);
 }
 
 void ExternalRegAttrs::setTokenCUID(const char * cuid) {
-    tokenCUID = cuid;
+    if (cuid && !tokenCUID) {
+        tokenCUID = strdup(cuid);
+    } 
 }
 
 const char* ExternalRegAttrs::getTokenCUID() {
@@ -164,12 +214,38 @@ const char* ExternalRegAttrs::getTokenCUID() {
 }
 
 void ExternalRegAttrs::setTokenType(const char *tType) {
-    tokenType = tType;
+    if (tType && !tokenType) {
+        tokenType = strdup(tType);
+    }
 }
 
 const char* ExternalRegAttrs::getTokenType() {
     return tokenType;
 }
+
+void ExternalRegAttrs::setUserId(const char * theUserId) {
+   
+    if( theUserId && !userId) {
+        userId = strdup(theUserId);
+    }
+}
+
+const char* ExternalRegAttrs::getUserId() {
+    return userId;
+}
+
+
+void ExternalRegAttrs::setTokenMSN(const char *theMsn) {
+    if ( theMsn && !tokenMSN) {
+        tokenMSN = strdup(theMsn);
+    }
+}
+
+const char *ExternalRegAttrs::getTokenMSN() {
+    return tokenMSN;
+}
+
+
 
 void ExternalRegAttrs::addCertToRecover(ExternalRegCertToRecover *ctr) {
     for (int i = 0; i < MAX_EXTERNAL_REG_CERTS; i++) {

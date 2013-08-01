@@ -35,6 +35,7 @@
  */
 TPS_PUBLIC RA_Session::RA_Session ()
 {
+    extRegAttrs = NULL;
 }
 
 /**
@@ -42,6 +43,9 @@ TPS_PUBLIC RA_Session::RA_Session ()
  */
 TPS_PUBLIC RA_Session::~RA_Session ()
 {
+    if (extRegAttrs) {
+        delete extRegAttrs;
+    }
 }
 
 char *RA_Session::GetRemoteIP()

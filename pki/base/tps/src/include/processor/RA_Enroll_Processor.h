@@ -273,7 +273,6 @@ class RA_Enroll_Processor : public RA_Processor
 		TPS_PUBLIC RA_Status Process(RA_Session *session, NameValueSet *extensions);
 
 	private:
-		int GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx);
                 bool isCertRenewable(CERTCertificate *cert, int graceBefore, int graceAfter);
                 int UnrevokeRecoveredCert(LDAPMessage *e, char *&statusString);
 };

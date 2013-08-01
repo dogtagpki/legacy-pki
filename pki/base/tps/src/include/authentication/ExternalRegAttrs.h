@@ -66,19 +66,56 @@ class ExternalRegCertKeyInfo
 public data for now...
 */
     public:
+        void setPublicKeyAttrId(char *attrId) { strncpy(publicKeyAttrId,attrId, MaxExternalRegBuf); }
+        char *getPublicKeyAttrId() { return publicKeyAttrId;}
+
+        void setPrivateKeyNumber(int keyNum) { privateKeyNumber = keyNum; }
+        int getPrivateKeyNumber() { return privateKeyNumber;}
+
+        void setPublicKeyNumber(int keyNum) { publicKeyNumber = keyNum; }
+        int getPublicKeyNumber() { return publicKeyNumber;}
+
+
+        void setPrivateKeyAttrId(char *attrId) { strncpy(privateKeyAttrId, attrId, MaxExternalRegBuf); }
+        char *getPrivateKeyAttrId() { return privateKeyAttrId;}
+
+        void setLabel(char *theLabel) { strncpy(label, theLabel, MaxExternalRegBuf); }
+        char *getLabel() { return label; }
+
+        void setCertAttrId(char *theCertAttrId) { strncpy(certAttrId, theCertAttrId, MaxExternalRegBuf); }
+        char *getCertAtrId() { return certAttrId; }
+
+        void setCertId(char *theCertId) { strncpy(certId, theCertId, MaxExternalRegBuf); }
+        char *getCertId() { return certId; }
+
+        void setCuidLabel(char *theLabel) { strncpy(cuid_label, theLabel, MaxExternalRegBuf); }
+        char *getCuidLabel() { return cuid_label; }
+
+        void setIVParam(char *theIVParam) { strncpy(ivParam, theIVParam, MaxExternalRegBuf); }
+        char *getIVParam() { return ivParam; }
+
+
         char publicKeyAttrId[MaxExternalRegBuf];
-        char publicKeyNumber[MaxExternalRegBuf];
         char privateKeyAttrId[MaxExternalRegBuf];
-        char privateKeyNumber[MaxExternalRegBuf];
+        int privateKeyNumber;
+        int publicKeyNumber;
+        char ivParam[MaxExternalRegBuf];
         char label[MaxExternalRegBuf];
+
         char certAttrId[MaxExternalRegBuf];
         char certId[MaxExternalRegBuf];
         char cuid_label[MaxExternalRegBuf];
-        Buffer *public_key;
-        Buffer *wrappedPrivKey;
-        Buffer *wrappedDESkey; /*from TKS- session key wrapped with DRM transport*/
+
+        void setPublicKey(const char *pubKey) { if(!public_key && pubKey != NULL) { public_key =  strdup(pubKey); }}
+        char *getPublicKey() { return public_key; } 
+
+        void setWrappedPrivKey( const char *theWrappedPrivKey) { if(!wrappedPrivKey && theWrappedPrivKey != NULL) { wrappedPrivKey =  strdup(theWrappedPrivKey); }}
+        char *getWrappedPrivKey() { return wrappedPrivKey; }
+
     private:
         CERTCertificate *certificate;
+        char *public_key;
+        char *wrappedPrivKey;
 };
 
 /*
@@ -149,6 +186,11 @@ class ExternalRegAttrs
         TPS_PUBLIC const char *getTokenCUID();
         TPS_PUBLIC void setTokenType(const char *tokenType);
         TPS_PUBLIC const char *getTokenType();
+        TPS_PUBLIC const char *getUserId();
+        TPS_PUBLIC void setUserId(const char *theUserId);
+        TPS_PUBLIC void setTokenMSN(const char *theMsn);
+        TPS_PUBLIC const char *getTokenMSN();
+
         TPS_PUBLIC int getCertsToRecoverCount();
         TPS_PUBLIC void addCertToRecover(ExternalRegCertToRecover *ctr);
         TPS_PUBLIC ExternalRegCertToRecover** getCertsToRecover();
@@ -157,8 +199,10 @@ class ExternalRegAttrs
         TPS_PUBLIC ExternalRegCertToDelete** getCertsToDelete();
 
     protected:
-        const char *tokenCUID;
-        const char *tokenType;
+        char *tokenCUID;
+        char *tokenType;
+        char *userId;
+        char *tokenMSN;
         ExternalRegCertToRecover *certsToRecover[MAX_EXTERNAL_REG_CERTS];
         ExternalRegCertToDelete *certsToDelete[MAX_EXTERNAL_REG_CERTS];
 };
