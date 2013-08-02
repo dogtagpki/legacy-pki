@@ -397,12 +397,8 @@ tps_chosen_ca_admin_hostname=${pki_security_domain_host}
 tps_chosen_ca_nonssl_port=${ca_nonssl_port}
 tps_chosen_ca_ssl_port=${ca_ee_port}
 tps_chosen_ca_admin_port=${ca_admin_port}
-tps_chosen_tks_agent_hostname=${pki_host}
-tps_chosen_tks_agent_port=${tks_agent_port}
 tps_chosen_tks_admin_hostname=${pki_host}
 tps_chosen_tks_admin_port=${tks_admin_port}
-tps_chosen_drm_agent_hostname=${pki_host}
-tps_chosen_drm_agent_port=${kra_agent_port}
 tps_chosen_drm_admin_hostname=${pki_host}
 tps_chosen_drm_admin_port=${kra_admin_port}
 tps_agent_name="TPS\ Administrator\'s\ ${pki_security_domain_name}\ ID"
@@ -590,17 +586,13 @@ pkisilent ConfigureTPS \
 	-ca_ssl_port ${tps_chosen_ca_ssl_port} \
 	-ca_admin_port ${tps_chosen_ca_admin_port} \
 	-ca_issuance_url "${tps_chosen_ca_issuance_url}" \
-	-drm_agent_hostname ${tps_chosen_drm_agent_hostname} \
-	-drm_agent_port ${tps_chosen_drm_agent_port} \
+	-drm_server_side_keygen_url "${tps_chosen_drm_server_side_keygen_url}" \
 	-drm_admin_hostname ${tps_chosen_drm_admin_hostname} \
 	-drm_admin_port ${tps_chosen_drm_admin_port} \
-	-drm_server_side_keygen_url "${tps_chosen_drm_server_side_keygen_url}" \
 	-ss_keygen ${tps_ss_keygen} \
-	-tks_agent_hostname ${tps_chosen_tks_agent_hostname} \
-	-tks_agent_port ${tps_chosen_tks_agent_port} \
+	-tks_key_management_url "${tps_chosen_tks_key_management_url}" \
 	-tks_admin_hostname ${tps_chosen_tks_admin_hostname} \
 	-tks_admin_port ${tps_chosen_tks_admin_port} \
-	-tks_key_management_url "${tps_chosen_tks_key_management_url}" \
 	-client_certdb_dir ${pki_silent_security_database_repository} \
 	-client_certdb_pwd ${pki_silent_security_token_password} \
 	-client_token_name ${pki_silent_security_token_name} \
