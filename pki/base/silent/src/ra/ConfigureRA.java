@@ -802,6 +802,14 @@ public class ConfigureRA
 		return true;
 	}
 
+	private static String set_default(String val, String def) {
+		if ((val == null) || (val.equals(""))) {
+			return def;
+		} else {
+			return val;
+		}
+	}
+
 	public static void main(String args[])
 	{
 		ConfigureRA ca = new ConfigureRA();
@@ -947,11 +955,11 @@ public class ConfigureRA
 							x_subsystem_name); 
 
 		parser.addOption (
-		"-ca_issuance_url %s #URL to CA used to Issue Certificates",
+		"-ca_issuance_url %s #CA Choice Panel - 'https://<ca_ee_hostname>:<ca_ee_port>' URL to EE CA used to Issue Certificates (optional but recommended if used with IP Port Separated CA)",
 							x_ca_issuance_url);
 
 		parser.addOption (
-		"-ca_domain_url %s #URL to CA used to Issue Certificates for RA Instance Creation",
+		"-ca_domain_url %s #RA Subject Names Panel - 'https://<ca_ee_hostname>:<ca_ee_port>' URL to EE CA used to Issue Certificates for Creation of this RA Instance (optional but recommended if used with IP Port Separated CA)",
 							x_ca_domain_url);
 
 		// and then match the arguments
@@ -1012,9 +1020,9 @@ public class ConfigureRA
 		
 		subsystem_name = x_subsystem_name.value ;
 
-		ca_issuance_url = x_ca_issuance_url.value;
+		ca_issuance_url = set_default(x_ca_issuance_url.value, "empty");
 
-		ca_domain_url = x_ca_domain_url.value;
+		ca_domain_url = set_default(x_ca_domain_url.value, "empty");
 
 
 

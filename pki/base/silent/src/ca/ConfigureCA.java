@@ -1564,7 +1564,7 @@ public class ConfigureCA {
                 x_subsystem_name); 
 
         parser.addOption (
-        "-ca_domain_url %s #URL to CA used to Issue Certificates for CA Instance Creation",
+        "-ca_domain_url %s #CA Subject Names Panel - 'https://<ca_ee_hostname>:<ca_ee_port>' URL to EE CA used to Issue Certificates for Creation of this CA Instance (optional but recommended for IP Port Separation)",
                 x_ca_domain_url);
         
         parser.addOption("-external %s #Subordinate to external CA [true,false] (optional, default false)",
@@ -1675,7 +1675,7 @@ public class ConfigureCA {
 		
         subsystem_name = x_subsystem_name.value;
 
-        ca_domain_url = x_ca_domain_url.value;
+        ca_domain_url = set_default(x_ca_domain_url.value, "empty");
         
         external_ca = set_default(x_external_ca.value, "false");
         ext_ca_cert_file = x_ext_ca_cert_file.value;

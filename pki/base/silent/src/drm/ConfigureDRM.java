@@ -1298,7 +1298,7 @@ public class ConfigureDRM
                             x_subsystem_name); 
 
         parser.addOption (
-        "-ca_domain_url %s #URL to CA used to Issue Certificates for DRM Instance Creation",
+        "-ca_domain_url %s #DRM Subject Names Panel - 'https://<ca_ee_hostname>:<ca_ee_port>' URL to EE CA used to Issue Certificates for Creation of this DRM Instance (optional but recommended for IP Port Separation)",
                             x_ca_domain_url);
 
         parser.addOption(
@@ -1407,7 +1407,7 @@ public class ConfigureDRM
         
         subsystem_name = x_subsystem_name.value;
 
-        ca_domain_url = x_ca_domain_url.value;
+        ca_domain_url = set_default(x_ca_domain_url.value, "empty");
 
         if ((x_clone.value != null) && (x_clone.value.equalsIgnoreCase("true"))) {
             clone = true;

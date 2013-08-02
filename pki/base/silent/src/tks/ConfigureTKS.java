@@ -1121,7 +1121,7 @@ public class ConfigureTKS
                             x_subsystem_name); 
 
         parser.addOption (
-        "-ca_domain_url %s #URL to CA used to Issue Certificates for TKS Instance Creation",
+        "-ca_domain_url %s #TKS Subject Names Panel - 'https://<ca_ee_hostname>:<ca_ee_port>' URL to EE CA used to Issue Certificates for Creation of this TKS Instance (optional but recommended for IP Port Separation)",
                             x_ca_domain_url);
 
         parser.addOption(
@@ -1209,7 +1209,7 @@ public class ConfigureTKS
         subsystem_name = x_subsystem_name.value ;
         tks_audit_signing_cert_subject_name = x_tks_audit_signing_cert_subject_name.value;
 
-        ca_domain_url = x_ca_domain_url.value;
+        ca_domain_url = set_default(x_ca_domain_url.value, "empty");
 
         boolean st = ca.ConfigureTKSInstance();
     
