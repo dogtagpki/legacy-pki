@@ -46,7 +46,6 @@ ExternalRegCertKeyInfo::ExternalRegCertKeyInfo() {
 }
 
 ExternalRegCertKeyInfo::~ExternalRegCertKeyInfo() {
-/*ToDo: free stuff*/
 
     if (public_key) {
         free(public_key);
@@ -55,7 +54,7 @@ ExternalRegCertKeyInfo::~ExternalRegCertKeyInfo() {
 
     if (wrappedPrivKey) {
         free(wrappedPrivKey);
-        wrappedPrivKey;
+        wrappedPrivKey = NULL;
     }
 
     if (certificate) {
@@ -79,8 +78,8 @@ ExternalRegCertToRecover::ExternalRegCertToRecover() {
     caConn = NULL;
     drmConn = NULL;
     certKeyInfo = NULL;
-    keyid = 0;
-    serial = 0;
+    keyid = -1;
+    serial = -1;
 }
 
 ExternalRegCertToRecover::~ExternalRegCertToRecover() {
@@ -131,6 +130,8 @@ TPS_PUBLIC const char* ExternalRegCertToRecover::getDrmConn() {
 TPS_PUBLIC ExternalRegCertToDelete::ExternalRegCertToDelete() {
     caConn = NULL;
     revoke = false;
+    certKeyInfo = NULL;
+    serial = -1;
 }
 
 TPS_PUBLIC ExternalRegCertToDelete::~ExternalRegCertToDelete() {

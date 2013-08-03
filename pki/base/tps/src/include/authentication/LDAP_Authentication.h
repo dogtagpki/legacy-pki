@@ -49,9 +49,11 @@ class LDAP_Authentication : public Authentication
 	  LDAP_Authentication();
 	  ~LDAP_Authentication();
   public:
+          void ProcessExternalRegAttrs(char *name, char **value,
+                  AuthParams *params,
+                  RA_Session *session);
           int Authenticate(AuthParams *params);
           int Authenticate(AuthParams *params, RA_Session *session);
-          //int Authenticate(AuthParams *params, ExternalRegAttrs *erAttrs);
           void Initialize(int index);
   public:
           bool IsSSL();
@@ -79,6 +81,15 @@ class LDAP_Authentication : public Authentication
           char *m_bindPwd;
           int m_connectRetries; // for failover
           ConnectionInfo *m_connInfo;
+          // for externalReg
+          bool m_isPrototype;
+          bool m_isExternalReg;
+          bool m_isDelegate;
+          char *m_attrName_tokenType;
+          char *m_attrName_tokenCUID;
+          char *m_attrName_certsToRecover;
+          char *m_attrName_certsToDelete;
+
 };
   extern "C" 
   {

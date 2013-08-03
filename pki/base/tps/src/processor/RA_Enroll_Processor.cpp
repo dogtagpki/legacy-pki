@@ -2351,7 +2351,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
                         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - isExternalReg", "token set to renew...");
                         // RENEW allowed instead of RE_ENROLL
                         bool r = ProcessRenewal(login, session, ktypes, origins,
-                                  (char *)tokenType, pkcs11objx, pkcs11obj_enable,
+                                  (char *)tokentype, pkcs11objx, pkcs11obj_enable,
                                   channel,
                                   cuid, msn,
                                   final_applet_version, userid,
@@ -2377,11 +2377,16 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
                          cuid, status);
                     // ToDo: make sure if the token already has the same cert/keys on it, the ExternalRegRecover is not going to cause it to be duplicated
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegRecover", "status is %d", status);
-/*                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
-                        "about to call ExternalRegDelete()."); 
-                    ExternalRegDelete(session, userid, status);
-                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegDelete", "status is %d", status);
-*/
+
+                    PR_snprintf((char *)configname, 256, "externalReg.delete.separateList");
+                    bool isDeleteSeparate = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+                    if (isDeleteSeparate == true) {
+                        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
+                            "about to call ExternalRegDelete()."); 
+                        ExternalRegDelete(session, userid, status);
+                        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegDelete", "status is %d", status);
+                    }
+
                     /* now call UpdateToken() */
 
                     status = UpdateTokenRecoveredCerts(session, pkcs11objx , channel);
@@ -3065,8 +3070,8 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         const char *drmConn = erCertToRecover->getDrmConn();
         RA::Debug(LL_PER_CONNECTION, FN,
             "drmConn=%s, caConn=%s", drmConn, caConn);
-        Buffer *cert = NULL;
-        CERTCertificate *o_cert = NULL;
+        cert = NULL;
+        o_cert = NULL;
         cert_string = NULL;
         o_pub = NULL;
         o_priv = NULL;
@@ -3119,13 +3124,14 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         cert = certEnroll->RetrieveCertificate(serial, caConn, error_msg);
 
         if (cert == NULL) {
-            continue;
-        }
-        if (error_msg[0] != 0) {
-        // handle error
-        //    *error_code = 1;
-        RA::Debug(LL_PER_CONNECTION, FN,
-            "RetrieveCertificate() returns error: %s", error_msg);
+            RA::Debug(LL_PER_CONNECTION, FN,
+                "RetrieveCertificate() failed");
+            if (error_msg[0] != 0) {
+            // handle error
+            //    *error_code = 1;
+            RA::Debug(LL_PER_CONNECTION, FN,
+                "RetrieveCertificate() returns error: %s", error_msg);
+            }
         } else {
         RA::Debug(LL_PER_CONNECTION, FN,
             "RetrieveCertificate() succeeded");

@@ -485,15 +485,18 @@ TOKENDB_PUBLIC Buffer *CertEnroll::RetrieveCertificate(PRUint64 serialno, const 
     //PR_snprintf((char *)parameters, 5000, "serialNumber=%x", (int)serialno);
 
     RA::Debug(FN, "got parameters =%s", parameters);
-    //e.g. conn.ca1.servlet.getcert=/ca/ee/ca/getBySerial
+    //e.g. conn.ca1.servlet.getBySerial=/ca/ee/ca/displayBySerial
     PR_snprintf((char *)configname, 256, "conn.%s.servlet.getBySerial", connid);
     const char *servlet = RA::GetConfigStore()->GetConfigAsString(configname);
-        if (servlet == NULL) {
-            RA::Debug(FN,
-                "Missing the configuration parameter for %s", configname);
-            PR_snprintf(error_msg, 512, "Missing the configuration parameter for %s", configname);
-            return NULL;
-        }
+/*
+    const char *servlet = RA::GetConfigStore()->GetConfigAsString(configname,
+        "/ca/ee/ca/displayBySerial");
+*/
+    if (servlet == NULL) {
+        RA::Debug(FN,
+            "Missing the configuration parameter for %s, set to default /ca/ee/ca/displayBySerial", configname);
+        servlet = "/ca/ee/ca/displayBySerial";
+    }
 
     PSHttpResponse *resp =  sendReqToCA(servlet, parameters, connid);
     // XXX - need to parse response
@@ -1048,8 +1051,8 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
 Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
 {
     unsigned int i;
-    unsigned char blob[8192]; /* cert returned */
-    int blob_len; /* cert length */
+    unsigned char blob[8192]={0}; /* cert returned */
+    int blob_len = 0; /* cert length */
     char *certB64 = NULL;
     char *certB64End = NULL;
     unsigned int certB64Len = 0;
@@ -1067,6 +1070,15 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
         RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
           "no content found");
 	    return NULL;
+    }
+
+    if (certB64Param == NULL) {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+            "cert param name in response is needed to parse...now missing");
+        return NULL;
+    } else {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+            "cert param name in response :%s", certB64Param);
     }
 
     // process result
@@ -1106,7 +1118,7 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
     outItemOpt = NSSBase64_DecodeBuffer(NULL, NULL, certB64, certB64Len);
     if (outItemOpt == NULL) {
         RA::Error("CertEnroll::parseResponse",
-          "b64 decode failed");
+          "b64 decode failed, error code=%d", PR_GetError());
 
 	goto endParseResp;
     }
@@ -1126,7 +1138,10 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
           "finished");
 
  endParseResp:
-    resp->freeContent();
+    if (response != NULL) {
+        resp->freeContent();
+        response = NULL;
+    }
     return cert;
 }
 

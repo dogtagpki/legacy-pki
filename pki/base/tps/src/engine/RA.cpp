@@ -1250,8 +1250,8 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     if ((content != NULL) && (s == 200)) {
       RA::Debug("RA::RecoverKey", "response from DRM status ok");
 
-      Buffer* status_b;
-      char* status_s;
+      Buffer* status_b = NULL;
+      char* status_s = NULL;
 
       ra_pb = ( RA_pblock * ) session->create_pblock(content);
       if (ra_pb == NULL)
@@ -1323,6 +1323,10 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       if (content != NULL)
 	response->freeContent();
       delete response;
+    }
+
+    if (cert_s != NULL) {
+        PR_Free(cert_s);
     }
 
     if (ra_pb != NULL) {

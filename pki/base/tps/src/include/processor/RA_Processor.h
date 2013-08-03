@@ -112,6 +112,8 @@ class RA_Processor
 				Buffer &card_cryptogram,
 				Buffer &host_challenge, const char *connId);
 
+        bool CertCmp(CERTCertificate *cert1, CERTCertificate *cert2);
+
 		int CreatePin(RA_Session *session, BYTE pin_number, BYTE max_retries, char *pin);
 
 		int IsPinPresent(RA_Session *session,BYTE pin_number);

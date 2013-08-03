@@ -2273,7 +2273,7 @@ int RA_Processor::EncryptData(Buffer &CUID, Buffer &version, Buffer &in, Buffer 
         }
         if (encryptedData == NULL)
             RA::Debug(LL_PER_PDU, "RA_Processor:GetEncryptedData",
-              "Encrypted Data is NULL");
+                "Encrypted Data is NULL");
 
         RA::Debug(LL_PER_PDU, "EncryptedData ", "status=%d", status);
         RA::Debug(LL_PER_PDU, "finish EncryptedData", "");
@@ -2822,7 +2822,9 @@ bool RA_Processor::AuthenticateUserLDAP(
         if (tt != NULL)
             RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
         else {
-            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL");
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to externalRegAddToToken");
+            a_session->getExternalRegAttrs()->setTokenType("externalRegAddToToken");
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, done setting to externalRegAddToToken");
         }
 
         /*
@@ -2836,6 +2838,8 @@ bool RA_Processor::AuthenticateUserLDAP(
         if (userreg_cuid != NULL) {
             if (PL_strcasecmp((const char*)a_cuid, userreg_cuid) != 0) {
                 RA::Debug(LL_PER_PDU, FN, "isExternalReg: ERROR: token cuid not matched");
+                RA::Debug(LL_PER_PDU, FN, "current cuid=%s, userreg_cuid=%s",
+                    a_cuid, userreg_cuid);
                 o_status = STATUS_ERROR_NOT_TOKEN_OWNER;
                 r = false;
                 return r;
@@ -2869,7 +2873,8 @@ bool RA_Processor::AuthenticateUserLDAP(
                 if (tt != NULL)
                     RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
                 else {
-                    RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL");
+                    RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to externalRegAddToToken");
+                    a_session->getExternalRegAttrs()->setTokenType("externalRegAddToToken");
                 }
             } else
                 rc = ldapAuth->Authenticate(login);
@@ -3005,10 +3010,8 @@ bool RA_Processor::AuthenticateUser(
             RA::Debug(FN, "AuthenticateUserLDAP() returned; session set with ExternalRegAttrs.");
         }
 
-        if(r == false) {
+        if(r == false)
             o_status = STATUS_ERROR_LOGIN;
-            goto loser;
-        }
 
         goto loser;
     } else {
@@ -4193,6 +4196,39 @@ loser:
     return status;
 }
 
+/*
+ * RA_Processor::CertCmp
+ *   - given two certs, compare and return ture if same, false if not
+ */
+bool RA_Processor::CertCmp(CERTCertificate *cert1, CERTCertificate *cert2) {
+    char *FN = "RA_Processor::CertCmp";
+    bool matchAuthKeyID = false;
+    bool matchSubjKeyID = false;
+    bool matchSerial = false;
+
+    if ((cert1 == NULL) || (cert2 == NULL))
+        return false;
+
+    // check separately so we know exactly which attribute fails to match
+    matchAuthKeyID = SECITEM_ItemsAreEqual(
+        &(cert1->authKeyID->keyID), &(cert2->authKeyID->keyID));
+    if (matchAuthKeyID != true)
+        RA::Debug(FN, "authority key identifiers do not match");
+
+    matchSubjKeyID = SECITEM_ItemsAreEqual(
+        &(cert1->subjectKeyID), &(cert2->subjectKeyID));
+    if (matchSubjKeyID != true)
+        RA::Debug(FN, "subject key identifiers do not match");
+
+    matchSerial = SECITEM_ItemsAreEqual(
+        &(cert1->serialNumber), &(cert2->serialNumber));
+    if (matchSerial != true)
+        RA::Debug(FN, "serial numbersdo not match");
+
+    return ((matchAuthKeyID == true) &&
+        (matchSubjKeyID == true) &&
+        (matchSerial == true));
+}
 
 /**
  * Process the current session. It does nothing in the base

@@ -45,6 +45,7 @@ TPS_PUBLIC RA_Session::~RA_Session ()
 {
     if (extRegAttrs) {
         delete extRegAttrs;
+        extRegAttrs = NULL;
     }
 }
 
