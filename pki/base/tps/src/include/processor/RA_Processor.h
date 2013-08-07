@@ -239,6 +239,10 @@ class RA_Processor
 
 	protected:
                 int GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx);
+                bool isCertInObjectList(PKCS11Obj *pkcs11objx, CERTCertificate *certToFind);
+                bool isInCertsToRecoverList(SECItem *secCert, ExternalRegAttrs *erAttrs);
+                void RemoveCertFromObjectList(int cIndex, PKCS11Obj *pkcs11objx);
+                void CleanObjectListBeforeExternalRecovery(PKCS11Obj *pkcs11objx, ExternalRegAttrs *erAttrs ); 
                 RA_Status UpdateTokenRecoveredCerts(RA_Session *session, PKCS11Obj *pkcs11objx, Secure_Channel *channel);
                 RA_Status Format(RA_Session *session, NameValueSet *extensions, bool skipAuth);
                 bool RevokeCertificates(RA_Session *session, char *cuid, char *audit_msg,

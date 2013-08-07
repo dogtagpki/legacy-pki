@@ -3896,6 +3896,11 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
 
     tokenType = erAttrs->getTokenType();
 
+    // Purge the object list of certs that have not been explicilty saved from deletion
+
+    CleanObjectListBeforeExternalRecovery(pkcs11objx, erAttrs);
+
+
     snprintf(keyTypePrefix, 200,"op.enroll.%s.keyGen.encryption",tokenType);
     userid = erAttrs->getUserId();
     cuid = erAttrs->getTokenCUID();
@@ -3939,8 +3944,10 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
         o_pub =  erCertKeyInfo->getPublicKey();
         o_priv = erCertKeyInfo->getWrappedPrivKey();
         ivParam = erCertKeyInfo->getIVParam();
+        cert = erCertKeyInfo->getCert();
 
         if (o_pub == NULL || o_priv == NULL || ivParam == NULL) {
+            RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "Certifcate may be signing, retain only (not recover) cert, skipping... \n");
             continue;
         }
 
@@ -3955,6 +3962,15 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
         char privateKeyAttrId[3];
         char publicKeyAttrId[3];
 
+        bool isCertPresent = isCertInObjectList(pkcs11objx, cert);
+
+        if (isCertPresent) { /* Just skip this one, it is here already */
+
+            RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "Certifcate already on token, no need to recover further. \n", count);
+            continue;
+
+        }
+   
         newCertId = GetNextFreeCertIdNumber(pkcs11objx);
 
         certId[0] = 'C';
@@ -4273,3 +4289,287 @@ int RA_Processor::GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx)
     return highest_cert_id + 1;
 }
 
+bool RA_Processor::isCertInObjectList(PKCS11Obj *pkcs11objx, CERTCertificate *certToFind)
+{
+     if ( !pkcs11objx || !certToFind)
+         return false;
+
+     SECItem certItem; 
+     int num_objs = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
+     char b[3];
+     bool foundObj = false;
+
+     for (int i = 0; i< num_objs; i++) {
+         ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
+         unsigned long oid = os->GetObjectID();
+         b[0] = (char)((oid >> 24) & 0xff);
+         b[1] = (char)((oid >> 16) & 0xff);
+         b[2] = '\0';
+
+        if ( b[0] == 'C' )   {
+            for (int j = 0 ; j <  os->GetAttributeSpecCount() ; j++ ) {
+                AttributeSpec *as = os->GetAttributeSpec(j);
+                if (as->GetAttributeID() == CKA_VALUE) {
+                    if (as->GetType() == (BYTE) 0) {
+                        Buffer cert = as->GetValue();
+                        certItem.type = (SECItemType) 0; 
+                        certItem.data =  (unsigned char *) cert;
+                        certItem.len  = cert.size();
+
+                        SECComparison equal =  SECITEM_CompareItem(&certItem, &certToFind->derCert);
+
+                        if(equal == 0){
+                            RA::Debug(LL_PER_PDU, "RA_Processor::isCertObjectList:"," Match found, cert already in object spec list!");
+                            return true;
+                        }
+                    }
+                    break;
+                 }
+            }
+        }
+     }
+
+    return foundObj;
+}
+
+/* Clean the read in ObjectSpec Object List of Certificates that are not mentioned in the CertsToRecoverList
+*/
+
+void RA_Processor::CleanObjectListBeforeExternalRecovery(PKCS11Obj *pkcs11objx, ExternalRegAttrs *erAttrs ) {
+
+    const int MAX_CERTS = 30;
+    char configname[256] = "";
+    char keyTypePrefix[256] = "";
+
+    CERTCertificate *cert = NULL;
+    int count = 0;
+    const char *tokenType = NULL;
+
+    /* Arrays that hold simple indexes of certsToDelete and certsToSave
+       certsToDelete is a list of certs NOT in the recovery list.
+       certsToSave is a list of certs to spare from deletion because they were 
+        enrolled by the regular token profile.
+    */
+
+    int certsToDelete[MAX_CERTS] = { 0 };
+    int numCertsToDelete = 0;
+    int numCertsToSave = 0;
+    int certsToSave[MAX_CERTS] = { 0 };
+
+
+    if (!pkcs11objx || ! erAttrs)
+        return;
+
+    ExternalRegCertToRecover **erCertsToRecover = NULL;
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo *erCertKeyInfo = NULL;
+
+    erCertsToRecover = erAttrs->getCertsToRecover();
+
+    if (erCertsToRecover == NULL) {
+        return;
+    }
+ 
+    count = erAttrs->getCertsToRecoverCount();
+
+    if(count == 0)
+        return;
+
+    tokenType =  erAttrs->getTokenType();
+
+    if (!tokenType)
+        return; 
+
+    //Now let's try to save the just freshly enrolled certificates based on regular profile from deletion.
+
+    PR_snprintf((char *)configname, 256, "%s.%s.keyGen.keyType.num", "op.enroll", tokenType);
+
+    int keyTypeNum = RA::GetConfigStore()->GetConfigAsInt(configname);
+
+    if (keyTypeNum > 0) {
+        int index = -1;
+        for (int i=0; i<keyTypeNum; i++) {
+            PR_snprintf((char *)configname, 256, "%s.%s.keyGen.keyType.value.%d", "op.enroll", tokenType, i);
+            const char *keyTypeValue = RA::GetConfigStore()->GetConfigAsString(configname, "");
+
+            RA::Debug("RA_Processor::CleanObjectListBeforeExternalRecovery","configname %s  keyTypeValue %s ",configname, keyTypeValue);
+
+            PR_snprintf((char *)keyTypePrefix, 256, "%s.%s.keyGen.%s", "op.enroll", tokenType, keyTypeValue);
+            RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery","keyTypePrefix is %s",keyTypePrefix);
+
+            PR_snprintf((char *)configname, 256,"%s.certId", keyTypePrefix);
+            const char *certId = RA::GetConfigStore()->GetConfigAsString(configname, "");
+
+            RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery","certId is %s",certId);
+
+            if(certId != NULL && strlen(certId) > 1) {
+                index = certId[1] - '0';
+            }
+
+            if (index >= 0) {
+                if(numCertsToSave < MAX_CERTS) {   /* Set an entry in the list in order to save from subsequent deletion. */
+                    certsToSave[numCertsToSave++] = index;
+                }
+            } 
+        }
+    }
+
+    int num_objs = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
+    char b[3];
+    bool foundObj = false;
+
+    //Go through the object spec list and remove stuff we have marked for deletion.
+    // Remove Cert and all associated objects of that cert.
+
+    for (int i = 0; i< num_objs; i++) {
+        ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
+        unsigned long oid = os->GetObjectID();
+        b[0] = (char)((oid >> 24) & 0xff);
+        b[1] = (char)((oid >> 16) & 0xff);
+        b[2] = '\0';
+
+       if ( b[0] == 'C' )   {    /* Is this a cert object ? */
+           for (int j = 0 ; j <  os->GetAttributeSpecCount() ; j++ ) {
+               AttributeSpec *as = os->GetAttributeSpec(j);
+               if (as->GetAttributeID() == CKA_VALUE) {
+                   if (as->GetType() == (BYTE) 0) {
+                       Buffer cert = as->GetValue();
+                       SECItem certItem;
+                       certItem.type = (SECItemType) 0;
+                       certItem.data =  (unsigned char *) cert;
+                       certItem.len  = cert.size();
+                       bool present =  isInCertsToRecoverList(&certItem, erAttrs);
+
+                       if( present == false) {
+                           int certId = (int) b[1] - '0';
+                           RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery"," cert not found in recovery list, possible deletion... id:  %d", certId);
+                           /* Now check the certsToSave list to see if this cert is protected */
+
+                           bool protect = false;
+                           for(int p = 0 ; p < numCertsToSave; p++) {
+                               if( certsToSave[p] == certId)  {
+                                  protect = true;
+                                  break;
+                               }
+                           }
+
+                           RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery"," protect cert %d: %d", certId, protect);
+                           /* Delete this cert if it is NOT protected by the certs generated by the profile enrollment. */
+                           if((numCertsToDelete < MAX_CERTS) && (protect == false )) {
+                               certsToDelete[numCertsToDelete++] = certId;
+                           }
+                       }
+                   }
+                   break;
+                }
+           }
+       }
+    }
+
+    // Now rifle through the certsToDeleteList and remove those that need to be deleted
+
+    for(int k = 0 ; k <  numCertsToDelete ; k ++ ) {
+        RA::Debug("RA_Processor::CleanObjectListBeforeExternalRecovery", "cert to delete %d", certsToDelete[k]);
+        RemoveCertFromObjectList(certsToDelete[k], pkcs11objx);
+    }
+}
+
+/* Remove a certificate from the Object Spec List based on Cert index , C(1), C(2), etc */
+
+void RA_Processor::RemoveCertFromObjectList(int cIndex, PKCS11Obj *pkcs11objx) {
+
+    char b[3];
+
+    if ( !pkcs11objx)
+        return;
+
+    RA::Debug("RA_Processor::RemoveCertFromObjectList", "index of cert to delete is: %d", cIndex);
+
+    int objectCount = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
+
+    if ( cIndex < 0 || cIndex >= objectCount)
+        return;
+
+    int C = cIndex;
+    int c = cIndex;
+    int k1 = 2 *cIndex;
+    int k2 = 2 * cIndex + 1;
+
+    int index = 0;
+    for (int i = 0; i< pkcs11objx->PKCS11Obj::GetObjectSpecCount() ;  i++) {
+        ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
+        unsigned long oid = os->GetObjectID();
+        b[0] = (char)((oid >> 24) & 0xff);
+        b[1] = (char)((oid >> 16) & 0xff);
+        b[2] = '\0';
+
+       index = b[1] - '0';
+
+       if ( b[0] == 'C' || b[0] == 'c' )   {
+           if (  index == C || index == c ) {
+               RA::Debug(LL_PER_PDU, "RA_Processor::RemoveCertFromObjectList",
+                   "Removing Object %s", b);
+
+               pkcs11objx->RemoveObjectSpec(i);
+               i--;
+           }
+       }
+
+       if ( b[0] == 'k' ) {
+
+           if (index == k1 || index == k2) {
+               RA::Debug(LL_PER_PDU, "RA_Processor::RemoveCertFromObjectList",
+                   "Removing Object %s", b);
+
+               pkcs11objx->RemoveObjectSpec(i);
+               i--;
+           }
+       }
+    } 
+}
+
+/* Does given cert exist in the ExternalRegAttrs CertsToRecoverList 
+   We need to know if this cert is to be retained for an ExternalReg Recovery operation.
+   If cert is in the list, it will be retained and not erased, otherwise it will go away.
+*/
+
+bool RA_Processor::isInCertsToRecoverList(SECItem *secCert, ExternalRegAttrs *erAttrs) {
+
+    bool foundObj = false;
+    if (!secCert || !erAttrs)
+        return foundObj;
+
+    CERTCertificate *cert = NULL;
+    ExternalRegCertToRecover **erCertsToRecover = NULL;
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo *erCertKeyInfo = NULL;
+
+    erCertsToRecover = erAttrs->getCertsToRecover();
+
+    if (erCertsToRecover == NULL) {
+        return foundObj;
+    }
+
+    int count = erAttrs->getCertsToRecoverCount();
+
+    if(count == 0)
+        return foundObj;
+
+    for (int i = 0; i< count; i++) {
+        erCertToRecover = erCertsToRecover[i];
+        if (!erCertToRecover)
+            continue;
+        erCertKeyInfo = erCertToRecover->getCertKeyInfo();
+        if (!erCertKeyInfo)
+            continue;
+        cert = erCertKeyInfo->getCert();
+        if (cert) {
+            SECComparison equal =  SECITEM_CompareItem(secCert, &cert->derCert);
+            if (equal == 0) {
+                foundObj = true;
+                break;
+            }
+        }
+    }
+    return foundObj;
+}
