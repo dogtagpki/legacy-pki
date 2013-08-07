@@ -322,13 +322,25 @@ void LDAP_Authentication::ProcessExternalRegAttrs(char *name, char **value,
             char *tok = NULL; 
             char *dup_v = strdup(value[i]);
             tok = strtok(dup_v, ","); 
-            erCertToRecover->setSerial((PRUint16)atoi(PL_strdup(tok)));
+            if (tok != NULL)
+                erCertToRecover->setSerial((PRUint16)atoi(PL_strdup(tok)));
+            else
+                goto next;
             tok = strtok( NULL, "," ); 
-            erCertToRecover->setCaConn(PL_strdup(tok));
+            if (tok != NULL)
+                erCertToRecover->setCaConn(PL_strdup(tok));
+            else
+                goto next;
             tok = strtok( NULL, "," ); 
-            erCertToRecover->setKeyid((PRUint16)atoi(PL_strdup(tok)));
+            if (tok != NULL)
+                erCertToRecover->setKeyid((PRUint16)atoi(PL_strdup(tok)));
+            else
+                goto next;
             tok = strtok( NULL, "," ); 
-            erCertToRecover->setDrmConn(PL_strdup(tok));
+            if (tok != NULL)
+                erCertToRecover->setDrmConn(PL_strdup(tok));
+
+          next:
             if (erAttrs != NULL) {
                 erAttrs->addCertToRecover(erCertToRecover); 
             }

@@ -3069,7 +3069,8 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         const char *caConn = erCertToRecover->getCaConn();
         const char *drmConn = erCertToRecover->getDrmConn();
         RA::Debug(LL_PER_CONNECTION, FN,
-            "drmConn=%s, caConn=%s", drmConn, caConn);
+            "drmConn=%s, caConn=%s",
+            (drmConn != NULL)? drmConn:"NULL", (caConn != NULL)? caConn:"NULL");
         cert = NULL;
         o_cert = NULL;
         cert_string = NULL;
@@ -3078,48 +3079,55 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         ivParam = NULL;
         error_msg[0] = 0;
         RA::Debug(LL_PER_CONNECTION, FN,
-            "calling RA::RecoverKey() for serial no: %d, keyid: %d",
+            "serial no: %d, keyid: %d",
                 serial, keyid);
-        RA::RecoverKey(session, cuid, userid,
-                channel->getDrmWrappedDESKey(), keyid,
-                &o_pub, &o_priv,
-                drmConn, &ivParam);
-        /*ToDo: construct certKeyInfo and attach to erCertsToRecover for UpdateToken() later*/
-
-        if (o_pub == NULL) {
-            RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_pub is NULL");
-            o_status = STATUS_ERROR_RECOVERY_FAILED;
-            goto loser;
-        } else {
-            RA::Debug(LL_PER_PDU, "DoEnrollment", "o_pub = %s", o_pub);
-
-            if (o_priv == NULL) {
-               RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_priv is NULL");
-            } else {
-               RA::Debug(LL_PER_PDU, "DoEnrollment", "o_priv = %s", o_priv);
-
-               if (ivParam == NULL) {
-                   RA::Debug(LL_PER_CONNECTION,"RA_Enroll_Processor::ExternalRegRecover",
-                   "ProcessRecovery called, ivParam is NULL");
-                   o_status = STATUS_ERROR_RECOVERY_FAILED;
-                   goto loser;
-               } else {
-                   RA::Debug(LL_PER_CONNECTION,"ProcessRecovery",
-                   "ivParam = %s", ivParam);
-               }
-           }
-        }
 
         erCertKeyInfo = new ExternalRegCertKeyInfo();
 
         if (erCertKeyInfo == NULL) {
             continue;
         }
+        /*
+         * in case when drm id and keyid not supplied, the certToAdd
+         * attr expects the cert/keys to be existing on token
+         */
+        if (drmConn != NULL) {
+            RA::Debug(LL_PER_CONNECTION, FN,
+                "calling RA::RecoverKey()");
+            RA::RecoverKey(session, cuid, userid,
+                channel->getDrmWrappedDESKey(), keyid,
+                &o_pub, &o_priv,
+                drmConn, &ivParam);
 
-        erCertToRecover->setCertKeyInfo(erCertKeyInfo);
-        erCertKeyInfo->setWrappedPrivKey(o_priv);
-        erCertKeyInfo->setPublicKey(o_pub);
-        erCertKeyInfo->setIVParam(ivParam);
+            if (o_pub == NULL) {
+                RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_pub is NULL");
+                o_status = STATUS_ERROR_RECOVERY_FAILED;
+                goto loser;
+            } else {
+                RA::Debug(LL_PER_PDU, "DoEnrollment", "o_pub = %s", o_pub);
+
+                if (o_priv == NULL) {
+                    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_priv is NULL");
+                } else {
+                    RA::Debug(LL_PER_PDU, "DoEnrollment", "o_priv = %s", o_priv);
+
+                    if (ivParam == NULL) {
+                        RA::Debug(LL_PER_CONNECTION,"RA_Enroll_Processor::ExternalRegRecover",
+                        "ProcessRecovery called, ivParam is NULL");
+                        o_status = STATUS_ERROR_RECOVERY_FAILED;
+                        goto loser;
+                    } else {
+                        RA::Debug(LL_PER_CONNECTION,"ProcessRecovery",
+                        "ivParam = %s", ivParam);
+                    }
+                }
+             }
+
+            erCertToRecover->setCertKeyInfo(erCertKeyInfo);
+            erCertKeyInfo->setWrappedPrivKey(o_priv);
+            erCertKeyInfo->setPublicKey(o_pub);
+            erCertKeyInfo->setIVParam(ivParam);
+        }
 
         cert = certEnroll->RetrieveCertificate(serial, caConn, error_msg);
 
