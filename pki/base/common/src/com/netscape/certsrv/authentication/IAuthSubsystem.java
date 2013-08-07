@@ -17,11 +17,8 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.authentication;
 
-import java.util.Enumeration;
-import java.util.Hashtable;
-
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.ISubsystem;
+import com.netscape.certsrv.base.*;
+import java.util.*;
 
 /**
  * An interface that represents an authentication component

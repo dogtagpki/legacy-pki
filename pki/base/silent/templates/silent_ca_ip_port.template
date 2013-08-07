@@ -1,0 +1,550 @@
+#!/bin/bash
+##  BEGIN COPYRIGHT BLOCK
+##  (C) 2009 Red Hat, Inc.
+##  All rights reserved.
+##  END COPYRIGHT BLOCK
+
+
+##  Always switch into this base directory
+##  prior to script execution so that all
+##  of its output is written to this directory
+
+cd `dirname $0`
+
+
+##  Disallow script to be run as the name of this template
+pki_silent_script=`basename $0`
+if [ "${pki_silent_script}" = "silent_ca_ip_port.template" ] ; then
+    printf "\n"
+    printf "Usage:  (1) Install AND configure a directory server instance.\n\n"
+    printf "        (2) Install, but do NOT configure a\n"
+    printf "            PKI CA subsystem instance\n"
+    printf "            using the IP Port Separation Mode.\n\n"
+    printf "        (3) Install the 'pki-silent' package.\n\n"
+    printf "        (4) Copy '$0' to a new script name\n"
+    printf "            without the '.template' extension\n"
+    printf "            (e .g. - 'configure_ca_ip_port_instance').\n\n"
+    printf "        (5) Fill in all MANDATORY user-defined variables\n"
+    printf "            in the new script.\n\n"
+    printf "        (6) Change any OPTIONAL user-defined variables\n"
+    printf "            in the new script as desired.\n\n"
+    printf "        (7) Become the 'root' user, and execute the new script to\n"
+    printf "            configure this PKI CA subsystem instance.\n\n"
+    exit 255
+fi
+
+
+##
+##  This script MUST be run as root!
+##
+
+ROOTUID=0
+
+OS=`uname`
+if [ "${OS}" = "Linux" ] ; then
+    MY_EUID=`/usr/bin/id -u`
+    MY_UID=`/usr/bin/id -ur`
+    USERNAME=`/usr/bin/id -un`
+else
+    printf "ERROR:  Unsupported operating system '${OS}'!\n"
+    exit 255
+fi
+
+if [ "${MY_UID}"  != "${ROOTUID}" ] &&
+   [ "${MY_EUID}" != "${ROOTUID}" ] ; then
+    printf "ERROR:  The '$0' script must be run as root!\n"
+    exit 255
+fi
+
+
+
+##############################################################################
+##############################################################################
+##                                                                          ##
+##  P K I   S I L E N T  -  V A R I A B L E   D E C L A R A T I O N         ##
+##                                                                          ##
+##############################################################################
+##############################################################################
+
+##############################################################################
+##  U S E R - D E F I N E D   V A R I A B L E S   ( M A N D A T O R Y )     ##
+##############################################################################
+
+##
+##  IMPORTANT:  'Escape' ALL spaces in EACH variable specified below!
+##
+##              For Example:
+##
+##                  pki_security_domain_name="My\ Security\ Domain"
+##
+
+##  PKI CA Subsystem Hosts (FQDN)
+pki_ca_agent_host=
+pki_ca_ee_host=
+pki_ca_eeca_host=
+pki_ca_admin_host=
+
+##
+##  NOTE:  Default PKI CA Instance Ports
+##
+##          9180 - non-secure port (not role specific)
+##          9443 - secure Agent port
+##          9444 - secure EE port
+##          9445 - secure Admin port
+##          9446 - secure EE Client Auth port (not necessarily labeled)
+##          9701 - non-secure Tomcat port
+##
+##
+##  For Example:
+##
+##      semanage port -l | grep pki
+##
+##      pki_ca_port_t          tcp      9180, 9443, 9444, 9445, 9701
+##
+
+## PKI CA ports (Security Domain)
+pki_ca_admin_port=
+
+##  PKI Silent Security Database Variables
+##  (e. g. - PKI Silent "browser" database)
+pki_silent_security_database_repository="/tmp"
+pki_silent_security_token_password=
+pki_silent_security_token_name=internal
+
+##  PKI Security Domain Variables
+##  (e. g. - Security Domain Login Panel)
+pki_security_domain_name=
+pki_security_domain_host="${pki_ca_admin_host}"
+pki_security_domain_admin_name=admin
+pki_security_domain_admin_password=
+
+##  PKI Internal LDAP Database Variables
+##  (e. g. - Database Panel)
+##
+##  If the LDAP server is located locally, specify:
+##
+##      pki_ldap_host=localhost
+##
+##  However, if the LDAP server is located remotely, specify the FQDN:
+##
+##      pki_ldap_host="ds_host.example.com" (for example)
+##
+pki_ldap_host=
+pki_ldap_port=389
+pki_bind_dn="cn=Directory\ Manager"
+pki_bind_password=
+##
+## For first time configurations, the default case is to set:
+##
+##     pki_remove_data=false
+##
+## For testing, however, it is often convenient to simply OVERWRITE any
+## existing data in the LDAP database.  If this is desirable, set:
+##
+##     pki_remove_data=true
+##
+pki_remove_data=
+
+##  PKI Instance-Specific Token Variables
+##  (e. g. - Module Panel)
+pki_ca_token_name=internal
+pki_ca_token_password=
+
+##  PKI Instance-Specific Backup Variables
+##  (e. g. - Backup Key and Certificates Panel)
+pki_ca_backup_password=
+
+##  PKI Email Variables
+##
+##      For example, to specify 'pkitest@example.com':
+##
+##          pki_email_name=pkitest
+##          pki_email_company=example
+##          pki_email_domain=com
+##
+pki_email_name=
+pki_email_company=
+pki_email_domain=
+
+##  PKI Silent Admin Variables
+##  (e. g. - Import Admin Certificate into PKI Silent "browser" database)
+pki_silent_admin_user=admin
+pki_silent_admin_password=
+pki_silent_admin_email="${pki_email_name}\@${pki_email_company}\.${pki_email_domain}"
+
+##  PKI Subsystem Names
+pki_ca_subsystem_name="Certificate\ Authority"
+
+##  PKI Subsystem Instance Names
+pki_ca_instance_name="pki-ca"
+
+##  PKI Silent Log Files
+pki_silent_ca_log=/tmp/ca.log
+
+
+
+##############################################################################
+##  U S E R - D E F I N E D   V A R I A B L E S   ( O P T I O N A L )       ##
+##############################################################################
+
+##
+## NOTE:  For comparison's sake, if the default instances were manually
+##        configured using a Firefox browser, the content of the corresponding
+##        Firefox browser's security libraries would be something similar
+##        to this:
+##
+##            Certificate Nickname                          Trust Attributes
+##                                                          SSL,S/MIME,JAR/XPI
+##
+##            Certificate Authority - ${pki_security_domain_name}     CT,C,C
+##            CA Administrator of Instance ${pki_ca_instance_name}'s
+##                              ${pki_security_domain_name} ID        u,u,u
+##
+##        where:
+##
+##                Nickname:  "Certificate Authority - "
+##                        +  "${pki_security_domain_name}"
+##            Subject Name:  "cn=Certificate Authority,"
+##                        +  "o=${pki_security_domain_name}"
+##
+##                Nickname:  "CA Administrator of Instance "
+##                        +  "${pki_ca_instance_name}'s "
+##                        +  "${pki_security_domain_name} ID"
+##            Subject Name:  "cn=CA Administrator of Instance "
+##                        +  "${pki_ca_instance_name},"
+##                        +  "uid=admin,"
+##                        +  "e=${pki_silent_admin_email},"
+##                        +  "o=${pki_security_domain_name}"
+##
+
+
+##  Miscellaneous CA Variables
+##
+##  REMINDER:  'Escape' ALL spaces in EACH variable specified below!
+##
+##  NOTE:  For comparison's sake, if the default instances were manually
+##         configured using a Firefox browser, the content of the corresponding
+##         "/var/lib/${pki_ca_instance_name}/alias/" security libraries would
+##         be something similar to this:
+##
+##             Certificate Nickname                         Trust Attributes
+##                                                          SSL,S/MIME,JAR/XPI
+##
+##             ocspSigningCert cert-${pki_ca_instance_name}       u,u,u
+##             subsystemCert cert-${pki_ca_instance_name}         u,u,u
+##             caSigningCert cert-${pki_ca_instance_name}         CTu,Cu,Cu
+##             Server-Cert cert-${pki_ca_instance_name}           u,u,u
+##             auditSigningCert cert-${pki_ca_instance_name}      u,u,u
+##
+##         where:
+##
+##                 Nickname:  "caSigningCert cert-${pki_ca_instance_name}"
+##             Subject Name:  "cn=Certificate Authority,"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "subsystemCert cert-${pki_ca_instance_name}"
+##             Subject Name:  "cn=CA Subsystem Certificate,"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "ocspSigningCert cert-${pki_ca_instance_name}"
+##             Subject Name:  "cn=OCSP Signing Certificate,"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "Server-Cert cert-${pki_ca_instance_name}"
+##             Subject Name:  "cn=${pki_ca_ee_host},"
+##                         +  "o=${pki_security_domain_name}"
+##
+##                 Nickname:  "auditSigningCert cert-${pki_ca_instance_name}"
+##             Subject Name:  "cn=CA Audit Signing Certificate,"
+##                         +  "o=${pki_security_domain_name}"
+##
+##  NOTE:  The parameters for the signing and key algorithms have the following
+##         meaning:
+##         ca_key_algorithm                 - signature algorithm used to sign
+##                                            the CA certificate
+##         ca_signing_algorithm             - signature algorithm used by the
+##                                            CA and OCSP signing certs to sign
+##                                            objects.
+##         ca_signing_signingalgorithm      - optionally specify the algorithm
+##                                            used by the CA signing cert to
+##                                            sign objects
+##         ca_ocsp_signing_signingalgorithm - optionally specify the algorithm
+##                                            used by the CA ocsp signing cert
+##                                            to sign objects
+##
+##  NOTE:  Additional variables to specify the LDAP connection are as follows:
+##         remove_data                       - set to true/false.  Remove any
+##                                             existing data found under the
+##                                             baseDN
+##         secure_conn                       - use the ldaps port
+##
+
+ca_agent_name="CA\ Administrator\ of\ Instance\ ${pki_ca_instance_name}\'s\ ${pki_security_domain_name}\ ID"
+ca_agent_key_size=2048
+ca_agent_key_type=rsa
+ca_agent_cert_subject="cn=CA\ Administrator\ of\ Instance\ ${pki_ca_instance_name},uid=admin,e=${pki_silent_admin_email},o=${pki_security_domain_name}"
+ca_base_dn="dc=${pki_ca_admin_host}-${pki_ca_instance_name}"
+ca_db_name="${pki_ca_admin_host}-${pki_ca_instance_name}"
+ca_key_size=2048
+ca_key_type=rsa
+ca_key_algorithm=SHA256withRSA
+ca_signing_algorithm=SHA256withRSA
+ca_signing_signingalgorithm=SHA256withRSA
+ca_ocsp_signing_signingalgorithm=SHA256withRSA
+ca_save_p12=false
+ca_sign_cert_subject_name="cn=Certificate\ Authority,o=${pki_security_domain_name}"
+ca_subsystem_cert_subject_name="cn=CA\ Subsystem\ Certificate,o=${pki_security_domain_name}"
+ca_ocsp_cert_subject_name="cn=OCSP\ Signing\ Certificate,o=${pki_security_domain_name}"
+ca_server_cert_subject_name="cn=${pki_ca_ee_host},o=${pki_security_domain_name}"
+ca_audit_signing_cert_subject_name="cn=CA\ Audit\ Signing\ Certificate,o=${pki_security_domain_name}"
+## URL to CA used to Issue Certificates for CA Instance Creation
+##
+## IMPORTANT:  The CA referenced by this URL must reside within the
+##             same security domain as this CA instance.
+##
+##     NOTE:  To pass in a value of an empty string, specify the value "empty"
+##            instead of "" since ArgParser() throws away empty strings.
+##
+##            This special "empty" string value may be specified for any of
+##            the following variables:
+##
+##                * ca_instance_ca_domain_url="empty"
+##
+ca_instance_ca_domain_url="empty"
+
+
+
+##############################################################################
+##############################################################################
+##                                                                          ##
+##  P K I   S I L E N T  -  S U B S Y S T E M   C O N F I G U R A T I O N   ##
+##                                                                          ##
+##############################################################################
+##############################################################################
+
+##############################################################################
+##  P K I   S I L E N T   I N I T I A L I Z A T I O N                       ##
+##############################################################################
+
+## (1) Make certain that user has defined all MANDATORY user-defined variables!
+usage_errors=0
+usage_error_preamble="ERROR:  User MUST define a value for"
+
+if [ "${pki_ca_agent_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_agent_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_ee_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_ee_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_eeca_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_eeca_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_admin_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_admin_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_admin_port}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_admin_port'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_silent_security_token_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_silent_security_token_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_security_domain_name}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_security_domain_name'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_security_domain_admin_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_security_domain_admin_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ldap_host}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ldap_host'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_bind_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_bind_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_remove_data}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_remove_data'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_token_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_token_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_ca_backup_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_ca_backup_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_email_name}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_email_name'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_email_company}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_email_company'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_email_domain}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_email_domain'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+if [ "${pki_silent_admin_password}" = "" ] ; then
+    printf "${usage_error_preamble} 'pki_silent_admin_password'!\n"
+    usage_errors=`expr ${usage_errors} + 1`
+fi
+
+
+## (2) Make certain that a PKI instance of the specified name EXISTS,
+##     but has NOT been previously CONFIGURED!
+existence_errors=0
+existence_error_preamble="ERROR:  No PKI Instance named"
+configuration_errors=0
+configuration_error_preamble="ERROR:  A PKI Instance named"
+configuration_error_postamble="EXISTS,\n        but has PREVIOUSLY been CONFIGURED!"
+
+if [ ! -f "/var/lib/${pki_ca_instance_name}/conf/CS.cfg" ] ; then
+    printf "${existence_error_preamble} '${pki_ca_instance_name}' EXISTS!\n"
+    existence_errors=`expr ${existence_errors} + 1`
+else
+    ca_configuration_check=`grep -c preop /var/lib/${pki_ca_instance_name}/conf/CS.cfg`
+    if [ ${ca_configuration_check} -eq 0 ] ; then
+        printf "${configuration_error_preamble} '${pki_ca_instance_name}' "
+        printf "${configuration_error_postamble}\n"
+        configuration_errors=`expr ${configuration_errors} + 1`
+    fi
+fi
+
+
+if [ ${usage_errors} -ne 0 ]     ||
+   [ ${existence_errors} -ne 0 ] ||
+   [ ${configuration_errors} -ne 0 ] ; then
+    printf "\n"
+    printf "Please correct ALL errors listed above and re-run\n"
+    printf "the '$0' script!\n\n"
+    exit 255
+fi
+
+
+## (3) Make certain that 'pkisilent' exists and is executable on this system.
+if [ ! -x "/usr/bin/pkisilent" ] ; then
+    printf "\n"
+    printf "ERROR:  Please install the 'pki-silent' package and re-run\n"
+    printf "the '$0' script!\n\n"
+    exit 255
+fi
+
+
+## (4) Check for old PKI Silent Security Databases, but DO NOT remove them!
+##     Instead, just inform the user.
+if [ -f "${pki_silent_security_database_repository}/cert8.db" ] ||
+   [ -f "${pki_silent_security_database_repository}/key3.db" ] ||
+   [ -f "${pki_silent_security_database_repository}/secmod.db" ] ; then
+    printf "\n"
+    printf "WARNING:  The existing security databases\n"
+    printf "          (i. e. - 'cert8.db', 'key3.db', and/or 'secmod.db')\n"
+    printf "          required by '${pki_silent_script}' at the\n"
+    printf "          specified location '${pki_silent_security_database_repository}'\n"
+    printf "          will be used.\n\n"
+fi
+
+
+## (5) Remove any old PKI Silent log file named '${pki_silent_ca_log}'
+printf "Removing old PKI Silent log files:\n"
+if [ -f ${pki_silent_ca_log} ] ; then
+    printf "    Removing old '${pki_silent_ca_log}' . . . "
+    rm ${pki_silent_ca_log}
+    printf "done.\n"
+fi
+printf "Done.\n\n"
+
+
+
+##############################################################################
+##  C A L C U L A T E   P K I   I N S T A N C E   P I N S                   ##
+##############################################################################
+
+##  PKI Subsystem Instance PINS
+ca_preop_pin=`cat /var/lib/${pki_ca_instance_name}/conf/CS.cfg \
+    | grep preop.pin | grep -v grep | awk -F= '{print $2}'`
+
+
+
+##############################################################################
+##  C E R T I F I C A T E   A U T H O R I T Y                               ##
+##############################################################################
+##
+##  For example, upon completion,
+##  execute '/sbin/service ${pki_ca_instance_name} status':
+##
+##      ${pki_ca_instance_name} (pid 7843) is running ...
+##
+##          Unsecure Port     = http://${pki_ca_ee_host}:9180/ca/ee/ca
+##          Secure Agent Port = https://${pki_ca_agent_host}:9443/ca/agent/ca
+##          Secure EE Port    = https://${pki_ca_ee_host}:9444/ca/ee/ca
+##          Secure EE Client Auth Port    = https://${pki_ca_eeca_host}:9446/ca/eeca/ca
+##          Secure Admin Port = https://${pki_ca_admin_host}:9445/ca/services
+##          PKI Console Port  = pkiconsole https://${pki_ca_admin_host}:9445/ca
+##          Tomcat Port       = 9701 (for shutdown)
+##
+##
+##          Security Domain URL:
+##          ==================================================================
+##          https://${pki_ca_admin_host}:9445
+##          ==================================================================
+##
+
+##  Configure CA
+printf "'${pki_silent_script}':  Configuring '${pki_ca_instance_name}' . . .\n"
+pkisilent ConfigureCA \
+    -cs_hostname "${pki_ca_admin_host}" \
+    -cs_port ${pki_ca_admin_port} \
+    -client_certdb_dir ${pki_silent_security_database_repository} \
+    -client_certdb_pwd ${pki_silent_security_token_password} \
+    -client_token_name ${pki_silent_security_token_name} \
+    -preop_pin ${ca_preop_pin} \
+    -domain_name "${pki_security_domain_name}" \
+    -admin_user ${pki_silent_admin_user} \
+    -admin_password ${pki_silent_admin_password} \
+    -admin_email "${pki_silent_admin_email}" \
+    -agent_name ${ca_agent_name} \
+    -agent_key_size ${ca_agent_key_size} \
+    -agent_key_type ${ca_agent_key_type} \
+    -agent_cert_subject "${ca_agent_cert_subject}" \
+    -ldap_host ${pki_ldap_host} \
+    -ldap_port ${pki_ldap_port} \
+    -bind_dn "${pki_bind_dn}" \
+    -bind_password ${pki_bind_password} \
+    -base_dn "${ca_base_dn}" \
+    -db_name "${ca_db_name}" \
+    -remove_data "${pki_remove_data}" \
+    -key_size ${ca_key_size} \
+    -key_type ${ca_key_type} \
+    -key_algorithm ${ca_key_algorithm} \
+    -signing_algorithm ${ca_signing_algorithm} \
+    -signing_signingalgorithm ${ca_signing_signingalgorithm} \
+    -ocsp_signing_signingalgorithm ${ca_ocsp_signing_signingalgorithm} \
+    -save_p12 ${ca_save_p12} \
+    -backup_pwd ${pki_ca_backup_password} \
+    -subsystem_name ${pki_ca_subsystem_name} \
+    -ca_domain_url "${ca_instance_ca_domain_url}" \
+    -token_name ${pki_ca_token_name} \
+    -token_pwd ${pki_ca_token_password} \
+    -ca_sign_cert_subject_name "${ca_sign_cert_subject_name}" \
+    -ca_subsystem_cert_subject_name "${ca_subsystem_cert_subject_name}" \
+    -ca_ocsp_cert_subject_name "${ca_ocsp_cert_subject_name}" \
+    -ca_server_cert_subject_name "${ca_server_cert_subject_name}" \
+    -ca_audit_signing_cert_subject_name \
+    "${ca_audit_signing_cert_subject_name}" \
+    | tee ${pki_silent_ca_log}
+
+##  Restart CA
+/sbin/service ${pki_ca_instance_name} restart
+
+exit 0
+

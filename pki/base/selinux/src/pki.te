@@ -1,4 +1,4 @@
-policy_module(pki,1.0.26)
+policy_module(pki,8.1.2)
 
 attribute pki_ca_config;
 attribute pki_ca_executable;
@@ -25,6 +25,9 @@ corenet_tcp_connect_pki_ocsp_port(pki_ca_t)
 # forward proxy
 corenet_tcp_connect_pki_ca_port(httpd_t)
 
+#reverse proxy
+corenet_tcp_connect_pki_ca_port(pki_ca_t)
+
 # for crl publishing
 allow pki_ca_t pki_ca_var_lib_t:lnk_file { rename create unlink };
 
@@ -49,6 +52,9 @@ corenet_tcp_connect_pki_ca_port(pki_kra_t)
 # forward proxy
 corenet_tcp_connect_pki_kra_port(httpd_t)
 
+#reverse proxy
+corenet_tcp_connect_pki_kra_port(pki_kra_t)
+
 attribute pki_ocsp_config;
 attribute pki_ocsp_executable;
 attribute pki_ocsp_var_lib;
@@ -66,6 +72,9 @@ corenet_tcp_connect_pki_ca_port(pki_ocsp_t)
 
 # forward proxy
 corenet_tcp_connect_pki_ocsp_port(httpd_t)
+
+#reverse proxy
+corenet_tcp_connect_pki_ocsp_port(pki_ocsp_t)
 
 attribute pki_ra_config;
 attribute pki_ra_executable;
@@ -98,6 +107,9 @@ corenet_tcp_connect_pki_ca_port(pki_tks_t)
 
 # forward proxy
 corenet_tcp_connect_pki_tks_port(httpd_t)
+
+#reverse proxy
+corenet_tcp_connect_pki_tks_port(pki_tks_t)
 
 # needed for token enrollment, list /var/cache/tomcat5/temp
 files_list_var(pki_tks_t)

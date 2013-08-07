@@ -18,8 +18,11 @@
 package com.netscape.cmsutil.radius;
 
 
-import java.util.Enumeration;
-import java.util.Vector;
+import java.util.*;
+import java.math.*;
+import java.security.*;
+import java.net.*;
+import java.io.*;
 
 
 public class AttributeSet {

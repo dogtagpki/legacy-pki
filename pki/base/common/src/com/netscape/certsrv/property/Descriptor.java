@@ -17,7 +17,7 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.property;
 
-import java.util.Locale;
+import java.util.*;
 
 
 /**

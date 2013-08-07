@@ -17,28 +17,23 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.connector;
 
-import java.io.IOException;
-import java.io.OutputStream;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
+import java.io.*;
+import java.util.Hashtable;
+
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.logging.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthSubsystem;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authority.IAuthority;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.IPrettyPrintFormat;
-import com.netscape.certsrv.common.Constants;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
 
 
 
@@ -61,6 +56,7 @@ public class GenerateKeyPairServlet extends CMSServlet {
     IPrettyPrintFormat pp = CMS.getPrettyPrintFormat(":");
     protected IAuthSubsystem mAuthSubsystem = null;
     protected ILogger mLogger = CMS.getLogger();
+    private Hashtable supportedECCurves_ht = null;
 
     /**
      * Constructs GenerateKeyPair servlet.
@@ -73,6 +69,7 @@ public class GenerateKeyPairServlet extends CMSServlet {
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
         mConfig = config;
+        IConfigStore sconfig = CMS.getConfigStore();
         String authority = config.getInitParameter(PROP_AUTHORITY);
 
         if (authority != null)
@@ -80,6 +77,22 @@ public class GenerateKeyPairServlet extends CMSServlet {
                     CMS.getSubsystem(authority);
         
         mAuthSubsystem = (IAuthSubsystem) CMS.getSubsystem(CMS.SUBSYSTEM_AUTH);
+
+        // supported EC cuves by the smart cards
+        String curveList = null;
+        try {
+            curveList = sconfig.getString("kra.keygen.curvelist",
+                              "nistp256,nistp384,nistp521");
+        } catch (EBaseException e) {
+            curveList = "nistp256,nistp384,nistp521";
+        }
+
+        supportedECCurves_ht = new Hashtable();
+        String[] supportedECCurves = curveList.split(",");
+        for ( int i = 0; i < supportedECCurves.length; i++) {
+            supportedECCurves_ht.put(supportedECCurves[i], supportedECCurves[i]);
+        }
+
     }
 
     /**
@@ -119,8 +132,10 @@ public class GenerateKeyPairServlet extends CMSServlet {
         String rCUID = req.getParameter("CUID");
         String rUserid = req.getParameter("userid");
         String rdesKeyString = req.getParameter("drm_trans_desKey");
-	String rArchive = req.getParameter("archive");
-	String rKeysize = req.getParameter("keysize");
+        String rArchive = req.getParameter("archive");
+        String rKeysize = req.getParameter("keysize");
+        String rKeytype = req.getParameter("keytype");
+        String rKeycurve = req.getParameter("eckeycurve");
 
         if ((rCUID == null) || (rCUID.equals(""))) {
             CMS.debug("GenerateKeyPairServlet: processServerSideKeygen(): missing request parameter: CUID");
@@ -132,9 +147,29 @@ public class GenerateKeyPairServlet extends CMSServlet {
             missingParam = true;
         }
 
-	if ((rKeysize == null) || (rKeysize.equals(""))) {
-	    rKeysize = "1024"; // default to 1024
-	}
+        // if not specified, default to RSA
+        if ((rKeytype == null) || (rKeytype.equals(""))) {
+            rKeytype = "RSA";
+        }
+
+        // keysize is for non-EC (EC uses keycurve)
+        if (!rKeytype.equals("EC") && ((rKeysize == null) || (rKeysize.equals("")))) {
+            rKeysize = "1024"; // default to 1024
+        }
+
+        if (rKeytype.equals("EC")) {
+            if ((rKeycurve == null) || (rKeycurve.equals(""))) {
+                rKeycurve = "nistp256";
+            }
+            // is the specified curve supported?
+            boolean isSupportedCurve = supportedECCurves_ht.containsKey(rKeycurve);
+            if (isSupportedCurve == false) {
+                CMS.debug("GenerateKeyPairServlet: processServerSideKeygen(): unsupported curve:"+ rKeycurve);
+                missingParam = true;
+            } else {
+                CMS.debug("GenerateKeyPairServlet: processServerSideKeygen(): curve to be generated:"+ rKeycurve);
+            }
+        }
 
         if ((rdesKeyString == null) ||
             (rdesKeyString.equals(""))) {
@@ -144,7 +179,7 @@ public class GenerateKeyPairServlet extends CMSServlet {
 
         if ((rArchive == null) || (rArchive.equals(""))) {
             CMS.debug("GenerateKeyPairServlet: processServerSideKeygen(): missing key archival flag 'archive' ,default to true");
-	    rArchive = "true";
+            rArchive = "true";
         }
 
         String selectedToken = null;
@@ -156,17 +191,19 @@ public class GenerateKeyPairServlet extends CMSServlet {
             thisreq.setExtData(IRequest.NETKEY_ATTR_CUID, rCUID);
             thisreq.setExtData(IRequest.NETKEY_ATTR_USERID, rUserid);
             thisreq.setExtData(IRequest.NETKEY_ATTR_DRMTRANS_DES_KEY, rdesKeyString);
-	    thisreq.setExtData(IRequest.NETKEY_ATTR_ARCHIVE_FLAG, rArchive);
-	    thisreq.setExtData(IRequest.NETKEY_ATTR_KEY_SIZE, rKeysize);
+            thisreq.setExtData(IRequest.NETKEY_ATTR_ARCHIVE_FLAG, rArchive);
+            thisreq.setExtData(IRequest.NETKEY_ATTR_KEY_SIZE, rKeysize);
+            thisreq.setExtData(IRequest.NETKEY_ATTR_KEY_TYPE, rKeytype);
+            thisreq.setExtData(IRequest.NETKEY_ATTR_KEY_EC_CURVE, rKeycurve);
 
             queue.processRequest( thisreq );
             Integer result = thisreq.getExtDataInInteger(IRequest.RESULT);
             if (result != null) {
-		// sighs!  tps thinks 0 is good, and DRM thinks 1 is good
-		if (result.intValue() == 1)
-		    status = "0";
-		else
-		    status = result.toString();
+                // sighs!  tps thinks 0 is good, and DRM thinks 1 is good
+                if (result.intValue() == 1)
+                    status = "0";
+                else
+                    status = result.toString();
             } else
                 status = "7";
 
@@ -189,7 +226,7 @@ public class GenerateKeyPairServlet extends CMSServlet {
         publicKeyString = thisreq.getExtDataInString("public_key");
         wrappedPrivKeyString = thisreq.getExtDataInString("wrappedUserPrivate");
 
-	String ivString = thisreq.getExtDataInString("iv_s");
+        String ivString = thisreq.getExtDataInString("iv_s");
 
         /*
           if (selectedToken == null)
@@ -200,12 +237,12 @@ public class GenerateKeyPairServlet extends CMSServlet {
         else {
             StringBuffer sb = new StringBuffer();
             sb.append("status=0&");
-			sb.append("wrapped_priv_key=");
-			sb.append(wrappedPrivKeyString);
-			sb.append("&iv_param=");
-			sb.append(ivString);
+            sb.append("wrapped_priv_key=");
+            sb.append(wrappedPrivKeyString);
+            sb.append("&iv_param=");
+            sb.append(ivString);
             sb.append("&public_key=");
-			sb.append(publicKeyString);
+            sb.append(publicKeyString);
             value = sb.toString();
 
         }
@@ -273,9 +310,9 @@ public class GenerateKeyPairServlet extends CMSServlet {
         }
 
         // begin Netkey serverSideKeyGen and archival
-	CMS.debug("GenerateKeyPairServlet: processServerSideKeyGen would be called");
-	processServerSideKeyGen(req, resp);
-	return;
+        CMS.debug("GenerateKeyPairServlet: processServerSideKeyGen would be called");
+        processServerSideKeyGen(req, resp);
+        return;
         // end Netkey functions
 
     }

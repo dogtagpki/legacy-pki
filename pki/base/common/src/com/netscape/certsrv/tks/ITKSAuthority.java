@@ -18,8 +18,19 @@
 package com.netscape.certsrv.tks;
 
 
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.request.IRequestQueue;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.math.*;
+import java.security.*;
+import java.security.cert.*;
+import netscape.security.x509.*;
+import netscape.security.util.*;
+
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.policy.*;
+import com.netscape.certsrv.publish.*;
+import com.netscape.certsrv.request.*;
 
 
 /**

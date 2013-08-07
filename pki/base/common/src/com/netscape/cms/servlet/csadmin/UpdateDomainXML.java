@@ -18,42 +18,36 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.Locale;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.ldap.LDAPAttribute;
-import netscape.ldap.LDAPAttributeSet;
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPEntry;
-import netscape.ldap.LDAPException;
-import netscape.ldap.LDAPModification;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import java.math.*;
+import javax.servlet.*;
+import java.security.cert.*;
+import javax.servlet.http.*;
+import netscape.ldap.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.policy.*;
+import com.netscape.certsrv.request.IRequest;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.logging.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.authorization.EAuthzAccessDenied;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.ldap.ILdapConnFactory;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.base.UserInfo;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.ICMSTemplateFiller;
-import com.netscape.cmsutil.xml.XMLObject;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.cms.servlet.*;
+import com.netscape.cmsutil.xml.*;
+import org.w3c.dom.*;
+import org.apache.xerces.parsers.DOMParser;
+import org.apache.xerces.dom.*;
+import javax.xml.parsers.*;
+import javax.xml.transform.*;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 
 public class UpdateDomainXML extends CMSServlet {
@@ -113,8 +107,36 @@ public class UpdateDomainXML extends CMSServlet {
        return status;
     }
 
-    private String modify_ldap(String dn, LDAPModification mod) {
-        CMS.debug("UpdateDomainXML: modify_ldap: starting dn: " + dn);
+    private void add_attributes(String dn, LDAPModificationSet attrs)
+        throws LDAPException, Exception {
+        ILdapConnFactory connFactory = null;
+        LDAPConnection conn = null;
+        IConfigStore cs = CMS.getConfigStore();
+        try {
+            CMS.debug("UpdateDomainXML: add_attributes - " +
+                      "establishing ldap connection to DN '" + dn + "'");
+            IConfigStore ldapConfig = cs.getSubStore("internaldb");
+            connFactory = CMS.getLdapBoundConnFactory();
+            connFactory.init(ldapConfig);
+            conn = connFactory.getConn();
+            conn.modify(dn, attrs);
+        } finally {
+            try {
+                if ((conn != null) && (connFactory!= null)) {
+                    CMS.debug("UpdateDomainXML: add_attributes - " +
+                              "releasing ldap connection to DN '" + dn + "'");
+                    connFactory.returnConn(conn);
+                }
+            } catch (Exception e) {
+                CMS.debug("UpdateDomainXML: add_attributes - " +
+                          "error releasing ldap connection to DN '" +
+                          dn + "' - Exception " + e.toString());
+            }
+        }
+    }
+
+    private String remove_attribute(String dn, LDAPModification mod) {
+        CMS.debug("UpdateDomainXML: remove_attribute: starting dn: " + dn);
         String status = SUCCESS;
         ILdapConnFactory connFactory = null;
         LDAPConnection conn = null;
@@ -127,11 +149,13 @@ public class UpdateDomainXML extends CMSServlet {
             conn = connFactory.getConn();
             conn.modify(dn, mod);
         } catch (LDAPException e) {
-            if (e.getLDAPResultCode() != LDAPException.NO_SUCH_OBJECT) {
+            int errorCode = e.getLDAPResultCode();
+            if ((errorCode != LDAPException.NO_SUCH_OBJECT)&& (errorCode != LDAPException.NO_SUCH_ATTRIBUTE)) {
                 status = FAILED;
                 CMS.debug("Failed to modify entry" + e.toString());
             }
        } catch (Exception e) {
+            status = FAILED;
             CMS.debug("Failed to modify entry" + e.toString());
        } finally {
             try {
@@ -262,6 +286,10 @@ public class UpdateDomainXML extends CMSServlet {
         String domainmgr = httpReq.getParameter("dm");
         String clone = httpReq.getParameter("clone");
         String operation = httpReq.getParameter("operation");
+        String agenthost = httpReq.getParameter("agenthost");
+        String eehost = httpReq.getParameter("eehost");
+        String adminhost = httpReq.getParameter("adminhost");
+        String eecahost = httpReq.getParameter("eecahost");
 
         // ensure required parameters are present
         // especially important for DS syntax checking
@@ -386,7 +414,7 @@ public class UpdateDomainXML extends CMSServlet {
                             dn = "cn=Subsystem Group, ou=groups," + basedn;
                             LDAPModification mod = new LDAPModification(LDAPModification.DELETE, 
                                 new LDAPAttribute("uniqueMember", adminUserDN));
-                            status2 = modify_ldap(dn, mod);
+                            status2 = remove_attribute(dn, mod);
                             if (status2.equals(SUCCESS)) {
                                 auditMessage = CMS.getLogMessage(
                                                    LOGGING_SIGNED_AUDIT_CONFIG_ROLE,
@@ -411,7 +439,73 @@ public class UpdateDomainXML extends CMSServlet {
                         }
                     }
             } else {
-                    status = add_to_ldap(entry, dn);
+                status = add_to_ldap(entry, dn);
+
+                if (status.equals(SUCCESS)) {
+                    CMS.debug("UpdateDomainXML: " +
+                              "Successfully added PKI Security Domain " +
+                              "attributes to DN '" + dn + "'");
+
+                    // Attempt to modify this LDAP entry by
+                    // trying to add IP Port Separation attributes
+                    LDAPModificationSet mods = null;
+                    mods = new LDAPModificationSet();
+                    if ((agenthost != null) && (!agenthost.equals(""))) {
+                        mods.add(LDAPModification.ADD, 
+                                 new LDAPAttribute("AgentHost", agenthost));
+                    }
+                    if ((eehost != null) && (!eehost.equals(""))) {
+                        mods.add(LDAPModification.ADD, 
+                                 new LDAPAttribute("EEHost", eehost));
+                    }
+                    if ((adminhost != null) && (!adminhost.equals(""))) {
+                        mods.add(LDAPModification.ADD, 
+                                 new LDAPAttribute("AdminHost", adminhost));
+                    }
+                    if ((eecahost != null) && (!eecahost.equals(""))) {
+                        mods.add(LDAPModification.ADD, 
+                                 new LDAPAttribute("EEClientAuthHost",
+                                                   eecahost));
+                    }
+
+                    try {
+                        if (mods.size() > 0) {
+                            add_attributes(dn, mods);
+                            CMS.debug("UpdateDomainXML: " +
+                                      "Successfully added " +
+                                      "IP Port Separation Security Domain " +
+                                      "attributes to DN '" + dn + "'");
+                        }
+                    } catch (LDAPException e) {
+                        int errorCode = e.getLDAPResultCode();
+                        if ((errorCode == LDAPException.NO_SUCH_ATTRIBUTE) ||
+                            (errorCode == LDAPException.OBJECT_CLASS_VIOLATION))
+                        {
+                            // ignore this type of error
+                            CMS.debug("UpdateDomainXML: " +
+                                      "Unable to add " +
+                                      "IP Port Separation Security Domain " +
+                                      "attributes to DN '" + dn +
+                                      "' (server contains old schema)");
+                        } else {
+                            e.printStackTrace();
+                            CMS.debug("UpdateDomainXML: " +
+                                      "LDAPException - Failed to add " +
+                                      "IP Port Separation Security Domain " +
+                                      "attributes to DN '" + dn + "' - " + 
+                                      e.toString());
+                            status = FAILED;
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        CMS.debug("UpdateDomainXML: " +
+                                  "Exception - Failed to add " +
+                                  "IP Port Separation Security Domain " +
+                                  "attributes to DN '" + dn + "' - " + 
+                                  e.toString());
+                        status = FAILED;
+                    }
+                }
             }
         }
         else { 
@@ -436,9 +530,9 @@ public class UpdateDomainXML extends CMSServlet {
 
                     for (int i = 0; i < len; i++) {
                         Node nn = (Node) nodeList.item(i);
-                        Vector v_name = parser.getValuesFromContainer(nn, "SubsystemName");
-                        Vector v_host = parser.getValuesFromContainer(nn, "Host");
-                        Vector v_adminport = parser.getValuesFromContainer(nn, "SecureAdminPort");
+                        Vector v_name = parser.getValuesFromContainer(nn, "SubsystemName", true);
+                        Vector v_host = parser.getValuesFromContainer(nn, "Host", true);
+                        Vector v_adminport = parser.getValuesFromContainer(nn, "SecureAdminPort", true);
                         if ((v_name.elementAt(0).equals(name)) && (v_host.elementAt(0).equals(host))
                             && (v_adminport.elementAt(0).equals(adminsport))) {
                                 Node parent = nn.getParentNode();
@@ -455,8 +549,8 @@ public class UpdateDomainXML extends CMSServlet {
                     parser.addItemToContainer(parent, "SecurePort", sport);
                     parser.addItemToContainer(parent, "SecureAgentPort", agentsport);
                     parser.addItemToContainer(parent, "SecureAdminPort", adminsport);
-                    parser.addItemToContainer(parent, "SecureEEClientAuthPort", eecaport);
                     parser.addItemToContainer(parent, "UnSecurePort", httpport);
+                    parser.addItemToContainer(parent, "SecureEEClientAuthPort", eecaport);
                     parser.addItemToContainer(parent, "DomainManager", domainmgr.toUpperCase());
                     parser.addItemToContainer(parent, "Clone", clone.toUpperCase());
                     count ++;

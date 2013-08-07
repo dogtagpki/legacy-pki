@@ -47,19 +47,19 @@ This instance can be configured as a new $systemname subsystem.
       </tr>
       <tr>
         <th>Subsystem HTTP EE URL (unsecure): </th>
-        <td>http://$machineName:$http_port</td>
+        <td>http://$eeMachineName:$http_ee_port</td>
       </tr>
       <tr>
         <th>Subsystem HTTPS Agent URL (clientauth): </th>
-        <td>https://$machineName:$https_agent_port</td>
+        <td>https://$agentMachineName:$https_agent_port</td>
       </tr>
       <tr>
         <th>Subsystem HTTPS EE URL (non-clientauth): </th>
-        <td>https://$machineName:$https_ee_port</td>
+        <td>https://$eeMachineName:$https_ee_port</td>
       </tr>
       <tr>
         <th>Subsystem HTTPS Admin URL (non-clientauth): </th>
-        <td>https://$machineName:$https_admin_port</td>
+        <td>https://$adminMachineName:$https_admin_port</td>
       </tr>
     </table>
 <p>

@@ -17,16 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.filter;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.netscape.certsrv.apps.CMS;
+import javax.servlet.http.*;
+import javax.servlet.*;
+import com.netscape.certsrv.apps.*;
 
 public class EERequestFilter implements Filter
 {
@@ -35,9 +28,9 @@ public class EERequestFilter implements Filter
     private static final String HTTP_ROLE = "EE";
     private static final String HTTPS_SCHEME = "https";
     private static final String HTTPS_PORT = "https_port";
-    private static final String HTTPS_ROLE = "EE";
     private static final String PROXY_PORT = "proxy_port";
     private static final String PROXY_HTTP_PORT = "proxy_http_port";
+    private static final String HTTPS_ROLE = "EE";
 
     private FilterConfig config;
     
@@ -176,7 +169,6 @@ public class EERequestFilter implements Filter
                     }
                 }
             }
-
         }
         // CMS.debug("Exiting the EE filter");
 

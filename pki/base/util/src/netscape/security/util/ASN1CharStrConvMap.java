@@ -17,13 +17,8 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.util;
 
-import java.util.Enumeration;
-import java.util.Hashtable;
-
-import sun.io.ByteToCharConverter;
-import sun.io.ByteToCharUTF8;
-import sun.io.CharToByteConverter;
-import sun.io.CharToByteUTF8;
+import java.util.*;
+import sun.io.*;
 
 /**
  * Maps a ASN.1 character string type to a CharToByte and ByteToChar converter.

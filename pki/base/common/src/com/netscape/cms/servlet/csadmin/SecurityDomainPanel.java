@@ -18,24 +18,27 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.StringTokenizer;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import org.mozilla.jss.crypto.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.cmsutil.crypto.*;
+import java.net.*;
+import java.io.*;
+import java.util.*;
+import java.security.cert.*;
+import com.netscape.cmsutil.xml.*;
+import org.w3c.dom.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
+import com.netscape.cms.servlet.wizard.*;
 
 public class SecurityDomainPanel extends WizardPanelBase {
 
@@ -96,13 +99,11 @@ public class SecurityDomainPanel extends WizardPanelBase {
         String default_admin_url = "";
         String name = "";
         String cstype = "";
-        String systemdService = "";
 
         try {
             default_admin_url = config.getString("preop.securitydomain.admin_url", "");
             name = config.getString("preop.securitydomain.name", "");
             cstype = config.getString("cs.type", "");
-            systemdService = config.getString("pkicreate.systemd.servicename", "");
         } catch (Exception e) {
             CMS.debug(e.toString());
         }
@@ -130,10 +131,12 @@ public class SecurityDomainPanel extends WizardPanelBase {
             context.put("wizardname", config.getString("preop.wizard.name"));
             context.put("panelname", "Security Domain Configuration");
             context.put("systemname", config.getString("preop.system.name"));
-            context.put("machineName", config.getString("machineName"));
+            context.put("eeMachineName", config.getString("eeMachineName"));
             context.put("http_ee_port", CMS.getEENonSSLPort());
+            context.put("agentMachineName", config.getString("agentMachineName"));
             context.put("https_agent_port", CMS.getAgentPort());
             context.put("https_ee_port", CMS.getEESSLPort());
+            context.put("adminMachineName", config.getString("adminMachineName"));
             context.put("https_admin_port", CMS.getAdminPort());
             context.put("sdomainAdminURL", default_admin_url);
         } catch (EBaseException e) {}
@@ -209,21 +212,13 @@ public class SecurityDomainPanel extends WizardPanelBase {
         }
 
         // Information for "existing" Security Domain CAs
-        String initDaemon = "pki-cad";
         String instanceId = "&lt;security_domain_instance_name&gt;";
         String os = System.getProperty( "os.name" );
         if( os.equalsIgnoreCase( "Linux" ) ) {
-            if (! systemdService.equals("")) {
-                context.put( "initCommand", "/usr/bin/pkicontrol" );
-                context.put( "instanceId", "ca " + systemdService );
-            } else {
-                context.put( "initCommand", "/sbin/service " + initDaemon );
-                context.put( "instanceId", instanceId );
-            }
+            context.put( "initCommand", "/sbin/service " + instanceId );
         } else {
             /* default case:  e. g. - ( os.equalsIgnoreCase( "SunOS" ) */
-            context.put( "initCommand", "/etc/init.d/" + initDaemon );
-            context.put( "instanceId", instanceId );
+            context.put( "initCommand", "/etc/init.d/" + instanceId );
         }
     }
 
@@ -247,7 +242,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
             String name = HttpInput.getSecurityDomainName(request, "sdomainName");
             if (name == null || name.equals("")) {
                 initParams(request, context);
-                context.put("updateStatus", "validate-failure");
                 throw new IOException("Missing name value for the security domain");
             }
         } else if (select.equals("existingdomain")) {
@@ -256,7 +250,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
             String admin_url = HttpInput.getURL( request, "sdomainURL" );
             if( admin_url == null || admin_url.equals("") ) {
                 initParams( request, context );
-                context.put("updateStatus", "validate-failure");
                 throw new IOException( "Missing SSL Admin HTTPS url value "
                                      + "for the security domain" );
             } else {
@@ -274,7 +267,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
                 } catch( Exception e ) {
                     CMS.debug( "SecurityDomainPanel: exception caught: "
                              + e.toString() );
-                    context.put("updateStatus", "validate-failure");
                     throw new IOException( "Illegal SSL Admin HTTPS url value "
                                          + "for the security domain" );
                 }
@@ -332,7 +324,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
 
         if (select == null) {
             CMS.debug("SecurityDomainPanel: choice not found");
-            context.put("updateStatus", "failure");
             throw new IOException("choice not found");
         }
         IConfigStore config = CMS.getConfigStore();
@@ -345,7 +336,15 @@ public class SecurityDomainPanel extends WizardPanelBase {
             config.putString("securitydomain.name", 
               HttpInput.getDomainName(request, "sdomainName"));
             config.putString("securitydomain.host", 
-              CMS.getEENonSSLHost());
+              CMS.getEEHost());
+            config.putString("securitydomain.agenthost", 
+              CMS.getAgentHost());
+            config.putString("securitydomain.eehost", 
+              CMS.getEEHost());
+            config.putString("securitydomain.adminhost", 
+              CMS.getAdminHost());
+            config.putString("securitydomain.eecahost", 
+              CMS.getEEClientAuthHost());
             config.putString("securitydomain.httpport", 
               CMS.getEENonSSLPort());
             config.putString("securitydomain.httpsagentport", 
@@ -354,6 +353,8 @@ public class SecurityDomainPanel extends WizardPanelBase {
               CMS.getEESSLPort());
             config.putString("securitydomain.httpsadminport", 
               CMS.getAdminPort());
+            config.putString("securitydomain.httpseecaport", 
+                             CMS.getEEClientAuthSSLPort());
 
             // make sure the subsystem certificate is issued by the security  
             // domain
@@ -391,12 +392,11 @@ public class SecurityDomainPanel extends WizardPanelBase {
                     admin_port = admin_u.getPort();
                 } catch( MalformedURLException e ) {
                     errorString = "Malformed SSL Admin HTTPS URL";
-                    context.put("updateStatus", "failure");
                     throw new IOException( errorString );
                 }
 
                 context.put( "sdomainURL", admin_url );
-                config.putString( "securitydomain.host", hostname );
+                config.putString( "securitydomain.adminhost", hostname );
                 config.putInteger( "securitydomain.httpsadminport",
                                    admin_port );
             }
@@ -411,7 +411,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
         } else {
             CMS.debug("SecurityDomainPanel: invalid choice " + select);
             errorString = "Invalid choice";
-            context.put("updateStatus", "failure");
             throw new IOException("invalid choice " + select);
         }
 
@@ -428,7 +427,6 @@ public class SecurityDomainPanel extends WizardPanelBase {
         } catch (EBaseException e) {}
 
         context.put("errorString", errorString);
-        context.put("updateStatus", "success");
     }
 
     /**
@@ -476,26 +474,25 @@ public class SecurityDomainPanel extends WizardPanelBase {
         }
 
         try {
-            context.put("machineName", config.getString("machineName"));
+            context.put("eeMachineName", config.getString("eeMachineName"));
             context.put("http_ee_port", CMS.getEENonSSLPort());
+            context.put("agentMachineName", config.getString("agentMachineName"));
             context.put("https_agent_port", CMS.getAgentPort());
             context.put("https_ee_port", CMS.getEESSLPort());
+            context.put("adminMachineName", config.getString("adminMachineName"));
             context.put("https_admin_port", CMS.getAdminPort());
             context.put("sdomainAdminURL",
                         config.getString("preop.securitydomain.admin_url"));
         } catch (EBaseException e) {}
 
         // Information for "existing" Security Domain CAs
-        String initDaemon = "pki-cad";
         String instanceId = "&lt;security_domain_instance_name&gt;";
         String os = System.getProperty( "os.name" );
         if( os.equalsIgnoreCase( "Linux" ) ) {
-            context.put( "initCommand", "/sbin/service " + initDaemon );
-            context.put( "instanceId", instanceId );
+            context.put( "initCommand", "/sbin/service " + instanceId );
         } else {
             /* default case:  e. g. - ( os.equalsIgnoreCase( "SunOS" ) */
-            context.put( "initCommand", "/etc/init.d/" + initDaemon );
-            context.put( "instanceId", instanceId );
+            context.put( "initCommand", "/etc/init.d/" + instanceId );
         }
 
         context.put("title", "Security Domain");

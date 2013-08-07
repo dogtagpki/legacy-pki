@@ -18,9 +18,10 @@
 package com.netscape.cmscore.policy;
 
 
-import com.netscape.certsrv.policy.IPolicyRule;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.PolicyResult;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.policy.*;
+
+import com.netscape.cmscore.util.Debug;
 
 
 public class JavaScriptRequestProxy {

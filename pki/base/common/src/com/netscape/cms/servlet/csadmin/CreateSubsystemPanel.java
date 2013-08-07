@@ -18,24 +18,27 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.net.URL;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import org.mozilla.jss.crypto.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.cmsutil.crypto.*;
+import java.net.*;
+import java.io.*;
+import java.util.*;
+import com.netscape.cmsutil.xml.*;
+import org.w3c.dom.*;
+import org.xml.sax.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
+import com.netscape.cms.servlet.wizard.*;
 
 public class CreateSubsystemPanel extends WizardPanelBase {
 
@@ -136,8 +139,10 @@ public class CreateSubsystemPanel extends WizardPanelBase {
             context.put("wizardname", config.getString("preop.wizard.name"));
             context.put("systemname", config.getString("preop.system.name"));
             context.put("fullsystemname", config.getString("preop.system.fullname"));
-            context.put("machineName", config.getString("machineName"));
-            context.put("http_port", CMS.getEENonSSLPort());
+            context.put("agentMachineName", config.getString("agentMachineName"));
+            context.put("eeMachineName", config.getString("eeMachineName"));
+            context.put("adminMachineName", config.getString("adminMachineName"));
+            context.put("http_ee_port", CMS.getEENonSSLPort());
             context.put("https_agent_port", CMS.getAgentPort());
             context.put("https_ee_port", CMS.getEESSLPort());
             context.put("https_admin_port", CMS.getAdminPort());
@@ -192,47 +197,37 @@ public class CreateSubsystemPanel extends WizardPanelBase {
 
         if (select == null) {
             CMS.debug("CreateSubsystemPanel: choice not found");
-            context.put("updateStatus", "failure");
             throw new IOException("choice not found");
         }
 
-        config.putString("preop.subsystem.name", 
-              HttpInput.getName(request, "subsystemName"));
-        if (select.equals("newsubsystem")) {
-            config.putString("preop.subsystem.select", "new");
-            config.putString("subsystem.select", "New");
-        } else if (select.equals("clonesubsystem")) {
-            String cstype = "";
-            try {
-                cstype = config.getString("cs.type", "");
-            } catch (Exception e) {
-            }
-
-            cstype = toLowerCaseSubsystemType(cstype);
+        try {
+            config.putString("preop.subsystem.name", 
+                HttpInput.getName(request, "subsystemName"));
+            if (select.equals("newsubsystem")) {
+                config.putString("preop.subsystem.select", "new");
+                config.putString("subsystem.select", "New");
+            } else if (select.equals("clonesubsystem")) {
+                String cstype = config.getString("cs.type", "");
+                cstype = toLowerCaseSubsystemType(cstype);
       
-            config.putString("preop.subsystem.select", "clone");
-            config.putString("subsystem.select", "Clone");
+                config.putString("preop.subsystem.select", "clone");
+                config.putString("subsystem.select", "Clone");
 
-            String lists = "";
-            try {
-                lists = config.getString("preop.cert.list", "");
-            } catch (Exception ee) {
-            }
+                String lists = config.getString("preop.cert.list", "");
 
-            StringTokenizer t = new StringTokenizer(lists, ",");
-            while (t.hasMoreTokens()) {
-                String tag = t.nextToken();
-                if (tag.equals("sslserver"))
-                    config.putBoolean(PCERT_PREFIX+tag+".enable", true);
-                else 
-                    config.putBoolean(PCERT_PREFIX+tag+".enable", false);
-            }
+                StringTokenizer t = new StringTokenizer(lists, ",");
+                while (t.hasMoreTokens()) {
+                    String tag = t.nextToken();
+                    if (tag.equals("sslserver"))
+                        config.putBoolean(PCERT_PREFIX+tag+".enable", true);
+                    else 
+                        config.putBoolean(PCERT_PREFIX+tag+".enable", false);
+                }
 
-            // get the master CA
-            String index = request.getParameter("urls");
-            String url = "";
+                // get the master CA
+                String index = request.getParameter("urls");
+                String url = "";
 
-            try {
                 int x = Integer.parseInt(index);
                 String list = config.getString("preop.master.list", "");
                 StringTokenizer tokenizer = new StringTokenizer(list, ",");
@@ -245,46 +240,55 @@ public class CreateSubsystemPanel extends WizardPanelBase {
                     }
                     counter++;
                 }
-            } catch (Exception e) {
-            }
 
-            url = url.substring(url.indexOf("http"));
+                url = url.substring(url.indexOf("http"));
 
-            URL u = new URL(url);
-            String host = u.getHost();
-            int https_ee_port = u.getPort();
+                URL u = new URL(url);
+                String host = u.getHost();
+                int https_ee_port = u.getPort();
 
-            String https_admin_port = getSecurityDomainAdminPort( config,
-                                                                  host,
-                                                                  String.valueOf(https_ee_port),
-                                                                  cstype );
+                String https_admin_host = getSecurityDomainAdminHost( config,
+                                                                      host,
+                                                                      String.valueOf(https_ee_port),
+                                                                      cstype );
+                String https_admin_port = getSecurityDomainAdminPort( config,
+                                                                      host,
+                                                                      String.valueOf(https_ee_port),
+                                                                      cstype );
+                CMS.debug("CreateSubsystemPanel: update " + 
+                          "cstype=" + cstype +
+                          " EE host (preop.master.hostname)=" + host +
+                          " EE port (preop.master.hostname)=" +
+                          String.valueOf(https_ee_port) +
+                          " Admin host (preop.master.httpsadminhost)=" +
+                          https_admin_host +
+                          " Admin port (preop.master.httpsadminport)=" +
+                          https_admin_port);
 
-            config.putString("preop.master.hostname", host);
-            config.putInteger("preop.master.httpsport", https_ee_port);
-            config.putString("preop.master.httpsadminport", https_admin_port);
+                config.putString("preop.master.hostname", host);
+                config.putInteger("preop.master.httpsport", https_ee_port);
+                config.putString("preop.master.httpsadminhost", https_admin_host);
+                config.putString("preop.master.httpsadminport", https_admin_port);
 
-            ConfigCertApprovalCallback certApprovalCallback = new ConfigCertApprovalCallback();
-            if (cstype.equals("ca")) {
-                updateCertChainUsingSecureEEPort( config, "clone", host, https_ee_port,
+                ConfigCertApprovalCallback certApprovalCallback = new ConfigCertApprovalCallback();
+                if (cstype.equals("ca")) {
+                    updateCertChain( config, "clone", https_admin_host, Integer.parseInt(https_admin_port),
                                  true, context, certApprovalCallback );
+                }
+            } else {
+                CMS.debug("CreateSubsystemPanel: invalid choice " + select);
+                errorString = "Invalid choice";
+                throw new IOException("invalid choice " + select);
             }
 
-            getTokenInfo(config, cstype, host, https_ee_port, true, context, 
-              certApprovalCallback);
-        } else {
-            CMS.debug("CreateSubsystemPanel: invalid choice " + select);
-            errorString = "Invalid choice";
-            context.put("updateStatus", "failure");
-            throw new IOException("invalid choice " + select);
-        }
-
-        try {
             config.commit(false);
-        } catch (EBaseException e) {
-        }
 
-        context.put("errorString", errorString);
-        context.put("updateStatus", "success");
+            context.put("errorString", errorString);
+        } catch (Exception e) {
+            CMS.debug("CreateSubsystemPanel: Exception thrown : " + e);
+            context.put("errorString", e.toString());
+            throw new IOException(e);
+        }
     }
 
     /**

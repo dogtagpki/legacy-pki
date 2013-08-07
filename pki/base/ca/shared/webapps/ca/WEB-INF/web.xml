@@ -13,7 +13,7 @@
 [PKI_OPEN_ENABLE_PROXY_COMMENT]
         <init-param>
             <param-name>proxy_port</param-name>
-            <param-value>[PKI_PROXY_SECURE_PORT]</param-value>
+            <param-value>[PKI_PROXY_AGENT_SECURE_PORT]</param-value>
         </init-param>
 [PKI_CLOSE_ENABLE_PROXY_COMMENT]
         <init-param>
@@ -32,7 +32,7 @@
 [PKI_OPEN_ENABLE_PROXY_COMMENT]
         <init-param>
             <param-name>proxy_port</param-name>
-            <param-value>[PKI_PROXY_SECURE_PORT]</param-value>
+            <param-value>[PKI_PROXY_ADMIN_SECURE_PORT]</param-value>
         </init-param>
 [PKI_CLOSE_ENABLE_PROXY_COMMENT]
         <init-param>
@@ -55,7 +55,7 @@
 [PKI_OPEN_ENABLE_PROXY_COMMENT]
         <init-param>
             <param-name>proxy_port</param-name>
-            <param-value>[PKI_PROXY_SECURE_PORT]</param-value>
+            <param-value>[PKI_PROXY_EE_SECURE_PORT]</param-value>
         </init-param>
         <init-param>
             <param-name>proxy_http_port</param-name>
@@ -78,7 +78,7 @@
 [PKI_OPEN_ENABLE_PROXY_COMMENT]
         <init-param>
             <param-name>proxy_port</param-name>
-            <param-value>[PKI_PROXY_SECURE_PORT]</param-value>
+            <param-value>[PKI_PROXY_EECA_SECURE_PORT]</param-value>
         </init-param>
 [PKI_CLOSE_ENABLE_PROXY_COMMENT]
         <init-param>
@@ -87,6 +87,7 @@
         </init-param>
     </filter>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet>
         <servlet-name>csadmin-wizard</servlet-name>
         <servlet-class>com.netscape.cms.servlet.wizard.WizardServlet</servlet-class>
@@ -113,6 +114,7 @@
         </init-param>
     </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  services </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.MainPageServlet </servlet-class>
@@ -274,6 +276,25 @@
    </servlet>
 
    <servlet>
+      <servlet-name>  caUpdateDomainXML-admin </servlet-name>
+      <servlet-class> com.netscape.cms.servlet.csadmin.UpdateDomainXML  </servlet-class>
+             <init-param><param-name>  GetClientCert  </param-name>
+                         <param-value> false       </param-value> </init-param>
+             <init-param><param-name>  authority   </param-name>
+                         <param-value> ca          </param-value> </init-param>
+             <init-param><param-name>  ID          </param-name>
+                         <param-value> caUpdateDomainXML </param-value> </init-param>
+             <init-param><param-name>  interface   </param-name>
+                         <param-value> admin          </param-value> </init-param>
+             <init-param><param-name>  AuthMgr     </param-name>
+                         <param-value> TokenAuth </param-value> </init-param>
+             <init-param><param-name>  AuthzMgr    </param-name>
+                         <param-value> BasicAclAuthz </param-value> </init-param>
+             <init-param><param-name>  resourceID  </param-name>
+                         <param-value> certServer.securitydomain.domainxml </param-value> </init-param>
+   </servlet>
+
+   <servlet>
       <servlet-name>  caUpdateNumberRange  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.UpdateNumberRange  </servlet-class>
              <init-param><param-name>  GetClientCert  </param-name>
@@ -283,7 +304,7 @@
              <init-param><param-name>  ID          </param-name>
                          <param-value> caUpdateNumberRange </param-value> </init-param>
              <init-param><param-name>  interface   </param-name>
-                         <param-value> ee          </param-value> </init-param>
+                         <param-value> admin          </param-value> </init-param>
              <init-param><param-name>  AuthMgr     </param-name>
                          <param-value> TokenAuth </param-value> </init-param>
              <init-param><param-name>  AuthzMgr    </param-name>
@@ -311,6 +332,8 @@
                          <param-value> certServer.admin.ocsp </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet>
       <servlet-name>  caDownloadPKCS12  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.DownloadPKCS12  </servlet-class>
@@ -330,6 +353,7 @@
                          <param-value> certServer.clone.configuration </param-value> </init-param>
    </servlet>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet>
       <servlet-name>  caGetCertChain  </servlet-name>
       <servlet-class> com.netscape.cms.servlet.csadmin.GetCertChain  </servlet-class>
@@ -1849,16 +1873,16 @@
    </servlet>
 
    <servlet>
-      <servlet-name>  caGetTokenInfo  </servlet-name>
-      <servlet-class> com.netscape.cms.servlet.csadmin.GetTokenInfo  </servlet-class>
+      <servlet-name>  caTokenAuthenticate-admin  </servlet-name>
+      <servlet-class> com.netscape.cms.servlet.csadmin.TokenAuthenticate  </servlet-class>
              <init-param><param-name>  GetClientCert  </param-name>
                          <param-value> false       </param-value> </init-param>
              <init-param><param-name>  authority   </param-name>
                          <param-value> ca          </param-value> </init-param>
              <init-param><param-name>  ID          </param-name>
-                         <param-value> caGetTokenInfo </param-value> </init-param>
+                         <param-value> caTokenAuthenticate  </param-value> </init-param>
              <init-param><param-name>  interface   </param-name>
-                         <param-value> ee          </param-value> </init-param>
+                         <param-value> admin          </param-value> </init-param>
    </servlet>
 
    <servlet>
@@ -1904,42 +1928,123 @@
    <filter-mapping>
       <filter-name>   AgentRequestFilter          </filter-name>
       <url-pattern>   /agent/*                    </url-pattern>
-      <url-pattern>   /ca/getCertFromRequest      </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AgentRequestFilter          </filter-name>
+      <url-pattern>   /ca/getCertFromRequest       </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AgentRequestFilter          </filter-name>
       <url-pattern>   /ca/getBySerial             </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AgentRequestFilter          </filter-name>
       <url-pattern>   /ca/connector               </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AgentRequestFilter          </filter-name>
       <url-pattern>   /ca/displayCertFromRequest  </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AgentRequestFilter          </filter-name>
       <url-pattern>   /doRevoke                   </url-pattern>
    </filter-mapping>
 
    <filter-mapping>
       <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /admin/*                    </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /auths                      </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /acl                        </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /server                     </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /caadmin                    </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /caprofile                  </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /jobsScheduler              </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /capublisher                </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /log                        </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>   AdminRequestFilter          </filter-name>
       <url-pattern>   /ug                         </url-pattern>
    </filter-mapping>
 
    <filter-mapping> 
       <filter-name>  EEClientAuthRequestFilter    </filter-name>
-      <url-pattern>  /eeca/*                        </url-pattern>
+      <url-pattern>  /eeca/*                      </url-pattern>
    </filter-mapping>
 
    <filter-mapping>
       <filter-name>  EERequestFilter              </filter-name>
       <url-pattern>  /ee/*                        </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  EERequestFilter              </filter-name>
       <url-pattern>  /renewal                     </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  EERequestFilter              </filter-name>
       <url-pattern>  /certbasedenrollment         </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  EERequestFilter              </filter-name>
       <url-pattern>  /ocsp                        </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  EERequestFilter              </filter-name>
       <url-pattern>  /enrollment                  </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  EERequestFilter              </filter-name>
       <url-pattern>  /profileSubmit               </url-pattern>
+   </filter-mapping>
+
+   <filter-mapping>
+      <filter-name>  EERequestFilter              </filter-name>
       <url-pattern>  /cgi-bin/pkiclient.exe       </url-pattern>
    </filter-mapping>
+
 [PKI_CLOSE_SEPARATE_PORTS_WEB_COMMENT]
 
    <servlet-mapping>
@@ -1987,16 +2092,24 @@
       <url-pattern>   /agent/ca/updateDomainXML  </url-pattern>
    </servlet-mapping>
 
-   <servlet-mapping>     
-      <servlet-name>  caUpdateNumberRange </servlet-name>
-      <url-pattern>   /ee/ca/updateNumberRange  </url-pattern>
+   <servlet-mapping>
+      <servlet-name>  caUpdateDomainXML-admin </servlet-name>
+      <url-pattern>   /admin/ca/updateDomainXML  </url-pattern>
    </servlet-mapping>
 
+   <servlet-mapping>     
+      <servlet-name>  caUpdateNumberRange </servlet-name>
+      <url-pattern>   /admin/ca/updateNumberRange  </url-pattern>
+   </servlet-mapping>
+
+    <!-- ================= PKI Installation Wizard Header ================= -->
+    <!-- ============== PKI Installation Wizard Prerequisite ============== -->
    <servlet-mapping>
       <servlet-name>  caDownloadPKCS12 </servlet-name>
       <url-pattern>   /admin/console/config/savepkcs12 </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  caGetCertChain  </servlet-name>
       <url-pattern>   /ee/ca/getCertChain  </url-pattern>
@@ -2382,6 +2495,7 @@
       <url-pattern>   /ee/ca/doRevoke  </url-pattern>
    </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Header ================= -->
     <servlet-mapping>
         <servlet-name>csadmin-login</servlet-name>
         <url-pattern>/admin/console/config/login</url-pattern>
@@ -2392,6 +2506,7 @@
         <url-pattern>/admin/console/config/wizard</url-pattern>
     </servlet-mapping>
 
+    <!-- ================= PKI Installation Wizard Footer ================= -->
    <servlet-mapping>
       <servlet-name>  caUpdateConnector </servlet-name>
       <url-pattern>   /admin/ca/updateConnector  </url-pattern>
@@ -2433,8 +2548,8 @@
    </servlet-mapping>
 
    <servlet-mapping>
-      <servlet-name>  caGetTokenInfo </servlet-name>
-      <url-pattern>   /ee/ca/getTokenInfo </url-pattern>
+      <servlet-name>  caTokenAuthenticate-admin </servlet-name>
+      <url-pattern>   /admin/ca/tokenAuthenticate  </url-pattern>
    </servlet-mapping>
 
    <servlet-mapping>

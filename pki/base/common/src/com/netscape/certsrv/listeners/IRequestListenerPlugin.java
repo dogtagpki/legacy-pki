@@ -18,8 +18,7 @@
 package com.netscape.certsrv.listeners;
 
 
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
+import com.netscape.certsrv.base.*;
 
 /**
  * This interface represents a plug-in listener. Implement this class to

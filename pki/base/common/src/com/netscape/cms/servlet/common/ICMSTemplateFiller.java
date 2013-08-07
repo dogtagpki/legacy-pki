@@ -19,8 +19,7 @@ package com.netscape.cms.servlet.common;
 
 
 import java.util.Locale;
-
-import com.netscape.certsrv.authority.IAuthority;
+import com.netscape.certsrv.authority.*;
 
 
 /**

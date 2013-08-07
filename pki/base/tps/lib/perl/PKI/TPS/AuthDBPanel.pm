@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -99,7 +99,7 @@ sub update
     if (! $conn) {
       &PKI::TPS::Wizard::debug_log("AuthDBPanel: failed to connect to auth db: $msg");
       $::symbol{errorString} = $msg;
-      return 0;
+      return 0; 
     };
 
     my $entry = $conn->search($basedn, "base", "objectclass=*", 0);
@@ -156,6 +156,7 @@ sub display
     }
 
     my $secureconn = $::config->get("auth.instance.0.ssl") || "false";
+
     $::symbol{hostname} = $host;
     $::symbol{portStr} = $port;
     $::symbol{basedn} = $basedn;
