@@ -3910,9 +3910,15 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
     //pretty_cuid = GetPrettyPrintCUID(cuid);
 
     //nv.Add("pretty_cuid", pretty_cuid);
-    nv.Add("cuid", cuid);
-    nv.Add("msn", msn);
-    nv.Add("userid", userid);
+
+    if (cuid)
+        nv.Add("cuid", cuid);
+
+    if (msn)
+        nv.Add("msn", msn);
+
+    if(userid)
+        nv.Add("userid", userid);
 
     PR_snprintf((char *)configname, 256, "%s.%s.keyGen.%s.label",
                             OP_PREFIX, tokenType, "encryption");
