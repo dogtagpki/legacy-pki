@@ -3123,11 +3123,11 @@ bool RA_Enroll_Processor::ExternalRegRecover(
                 }
              }
 
-            erCertToRecover->setCertKeyInfo(erCertKeyInfo);
             erCertKeyInfo->setWrappedPrivKey(o_priv);
             erCertKeyInfo->setPublicKey(o_pub);
             erCertKeyInfo->setIVParam(ivParam);
         }
+        erCertToRecover->setCertKeyInfo(erCertKeyInfo);
 
         cert = certEnroll->RetrieveCertificate(serial, caConn, error_msg);
 
@@ -3141,18 +3141,18 @@ bool RA_Enroll_Processor::ExternalRegRecover(
                 "RetrieveCertificate() returns error: %s", error_msg);
             }
         } else {
-        RA::Debug(LL_PER_CONNECTION, FN,
-            "RetrieveCertificate() succeeded");
-        }
-        cert_string = (char *) cert->string();
-        o_cert = CERT_DecodeCertFromPackage((char *) cert_string, 
-            (int) cert->size());
-        if (cert_string)
-            free(cert_string);
-        if (o_cert != NULL) {
             RA::Debug(LL_PER_CONNECTION, FN,
+                "RetrieveCertificate() succeeded");
+            cert_string = (char *) cert->string();
+            o_cert = CERT_DecodeCertFromPackage((char *) cert_string, 
+                (int) cert->size());
+            if (cert_string)
+                free(cert_string);
+            if (o_cert != NULL) {
+                RA::Debug(LL_PER_CONNECTION, FN,
                 "CERT_DecodeCertFromPackage() succeeded, add to inject");
-            erCertKeyInfo->setCert(o_cert);
+                erCertKeyInfo->setCert(o_cert);
+            }
         }
     }
 
