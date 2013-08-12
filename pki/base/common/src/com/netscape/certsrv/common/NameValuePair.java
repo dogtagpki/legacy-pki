@@ -18,6 +18,12 @@
 package com.netscape.certsrv.common;
 
 
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
 
 
 /**

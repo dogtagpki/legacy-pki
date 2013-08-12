@@ -18,7 +18,7 @@
 package com.netscape.certsrv.publish;
 
 
-import com.netscape.certsrv.ldap.ELdapException;
+import com.netscape.certsrv.ldap.*;
 
 
 /**

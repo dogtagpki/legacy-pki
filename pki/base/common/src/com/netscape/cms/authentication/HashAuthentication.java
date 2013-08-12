@@ -19,26 +19,27 @@ package com.netscape.cms.authentication;
 
 
 // ldap java sdk
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Locale;
-import java.util.Vector;
+import netscape.ldap.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.AuthToken;
-import com.netscape.certsrv.authentication.EAuthException;
-import com.netscape.certsrv.authentication.EInvalidCredentials;
-import com.netscape.certsrv.authentication.IAuthCredentials;
-import com.netscape.certsrv.authentication.IAuthManager;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.base.EBaseException;
+// cert server imports.
+import com.netscape.certsrv.apps.*;
 import com.netscape.certsrv.base.IConfigStore;
+import com.netscape.certsrv.base.EBaseException;
 import com.netscape.certsrv.base.IExtendedPluginInfo;
+import com.netscape.certsrv.ldap.ELdapException;
+import com.netscape.certsrv.ldap.LdapResources;
 import com.netscape.certsrv.logging.ILogger;
-import com.netscape.cmsutil.util.Utils;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.cmsutil.util.*;
+
+// cert server x509 imports
+import netscape.security.x509.*;
+import java.security.cert.*;
+import java.security.*;
+
+// java sdk imports.
+import java.util.*;
+import java.io.IOException;
 
 
 /**

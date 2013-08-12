@@ -18,21 +18,16 @@
 package com.netscape.cms.profile.input;
 
 
-import java.io.BufferedInputStream;
-import java.net.URL;
-import java.net.URLConnection;
-import java.security.MessageDigest;
-import java.util.Locale;
+import java.io.*;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.profile.IProfileContext;
-import com.netscape.certsrv.profile.IProfileInput;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
+import java.net.*;
+import java.security.*;
 
 
 /**
@@ -82,7 +77,7 @@ public class FileSigningInput extends EnrollInput implements IProfileInput {
         StringBuffer sb = new StringBuffer();
         for (int i = 0; i < data.length; i++) {
             int v = data[i] & 0xff;
-            if (v < 16) {
+            if (v <= 9) {
               sb.append("0");
             }
             sb.append(Integer.toHexString(v));

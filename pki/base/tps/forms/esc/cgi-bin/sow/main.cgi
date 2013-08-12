@@ -22,13 +22,8 @@
 #
 
 use CGI;
-
-[REQUIRE_CFG_PL]
-
-
-my $ldapHost = get_ldap_host();
-my $ldapPort = get_ldap_port();
-my $basedn = get_base_dn();
+no warnings qw(redefine);
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 my $q = new CGI;
 
@@ -54,7 +49,7 @@ sub DoPage
   my $error = $q->param('error');
   $error = "" if !defined $error;
 
-  open(FILE, "< main.html");
+  open(FILE, "< [SERVER_ROOT]/cgi-bin/sow/main.html");
 
   print $q->header();
 

@@ -18,31 +18,27 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.crypto.TokenException;
-import org.mozilla.jss.pkcs11.PK11Module;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.property.*;
+import java.io.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.Module;
+
+import com.netscape.cmsutil.crypto.*;
+import java.util.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.pkcs11.*;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class ModulePanel extends WizardPanelBase {
     private CryptoManager mCryptoManager = null;
@@ -314,11 +310,9 @@ public class ModulePanel extends WizardPanelBase {
               config.putBoolean("preop.ModulePanel.done", true);
 	    }
             config.commit(false);
-            context.put("updateStatus", "success");
         } catch (Exception e) {
             CMS.debug("ModulePanel: Exception caught: " + e.toString());
             System.err.println("Exception caught: " + e.toString());
-            context.put("updateStatus", "failure");
         }
     }
 

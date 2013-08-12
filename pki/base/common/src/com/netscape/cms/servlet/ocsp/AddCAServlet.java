@@ -18,33 +18,40 @@
 package com.netscape.cms.servlet.ocsp;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.cert.X509Certificate;
-import java.util.Locale;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
+import java.math.*;
+import java.util.Vector;
+import java.io.InputStream;
+import java.io.IOException;
+import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.ServletException;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.dbs.crldb.ICRLIssuingPointRecord;
-import com.netscape.certsrv.logging.AuditFormat;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.ocsp.IDefStore;
-import com.netscape.certsrv.ocsp.IOCSPAuthority;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
-import com.netscape.cmsutil.util.Cert;
+import org.mozilla.jss.asn1.INTEGER;
+import org.mozilla.jss.pkix.cert.Certificate;
+import org.mozilla.jss.pkix.primitive.AlgorithmIdentifier;
+import org.mozilla.jss.asn1.BIT_STRING;
+
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.ocsp.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.dbs.crldb.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.cms.servlet.*;
+import com.netscape.cmsutil.util.*;
+
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
+import java.security.cert.*;
+import java.util.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
 
 /**
@@ -179,6 +186,7 @@ public class AddCAServlet extends CMSServlet {
             auditCA);
 
         audit( auditMessage );
+        CMS.debug("AddCAServlet: b64 of CA cert submitted to add: "+b64);
 
         if (b64.indexOf(BEGIN_HEADER) == -1) {
             auditMessage = CMS.getLogMessage(
@@ -229,7 +237,9 @@ public class AddCAServlet extends CMSServlet {
             certs[0] = cert;
             leafCert = cert;
             auditCASubjectDN = leafCert.getSubjectDN().getName();
+            CMS.debug("AddCAServlet: auditCASubjectDN: "+auditCASubjectDN);
         } catch (Exception e) {
+            CMS.debug("AddCAServlet: Cert.mapCert() called:"+ e.toString());
         }
         if (certs == null) {
             try {
@@ -241,7 +251,9 @@ public class AddCAServlet extends CMSServlet {
                     leafCert = certs[0];
                 }
                 auditCASubjectDN = leafCert.getSubjectDN().getName();
+                CMS.debug("AddCAServlet: auditCASubjectDN: "+auditCASubjectDN);
             } catch (Exception e) {
+                CMS.debug("AddCAServlet: Cert.mapCertFromPKCS7() called:"+ e.toString());
                 auditMessage = CMS.getLogMessage(
                     LOGGING_SIGNED_AUDIT_OCSP_ADD_CA_REQUEST_PROCESSED,
                     auditSubjectID,
@@ -267,6 +279,7 @@ public class AddCAServlet extends CMSServlet {
             try {
                 rec.set(ICRLIssuingPointRecord.ATTR_CA_CERT, leafCert.getEncoded());
             } catch (Exception e) {
+                CMS.debug("AddCAServlet: defStore.createCRLIssuingPointRecord() called: "+ e.toString());
                 auditMessage = CMS.getLogMessage(
                     LOGGING_SIGNED_AUDIT_OCSP_ADD_CA_REQUEST_PROCESSED,
                     auditSubjectID,
@@ -292,7 +305,7 @@ public class AddCAServlet extends CMSServlet {
             ServletOutputStream out = resp.getOutputStream();
             String error = null;
 
-            {
+            if (error == null) {
                 String xmlOutput = req.getParameter("xml");
                 if (xmlOutput != null && xmlOutput.equals("true")) {
                   outputXML(resp, argSet);
@@ -301,6 +314,9 @@ public class AddCAServlet extends CMSServlet {
                   form.renderOutput(out, argSet);
                   cmsReq.setStatus(CMSRequest.SUCCESS);
                 }
+            } else {
+                cmsReq.setStatus(CMSRequest.ERROR);
+                //  cmsReq.setError(error);
             }
         } catch (IOException e) {
             log(ILogger.LL_FAILURE,
