@@ -3472,7 +3472,7 @@ CERTCertificate **get_certificates(LDAPMessage *entry) {
 
     for (i = 0; bvals[i] != NULL; i++ )
         c++;    
-    ret = (CERTCertificate **) malloc ((sizeof (CERTCertificate *) * c) + 1);
+    ret = (CERTCertificate **) calloc ( (c + 1) , (sizeof (CERTCertificate *) ) );
     c = 0;
     for (i = 0; bvals[i] != NULL; i++ ) {
         cert = CERT_DecodeCertFromPackage((char *) bvals[i]->bv_val, (int) 

@@ -51,7 +51,9 @@ void printBuf(int , char* );
 RecvBuf::RecvBuf( const PRFileDesc *socket, int size, int timeout ) {
     _socket = socket;
     _allocSize = size;
-    _buf = (char *)PR_Malloc(size);
+    _buf = NULL;
+     _buf =  (char *) PR_Malloc(size + 1);
+     memset(_buf, '\0', size + 1 );
     _curPos = 0;
     _curSize = 0;
     _chunkedMode = PR_FALSE;
