@@ -2699,7 +2699,7 @@ bool RA_Processor::RequestUserId(
         int n = entry->GetAuthentication()->GetNumOfParamNames();
         if (n > 0) {
             RA::Debug(FN, "Extended Login Request detected n=%d", n);
-            params = (char **) PR_Malloc(n);
+            params = (char **) PR_Calloc(n, sizeof(char *));
             for (int i = 0; i < n; i++) {
                 sprintf(pb,"id=%s&name=%s&desc=%s&type=%s&option=%s",
                     entry->GetAuthentication()->GetParamID(i),

@@ -1311,7 +1311,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       PR_Free(desKey_s);
 
     if (decodeKey != NULL)
-      PR_Free(decodeKey);
+      delete decodeKey;
 
     if (wrappedDESKey_s != NULL)
       PR_Free(wrappedDESKey_s);

@@ -3126,6 +3126,21 @@ bool RA_Enroll_Processor::ExternalRegRecover(
             erCertKeyInfo->setWrappedPrivKey(o_priv);
             erCertKeyInfo->setPublicKey(o_pub);
             erCertKeyInfo->setIVParam(ivParam);
+
+            if(ivParam) {
+                PL_strfree(ivParam);
+                ivParam = NULL;
+            }
+
+            if(o_priv) {
+                PL_strfree(o_priv);
+                o_priv = NULL;
+            }
+
+            if(o_pub) {
+                PL_strfree(o_pub);
+                o_pub = NULL;
+            }
         }
         erCertToRecover->setCertKeyInfo(erCertKeyInfo);
 
