@@ -2900,7 +2900,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
                    if (n > 0) {
                        RA::Debug("RA_Processor::Format",
                 "Extended Login Request detected n=%d", n);
-                       params = (char **) PR_Malloc(n);
+                       params = (char **) PR_Calloc(n, sizeof(char *) );
                        for (int i = 0; i < n; i++) {
                          sprintf(pb,"id=%s&name=%s&desc=%s&type=%s&option=%s",
                              entry->GetAuthentication()->GetParamID(i),

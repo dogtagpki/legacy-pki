@@ -43,7 +43,7 @@ TPS_PUBLIC RA_Extended_Login_Request_Msg::RA_Extended_Login_Request_Msg (int inv
     m_description = PL_strdup(description);
     if (parameters != NULL) {
       if (len > 0) {
-        m_parameters = (char **) PR_Malloc (len);
+        m_parameters = (char **) PR_Calloc (len, sizeof(char *));
         for (int i = 0; i < len; i++) {
           m_parameters[i] = PL_strdup(parameters[i]);
         }
