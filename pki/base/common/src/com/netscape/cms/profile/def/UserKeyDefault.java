@@ -28,6 +28,7 @@ import com.netscape.certsrv.request.*;
 import com.netscape.certsrv.property.*;
 import com.netscape.certsrv.apps.*;
 import com.netscape.certsrv.apps.CMS;
+import com.netscape.cmsutil.crypto.CryptoUtil;
 
 import java.security.interfaces.DSAParams;
 import netscape.security.x509.*;
@@ -140,6 +141,12 @@ public class UserKeyDefault extends EnrollDefault {
             try {
                 if (k.getAlgorithm().equals("RSA")) {
                     return Integer.toString(getRSAKeyLen(k));
+                } else if (k.getAlgorithm().equals("EC")) {
+                    Vector vect = CryptoUtil.getECKeyCurve(k);
+                    if (vect != null)
+                        return vect.toString();
+                    else
+                        return null;
                 } else {
                     return Integer.toString(getDSAKeyLen(k));
                 }
