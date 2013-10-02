@@ -186,7 +186,7 @@ public class TokenKeyRecoveryServlet extends CMSServlet {
                 thisreq.setExtData(IRequest.NETKEY_ATTR_USER_CERT, rCert);
                 CMS.debug("TokenKeyRecoveryServlet: processTokenKeyRecovery(): received request parameter: cert");
             }
-            if ((rKeyid != null) || (!rKeyid.equals(""))) {
+            if ((rKeyid != null) && (!rKeyid.equals(""))) {
                 thisreq.setExtData(IRequest.NETKEY_ATTR_KEYID, rKeyid); 
                 CMS.debug("TokenKeyRecoveryServlet: processTokenKeyRecovery(): received request parameter: keyid");
             }
