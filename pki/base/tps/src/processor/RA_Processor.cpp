@@ -2662,14 +2662,24 @@ bool RA_Processor::RequestUserId(
         op = "unknown";
     }
 
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+
+    /*
+     * if a_configname is null, bypass the loginRequest.enable check
+     *   and always do loginRequest.
+     * otherwise it checks for the config set in a_configname
+     *   e.g."externalReg.format.loginRequest.enable"
+     */
     if (a_configname != NULL) {
         /* loginRequest.enable is false */
+        RA::Debug(FN, "checking %s", a_configname);
         if (!RA::GetConfigStore()->GetConfigAsBool(a_configname, 1)) {
+            RA::Debug(FN, "no Login required");
             return true;
         }
-    } else {
-        isExternalReg = true;
     }
+    RA::Debug(FN, "Login required");
 
     if (a_extensions != NULL && 
         a_extensions->GetValue("extendedLoginRequest") != NULL) {
@@ -2795,10 +2805,14 @@ bool RA_Processor::AuthenticateUserLDAP(
 
     PR_snprintf((char *)configname, 256, "externalReg.enable");
     bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+    const char *tokenType = NULL;
 
     RA::Debug(LL_PER_PDU, FN, "LDAP_Authentication is invoked.");
     LDAP_Authentication *ldapAuth = (LDAP_Authentication *)a_auth->GetAuthentication();
     if (isExternalReg ) {
+        PR_snprintf((char *)configname, 256, 
+            "externalReg.default.tokenType");
+        tokenType = (char *) RA::GetConfigStore()->GetConfigAsString(configname, "userKey");
 
         rc = ldapAuth->Authenticate(login, a_session);
         /*ToDo: compare token cuid from reg user record with a_cuid
@@ -2822,9 +2836,9 @@ bool RA_Processor::AuthenticateUserLDAP(
         if (tt != NULL)
             RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
         else {
-            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to externalRegAddToToken");
-            a_session->getExternalRegAttrs()->setTokenType("externalRegAddToToken");
-            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, done setting to externalRegAddToToken");
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to default");
+            a_session->getExternalRegAttrs()->setTokenType(tokenType);
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, done setting to default %s", tokenType);
         }
 
         /*
@@ -2873,8 +2887,9 @@ bool RA_Processor::AuthenticateUserLDAP(
                 if (tt != NULL)
                     RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
                 else {
-                    RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to externalRegAddToToken");
-                    a_session->getExternalRegAttrs()->setTokenType("externalRegAddToToken");
+                    RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to default");
+                    a_session->getExternalRegAttrs()->setTokenType(tokenType);
+                    RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, done setting to default %s", tokenType);
                 }
             } else
                 rc = ldapAuth->Authenticate(login);
@@ -2953,7 +2968,8 @@ bool RA_Processor::AuthenticateUser(
     RA::Debug(FN, "started");
 
     if (a_configname != NULL) {
-        if (RA::GetConfigStore()->GetConfigAsBool(a_configname, false)){
+        RA::Debug(FN, "checking config: %s", a_configname);
+        if (!RA::GetConfigStore()->GetConfigAsBool(a_configname, 1)){
             r = true;
             RA::Debug(FN, "Authentication has been disabled.");
             goto loser;
@@ -3111,7 +3127,6 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     PR_snprintf((char *)configname, 256, "externalReg.enable");
     bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
 
-
     SelectApplet(session, 0x04, 0x00, CardManagerAID);
     cplc_data = GetData(session);
     if (cplc_data == NULL) {
@@ -3174,30 +3189,48 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
               externalReg.certs.recoverAttributeName=certsToRecover
               externalReg.certs.deleteAttributeName=certsToDelete 
          */
-        /* get user login and password - set in "login" */
-        RA::Debug(LL_PER_PDU, "RA_Processor::Format", "isExternalReg: calling RequestUserId");
         /*
-          configname and tokenType are NULL for isExternalReg 
+         * - tokenType id NULL at this point for isExternalReg 
+         * - loginRequest cannot be per profile(tokenType) for isExternalReg
+         *   because of the above; now it is per instance:
+         *     "externalReg.format.loginRequest.enable"
+         *     "externalReg.default.tokenType"
+         *   it is not enabled by default.
          */
-        if (!RequestUserId(OP_PREFIX, session, extensions, NULL /*configname*/, NULL /*tokenType*/, cuid, login, userid, status)){
+        PR_snprintf((char *)configname, 256, 
+            "externalReg.format.loginRequest.enable");
+//        PR_snprintf((char *)configname, 256, "%s.%s.loginRequest.enable", OP_PREFIX, tokenType);
+        RA::Debug("RA_Processor::Format", "checking %s", configname);
+        if (!RA::GetConfigStore()->GetConfigAsBool(configname, 0)) {
+            RA::Debug("RA_Processor::Format", "no Login required");
+            // get the default externalReg tokenType
+            PR_snprintf((char *)configname, 256, 
+                "externalReg.default.tokenType");
+            tokenType = (char *) RA::GetConfigStore()->GetConfigAsString(configname, "userKey");
+            RA::Debug("RA_Processor::Format", "setting tokenType to: %s", tokenType);
+        } else {
+            /* get user login and password - set in "login" */
+            RA::Debug(LL_PER_PDU, "RA_Processor::Format", "isExternalReg: calling RequestUserId");
+            if (!RequestUserId(OP_PREFIX, session, extensions, configname, NULL /*tokenType*/, cuid, login, userid, status)){
                 PR_snprintf(audit_msg, 512, "RequestUserId error");
-        goto loser;
-        }
-        if (!AuthenticateUser("op.format", session, NULL /*configname*/, cuid, extensions,
+            goto loser;
+            }
+            if (!AuthenticateUser("op.format", session, NULL /*configname*/, cuid, extensions,
                 NULL /*tokenType*/, login, userid, status)){
                 PR_snprintf(audit_msg, 512, "AuthenticateUser error");
-            goto loser;
+                goto loser;
+            }
+
+            regAttrs = session->getExternalRegAttrs();
+
+            if (regAttrs == NULL) {
+                PR_snprintf(audit_msg,512, "External Registration Misconfiguration!");
+                goto loser;
+            }
+
+            RA::Debug(LL_PER_PDU, "RA_Processor::Format", "isExternalReg: get tokenType, etc.");
+            tokenType = regAttrs->getTokenType();
         }
-
-        regAttrs = session->getExternalRegAttrs();
-
-        if (regAttrs == NULL) {
-            PR_snprintf(audit_msg,512, "External Registration Misconfiguration!");
-            goto loser;
-        }
-
-        RA::Debug(LL_PER_PDU, "RA_Processor::Format", "isExternalReg: get tokenType, etc.");
-        tokenType = regAttrs->getTokenType();
 
     } else {
 
