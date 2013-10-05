@@ -229,6 +229,8 @@ class RA
           static int tdb_add_token_entry(char *userid, char* cuid, const char *status, const char *token_type);
 	  static int tdb_update(const char *userid, char *cuid, char *applet_version, char *key_info, const char *state, const char *reason, const char * token_type);
 	  static int tdb_update_certificates(char *cuid, char **tokentypes, char *userid, CERTCertificate **certificates, char **ktypes, char **origins, int numOfCerts);
+          static int tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs);
+
 	  static int tdb_activity(char *ip, char *cuid, const char *op, const char *result, const char *msg, const char *userid, const char *token_type);
 	  static int testTokendb();
           static int InitializeAuthentication();

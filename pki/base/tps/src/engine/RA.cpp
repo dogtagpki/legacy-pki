@@ -59,6 +59,7 @@ extern "C"
 #include "main/LogFile.h"
 #include "main/RollingLogFile.h"
 #include "selftests/SelfTest.h"
+//#include "authentication/ExternalRegAttrs.h"
 
 typedef struct
 {
@@ -3065,6 +3066,176 @@ TPS_PUBLIC int RA::ra_delete_certificate_entry(LDAPMessage* e)
 int RA::tdb_activity(char *ip, char *cuid, const char *op, const char *result, const char *msg, const char *userid, const char *token_type)
 {
   return add_activity(ip, cuid, op, result, msg, userid, token_type);
+}
+
+int RA::tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs) {
+
+    int rc = -1;
+    int count = 0;
+    int delete_count = 0;
+
+    LDAPMessage  *ldapResult = NULL;
+    int k = 0;
+    char serialnumber[512];
+    char filter[512];
+    LDAPMessage *result = NULL;
+    LDAPMessage *e = NULL;
+    int i = 0;
+    int r = LDAP_SUCCESS;
+    char * cuid = NULL;
+    char * serialStr = NULL;
+
+     RA::Debug("RA::tdb_update_certificates",
+                     " With ExternalRegAttrs, entering");
+
+
+    if ( recoveryRegAttrs == NULL) {
+        return rc;
+    }
+
+    ExternalRegCertToRecover **erCertsToRecover = NULL;
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo * erCertKeyInfo = NULL;
+
+    ExternalRegCertToDelete **erCertsToDelete = NULL;
+    ExternalRegCertToDelete   *erCertToDelete = NULL;
+
+    erCertsToDelete = recoveryRegAttrs->getCertsToDelete();
+    if (erCertsToDelete) {
+        delete_count = recoveryRegAttrs->getCertsToDeleteCount();
+    }
+    
+    erCertsToRecover = recoveryRegAttrs->getCertsToRecover();
+
+    if (erCertsToRecover == NULL) {
+        goto loser;
+    }
+
+    count = recoveryRegAttrs->getCertsToRecoverCount();
+
+    if (count == 0) {
+        goto loser;
+    }
+
+    cuid = (char *) recoveryRegAttrs->getTokenCUID();
+
+    if (cuid == NULL) {
+        goto loser;
+    }
+
+    if ((rc = find_tus_db_entry(cuid, 0, &ldapResult)) != LDAP_SUCCESS) {
+        goto loser;
+    }
+
+    for (int i = 0; i < count ; i++ ) {
+        erCertToRecover = erCertsToRecover[i];
+
+        if (!erCertToRecover)
+            continue;
+
+        erCertKeyInfo = erCertToRecover->getCertKeyInfo();
+
+        if (!erCertKeyInfo)
+            continue;
+
+        CERTCertificate *cert = NULL;
+        char *tokenType = NULL;
+        char *userid = NULL;
+         
+        cert = erCertKeyInfo->getCert();
+        tokenType =  (char *) recoveryRegAttrs->getTokenType();
+        userid = (char *) recoveryRegAttrs->getUserId();
+
+         RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates",
+                "adding cert=%x", cert);
+
+            tus_print_integer(serialnumber, &(cert->serialNumber));
+
+            PR_snprintf(filter, 512, "(tokenID=%s)");
+            PR_snprintf(filter, 512, "tokenSerial=%s", serialnumber);
+
+            r = find_tus_certificate_entries_by_order_no_vlv(filter, &result, 1);
+            RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates",
+                "find_tus_certificate_entries_by_order_no_vlv returned %d", r);
+            bool found = false;
+            if (r == LDAP_SUCCESS) {
+                for (e = get_first_entry(result); e != NULL; e = get_next_entry(e)) {
+                    char **values = get_attribute_values(e, "tokenID");
+                    char *cn = get_cert_cn(e);
+                    serialStr = RA::ra_get_cert_serial(e);
+
+                    RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "With ExternalReg cn %s serialStr %s value %s", cn, serialStr, values[0]);
+
+                    if (PL_strcmp(cuid, values[0])== 0)  found = true;
+                    if (cn != NULL ) {
+                        RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Updating cert status of %s to active in tokendb", cn);
+                        r = update_cert_status(cn, "active");
+                        if (r != LDAP_SUCCESS) {
+                            RA::Debug("RA::tdb_update_certificates",
+                                      "Unable to modify cert status to active in tokendb: %s", cn);
+                        }
+                        PL_strfree(cn);
+                        cn = NULL;
+                    }
+
+                    ldap_value_free(values);
+                }
+
+                ldap_msgfree(result);
+                result = NULL;
+            }
+            if (!found) {
+                add_certificate(cuid,cuid , tokenType, userid, cert,
+                    "encryption", "active");
+            }
+
+     } 
+     // Now let's delete certs that no longer exist on the token.
+
+     PR_snprintf(filter, 512, "(tokenID=%s)",cuid);
+
+     r = find_tus_certificate_entries_by_order_no_vlv(filter, &result, 1);
+
+     if (r == LDAP_SUCCESS) {
+         for (e = get_first_entry(result); e != NULL; e = get_next_entry(e)) {
+             PRUint64 curSerial = 0;
+             serialStr = RA::ra_get_cert_serial(e);
+             RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Cert for token in db currently: certSerial %s", serialStr);
+
+             if (serialStr != NULL && delete_count > 0 ) {
+                  curSerial = strtoll(serialStr, NULL, 16);
+                  for(int i = 0; i < delete_count ; i++) {
+              /* Rifle certs to delete to see if this one is slated to go */
+                      erCertToDelete = erCertsToDelete[i];
+                      if (!erCertToDelete)
+                          continue;
+
+                      PRUint64 certSerial = erCertToDelete->getSerial();
+
+                      if ( LL_EQ(certSerial, curSerial)) {
+                          RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Found cert to delete: certSerial %s", serialStr);
+                          ra_delete_certificate_entry(e);
+                          break;
+                      }
+
+                      RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Found cert certsToDeleteList: certSerial  %ld serialStr %s curSerial %ld", certSerial,serialStr, curSerial);
+                  }
+             }
+         }
+     }
+ 
+     if (result) {
+         ldap_msgfree(result);
+         result = NULL;
+     }
+
+loser:
+
+    if (ldapResult != NULL) {
+        ldap_msgfree(ldapResult);
+    }
+
+    return rc;
 }
 
 int RA::tdb_update_certificates(char* cuid, char **tokentypes, char *userid, CERTCertificate ** certificates, char **ktypes, char **origins, int numOfCerts)

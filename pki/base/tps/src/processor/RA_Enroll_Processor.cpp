@@ -2373,7 +2373,9 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
                      */
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process",
                         "about to call ExternalRegRecover()."); 
-                    ExternalRegRecover(session, userid, pkcs11objx, channel,
+
+                    bool recoverStatus = true;
+                    recoverStatus = ExternalRegRecover(session, userid, pkcs11objx, channel,
                          cuid, status);
                     // ToDo: make sure if the token already has the same cert/keys on it, the ExternalRegRecover is not going to cause it to be duplicated
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegRecover", "status is %d", status);
@@ -2389,7 +2391,25 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
                     /* now call UpdateToken() */
 
-                    status = UpdateTokenRecoveredCerts(session, pkcs11objx , channel);
+                    if(recoverStatus == true) {
+                        status = UpdateTokenRecoveredCerts(session, pkcs11objx , channel, final_applet_version, keyVersion);
+                    }
+
+                    if (status ==  STATUS_NO_ERROR && recoverStatus == true ) {
+
+                         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process - after ExternalRegistration, update certifices in TUS DB.", "status is %d", status);
+                         PR_snprintf(activity_msg, 4096, "External Registration certificates recovered successfully.");
+                         RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+                             userid, cuid, msn, "success", "external reg recovery", final_applet_version, keyVersion, activity_msg);
+                         RA::tdb_activity(session->GetRemoteIP(), cuid, "external reg recovery", "success", activity_msg, userid, tokenType);
+                         RA::tdb_update_certificates(regAttrs);
+
+                    } else {
+                        PR_snprintf(activity_msg, 4096, "External Registration certificates recovery failure.");
+                        RA::tdb_activity(session->GetRemoteIP(), cuid, "external reg recover", "failure", activity_msg, userid, tokenType);
+                        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+                            userid, cuid, msn, "success", "enrollment", final_applet_version, keyVersion, activity_msg);
+                    }
                   
                 }
             }
@@ -2992,7 +3012,7 @@ bool RA_Enroll_Processor::GenerateCertificates(AuthParams *login, RA_Session *se
 
     //isExternalReg will process RevokeCertificates later
 
-    if (!isExternalReg && (noFailedCerts == true)) {
+    if (isExternalReg || (noFailedCerts == true)) {
     // In this special case of RE_ENROLL
     // Revoke  current certs for this token  
     // before the just enrolled certs are written to the db
@@ -3079,7 +3099,7 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         ivParam = NULL;
         error_msg[0] = 0;
         RA::Debug(LL_PER_CONNECTION, FN,
-            "serial no: %d, keyid: %d",
+            "serial no: %d, keyid: %d ",
                 serial, keyid);
 
         erCertKeyInfo = new ExternalRegCertKeyInfo();
@@ -3181,6 +3201,9 @@ loser:
         certEnroll = NULL;
     }
 
+    if (o_status ==  STATUS_ERROR_RECOVERY_FAILED)
+        return false;
+
     return true;
 }
 
@@ -3200,7 +3223,7 @@ bool RA_Enroll_Processor::ExternalRegDelete(
 
 /* ToDo: do this after tokenUpdate()*/
     PR_snprintf((char *)configname, 256, "externalReg.delete.deleteFromDB");
-    bool deleteFromDB = RA::GetConfigStore()->GetConfigAsBool(configname, false);
+    bool deleteFromDB = RA::GetConfigStore()->GetConfigAsBool(configname, true);
 
     CertEnroll *certEnroll = new CertEnroll();
 	const char *FN="RA_Enroll_Processor::ExternalRegDelete";
