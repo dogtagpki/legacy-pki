@@ -1051,7 +1051,9 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
 Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
 {
     unsigned int i;
-    unsigned char blob[8192]={0}; /* cert returned */
+    const int PARAM_CERT_MAX_SIZE = 8192;
+    char pattern [32] = {0};
+    unsigned char blob[PARAM_CERT_MAX_SIZE]={0}; /* cert returned */
     int blob_len = 0; /* cert length */
     char *certB64 = NULL;
     char *certB64End = NULL;
@@ -1059,6 +1061,7 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
     Buffer *cert = NULL;
     char * response = NULL;
     SECItem * outItemOpt = NULL;
+    char *err = NULL;
     
     if (resp == NULL) {
         RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
@@ -1070,12 +1073,15 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
         RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
           "no content found");
 	    return NULL;
+    } else {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+          "response not NULL");
     }
 
     if (certB64Param == NULL) {
         RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
             "cert param name in response is needed to parse...now missing");
-        return NULL;
+        goto endParseResp;
     } else {
         RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
             "cert param name in response :%s", certB64Param);
@@ -1084,8 +1090,8 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
     // process result
     // first look for errorCode="" to look for success clue
     // and errorReason="..." to extract error reason
-    char pattern[20] = "errorCode=\"0\"";
-    char * err = strstr((char *)response, (char *)pattern);
+    PL_strcpy(pattern, "errorCode=\"0\"");
+    err = strstr((char *)response, (char *)pattern);
 
     if (err == NULL) {
       RA::Debug("CertEnroll::parseResponse",
@@ -1098,9 +1104,25 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
     // if success, look for "<certB64Param>=" to extract
     // the cert
     certB64 = strstr((char *)response, certB64Param);
+    if (certB64 == NULL) {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+          "parameter %s not found in response", certB64Param);
+        goto endParseResp;
+    }
+
+    if (strlen(certB64) < (strlen(certB64Param)+3)) { //safety check
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+            "certB64 too short");
+        goto endParseResp;
+    }
     certB64 = &certB64[strlen(certB64Param)+2]; // point pass open "
 
     certB64End = strstr(certB64, "\";");
+    if (certB64End == NULL) {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+          "certB64 can't find end of param in response");
+        goto endParseResp;
+    }
     *certB64End = '\0';
 
     certB64Len = strlen(certB64);
@@ -1120,15 +1142,22 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
         RA::Error("CertEnroll::parseResponse",
           "b64 decode failed, error code=%d", PR_GetError());
 
-	goto endParseResp;
+        goto endParseResp;
     }
     RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
           "b64 decode len =%d",outItemOpt->len);
 
+    if (outItemOpt->len > PARAM_CERT_MAX_SIZE) {
+       RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+           "cert too long");
+       goto endParseResp;
+    }
     memcpy((char*)blob, (const char*)(outItemOpt->data), outItemOpt->len);
     blob_len = outItemOpt->len;
 
     cert = new Buffer((BYTE *) blob, blob_len);
+
+ endParseResp:
     if( outItemOpt != NULL ) {
         SECITEM_FreeItem( outItemOpt, PR_TRUE );
         outItemOpt = NULL;
@@ -1137,7 +1166,6 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
     RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
           "finished");
 
- endParseResp:
     if (response != NULL) {
         resp->freeContent();
         response = NULL;

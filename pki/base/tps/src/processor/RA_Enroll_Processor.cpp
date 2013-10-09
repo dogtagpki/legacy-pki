@@ -2404,7 +2404,8 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
                         PR_snprintf(activity_msg, 4096, "External Registration certificates recovery failure.");
                         RA::tdb_activity(session->GetRemoteIP(), cuid, "external reg recover", "failure", activity_msg, userid, tokenType);
                         RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
-                            userid, cuid, msn, "success", "enrollment", final_applet_version, keyVersion, activity_msg);
+                            userid, cuid, msn, "failure", "enrollment", final_applet_version, keyVersion, activity_msg);
+                        goto loser;
                     }
                   
                 }
@@ -3171,6 +3172,8 @@ bool RA_Enroll_Processor::ExternalRegRecover(
             RA::Debug(LL_PER_CONNECTION, FN,
                 "RetrieveCertificate() returns error: %s", error_msg);
             }
+            o_status = STATUS_ERROR_RECOVERY_FAILED;
+            goto loser;
         } else {
             RA::Debug(LL_PER_CONNECTION, FN,
                 "RetrieveCertificate() succeeded");

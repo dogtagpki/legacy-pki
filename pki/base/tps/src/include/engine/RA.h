@@ -306,6 +306,8 @@ class RA
           static const char *CFG_ERROR_PREFIX;
           static const char *CFG_SELFTEST_PREFIX;
 
+      static const char *CFG_PRINTBUF_FULL;
+      static const char *CFG_RECV_BUF_SIZE;
 
       static const char *CFG_AUTHS_ENABLE;
       static const char *CFG_AUTHS_CURRENTIMPL;
@@ -360,6 +362,8 @@ class RA
           static size_t m_bytes_unflushed;
           static size_t m_buffer_size;
           static int m_flush_interval;
+          static bool m_printBuf_full; // whether printbuf should print full buffer
+          static int m_recv_buf_size;
 
       static HttpConnection* m_caConnection[];
       static HttpConnection* m_tksConnection[];
@@ -387,7 +391,8 @@ class RA
       static bool transition_allowed(int oldState, int newState);
 
       static int get_token_state(char *state, char *reason);
-
+      static bool is_printBuf_full();
+      static int get_recv_buf_size();
    
 };
 

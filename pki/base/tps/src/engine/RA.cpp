@@ -120,6 +120,8 @@ int RA::m_caConns_len = 0;
 int RA::m_tksConns_len = 0;
 int RA::m_drmConns_len = 0;
 int RA::m_auth_len = 0;
+bool RA::m_printBuf_full = false;
+int RA::m_recv_buf_size = 8192;
 
 #define MAX_BODY_LEN 4096
 
@@ -182,6 +184,8 @@ const char *RA::CFG_SELFTEST_PREFIX = "selftests.container.logger";
 const char *RA::CFG_TOKENDB_ALLOWED_TRANSITIONS = "tokendb.allowedTransitions";
 const char *RA::CFG_OPERATIONS_ALLOWED_TRANSITIONS = "tps.operations.allowedTransitions";
 
+const char *RA::CFG_PRINTBUF_FULL = "tps.printBufFull";
+const char *RA::CFG_RECV_BUF_SIZE = "tps.recvBufSize";
 const char *RA::CFG_AUTHS_ENABLE="auth.enable";
 
 /* default values */
@@ -509,6 +513,9 @@ TPS_PUBLIC int RA::Initialize(char *cfg_path, RA_Context *ctx)
 	  security_level = SECURE_MSG_MAC;
 
     RA::SetGlobalSecurityLevel(security_level);
+
+	m_printBuf_full = m_cfg->GetConfigAsBool(RA::CFG_PRINTBUF_FULL, false); 
+	m_recv_buf_size = m_cfg->GetConfigAsInt(RA::CFG_RECV_BUF_SIZE, 8192); 
 
     // Initialize the CA connection pool to be empty
     for (i=0; i<MAX_CA_CONNECTIONS; i++) {
@@ -3935,4 +3942,12 @@ int RA::get_token_state(char *state, char *reason)
         ret = TOKEN_PERM_LOST;
     }
     return ret;
+}
+
+bool RA::is_printBuf_full() {
+    return m_printBuf_full;
+}
+
+int RA::get_recv_buf_size() {
+    return m_recv_buf_size;
 }
