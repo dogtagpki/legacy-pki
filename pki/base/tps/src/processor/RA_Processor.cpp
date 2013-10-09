@@ -3252,37 +3252,35 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
         goto loser;
     }
 
-    if (!isExternalReg) {
 
-        if (RA::ra_is_token_present(cuid)) {
+    if (RA::ra_is_token_present(cuid)) {
 
-            int token_status = RA::ra_get_token_status(cuid);
+        int token_status = RA::ra_get_token_status(cuid);
 
-            RA::Debug("RA_Processor::Format",
-                "Found token %s status %d", cuid, token_status);
+        RA::Debug("RA_Processor::Format",
+           "Found token %s status %d", cuid, token_status);
 
-            // Check for transition to 0/UNINITIALIZED status.
+        // Check for transition to 0/UNINITIALIZED status.
 
-            if (token_status == -1 || !RA::transition_allowed(token_status, 0)) {
-                RA::Error("RA_Format_Processor::Process",
-                        "Operation for CUID %s Disabled", cuid);
-                status = STATUS_ERROR_DISABLED_TOKEN;
-                PR_snprintf(audit_msg, 512, "Operation for CUID %s Disabled, illegal transition attempted %d:%d.", cuid, token_status, 0);
-                goto loser;
-            }
-        } else {
-            RA::Debug("RA_Processor::Format",
-                "Not Found token %s", cuid);
-            // This is a new token. We need to check our policy to see
-            // if we should allow enrollment. raidzilla #57414
-            PR_snprintf((char *)configname, 256, "%s.allowUnknownToken",
-                OP_PREFIX);
-            if (!RA::GetConfigStore()->GetConfigAsBool(configname, 1)) {
-                RA::Error("Process", "CUID %s Format Unknown Token", cuid);
-                status = STATUS_ERROR_DISABLED_TOKEN;
-                PR_snprintf(audit_msg, 512, "Unknown token disallowed,  status=STATUS_ERROR_DISABLED_TOKEN");
-                goto loser;
-            }
+        if (token_status == -1 || !RA::transition_allowed(token_status, 0)) {
+            RA::Error("RA_Format_Processor::Process",
+                    "Operation for CUID %s Disabled", cuid);
+            status = STATUS_ERROR_DISABLED_TOKEN;
+            PR_snprintf(audit_msg, 512, "Operation for CUID %s Disabled, illegal transition attempted %d:%d.", cuid, token_status, 0);
+            goto loser;
+        }
+    } else {
+        RA::Debug("RA_Processor::Format",
+           "Not Found token %s", cuid);
+        // This is a new token. We need to check our policy to see
+        // if we should allow enrollment. raidzilla #57414
+        PR_snprintf((char *)configname, 256, "%s.allowUnknownToken",
+            OP_PREFIX);
+        if (!RA::GetConfigStore()->GetConfigAsBool(configname, 1)) {
+            RA::Error("Process", "CUID %s Format Unknown Token", cuid);
+            status = STATUS_ERROR_DISABLED_TOKEN;
+            PR_snprintf(audit_msg, 512, "Unknown token disallowed,  status=STATUS_ERROR_DISABLED_TOKEN");
+            goto loser;
         }
     }
 

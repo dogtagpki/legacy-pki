@@ -1870,7 +1870,6 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
     if (RA::ra_is_token_present(cuid)) {
 
-        if (!isExternalReg) {
             int token_status = RA::ra_get_token_status(cuid);
 
             // As far as the ui states, state "enrolled" maps to the state of "FOUND" or 4;
@@ -1893,20 +1892,17 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
             RA::Debug("RA_Enroll_Processor::Process","force format flag %d", do_force_format);
 
-            if (!RA::ra_allow_token_reenroll(cuid) &&
-                !RA::ra_allow_token_renew(cuid) &&
-                !do_force_format) {
-                RA::Error(FN, "CUID %s RE_ENROLL Disallowed", cuid);
-                status = STATUS_ERROR_DISABLED_TOKEN;
-                PR_snprintf(audit_msg, 512, "token RE_ENROLL or RENEW disallowed");
-                goto loser;
-            }
-        } else {
-            // isExternalReg  still allows force format
-            do_force_format = RA::ra_force_token_format(cuid);
-            RA::Debug("RA_Enroll_Processor::Process","force format flag %d", do_force_format);
-            // isExternalReg always allow "RE_ENROLL"
-        }
+            if( !isExternalReg) {
+
+                if (!RA::ra_allow_token_reenroll(cuid) &&
+                    !RA::ra_allow_token_renew(cuid) &&
+                    !do_force_format) {
+                    RA::Error(FN, "CUID %s RE_ENROLL Disallowed", cuid);
+                    status = STATUS_ERROR_DISABLED_TOKEN;
+                    PR_snprintf(audit_msg, 512, "token RE_ENROLL or RENEW disallowed");
+                    goto loser;
+                }
+            } 
     } else {
         RA::Debug(FN, "Not Found token %s", cuid);
         // This is a new token. We need to check our policy to see
@@ -3223,7 +3219,7 @@ bool RA_Enroll_Processor::ExternalRegDelete(
 
 /* ToDo: do this after tokenUpdate()*/
     PR_snprintf((char *)configname, 256, "externalReg.delete.deleteFromDB");
-    bool deleteFromDB = RA::GetConfigStore()->GetConfigAsBool(configname, true);
+    bool deleteFromDB = RA::GetConfigStore()->GetConfigAsBool(configname, false);
 
     CertEnroll *certEnroll = new CertEnroll();
 	const char *FN="RA_Enroll_Processor::ExternalRegDelete";
