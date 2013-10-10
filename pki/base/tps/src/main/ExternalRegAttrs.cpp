@@ -83,6 +83,16 @@ ExternalRegCertToRecover::ExternalRegCertToRecover() {
 }
 
 ExternalRegCertToRecover::~ExternalRegCertToRecover() {
+    if (caConn) {
+        PL_strfree((char *)caConn);
+        caConn = NULL;
+    }
+
+    if (drmConn) {
+        PL_strfree((char *)drmConn);
+        drmConn = NULL;
+    }
+
     if (certKeyInfo)
         delete certKeyInfo;
 }
@@ -135,6 +145,11 @@ TPS_PUBLIC ExternalRegCertToDelete::ExternalRegCertToDelete() {
 }
 
 TPS_PUBLIC ExternalRegCertToDelete::~ExternalRegCertToDelete() {
+    if (caConn) {
+        PL_strfree((char *)caConn);
+        caConn = NULL;
+    }
+
     if (certKeyInfo)
         delete certKeyInfo;
 }

@@ -4544,7 +4544,7 @@ void RA_Processor::CleanObjectListBeforeExternalRecovery(PKCS11Obj *pkcs11objx, 
                                    RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery"," cert to delete serial %s:", (char *) sNum);
                                    if ( c != NULL) {
                                       RA::ra_tus_print_integer(sNum, &c->serialNumber);
-                                      serial =  strtoll(sNum,NULL,16);
+                                      serial =  strtoull(sNum,NULL,16);
                                       erCertToDelete->setSerial(serial);
                                       erAttrs->addCertToDelete(erCertToDelete); 
                                       CERT_DestroyCertificate(c); 

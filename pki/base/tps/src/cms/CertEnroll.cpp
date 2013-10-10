@@ -481,8 +481,7 @@ TOKENDB_PUBLIC Buffer *CertEnroll::RetrieveCertificate(PRUint64 serialno, const 
 
     RA::Debug(FN, "begins.");
     // on CA, GetBySerial expects parameter "serialNumber"
-    PR_snprintf((char *)parameters, 5000, "serialNumber=%u", (int)serialno);
-    //PR_snprintf((char *)parameters, 5000, "serialNumber=%x", (int)serialno);
+    PR_snprintf((char *)parameters, 5000, "serialNumber=%llu", serialno);
 
     RA::Debug(FN, "got parameters =%s", parameters);
     //e.g. conn.ca1.servlet.getBySerial=/ca/ee/ca/displayBySerial
@@ -531,8 +530,8 @@ TOKENDB_PUBLIC Buffer *CertEnroll::RenewCertificate(PRUint64 serialno, const cha
     RA::Debug("CertEnroll::RenewCertificate", "begins. profileId=%s",profileId);
     // on CA, renewal expects parameter "serial_num" if renew by serial number
     // ahh.  need to allow larger serialno...later
-    PR_snprintf((char *)parameters, 5000, "serial_num=%u&profileId=%s&renewal=true",
-               (int)serialno, profileId);
+    PR_snprintf((char *)parameters, 5000, "serial_num=%llu&profileId=%s&renewal=true",
+               serialno, profileId);
     RA::Debug("CertEnroll::RenewCertificate", "got parameters =%s", parameters);
     //e.g. conn.ca1.servlet.renewal=/ca/ee/ca/profileSubmitSSLClient
     PR_snprintf((char *)configname, 256, "conn.%s.servlet.renewal", connid);

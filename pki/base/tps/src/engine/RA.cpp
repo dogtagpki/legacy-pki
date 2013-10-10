@@ -3210,7 +3210,7 @@ int RA::tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs) {
              RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Cert for token in db currently: certSerial %s", serialStr);
 
              if (serialStr != NULL && delete_count > 0 ) {
-                  curSerial = strtoll(serialStr, NULL, 16);
+                  curSerial = strtoull(serialStr, NULL, 16);
                   for(int i = 0; i < delete_count ; i++) {
               /* Rifle certs to delete to see if this one is slated to go */
                       erCertToDelete = erCertsToDelete[i];
@@ -3225,7 +3225,7 @@ int RA::tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs) {
                           break;
                       }
 
-                      RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Found cert certsToDeleteList: certSerial  %ld serialStr %s curSerial %ld", certSerial,serialStr, curSerial);
+                      RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Found cert certsToDeleteList: certSerial  %llu serialStr %s curSerial %llu", certSerial,serialStr, curSerial);
                   }
              }
          }

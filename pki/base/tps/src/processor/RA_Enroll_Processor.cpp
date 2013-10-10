@@ -3096,7 +3096,7 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         ivParam = NULL;
         error_msg[0] = 0;
         RA::Debug(LL_PER_CONNECTION, FN,
-            "serial no: %d, keyid: %d ",
+            "serial no: %llu, keyid: %llu ",
                 serial, keyid);
 
         erCertKeyInfo = new ExternalRegCertKeyInfo();
@@ -3253,7 +3253,7 @@ bool RA_Enroll_Processor::ExternalRegDelete(
                 char *statusString = NULL;
                 CERTCertificate **certs = NULL;
                 char i_serial[100]="";
-                PR_snprintf( i_serial, 100, "0x%d", (int)serial );
+                PR_snprintf( i_serial, 100, "0x%llu", serial);
                 RA::Debug(FN,
                     "Revoke to happen on token %s for serial %s", erAttrs->getTokenCUID(), i_serial);
                 char filter[256];
@@ -3296,7 +3296,7 @@ bool RA_Enroll_Processor::ExternalRegDelete(
                         RA::Debug(FN,
                             "found on token cert serial: %s", serialt_s);
 
-                        PR_snprintf( serial_s, 128, "%d", (int) serial);
+                        PR_snprintf( serial_s, 128, "%llu", serial);
                         RA::Debug(FN,
                             "cert to revoke serial: %s", serial_s);
 
@@ -3749,7 +3749,7 @@ CERTCertificate **o_cert, char *error_msg, int *error_code)
 
     const char *FN="RA_Enroll_Processor::DoRenewal";
     PRUint64 snum = DER_GetInteger(&(i_cert)->serialNumber);
-    RA::Debug("RA_Enroll_Processor::DoRenewal", "begins renewal for serial number %u with profileId=%s", (int)snum, profileId);
+    RA::Debug("RA_Enroll_Processor::DoRenewal", "begins renewal for serial number %llu with profileId=%s", snum, profileId);
 
     certRenewal = new CertEnroll();
     cert = certRenewal->RenewCertificate(snum, connid, profileId, error_msg);
@@ -3760,11 +3760,11 @@ CERTCertificate **o_cert, char *error_msg, int *error_code)
 // this is where renewal happens .. audit log for fail/ success here? 
     if (cert == NULL) {
         r = false;
-        RA::Debug("RA_Enroll_Processor::DoRenewal", "Renewal failed for serial number %d", snum);
+        RA::Debug("RA_Enroll_Processor::DoRenewal", "Renewal failed for serial number %llu", snum);
         status = STATUS_ERROR_MAC_ENROLL_PDU;
         goto loser;
     }
-    RA::Debug("RA_Enroll_Processor::DoRenewal", "Renewal suceeded for serial number %d", snum);
+    RA::Debug("RA_Enroll_Processor::DoRenewal", "Renewal suceeded for serial number %llu", snum);
 
     cert_string = (char *) cert->string();
     *o_cert = CERT_DecodeCertFromPackage((char *) cert_string, 

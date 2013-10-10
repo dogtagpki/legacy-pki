@@ -323,7 +323,8 @@ void LDAP_Authentication::ProcessExternalRegAttrs(char *name, char **value,
             char *dup_v = strdup(value[i]);
             tok = strtok(dup_v, ","); 
             if (tok != NULL)
-                erCertToRecover->setSerial((PRUint16)atoi(PL_strdup(tok)));
+                erCertToRecover->setSerial((PRUint64)strtoull(tok,
+                    NULL, 10));
             else
                 goto next;
             tok = strtok( NULL, "," ); 
@@ -333,7 +334,8 @@ void LDAP_Authentication::ProcessExternalRegAttrs(char *name, char **value,
                 goto next;
             tok = strtok( NULL, "," ); 
             if (tok != NULL)
-                erCertToRecover->setKeyid((PRUint16)atoi(PL_strdup(tok)));
+                erCertToRecover->setKeyid((PRUint64)strtoull(tok,
+                    NULL, 10));
             else
                 goto next;
             tok = strtok( NULL, "," ); 
@@ -375,7 +377,8 @@ void LDAP_Authentication::ProcessExternalRegAttrs(char *name, char **value,
             char *tok = NULL; 
             char *dup_v = strdup(value[i]);
             tok = strtok(dup_v, ","); 
-            erCertToDelete->setSerial((PRUint16)atoi(PL_strdup(tok)));
+            erCertToDelete->setSerial((PRUint64)strtoull(tok,
+                    NULL, 10));
             tok = strtok( NULL, "," ); 
             erCertToDelete->setCaConn(PL_strdup(tok));
             tok = strtok( NULL, "," ); 
