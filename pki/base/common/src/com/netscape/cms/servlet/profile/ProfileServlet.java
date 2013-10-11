@@ -18,33 +18,28 @@
 package com.netscape.cms.servlet.profile;
 
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.util.Enumeration;
-import java.util.Locale;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.util.*;
+import java.io.*;
+import java.security.cert.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authorization.IAuthzSubsystem;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.template.ArgList;
-import com.netscape.certsrv.template.ArgSet;
-import com.netscape.certsrv.template.ArgString;
-import com.netscape.certsrv.template.IArgValue;
-import com.netscape.certsrv.util.IStatsSubsystem;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.base.UserInfo;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.Utils;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.certsrv.authentication.AuthCredentials;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.template.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.logging.*;
+
+import netscape.security.x509.*;
 
 
 /**
@@ -329,7 +324,7 @@ public class ProfileServlet extends CMSServlet {
     protected String escapeJavaScriptString(String v) {
         int l = v.length();
         char in[] = new char[l];
-        char out[] = new char[l * 4];
+        char out[] = new char[l * 5];
         int j = 0;
 
         v.getChars(0, l, in, 0);
@@ -338,7 +333,7 @@ public class ProfileServlet extends CMSServlet {
             char c = in[i];
 
             /* presumably this gives better performance */
-            if ((c > 0x23) && (c!= 0x5c) && (c!= 0x3c) && (c!= 0x3e)) { 
+            if ((c > 0x27) && (c!= 0x5c) && (c!= 0x3c) && (c!= 0x3e) && (c!= 0x3b)) { 
                 out[j++] = c;
                 continue;
             }
@@ -348,6 +343,7 @@ public class ProfileServlet extends CMSServlet {
             if ((c == 0x5c) && ((i+1)<l) && (in[i+1] == 'n' ||
                  in[i+1] == 'r' || in[i+1] == 'f' || in[i+1] == 't' ||
                  in[i+1] == '<' || in[i+1] == '>' ||
+                 in[i+1] == 'x' || in[i+1] == ';' ||
                  in[i+1] == '\"' || in[i+1] == '\'' || in[i+1] == '\\')) {
                 if (in[i+1] == 'x' && ((i+3)<l) && in[i+2] == '3' &&
                     (in[i+3] == 'c' || in[i+3] == 'e')) {
@@ -356,12 +352,36 @@ public class ProfileServlet extends CMSServlet {
                     out[j++] = in[i+2];
                     out[j++] = in[i+3];
                     i += 3;
+                    continue;
+                } else if (in[i+1] == '<' || in[i+1] == '>') {
+                    c = in[i+1];
+                    i++;
+                } else if (in[i+1] == ';') {
+                    out[j++] = in[i+1];
+                    i++;
+                    continue;
                 } else { 
                     out[j++] = '\\';
                     out[j++] = in[i+1];
                     i++;
+                    continue;
                 }
-                continue;
+            }
+            if (c == '&') {
+                int k;
+                for (k = 0; k < 8 && (i+k) < l; k++) {
+                    out[j+k] = in[i+k];
+                    if (in[i+k] == ';') break;
+                    if (in[i+k] == '<' || in[i+k] == '>') {
+                        k = 8;
+                        break;
+                    }
+                }
+                if (k < 8) {
+                    i += k;
+                    j += k + 1;
+                    continue;
+                }
             }
 
             switch (c) {
@@ -396,17 +416,25 @@ public class ProfileServlet extends CMSServlet {
                 break;
 
             case '<':
-                out[j++] = '\\';
-                out[j++] = 'x';
-                out[j++] = '3';
-                out[j++] = 'c';
+                out[j++] = '&';
+                out[j++] = 'l';
+                out[j++] = 't';
+                out[j++] = ';';
                 break;
 
             case '>':
-                out[j++] = '\\';
-                out[j++] = 'x';
-                out[j++] = '3';
-                out[j++] = 'e';
+                out[j++] = '&';
+                out[j++] = 'g';
+                out[j++] = 't';
+                out[j++] = ';';
+                break;
+
+            case '&':
+                out[j++] = '&';
+                out[j++] = 'a';
+                out[j++] = 'm';
+                out[j++] = 'p';
+                out[j++] = ';';
                 break;
 
             default:

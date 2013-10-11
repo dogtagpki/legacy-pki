@@ -1,11 +1,17 @@
 package com.netscape.cmscore.request;
 
-import java.util.Hashtable;
-
+import com.netscape.cmscore.test.CMSBaseTestCase;
+import com.netscape.cmscore.dbs.RequestRecordDefaultStub;
+import com.netscape.certsrv.base.EBaseException;
+import com.netscape.certsrv.request.IRequestRecord;
+import com.netscape.certsrv.request.RequestId;
 import junit.framework.Test;
 import junit.framework.TestSuite;
 
-import com.netscape.cmscore.test.CMSBaseTestCase;
+import java.util.*;
+
+import netscape.ldap.LDAPAttributeSet;
+import netscape.ldap.LDAPAttribute;
 
 public class ExtDataHashtableTest extends CMSBaseTestCase {
 

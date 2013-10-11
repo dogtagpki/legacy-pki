@@ -18,21 +18,19 @@
 package com.netscape.cmscore.crmf;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.Vector;
-
-import org.mozilla.jss.asn1.ASN1Util;
-import org.mozilla.jss.asn1.ASN1Value;
-import org.mozilla.jss.asn1.InvalidBERException;
-import org.mozilla.jss.asn1.OBJECT_IDENTIFIER;
-import org.mozilla.jss.asn1.SEQUENCE;
-import org.mozilla.jss.pkix.crmf.CertReqMsg;
-import org.mozilla.jss.pkix.crmf.CertRequest;
-import org.mozilla.jss.pkix.crmf.PKIArchiveOptions;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.util.*;
+import org.mozilla.jss.crypto.PrivateKey;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.pkix.crmf.*;
+import org.mozilla.jss.pkix.primitive.*;
 import org.mozilla.jss.pkix.primitive.AVA;
+import org.mozilla.jss.pkcs11.*;
+import java.io.*;
+import java.util.*;
 
-import com.netscape.certsrv.apps.CMS;
+import com.netscape.certsrv.apps.*;
 
 
 public class CRMFParser {

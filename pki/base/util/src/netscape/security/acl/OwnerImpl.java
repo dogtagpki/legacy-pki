@@ -17,12 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.acl;
 
-import java.security.Principal;
-import java.security.acl.Group;
-import java.security.acl.LastOwnerException;
-import java.security.acl.NotOwnerException;
-import java.security.acl.Owner;
-import java.util.Enumeration;
+import java.util.*;
+import java.security.*;
+import java.security.acl.*;
 
 /**
  * Class implementing the Owner interface. The

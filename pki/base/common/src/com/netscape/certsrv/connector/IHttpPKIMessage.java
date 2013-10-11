@@ -19,6 +19,9 @@ package com.netscape.certsrv.connector;
 
 
 import com.netscape.certsrv.request.IRequest;
+import com.netscape.certsrv.connector.*;
+import java.util.*;
+import java.io.*;
 
 
 /**

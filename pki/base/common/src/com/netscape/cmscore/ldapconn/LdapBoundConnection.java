@@ -18,16 +18,11 @@
 package com.netscape.cmscore.ldapconn;
 
 
-import java.util.Properties;
-
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPException;
-import netscape.ldap.LDAPRebind;
-import netscape.ldap.LDAPRebindAuth;
-import netscape.ldap.LDAPSocketFactory;
-import netscape.ldap.LDAPv2;
-
-import com.netscape.certsrv.apps.CMS;
+import netscape.ldap.*;
+import java.util.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.ldap.*;
 
 
 /**
@@ -156,34 +151,17 @@ public class LdapBoundConnection extends LDAPConnection {
     /**
      * Overrides same method in LDAPConnection to do prevent re-authentication.
      */
-    public void authenticate(String dn, String mech, String packageName, 
-        Properties props, Object getter)
-        throws LDAPException {
+    public void authenticate(String dn, String mechs[],
+            Properties props, Object getter)
+            throws LDAPException {
 
-        /**
-         if (mAuthenticated)  {
-         throw new RuntimeException(
-         "this LdapBoundConnection already authenticated: auth(mech)");
-         }
-         **/
-        super.authenticate(dn, mech, packageName, props, getter);
-        mAuthenticated = true;
-    }
-
-    /**
-     * Overrides same method in LDAPConnection to do prevent re-authentication.
-     */
-    public void authenticate(String dn, String mechs[], String packageName, 
-        Properties props, Object getter)
-        throws LDAPException {
-
-        /**
-         if (mAuthenticated) {
-         throw new RuntimeException(
-         "this LdapBoundConnection is already authenticated: auth(mechs)");
-         }
-         **/
-        super.authenticate(dn, mechs, packageName, props, getter);
+        /*
+          if (mAuthenticated) {
+              throw new RuntimeException(
+                  "this LdapBoundConnection is already authenticated: auth(mechs)");
+          }
+         */
+        super.authenticate(dn, mechs, props, getter);
         mAuthenticated = true;
     }
 

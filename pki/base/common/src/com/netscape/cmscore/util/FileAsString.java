@@ -18,10 +18,8 @@
 package com.netscape.cmscore.util;
 
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.lang.StringBuffer;
 
 
 public class FileAsString {
@@ -84,7 +82,13 @@ public class FileAsString {
             br = new BufferedReader(fr);
             mFilename = filename;
         } catch (IOException e) {
-        	throw e;
+            try {
+                if (fr != null) {
+                    fr.close();
+                }
+            } catch (Exception f) {
+            }
+            throw e;
         }
         return br;
     }

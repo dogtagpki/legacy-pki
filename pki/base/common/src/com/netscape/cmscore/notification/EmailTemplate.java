@@ -18,15 +18,16 @@
 package com.netscape.cmscore.notification;
 
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import java.lang.*;
+import java.io.*;
+import java.util.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.notification.IEmailTemplate;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.notification.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.cmscore.util.*;
 
 
 /**

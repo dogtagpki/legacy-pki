@@ -17,87 +17,72 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.base;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.math.BigInteger;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.common.AuthCredentials;
+import com.netscape.cmsutil.xml.*;
+import com.netscape.certsrv.base.SessionContext;
+import java.io.*;
+import java.util.*;
 import java.util.Locale;
-import java.util.Random;
-import java.util.StringTokenizer;
+import java.util.Enumeration;
 import java.util.Vector;
+import java.util.Hashtable;
+import java.util.StringTokenizer;
+import java.util.Date;
+import java.math.BigInteger;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
+import java.security.cert.X509Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateEncodingException;
+
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.ServletException;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletContext;
 
-import netscape.security.pkcs.ContentInfo;
-import netscape.security.pkcs.PKCS7;
-import netscape.security.pkcs.SignerInfo;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.CRLExtensions;
-import netscape.security.x509.CRLReasonExtension;
-import netscape.security.x509.CertificateChain;
-import netscape.security.x509.RevocationReason;
-import netscape.security.x509.RevokedCertImpl;
 import netscape.security.x509.X509CertImpl;
+import netscape.security.x509.CertificateChain;
+import netscape.security.x509.AlgorithmId;
+import netscape.security.x509.RevokedCertImpl;
+import netscape.security.x509.RevocationReason;
+import netscape.security.x509.CRLReasonExtension;
+import netscape.security.x509.CRLExtensions;
+import netscape.security.pkcs.PKCS7;
+import netscape.security.pkcs.ContentInfo;
+import netscape.security.pkcs.SignerInfo;
+import netscape.security.util.DerValue;
+import netscape.security.util.DerOutputStream;
+import netscape.security.util.ObjectIdentifier;
 
 import org.mozilla.jss.ssl.SSLSocket;
-import org.w3c.dom.Node;
+import org.mozilla.jss.ssl.SSLSecurityStatus;
+import org.w3c.dom.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.ra.*;
+import com.netscape.certsrv.kra.*;
+import com.netscape.certsrv.ocsp.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.authorization.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.apps.ICommandQueue;
-import com.netscape.certsrv.authentication.AuthToken;
-import com.netscape.certsrv.authentication.IAuthManager;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authority.IAuthority;
-import com.netscape.certsrv.authority.ICertAuthority;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.authorization.IAuthzSubsystem;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.certdb.ICertRecord;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.kra.IKeyRecoveryAuthority;
+import com.netscape.certsrv.authentication.*;
+
+import com.netscape.certsrv.dbs.certdb.*;
+
 import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.ra.IRegistrationAuthority;
-import com.netscape.certsrv.request.IRequest;
+
 import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.certsrv.usrgrp.IGroup;
-import com.netscape.certsrv.usrgrp.IUGSubsystem;
-import com.netscape.cms.servlet.common.AuthCredentials;
-import com.netscape.cms.servlet.common.CMSFileLoader;
-import com.netscape.cms.servlet.common.CMSGateway;
-import com.netscape.cms.servlet.common.CMSLoadTemplate;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
-import com.netscape.cms.servlet.common.GenErrorTemplateFiller;
-import com.netscape.cms.servlet.common.GenPendingTemplateFiller;
-import com.netscape.cms.servlet.common.GenRejectedTemplateFiller;
-import com.netscape.cms.servlet.common.GenSuccessTemplateFiller;
-import com.netscape.cms.servlet.common.GenSvcPendingTemplateFiller;
-import com.netscape.cms.servlet.common.GenUnexpectedErrorTemplateFiller;
-import com.netscape.cms.servlet.common.ICMSTemplateFiller;
-import com.netscape.cms.servlet.common.Utils;
-import com.netscape.cmsutil.xml.XMLObject;
+import com.netscape.certsrv.request.IRequest;
+
+import java.security.NoSuchAlgorithmException;
+import java.security.MessageDigest;
+import java.net.SocketException;
 
 
 /**
@@ -594,47 +579,42 @@ public abstract class CMSServlet extends HttpServlet {
     private static final String PRESERVED = "preserved";
     public static final String TEMPLATE_NAME = "templateName";
 			
-    protected void outputArgBlockAsXML(XMLObject xmlObj, Node parent,
-                                       String argBlockName, IArgBlock argBlock) 
+    protected void outputArgBlockAsXML(PrintStream ps, String name, 
+                       IArgBlock argBlock) 
     {
-        Node argBlockContainer = xmlObj.createContainer(parent, argBlockName);
-
+        ps.println("<" + name + ">");
         if (argBlock != null) {
-            Enumeration names = argBlock.getElements();
-            while (names.hasMoreElements()) {
-                String name = (String) names.nextElement();
-                String val = argBlock.get(name).toString();
-                val = val.trim();
-                xmlObj.addItemToContainer(argBlockContainer, name, val);
-            }
+        Enumeration names = argBlock.getElements();
+          while (names.hasMoreElements()) {
+            String n = (String) names.nextElement();
+            ps.println("<" + n + ">");
+            String val = argBlock.get(n).toString();
+            val = val.trim();
+            ps.println((val != null)? val:"");
+            ps.println("</" + n + ">");
+          }
         }
+        ps.println("</" + name + ">");
     }
 
-    protected void outputXML(HttpServletResponse httpResp, CMSTemplateParams params)
+    protected void outputAsXML(ByteArrayOutputStream bos, CMSTemplateParams params)
     {
-        XMLObject xmlObj = null;
+        PrintStream ps = new PrintStream(bos);
+        ps.println("<xml>");
+        outputArgBlockAsXML(ps, "header", params.getHeader());
+        outputArgBlockAsXML(ps, "fixed", params.getFixed());
+        ps.println("</xml>");
+        ps.flush();
+    }
+
+    protected void outputXML(HttpServletResponse resp, CMSTemplateParams params)
+    {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        resp.setContentType("text/xml");
+        outputAsXML(bos, params);
+        resp.setContentLength(bos.size());
         try {
-            xmlObj = new XMLObject();
-
-            Node root = xmlObj.createRoot("xml");
-            outputArgBlockAsXML(xmlObj, root, "header", params.getHeader());
-            outputArgBlockAsXML(xmlObj, root, "fixed",  params.getFixed());
-
-            Enumeration records = params.queryRecords();
-            Node recordsNode = xmlObj.createContainer(root, "records");
-            if (records != null) {
-                while (records.hasMoreElements()) {
-                    IArgBlock record = (IArgBlock) records.nextElement();
-                    outputArgBlockAsXML(xmlObj, recordsNode, "record", record);
-                }
-            }
-
-            byte[] cb = xmlObj.toByteArray();
-            OutputStream os = httpResp.getOutputStream();
-            httpResp.setContentType("application/xml");
-            httpResp.setContentLength(cb.length);
-            os.write(cb);
-            os.flush();
+            bos.writeTo(resp.getOutputStream());
         } catch (Exception e) {
             CMS.debug("failed in outputing XML " + e);
         }
@@ -730,12 +710,6 @@ public abstract class CMSServlet extends HttpServlet {
             ICMSTemplateFiller filler = loadTempl.mFiller;
             CMSTemplateParams templateParams = null;
 
-            // When an exception occurs the exit is non-local which probably
-            // will leave the requestStatus value set to something other
-            // than CMSRequest.EXCEPTION, so force the requestStatus to 
-            // EXCEPTION since it must be that if we're here. 
-            cmsReq.setStatus(CMSRequest.EXCEPTION);
-
             if (filler != null) {
                 templateParams = filler.getTemplateParams(
                             cmsReq, mAuthority, locale[0], e);
@@ -747,16 +721,6 @@ public abstract class CMSServlet extends HttpServlet {
                 templateParams.getFixed().set(
                     ICMSTemplateFiller.EXCEPTION, e.toString(locale[0]));
             }
-
-            // just output arg blocks as XML
-            CMS.debug("CMSServlet.java: renderTemplate");
-            String xmlOutput = cmsReq.getHttpReq().getParameter("xml");
-            if (xmlOutput != null && xmlOutput.equals("true")) {
-                CMS.debug("CMSServlet.java: xml parameter detected, returning xml");
-                outputXML(cmsReq.getHttpResp(), templateParams);
-                return;
-            }
-
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
             template.renderOutput(bos, templateParams);
