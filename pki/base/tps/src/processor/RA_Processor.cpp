@@ -3911,6 +3911,7 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
     erAttrs = session->getExternalRegAttrs();
 
     if (erAttrs == NULL) {
+        PR_snprintf(audit_msg, 512, "Key Recovery failed. Possible misconfiguration.");
         status = STATUS_ERROR_RECOVERY_FAILED;
         goto loser;
     }
@@ -3919,12 +3920,15 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
 
     if (erCertsToRecover == NULL) {
         status = STATUS_ERROR_RECOVERY_FAILED;
+        PR_snprintf(audit_msg, 512, "Key Recovery failed. Possible misconfiguration.");
         goto loser;
     }
 
     count = erAttrs->getCertsToRecoverCount();
 
     if (count == 0) {
+        status = STATUS_ERROR_RECOVERY_FAILED;
+        PR_snprintf(audit_msg, 512, "Key Recovery failed. Possible misconfiguration.");
         goto loser;
     }
 
@@ -3964,6 +3968,7 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
 
     if (!label) {
         status = STATUS_ERROR_RECOVERY_FAILED;
+        PR_snprintf(audit_msg, 512, "Key Recovery failed. Possible misconfiguration.");
         goto loser;
     }
 
@@ -4067,6 +4072,7 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
                          "pk_p is NULL; unable to continue");
                           status = STATUS_ERROR_RECOVERY_FAILED;
                           PR_snprintf(audit_msg, 512, "Key Recovery failed. pk_p is NULL; unable to continue");
+            status = STATUS_ERROR_RECOVERY_FAILED;
             goto loser;
         }
 
@@ -4119,11 +4125,13 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
 
             if (channel->CreateObject(objid, perms, priv_keyblob.size()) != 1) {
                 PR_snprintf(audit_msg, 512, "Failed to write key to token. CreateObject failed.");
+                status = STATUS_ERROR_RECOVERY_FAILED;
                 goto loser;
             }
 
             if (channel->WriteObject(objid, (BYTE*)priv_keyblob, priv_keyblob.size()) != 1) {
                  PR_snprintf(audit_msg, 512, "Failed to write key to token. WriteObject failed.");
+                 status = STATUS_ERROR_RECOVERY_FAILED;
                  goto loser;
             }
         }
@@ -4151,6 +4159,7 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
                  PR_snprintf(audit_msg, 512, "ProcessRecovery: store keys in token failed, iv data not found");
                  delete decodeKey;
                  delete decodeKeyCheck;
+                 status = STATUS_ERROR_RECOVERY_FAILED;
                  goto loser;
             }
 
@@ -4178,6 +4187,7 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
             if (channel->ImportKeyEnc((keyUser << 4)+priKeyNumber,
                 (keyUsage << 4)+pubKeyNumber, &data) != 1) {
                 PR_snprintf(audit_msg, 512, "Failed to write key to token. ImportKeyEnc failed.");
+                status = STATUS_ERROR_RECOVERY_FAILED;
                 goto loser;
             }
         }
