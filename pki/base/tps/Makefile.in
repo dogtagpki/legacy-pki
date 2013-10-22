@@ -610,7 +610,7 @@ apache_modules_LTLIBRARIES = mod_tps.la \
 #------------------------
 # create an empty 'alias' directory
 alias_DATA = 
-applets_DATA = $(srcdir)/applets/1.4.52043a23.ijc \
+applets_DATA = $(srcdir)/applets/1.4.5265a65e.ijc \
 		$(srcdir)/applets/1.4.4d40a449.ijc \
 		$(srcdir)/applets/1.4.499dc06c.ijc \
 		$(srcdir)/applets/1.3.44724DDE.ijc
@@ -4049,7 +4049,7 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
-	-find $(distdir) -type d ! -perm -755 -exec chmod a+rwx,go+rx {} \; -o \
+	-find $(distdir) -type d ! -perm -777 -exec chmod a+rwx {} \; -o \
 	  ! -type d ! -perm -444 -links 1 -exec chmod a+r {} \; -o \
 	  ! -type d ! -perm -400 -exec chmod a+r {} \; -o \
 	  ! -type d ! -perm -444 -exec $(SHELL) $(install_sh) -c -m a+r {} {} \; \
