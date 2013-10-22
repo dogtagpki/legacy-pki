@@ -24,10 +24,17 @@
 #include <math.h>
 #include "engine/RA.h"
 #include "ldap.h"
+#include "ldap_ssl.h"
+#include "ldappr.h"
 #include "authentication/LDAP_Authentication.h"
 #include "authentication/Authentication.h"
+#include "authentication/ExternalRegAttrs.h"
 #include "main/Memory.h"
 #include "main/Util.h"
+#include "nuxwdog/WatchdogClient.h"
+
+/* should be undefined before delivery */
+#define ExternalRegPrototype
 
 /**
  * Constructs a base processor.
@@ -41,6 +48,13 @@ LDAP_Authentication::LDAP_Authentication ()
     m_ssl = NULL;
     m_bindDN = NULL;
     m_bindPwd = NULL;
+    m_isPrototype = false;
+    m_isExternalReg = false;
+    m_isDelegate = false;
+    m_attrName_tokenType = NULL;
+    m_attrName_tokenCUID = NULL;
+    m_attrName_certsToRecover = NULL;
+    m_attrName_certsToDelete = NULL;
 }
 
 /**
@@ -62,21 +76,67 @@ LDAP_Authentication::~LDAP_Authentication ()
         delete m_connInfo;
         m_connInfo = NULL;
     }
+
+    if (m_attrName_tokenType != NULL) {
+        PL_strfree(m_attrName_tokenType);
+        m_attrName_tokenType = NULL;
+    }
+
+    if (m_attrName_tokenCUID != NULL) {
+        PL_strfree(m_attrName_tokenCUID);
+        m_attrName_tokenCUID = NULL;
+    }
+
+    if (m_attrName_certsToRecover != NULL) {
+        PL_strfree(m_attrName_certsToRecover);
+        m_attrName_certsToRecover = NULL;
+    }
+
+    if (m_attrName_certsToDelete != NULL) {
+        PL_strfree(m_attrName_certsToDelete);
+        m_attrName_certsToDelete = NULL;
+    }
 }
 
 /*
  * Search for password name "name" in the password file "filepath"
  */
-static char *get_pwd_from_conf(char *filepath, const char *name)
+static char *get_pwd_from_conf(char *filepath, char *name)
 {
     PRFileDesc *fd;
     char line[1024];
     int removed_return;
     char *val= NULL;
+    char prompt[128];
+    PRStatus status;
+    char *wd_pipe = NULL;
 
+    if (strlen(filepath) == 0) {
+        return NULL;
+    }
     fd= PR_Open(filepath, PR_RDONLY, 400);
     if (fd == NULL) {
-        return NULL;
+        // password file is not readable.
+        // if started by the watchdog, ask the watchdog instead.
+        wd_pipe = PR_GetEnv("WD_PIPE_NAME");
+        if ((wd_pipe != NULL) && (strlen(wd_pipe) > 0)) {
+            status = call_WatchdogClient_init(); 
+            if (status != PR_SUCCESS) {
+                /* PR_fprintf(debug_fd, "get_pwd_from_conf unable to initialize connection to Watchdog"); */
+                return NULL;
+            }
+            sprintf(line, "Please enter the password for %s:", name);
+            val = call_WatchdogClient_getPassword(line, 0); 
+            if (val == NULL) {
+                /*PR_fprintf(debug_fd, "get_pwd_from_conf failed to get password from watchdog");*/
+                return NULL;
+            }
+            return val;
+        } else {
+            // not started by watchdog. Even if this is pre-fork, getting the password 
+            // directly from stdin is problematic here. 
+            return NULL;
+        }
     }
 
     while (1) {
@@ -115,7 +175,9 @@ static char *get_pwd_from_conf(char *filepath, const char *name)
 void LDAP_Authentication::Initialize(int instanceIndex) {
     char configname[256];
     const char *prefix="auth.instance";
+    const char *FN = "LDAP_Authentication::Initialize";
     
+    RA::Debug(FN, " begins");
     m_index = instanceIndex;
     PR_snprintf((char *)configname, 256, "%s.%d.hostport", prefix, instanceIndex);
     m_hostport = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname));
@@ -131,6 +193,7 @@ void LDAP_Authentication::Initialize(int instanceIndex) {
     m_baseDN = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname));
     PR_snprintf((char *)configname, 256, "%s.%d.attributes", prefix, instanceIndex);
     m_attributes = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname));
+
     /* support of SSL */
     PR_snprintf((char *)configname, 256, "%s.%d.ssl", prefix, instanceIndex);
     m_ssl = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname));
@@ -139,6 +202,46 @@ void LDAP_Authentication::Initialize(int instanceIndex) {
     PR_snprintf((char *)configname, 256, "%s.%d.bindPWD", prefix, instanceIndex);
     char *m_bindPwdPath = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname));
     m_bindPwd = get_pwd_from_conf(m_bindPwdPath, "tokendbBindPass");
+
+    // support External Registration DB (externalReg)
+    PR_snprintf((char *)configname, 256, "externalReg.prototype.enable");
+    m_isPrototype = RA::GetConfigStore()->GetConfigAsBool(configname, false);
+
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    m_isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+
+    PR_snprintf((char *)configname, 256, "externalReg.delegation.enable");
+    m_isDelegate = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+
+    /*
+     * e.g.
+     *    auth.instance.2.externalReg.tokenTypeAttributeName=tokenType
+     *    auth.instance.2.externalReg.cuidAttributeName=tokenCUID
+     *    auth.instance.2.externalReg.certs.recoverAttributeName=certsToRecover
+     *    auth.instance.2.externalReg.certs.deleteAttributeName=certsToDelete
+     */
+    if (!m_isPrototype && m_isExternalReg) {
+        RA::Debug(FN, " isExternalReg init begins");
+        // init the LDAP attribute names for externalReg
+        PR_snprintf((char *)configname, 256, "%s.%d.externalReg.tokenTypeAttributeName", prefix, instanceIndex);
+        m_attrName_tokenType = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname, "tokenType"));
+        RA::Debug(FN, "m_attrName_tokenType =%s", m_attrName_tokenType);
+
+        PR_snprintf((char *)configname, 256, "%s.%d.externalReg.cuidAttributeName", prefix, instanceIndex);
+        m_attrName_tokenCUID = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname, "tokenCUID"));
+        RA::Debug(FN, "m_attrName_tokenCUID =%s", m_attrName_tokenCUID);
+
+        PR_snprintf((char *)configname, 256, "%s.%d.externalReg.certs.recoverAttributeName", prefix, instanceIndex);
+        m_attrName_certsToRecover = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname, "certsToRecover"));
+        RA::Debug(FN, "m_attrName_certsToRecover =%s", m_attrName_certsToRecover);
+
+        PR_snprintf((char *)configname, 256, "%s.%d.externalReg.certs.deleteAttributeName", prefix, instanceIndex);
+        m_attrName_certsToDelete = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname, "certsToDelete"));
+        RA::Debug(FN, "m_attrName_certsToDelete =%s", m_attrName_certsToDelete);
+
+        RA::Debug(FN, " isExternalReg init ends");
+    }
+    RA::Debug(FN, " ends");
 }
 
 /**
@@ -152,8 +255,164 @@ void LDAP_Authentication::Initialize(int instanceIndex) {
 
 int LDAP_Authentication::Authenticate(AuthParams *params)
 {
+    return Authenticate(params, NULL);
+}
+
+/*
+ * ProcessExternalRegAttrs : 
+ *   - retrieve relevant attributes for externalReg
+ *   - parse the multi-valued attributes
+ * @param name name of the attribute to be processed
+ * @param value value of the attribute to be processed
+ * @param params ldap attributes retrieved from ldap authenticate
+ * @param session session container that will carry needed vals through session
+ */
+void LDAP_Authentication::ProcessExternalRegAttrs(char *name, char **value,
+    AuthParams *params,
+    RA_Session *session)
+{
+    const char *FN = "LDAP_Authentication::ProcessExternalRegAttrs";
+    ExternalRegAttrs *erAttrs = NULL;
+
+    RA::Debug(FN, "processing attr name %s", name);
+    if (session != NULL) {
+        erAttrs = session->getExternalRegAttrs();
+    }
+
+    if ((m_attrName_tokenType != NULL) &&
+          (PL_strcmp(m_attrName_tokenType, name) == 0)) {
+        char *tokenType = value[0];
+        if (tokenType != NULL) {
+            RA::Debug(FN,
+                "got externalReg attr: %s=%s", m_attrName_tokenType, tokenType);
+            if (erAttrs != NULL)
+                erAttrs->setTokenType(tokenType);
+        } else {
+            RA::Debug(FN,
+                "did not get externalReg attr: %s", m_attrName_tokenType);
+        }
+    } else if ((m_attrName_tokenCUID != NULL) &&
+          (PL_strcmp(m_attrName_tokenCUID, name)== 0)) {
+        char *tokenCUID = value[0];
+        if (tokenCUID != NULL) {
+            RA::Debug(FN,
+                "got externalReg attr: %s=%s", m_attrName_tokenCUID, tokenCUID);
+            if (erAttrs != NULL)
+                erAttrs->setTokenCUID(tokenCUID);
+        }
+    } else if ((m_attrName_certsToRecover != NULL)  &&
+          (PL_strcmp(m_attrName_certsToRecover, name)==0)) {
+        /*
+         * certs to be recovered for this user
+         *     - multi-valued
+         */
+        int i = 0;
+        while (value[i] != NULL) {
+            /*
+             * Each cert is represented as 
+             *    (serial#, caID, keyID, drmID)
+             * e.g.
+             *    (1234, ca1, 81, drm1)
+             *    note: numbers above are in decimal
+             */
+            RA::Debug(FN,
+                "Exposed externalReg: %s=%s", m_attrName_certsToRecover, value[i]);
+            ExternalRegCertToRecover *erCertToRecover =
+                new ExternalRegCertToRecover();
+            char *tok = NULL; 
+            char *dup_v = strdup(value[i]);
+            tok = strtok(dup_v, ","); 
+            if (tok != NULL)
+                erCertToRecover->setSerial((PRUint64)strtoull(tok,
+                    NULL, 10));
+            else
+                goto next;
+            tok = strtok( NULL, "," ); 
+            if (tok != NULL)
+                erCertToRecover->setCaConn(PL_strdup(tok));
+            else
+                goto next;
+            tok = strtok( NULL, "," ); 
+            if (tok != NULL)
+                erCertToRecover->setKeyid((PRUint64)strtoull(tok,
+                    NULL, 10));
+            else
+                goto next;
+            tok = strtok( NULL, "," ); 
+            if (tok != NULL)
+                erCertToRecover->setDrmConn(PL_strdup(tok));
+
+          next:
+            if (erAttrs != NULL) {
+                erAttrs->addCertToRecover(erCertToRecover); 
+            }
+
+            if (dup_v != NULL) {
+                PR_Free(dup_v);
+                dup_v = NULL;
+            }
+            i++;
+        }
+        RA::Debug(FN,
+            "certsToRecover end count =%d", erAttrs->getCertsToRecoverCount());
+    } else if ((m_attrName_certsToDelete != NULL)  &&
+          (PL_strcmp(m_attrName_certsToDelete, name)==0)) {
+        /*
+         * certs to be deleted for this user
+         *     - multi-valued
+         */
+        int i = 0;
+        while (value[i] != NULL) {
+            /*
+             * Each cert is represented as 
+             *    (serial#, caID, revokeOnDelete)
+             * e.g.
+             *    (234, ca1, true)
+             *    note: number above is in decimal
+             */
+            RA::Debug(FN,
+                "Exposed externalReg: %s=%s", m_attrName_certsToDelete, value[i]);
+            ExternalRegCertToDelete *erCertToDelete =
+                new ExternalRegCertToDelete();
+            char *tok = NULL; 
+            char *dup_v = strdup(value[i]);
+            tok = strtok(dup_v, ","); 
+            erCertToDelete->setSerial((PRUint64)strtoull(tok,
+                    NULL, 10));
+            tok = strtok( NULL, "," ); 
+            erCertToDelete->setCaConn(PL_strdup(tok));
+            tok = strtok( NULL, "," ); 
+            erCertToDelete->setRevoke((PL_strcmp(tok, "true")==0)? true:false);
+            if (erAttrs != NULL) {
+                erAttrs->addCertToDelete(erCertToDelete); 
+            }
+
+            if (dup_v != NULL) {
+                PR_Free(dup_v);
+                dup_v = NULL;
+            }
+            i++;
+        }
+        RA::Debug(FN,
+            "certsToDelete end count =%d", erAttrs->getCertsToDeleteCount());
+    } else {
+        RA::Debug(FN, "Exposed %s=%s", name, value[0]);
+        params->Add(name, PL_strdup(value[0]));
+        RA::Debug(FN, "Size %d", params->Size());
+    }
+    RA::Debug(FN, "processing for attr %s done", name);
+}
+
+/*
+ * LDAP_Authentication::Authenticate
+ *  params - ldap attributes retrieved from ldap authenticate
+ *   session - NULL if !isExternalReg
+ *           - otherwise isExternalReg, and it's ldap attributes retrieved
+ *             and filled in session->extRegAttrs
+ */
+int LDAP_Authentication::Authenticate(AuthParams *params, RA_Session *session)
+{
     char buffer[500];
-    char ldapuri[1024];
     char *host = NULL;
     char *portStr = NULL;
     int port = 0;
@@ -165,7 +424,7 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
     char *uid = NULL;
     char *password = NULL;
     int retries = 0;
-    int rc =0;
+    char configname[256];
 
     if (params == NULL) {
         status = TPS_AUTH_ERROR_USERNOTFOUND;
@@ -178,26 +437,27 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
     GetHostPort(&host, &portStr);
     port = atoi(portStr); 
 
-    if ((m_ssl != NULL) && (strcmp(m_ssl, "true")==0)) {
+    if (m_ssl != NULL & strcmp(m_ssl, "true")==0) {
       /* handling of SSL */
-      snprintf(ldapuri, 1024, "ldaps://%s:%i", host, port);
+      ld = ldapssl_init(host, port, 1); 
     } else {
-      snprintf(ldapuri, 1024, "ldap://%s:%i", host, port);
+      /* NOTE:  ldapssl_init() already utilizes */
+      /*        prldap (IPv6) functionality.    */
+      ld = prldap_init(host, port, 1); 
     }
-    status = ldap_initialize(&ld, ldapuri);
-
-    while ((ld == NULL) && (retries < m_connectRetries)) {
+    while (ld == NULL && retries < m_connectRetries) {
         RA::IncrementAuthCurrentIndex(m_connInfo->GetHostPortListLen());
         GetHostPort(&host, &portStr);
         port = atoi(portStr);
-        if ((m_ssl != NULL) && (strcmp(m_ssl, "true")==0)) {
+        if (m_ssl != NULL & strcmp(m_ssl, "true")==0) {
           /* handling of SSL */
-          snprintf(ldapuri, 1024, "ldaps://%s:%i", host, port);
+          ld = ldapssl_init(host, port, 1); 
         } else {
-          snprintf(ldapuri, 1024, "ldap://%s:%i", host, port);
+          /* NOTE:  ldapssl_init() already utilizes */
+          /*        prldap (IPv6) functionality.    */
+          ld = prldap_init(host, port, 1); 
         }
-        status = ldap_initialize(&ld, ldapuri);
-        retries++;    
+            retries++;    
     }
 
     if (ld == NULL) {
@@ -207,18 +467,24 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
 
     PR_snprintf((char *)buffer, 500, "(uid=%s)", uid);
 
+    if (m_isExternalReg && (session!= NULL) && (session->getExternalRegAttrs() == NULL)) {
+        ExternalRegAttrs *erAttrs = new ExternalRegAttrs();
+        session->setExternalRegAttrs(erAttrs);
+    }
+
     while (retries < m_connectRetries) {
         RA::IncrementAuthCurrentIndex(m_connInfo->GetHostPortListLen());
         GetHostPort(&host, &portStr);
         port = atoi(portStr);
         RA::Debug("ldap auth:"," host=%s, portstr=%s, port=%d", host, portStr, port);
-        if ((m_ssl != NULL) && (strcmp(m_ssl, "true")==0)) {
+        if (m_ssl != NULL & strcmp(m_ssl, "true")==0) {
           /* handling of SSL */
-          snprintf(ldapuri, 1024, "ldaps://%s:%i", host, port);
+          ld = ldapssl_init(host, port, 1); 
         } else {
-          snprintf(ldapuri, 1024, "ldap://%s:%i", host, port);
+          /* NOTE:  ldapssl_init() already utilizes */
+          /*        prldap (IPv6) functionality.    */
+          ld = prldap_init(host, port, 1); 
         }
-        status = ldap_initialize(&ld, ldapuri);
 
         if (ld == NULL) {
             RA::Debug("LDAP_Authentication::Authenticate:", "ld null.  Trying failover...");
@@ -233,14 +499,11 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
 
         if (m_bindDN != NULL && strlen(m_bindDN) > 0) {
             RA::Debug("LDAP_Authentication::Authenticate", "Simple bind required '%s'", m_bindDN);
-            struct berval credential;
-            credential.bv_val = m_bindPwd;
-            credential.bv_len= strlen(m_bindPwd);
-            rc = ldap_sasl_bind_s(ld, m_bindDN, LDAP_SASL_SIMPLE, &credential, NULL, NULL, NULL);
+            ldap_simple_bind_s(ld, m_bindDN, m_bindPwd);
         }
 
         int ldap_status = LDAP_OTHER;
-        if ((ldap_status = ldap_search_ext_s(ld, m_baseDN, LDAP_SCOPE_SUBTREE, buffer, NULL, 0, NULL, NULL, NULL, 0, &result)) != LDAP_SUCCESS) {
+        if ((ldap_status = ldap_search_s(ld, m_baseDN, LDAP_SCOPE_SUBTREE, buffer, NULL, 0, &result)) != LDAP_SUCCESS) {
             if (ldap_status != LDAP_NO_SUCH_OBJECT) {
               RA::Debug("LDAP_Authentication::Authenticate:", "LDAP_UNAVAILABLE.  Trying failover...");
               retries++;
@@ -251,36 +514,45 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
             for (e = ldap_first_entry(ld, result); e != NULL; e = ldap_next_entry(ld, e)) {
                 if ((dn = ldap_get_dn(ld, e)) != NULL) {
                     RA::Debug("LDAP_Authentication::Authenticate", "User bind required '%s' '(sensitive)'", dn );
-                    struct berval credential;
-                    credential.bv_val = password;
-                    credential.bv_len= strlen(password);
-                    rc = ldap_sasl_bind_s(ld, dn, LDAP_SASL_SIMPLE, &credential, NULL, NULL, NULL);
-                    if (rc == LDAP_SUCCESS) {
+                    if (ldap_simple_bind_s(ld, dn, password) == LDAP_SUCCESS) {
                         /* retrieve attributes and, */
                         /* put them into the auth parameters */
                         if (m_attributes != NULL) { 
                              RA::Debug("LDAP_Authentication::Authenticate", "Attributes %s", m_attributes);
                              char *m_dup_attributes = strdup(m_attributes);
                              char *token = NULL; 
-                             token = strtok(m_dup_attributes, ","); 
-                             while( token != NULL ) { 
-                                 struct berval **v = NULL;
-                                 v = ldap_get_values_len(ld, e, token);
-                                 if ((v != NULL) && (v[0]!= NULL) && (v[0]->bv_val != NULL)) {
-                                     RA::Debug("LDAP_Authentication::Authenticate", "Exposed %s=%s", token, v[0]->bv_val);
-                                     params->Add(token, PL_strdup(v[0]->bv_val));
-                                     RA::Debug("LDAP_Authentication::Authenticate", "Size %d", params->Size());
+                             char *lasts = NULL;
+                             token = PL_strtok_r(m_dup_attributes, ",", &lasts); 
+                             while( token != NULL ) {
+                                 char **v = NULL;
+                                 RA::Debug("LDAP_Authentication::Authenticate",
+                                     "about to search for attr %s", token);
+                                 v = ldap_get_values(ld, e, token);
+                                 if (v != NULL) {
+                                     RA::Debug("LDAP_Authentication::Authenticate", "found value for attr=%s",token);
+                                     if (!m_isPrototype && m_isExternalReg) {
+                                         ProcessExternalRegAttrs(token, v, params, session);
+                                     } else {
+                                         RA::Debug("LDAP_Authentication::Authenticate", "Exposed %s=%s", token, v[0]);
+                                         params->Add(token, PL_strdup(v[0]));
+                                         RA::Debug("LDAP_Authentication::Authenticate", "Size %d", params->Size());
+                                     }
+                                 } else {
+                                     RA::Debug("LDAP_Authentication::Authenticate", "not found value for attr=%s",token);
                                  }
-                                 token = strtok( NULL, "," ); 
+                                 token = PL_strtok_r( NULL, ",", &lasts ); 
+                                 if (token == NULL)
+                                     RA::Debug("LDAP_Authentication::Authenticate", "no more token");
                                  if( v != NULL ) {
-                                     ldap_value_free_len( v );
+                                     ldap_value_free( v );
                                      v = NULL;
                                  }
 
                              }
 						     free(m_dup_attributes);
                         }
-				    	status = TPS_AUTH_OK;   // SUCCESS - PASSWORD VERIFIED
+
+                        status = TPS_AUTH_OK;   // SUCCESS - PASSWORD VERIFIED
 			    	} else {
                         status = TPS_AUTH_ERROR_PASSWORDINCORRECT;
                         goto loser;
@@ -290,6 +562,89 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
                     goto loser;
                 } 
             }
+#ifdef ExternalRegPrototype
+            if ((m_isPrototype) && (m_isExternalReg) && (session != NULL)) {
+                ExternalRegAttrs *erAttrs = NULL;
+                if (session != NULL)
+                    erAttrs = new ExternalRegAttrs();
+
+                RA::Debug("LDAP_Authentication::Authenticate:", " ExternalRegPrototype begins");
+                /*
+                 * For Prototype/Demo only,
+                 * in CS.cfg (instead of getting from ldap) e.g.
+                 *
+                 * externalReg.prototype.tokenType=delegateISEtoken
+                 * externalReg.prototype.recoverNum=2
+                 * externalReg.prototype.recover0.serial=6
+                 * externalReg.prototype.recover0.keyid=3
+                 * externalReg.prototype.recover0.caConn=ca1
+                 * externalReg.prototype.recover0.drmConn=drm1
+                 * externalReg.prototype.recover1.serial=8
+                 * externalReg.prototype.recover1.keyid=4
+                 * externalReg.prototype.recover1.caConn=ca1
+                 * externalReg.prototype.recover1.drmConn=drm1
+                 * externalReg.prototype.deleteNum=2
+                 * externalReg.prototype.delete0.serial=10
+                 * externalReg.prototype.delete0.caConn=ca1
+                 * externalReg.prototype.delete0.revoke=false
+                 * externalReg.prototype.delete1.serial=12
+                 * externalReg.prototype.delete1.caConn=ca1
+                 * externalReg.prototype.delete1.revoke=true
+                 */
+                char proto_recover_prefix[256] = "externalReg.prototype.recover";
+                PR_snprintf((char *)configname, 256, "%sNum", proto_recover_prefix);
+                int protoNum = RA::GetConfigStore()->GetConfigAsInt(configname);
+                for (int i=0; i<protoNum; i++) {
+                    ExternalRegCertToRecover *erCertToRecover = new ExternalRegCertToRecover();
+                    PR_snprintf((char *)configname, 256, "%s%d.keyid", proto_recover_prefix,i);
+                    PRUint64 keyid = RA::GetConfigStore()->GetConfigAsInt(configname);
+                    erCertToRecover->setKeyid(keyid);
+                    PR_snprintf((char *)configname, 256, "%s%d.serial", proto_recover_prefix,i);
+                    PRUint64 serial = RA::GetConfigStore()->GetConfigAsInt(configname);
+                    erCertToRecover->setSerial(serial);
+                    PR_snprintf((char *)configname, 256, "%s%d.caConn", proto_recover_prefix,i);
+                    erCertToRecover->setCaConn(RA::GetConfigStore()->GetConfigAsString(configname));
+                    PR_snprintf((char *)configname, 256, "%s%d.drmConn", proto_recover_prefix,i);
+                    erCertToRecover->setDrmConn(RA::GetConfigStore()->GetConfigAsString(configname));
+                    erAttrs->addCertToRecover(erCertToRecover); 
+                }
+
+                char proto_delete_prefix[256] = "externalReg.prototype.delete";
+                PR_snprintf((char *)configname, 256, "%sNum", proto_delete_prefix);
+                protoNum = RA::GetConfigStore()->GetConfigAsInt(configname);
+                for (int i=0; i<protoNum; i++) {
+                    ExternalRegCertToDelete *erCertToDelete =
+                        new ExternalRegCertToDelete();
+                    PR_snprintf((char *)configname, 256, "%s%d.serial", proto_delete_prefix,i);
+                    PRUint64 serial = RA::GetConfigStore()->GetConfigAsInt(configname);
+                    erCertToDelete->setSerial(serial);
+                    PR_snprintf((char *)configname, 256, "%s%d.caConn", proto_delete_prefix,i);
+                    erCertToDelete->setCaConn(RA::GetConfigStore()->GetConfigAsString(configname));
+                    PR_snprintf((char *)configname, 256, "%s%d.revoke", proto_delete_prefix,i);
+                    erCertToDelete->setRevoke(RA::GetConfigStore()->GetConfigAsBool(configname, 0));
+                    erAttrs->addCertToDelete(erCertToDelete);
+                }
+                PR_snprintf((char *)configname, 256, "externalReg.prototype.tokenType");
+                erAttrs->setTokenType(RA::GetConfigStore()->GetConfigAsString(configname));
+                session->setExternalRegAttrs(erAttrs);
+                PR_snprintf((char *)configname, 256, "externalReg.prototype.cuid");
+                erAttrs->setTokenCUID(RA::GetConfigStore()->GetConfigAsString(configname));
+                RA::Debug("LDAP_Authentication::Authenticate:", " ExternalRegPrototype ends");
+               /*
+                * isDelegate
+                */
+                if (m_isDelegate) {
+                    params->Add("lastname", "Doe");
+                    params->Add("firstname", "Jane");
+                    params->Add("edipi", "0123456789");
+                    params->Add("pcc", "BB");
+                    params->Add("mail", "jdoe@redhat.com");
+                    params->Add("exec-edipi", "9123456789");
+                    params->Add("exec-pcc", "AA");
+                    params->Add("exec-mail", "exec@redhat.com");
+                }
+            }
+#endif /*ExternalRegPrototype*/
             RA::Debug("LDAP_Authentication::Authenticate:", " authentication completed for %s",uid);
             break;
         }
@@ -301,6 +656,7 @@ int LDAP_Authentication::Authenticate(AuthParams *params)
     }
 
 loser:
+    RA::Debug("LDAP_Authentication::Authenticate:", "status =%d", status);
 
     if (result != NULL) {
       ldap_msgfree(result);
@@ -311,9 +667,10 @@ loser:
     }
 
     if (ld != NULL) {
-        ldap_unbind_ext_s(ld, NULL, NULL);
+        ldap_unbind(ld);
         ld = NULL;
     } 
+
     return status;
 }
 

@@ -18,9 +18,7 @@
 package com.netscape.cms.profile.common;
 
 
-import com.netscape.certsrv.profile.IPolicyConstraint;
-import com.netscape.certsrv.profile.IPolicyDefault;
-import com.netscape.certsrv.profile.IProfilePolicy;
+import com.netscape.certsrv.profile.*;
 
 
 /**

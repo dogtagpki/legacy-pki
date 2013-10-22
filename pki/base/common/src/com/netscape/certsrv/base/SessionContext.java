@@ -18,7 +18,7 @@
 package com.netscape.certsrv.base;
 
 
-import java.util.Hashtable;
+import java.util.*;
 
 
 /**

@@ -17,12 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.csadmin;
 
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.TimerTask;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.ISecurityDomainSessionTable;
+import java.util.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.base.*;
 import com.netscape.certsrv.logging.ILogger;
 
 public class SessionTimer extends TimerTask {

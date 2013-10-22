@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -133,17 +133,15 @@ sub display
     $::symbol{sdomainAdminURL} = "https://" . $hostname . ":"
                                . $default_https_admin_port;
 
-    my $initDaemon = "pki-cad";
     my $initCommand = "";
     my $instanceID = "&lt;security_domain_instance_name&gt; ";
     if( $^O eq "linux" ) {
-        $initCommand = "/sbin/service $initDaemon";
+        $initCommand = "/sbin/service $instanceID";
     } else {
         ## default case:  e. g. - ( $^O eq "solaris" )
-        $initCommand  = "/etc/init.d/$initDaemon";
+        $initCommand  = "/etc/init.d/$instanceID";
     }
     $::symbol{initCommand} = $initCommand;
-    $::symbol{instanceID}  = $instanceID;
     return 1;
 }
 

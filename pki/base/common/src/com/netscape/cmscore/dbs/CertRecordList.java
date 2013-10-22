@@ -18,13 +18,15 @@
 package com.netscape.cmscore.dbs;
 
 
-import java.util.Enumeration;
-import java.util.Vector;
+import java.util.*;
+import java.io.*;
+import java.math.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.certdb.*;
 
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.dbs.IDBVirtualList;
-import com.netscape.certsrv.dbs.IElementProcessor;
-import com.netscape.certsrv.dbs.certdb.ICertRecordList;
+import com.netscape.cmscore.dbs.*;
+import com.netscape.certsrv.apps.*;
 
 
 /**

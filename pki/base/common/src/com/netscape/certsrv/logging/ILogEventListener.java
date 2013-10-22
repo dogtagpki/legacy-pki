@@ -18,22 +18,16 @@
 package com.netscape.certsrv.logging;
 
 
-import java.io.IOException;
-import java.util.EventListener;
-import java.util.Hashtable;
-import java.util.Vector;
-
-import javax.servlet.ServletException;
-
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.common.NameValuePairs;
-
+import com.netscape.certsrv.base.*;
+import java.util.*;
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import com.netscape.certsrv.common.*;
 
 
 /**
- * An interface represents a log event listener.
+ * An interface reprensents a log event listener.
  * A ILogEventListener is registered to  a specific
  * ILogQueue to be notified of created ILogEvents.
  * the log queue will notify all its registered listeners
@@ -73,7 +67,7 @@ public interface ILogEventListener extends EventListener {
      * Initialize this log listener
 	 * @param owner The subsystem.
 	 * @param config Configuration store for this log listener.
-	 * @exception initialization error.
+	 * @exception Any initialization error.
      */
     public void init(ISubsystem owner, IConfigStore config) 
         throws EBaseException;

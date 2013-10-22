@@ -17,7 +17,7 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.template;
 
-import java.util.Vector;
+import java.util.*;
 
 /**
  * This class represents a list of arguments

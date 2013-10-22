@@ -18,6 +18,7 @@
 package com.netscape.certsrv.logging;
 
 
+import com.netscape.certsrv.logging.*;
 
 
 /**

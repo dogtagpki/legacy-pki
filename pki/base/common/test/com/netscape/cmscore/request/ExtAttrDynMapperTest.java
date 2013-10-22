@@ -1,14 +1,14 @@
 package com.netscape.cmscore.request;
 
+import junit.framework.Test;
+import junit.framework.TestSuite;
+
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
 
-import junit.framework.Test;
-import junit.framework.TestSuite;
-import netscape.ldap.LDAPAttribute;
 import netscape.ldap.LDAPAttributeSet;
-
+import netscape.ldap.LDAPAttribute;
 import com.netscape.certsrv.base.EBaseException;
 import com.netscape.certsrv.request.IRequestRecord;
 import com.netscape.certsrv.request.RequestId;

@@ -18,6 +18,7 @@
 package com.netscape.certsrv.policy;
 
 
+import com.netscape.certsrv.base.*;
 import com.netscape.certsrv.request.IRequest;
 
 

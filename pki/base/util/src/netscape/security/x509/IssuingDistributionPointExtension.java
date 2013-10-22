@@ -17,19 +17,13 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
-import java.io.BufferedOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.security.cert.CertificateException;
+import netscape.security.util.*;
+import netscape.security.x509.*;
+import java.io.*;
+import org.mozilla.jss.asn1.*;
+import java.security.cert.*;
+import java.util.Vector;
 import java.util.Enumeration;
-
-import netscape.security.util.BitArray;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-
-import org.mozilla.jss.asn1.ASN1Util;
 
 /**
  * A critical CRL extension that identifies the CRL distribution point

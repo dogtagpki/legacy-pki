@@ -18,17 +18,13 @@
 package com.netscape.cmscore.util;
 
 
-import java.io.FileOutputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Hashtable;
-import java.util.StringTokenizer;
+import com.netscape.certsrv.base.*;
+import com.netscape.cmsutil.util.*;
 
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.cmsutil.util.Utils;
+import java.lang.*;
+import java.io.*;
+import java.util.*;
+import java.text.*;
 
 
 public class Debug

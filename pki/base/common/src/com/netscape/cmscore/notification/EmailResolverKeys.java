@@ -18,11 +18,9 @@
 package com.netscape.cmscore.notification;
 
 
-import java.util.Enumeration;
-import java.util.Hashtable;
-
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.notification.IEmailResolverKeys;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.notification.*;
+import java.util.*;
 
 
 /**
