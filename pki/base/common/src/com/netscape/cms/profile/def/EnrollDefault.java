@@ -215,7 +215,11 @@ public abstract class EnrollDefault implements IPolicyDefault, ICertInfoPolicyDe
 
         setValue(name, locale, info, value);
 
-        request.setExtData(IEnrollProfile.REQUEST_CERTINFO, info);
+        boolean ret = request.setExtData(IEnrollProfile.REQUEST_CERTINFO, info);
+        if (ret == false) {
+            CMS.debug("EnrollDefault: setValue(): request.setExtData() returned false");
+            throw new EPropertyException("EnrollDefault: setValue(): request.setExtData() failed");
+        }
     }
 
     /**
@@ -284,6 +288,10 @@ public abstract class EnrollDefault implements IPolicyDefault, ICertInfoPolicyDe
     protected Extension getExtension(String name, X509CertInfo info) {
         CertificateExtensions exts = null;
 
+        if (info == null) {
+            CMS.debug("EnrollDefault: getExtension(), info == null");
+            return null;
+        }
         try {
             exts = (CertificateExtensions)
                     info.get(X509CertInfo.EXTENSIONS);

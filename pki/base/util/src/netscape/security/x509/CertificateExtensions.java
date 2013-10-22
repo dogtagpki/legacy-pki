@@ -58,14 +58,9 @@ implements CertAttrSet, Serializable {
         try {
             Class extClass = OIDMap.getClass(ext.getExtensionId());
             if (extClass == null) {   // Unsupported extension
-                if (ext.isCritical()) {
-                    throw new IOException("Unsupported CRITICAL extension: "
-                            + ext.getExtensionId());
-                } else {
-                    map.put(ext.getExtensionId().toString(), ext);
-                    addElement(ext);
-                    return;
-                }
+                map.put(ext.getExtensionId().toString(), ext);
+                addElement(ext);
+                return;
             }
             Class[] params = {Boolean.class, Object.class};
             Constructor cons = extClass.getConstructor(params);

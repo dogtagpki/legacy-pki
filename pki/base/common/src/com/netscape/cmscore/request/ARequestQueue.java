@@ -27,6 +27,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ByteArrayInputStream;
 
+import com.netscape.cmscore.util.*;
 import com.netscape.certsrv.base.EBaseException;
 import com.netscape.certsrv.base.SessionContext;
 import com.netscape.certsrv.base.IAttrSet;
@@ -1076,6 +1077,7 @@ class Request
             try {
                 return new X509CertImpl(data);
             } catch (CertificateException e) {
+                CMS.debug("ARequestQueue: getExtDataInCert(): "+e.toString());
                 return null;
             }
         }
@@ -1107,6 +1109,7 @@ class Request
             try {
                 certArray[index] = new X509CertImpl(CMS.AtoB(stringArray[index]));
             } catch (CertificateException e) {
+                CMS.debug("ARequestQueue: getExtDataInCertArray(): "+e.toString());
                 return null;
             }
         }
@@ -1130,6 +1133,7 @@ class Request
             try {
                 return new X509CertInfo(data);
             } catch (CertificateException e) {
+                CMS.debug("ARequestQueue: getExtDataInCertInfo(): "+e.toString());
                 return null;
             }
         }
@@ -1161,6 +1165,7 @@ class Request
             try {
                 certArray[index] = new X509CertInfo(CMS.AtoB(stringArray[index]));
             } catch (CertificateException e) {
+                CMS.debug("ARequestQueue: getExtDataInCertInfoArray(): "+e.toString());
                 return null;
             }
         }
@@ -1278,8 +1283,10 @@ class Request
         try {
             data.encode(byteStream);
         } catch (CertificateException e) {
+            CMS.debug("ARequestQueue: setExtData(): "+e.toString());
             return false;
         } catch (IOException e) {
+            CMS.debug("ARequestQueue: setExtData(): "+e.toString());
             return false;
         }
         return setExtData(key, byteStream.toByteArray());
