@@ -2289,7 +2289,27 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     }
 
     rc = RA::tdb_add_token_entry((char *)userid, cuid, "uninitialized", tokenType);
-    if (rc == -1) {
+    /*
+     * if isExternalReg, to reach here, then either tokenCUID matched, or
+     * tokenCUID not specified (don't care)
+     * In such event, if tdb_add_token_entry() returns -2 when token does not
+     * belong to the authenticated user, it is allowed to continue. 
+     */
+    if (isExternalReg && (rc == -2)) {
+        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - RA::tdb_add_token_entry() returned -2 for externalReg");
+        /*
+         * updating the userid of this token entry.
+         * In case of success later, all other info should be updated
+         *    accordingly
+         */
+        rc = RA::ra_update_token_status_reason_userid((char *)userid, cuid, "uninitialized", "", 1);
+        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process"," - RA::ra_update_token_status_reason_userid() returned.");
+        if (rc == -1) {
+            status = STATUS_ERROR_UPDATE_TOKENDB_FAILED;
+            PR_snprintf(audit_msg, 512, "error in updating user id for token entry");
+            goto loser;
+        }
+    } else if ((rc == -1) || (rc == -2)) {
         status = STATUS_ERROR_CREATE_TUS_TOKEN_ENTRY;
         PR_snprintf(audit_msg, 512, "error in creating uninitialized token entry");
         goto loser;

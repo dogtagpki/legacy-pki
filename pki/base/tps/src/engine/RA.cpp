@@ -3362,8 +3362,15 @@ int RA::tdb_add_token_entry(char *userid, char* cuid, const char *status, const 
                     ldap_value_free(uid);
                     RA::Debug(LL_PER_PDU, "RA::tdb_add_token_entry",
                           "This token does not belong to this user: %s", userid);
-                    r = -1;
-		    goto loser;
+                    /*
+                     * returns special -2 in case externalReg allows it 
+                     * if tokenCUID match
+                     * and in which case, update the userid for token entry
+                     */
+                    RA::Debug(LL_PER_PDU, "RA::tdb_add_token_entry",
+                          "returning -2 to check for isExternalReg");
+                    r = -2;
+                    goto loser;
                 } else {
                     if (strlen(uid[0]) > 0 && strcmp(uid[0], userid) == 0) {
                         ldap_value_free(uid);
