@@ -3927,8 +3927,7 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
     count = erAttrs->getCertsToRecoverCount();
 
     if (count == 0) {
-        status = STATUS_ERROR_RECOVERY_FAILED;
-        PR_snprintf(audit_msg, 512, "Key Recovery failed. Possible misconfiguration.");
+        PR_snprintf(audit_msg, 512, "Key Recovery no certs to recover, returning.");
         goto loser;
     }
 
