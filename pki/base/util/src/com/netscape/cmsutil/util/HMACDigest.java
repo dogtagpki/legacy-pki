@@ -19,6 +19,7 @@ package com.netscape.cmsutil.util;
 
 
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 
 /**

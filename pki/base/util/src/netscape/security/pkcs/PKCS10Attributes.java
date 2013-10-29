@@ -19,14 +19,12 @@ package netscape.security.pkcs;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.security.cert.CertificateException;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
 
-import netscape.security.util.DerEncoder;
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * This class defines the PKCS10 attributes for the request.

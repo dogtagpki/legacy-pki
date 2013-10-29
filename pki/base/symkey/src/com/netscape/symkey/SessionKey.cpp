@@ -389,9 +389,10 @@ PK11SymKey *DeriveKey(PK11SymKey *cardKey, const Buffer& hostChallenge, const Bu
     param.data = (unsigned char*)&string;
     param.len = sizeof(string);
 
-    invalid_mechanism = PR_FALSE;
+    invalid_mechanism = PR_TRUE;
 
-    tmp1 = PK11_Derive( master , CKM_DES_ECB_ENCRYPT_DATA , &param , CKM_CONCATENATE_BASE_AND_KEY  , CKA_DERIVE, 0);
+    /* When NSS gets full ability to perform this mechanism in soft token, revisit this code to make sure it works. */
+    /*   tmp1 = PK11_Derive( master , CKM_DES_ECB_ENCRYPT_DATA , &param , CKM_CONCATENATE_BASE_AND_KEY  , CKA_DERIVE, 0);
 
     if ( tmp1 == NULL) {
        if ( PR_GetError() == SEC_ERROR_NO_TOKEN) 
@@ -401,7 +402,7 @@ PK11SymKey *DeriveKey(PK11SymKey *cardKey, const Buffer& hostChallenge, const Bu
     } else {
        PR_fprintf(PR_STDOUT,"DeriveKey: Successfully created key using encrypt and derive method! \n");
     }
-
+ */
     if ( invalid_mechanism == PR_FALSE) {
 
         string.pData = &derivationData[EIGHT_BYTES];
@@ -644,7 +645,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Comp
     char *keySetString =  keySetStringChars;
 
     if ( keySetString == NULL ) {
-        keySetString = (char *) DEFKEYSET_NAME;
+        keySetString = DEFKEYSET_NAME;
     }
 
     char *sharedSecretKeyNameChars =  NULL;
@@ -656,7 +657,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Comp
     char *sharedSecretKeyNameString = sharedSecretKeyNameChars;
 
     if ( sharedSecretKeyNameString == NULL ) {
-        sharedSecretKeyNameString = (char *) TRANSPORT_KEY_NAME;
+        sharedSecretKeyNameString = TRANSPORT_KEY_NAME;
     }
 
     GetSharedSecretKeyName(sharedSecretKeyNameString);
@@ -728,13 +729,13 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Comp
 
     PR_fprintf(PR_STDOUT,"In SessionKey.ComputeSessionKey! \n");
 
-    if ( (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 && strcmp( keyname, "#01#01") == 0) ||
+    if (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 && strcmp( keyname, "#01#01") == 0 ||
         (keyVersion[0] == -1 && strstr(keyname, "#FF")))
      
     {
         /* default manufacturers key */
 
-        macSymKey = ReturnDeveloperSymKey(slot, (char *) "mac" , keySetString, macBuff);
+        macSymKey = ReturnDeveloperSymKey(slot, "mac" , keySetString, macBuff);
 
         if( macSymKey == NULL ) {
             goto done;
@@ -954,7 +955,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Comp
     char *keySetString =  keySetStringChars;
 
     if ( keySetString == NULL ) {
-        keySetString = (char *) DEFKEYSET_NAME;
+        keySetString = DEFKEYSET_NAME;
     }
 
     if( card_challenge != NULL) {
@@ -1024,12 +1025,12 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Comp
         GetKeyName(keyVersion,keyname);
     }
 
-    if ( (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 &&strcmp( keyname, "#01#01") == 0) ||
+    if (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 &&strcmp( keyname, "#01#01") == 0 ||
         (keyVersion[0] == -1 && strstr(keyname, "#FF")))
     {
         /* default manufacturers key */
 
-        encSymKey = ReturnDeveloperSymKey(slot, (char *) "auth" , keySetString, encBuff);
+        encSymKey = ReturnDeveloperSymKey(slot, "auth" , keySetString, encBuff);
 
         if( encSymKey == NULL ) {
             goto done;
@@ -1197,7 +1198,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_com_netscape_symkey_SessionKey_Compute
     char *keySetString = keySetStringChars;
 
     if ( keySetString == NULL ) {
-        keySetString = (char *) DEFKEYSET_NAME;
+        keySetString = DEFKEYSET_NAME;
     }
 
     char input[KEYLENGTH];
@@ -1284,12 +1285,12 @@ extern "C" JNIEXPORT jobject JNICALL Java_com_netscape_symkey_SessionKey_Compute
 
     PR_fprintf(PR_STDOUT,"In SessionKey.ComputeKekKey! \n");
 
-    if (( keyVersion[0] == 0x1 && keyVersion[1]== 0x1 &&strcmp( keyname, "#01#01") == 0 ) ||
+    if (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 &&strcmp( keyname, "#01#01") == 0 ||
         (keyVersion[0] == -1 && strcmp(keyname, "#FF")))
     {
         /* default manufacturers key */
 
-         kekKey = ReturnDeveloperSymKey(slot, (char *) "kek" , keySetString, kekBuff);
+         kekKey = ReturnDeveloperSymKey(slot, "kek" , keySetString, kekBuff);
 
     } else {
         masterKey = ReturnSymKey( slot,keyname);
@@ -1524,7 +1525,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Comp
     char *keySetString = keySetStringChars;
 
     if ( keySetString == NULL ) {
-        keySetString = (char *) DEFKEYSET_NAME;
+        keySetString = DEFKEYSET_NAME;
     }
 
     char input[KEYLENGTH];
@@ -1636,13 +1637,13 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Comp
     }else
     GetKeyName(keyVersion,keyname);
 
-    if ( (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 &&strcmp( keyname, "#01#01") == 0 ) ||
+    if (keyVersion[0] == 0x1 && keyVersion[1]== 0x1 &&strcmp( keyname, "#01#01") == 0 ||
         (keyVersion[0] == -1 && strstr(keyname, "#FF")))
     {
 
         /* default manufacturers key */
 
-        authSymKey = ReturnDeveloperSymKey(slot, (char *) "auth" , keySetString, authBuff);
+        authSymKey = ReturnDeveloperSymKey(slot, "auth" , keySetString, authBuff);
         if( authSymKey == NULL ) {
             goto done;
         }

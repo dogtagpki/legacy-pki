@@ -17,9 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.authentication;
 
-import java.math.BigInteger;
-
+import com.netscape.certsrv.base.*;
 import org.mozilla.jss.pkix.cmc.PKIData;
+import java.math.*;
 
 /**
  * Shared Token interface.

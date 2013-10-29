@@ -39,6 +39,7 @@
 
 #include "main/RA_pblock.h"
 #include "main/RA_Msg.h"
+#include "authentication/ExternalRegAttrs.h"
 
 #ifdef XP_WIN32
 #define TPS_PUBLIC __declspec(dllexport)
@@ -56,6 +57,10 @@ class RA_Session
 	  virtual RA_Msg *ReadMsg();
 	  virtual char *GetRemoteIP();
 	  virtual void WriteMsg(RA_Msg *msg);
+      TPS_PUBLIC ExternalRegAttrs *getExternalRegAttrs();
+      TPS_PUBLIC void setExternalRegAttrs(ExternalRegAttrs *erAttrs);
+  private:
+      ExternalRegAttrs *extRegAttrs;
 };
 
 #endif /* RA_SESSION_H */

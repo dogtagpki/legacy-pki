@@ -18,6 +18,8 @@
 package com.netscape.certsrv.logging;
 
 
+import java.io.Serializable;
+import java.util.Locale;
 
 
 /**

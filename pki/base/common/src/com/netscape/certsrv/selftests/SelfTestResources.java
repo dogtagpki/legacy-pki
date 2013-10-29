@@ -18,7 +18,7 @@
 package com.netscape.certsrv.selftests;
 
 
-import java.util.ListResourceBundle;
+import java.util.*;
 
 
 /**

@@ -25,9 +25,9 @@ that can be used by the TPS for applet upgrade.
 Applet Information:
 ------------------
 
-File Name     Creation Date    Applet Ver Major Ver Minor Ver Remark
-============  ================ ========== ========= ========= ==========
-427BDDB8.ijc  2005/05/06  14:12 427BDDB8   1         3         Official Applet
+Official TPS Key Recovery applet for RSA:
+
+1.4.5265a65e.ijc
 
 Token Information:
 -----------------
