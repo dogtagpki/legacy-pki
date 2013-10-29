@@ -2648,15 +2648,17 @@ op.enroll.certificates.caCert.label=caCert Label
 
 	if (channel->CreateObject(objid, perms, xb.size()) != 1) {
 	  status = STATUS_ERROR_MAC_ENROLL_PDU;
-          RA::Debug("RA_Enroll_Processor::channel createObject"," failed");
-          PR_snprintf(audit_msg, 512, "channel createObject failed");
+          RA::Debug("RA_Enroll_Processor::channel createObject"," failed, contents of token possibly corrupted, formatting now.");
+          PR_snprintf(audit_msg, 512, "channel createObject failed, contents of token possibly corrupted, formatting now.");
+          Format(session,extensions,true);    
 	  goto loser;
 	}
       //      channel->CreateObject(objid, xb.size());
 	if (channel->WriteObject(objid, (BYTE*)xb, xb.size()) != 1) {
 	  status = STATUS_ERROR_MAC_ENROLL_PDU;
-          RA::Debug("RA_Enroll_Processor::channel writeObject"," failed");
-          PR_snprintf(audit_msg, 512, "channel writeObject failed");
+          RA::Debug("RA_Enroll_Processor::channel writeObject"," failed, contents of token possibly corrupted, formatting now.");
+          PR_snprintf(audit_msg, 512, "channel writeObject failed, contents of token possibly corrupted, formatting now");
+          Format(session,extensions,true);
 	  goto loser;
 	}
     }

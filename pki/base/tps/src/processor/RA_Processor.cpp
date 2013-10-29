@@ -2517,7 +2517,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                 }
 
                 PR_snprintf((char *)configname, 256, "%s.%s.revokeCert", OP_PREFIX, tokenType);
-                bool revokeCert = RA::GetConfigStore()->GetConfigAsBool(configname, true);
+                bool revokeCert = RA::GetConfigStore()->GetConfigAsBool(configname, false);
                 if (revokeCert) {
                     char *attr_cn = RA::ra_get_cert_cn(e);
                     PR_snprintf((char *)configname, 256, "%s.%s.ca.conn", OP_PREFIX,
@@ -2812,7 +2812,7 @@ bool RA_Processor::AuthenticateUserLDAP(
     if (isExternalReg ) {
         PR_snprintf((char *)configname, 256, 
             "externalReg.default.tokenType");
-        tokenType = (char *) RA::GetConfigStore()->GetConfigAsString(configname, "userKey");
+        tokenType = (char *) RA::GetConfigStore()->GetConfigAsString(configname);
 
         rc = ldapAuth->Authenticate(login, a_session);
         /*ToDo: compare token cuid from reg user record with a_cuid
@@ -2836,9 +2836,15 @@ bool RA_Processor::AuthenticateUserLDAP(
         if (tt != NULL)
             RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
         else {
-            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to default");
+
+            if (tokenType == NULL) {
+                RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, unable to obtain value for tokenType, leaving");
+                RA::Error(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, unable to obtain value for tokenType, leaving");
+                r = false;
+                return r;
+            }
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: using tokenType value from CS.cfg: %s ", tokenType);
             a_session->getExternalRegAttrs()->setTokenType(tokenType);
-            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, done setting to default %s", tokenType);
         }
 
         /*
@@ -3206,7 +3212,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
             // get the default externalReg tokenType
             PR_snprintf((char *)configname, 256, 
                 "externalReg.default.tokenType");
-            tokenType = (char *) RA::GetConfigStore()->GetConfigAsString(configname, "userKey");
+            tokenType = (char *) RA::GetConfigStore()->GetConfigAsString(configname, "externalRegAddToToken");
             RA::Debug("RA_Processor::Format", "setting tokenType to: %s", tokenType);
         } else {
             /* get user login and password - set in "login" */
