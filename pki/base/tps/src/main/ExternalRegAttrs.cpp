@@ -78,8 +78,8 @@ ExternalRegCertToRecover::ExternalRegCertToRecover() {
     caConn = NULL;
     drmConn = NULL;
     certKeyInfo = NULL;
-    keyid = -1;
-    serial = -1;
+    keyid = 0;
+    serial = 0;
 }
 
 ExternalRegCertToRecover::~ExternalRegCertToRecover() {

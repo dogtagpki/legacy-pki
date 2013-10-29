@@ -1119,7 +1119,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 {
     RA::RecoverKey(session, cuid,
                     userid, desKey_s,
-                    b64cert, -1, publicKey_s,
+                    b64cert, 0, publicKey_s,
                     wrappedPrivateKey_s, connId, ivParam_s);
 }
 
@@ -1172,7 +1172,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       RA::Debug(" RA:: RecoverKey", "in RecoverKey, userid NULL");
       goto loser;
     }
-    if ((b64cert == NULL) && (keyid == -1)) {
+    if ((b64cert == NULL) && (keyid == 0)) {
       RA::Debug(" RA:: RecoverKey", "in RecoverKey, b64cert or keyid NULL");
       goto loser;
     }
@@ -2230,7 +2230,7 @@ TPS_PUBLIC char * RA::GetAuditSigningMessage(NSSUTF8 * audit_msg)
                 goto loser;
             }
 
-            /* get rid of the carriage return line feed */
+            /* get rid of the carriage return line feed 
             int sig_len = PL_strlen(sig_b64);
             out_sig_b64 =  (char *) PORT_Alloc (sig_len);
             if (out_sig_b64 == NULL) {
@@ -2246,6 +2246,14 @@ TPS_PUBLIC char * RA::GetAuditSigningMessage(NSSUTF8 * audit_msg)
                     i--;
                     continue;
                 }
+            }
+            */
+
+            /* get rid of the carriage return line feed*/
+            out_sig_b64 = (NSSUTF8 *) Util::StripCR(sig_b64);
+            if (out_sig_b64 == NULL) {
+                RA::Debug("RA:: SignAuditLog", "strip carriage return failed");
+                goto loser;
             }
 
             /*

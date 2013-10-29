@@ -3093,6 +3093,8 @@ bool RA_Enroll_Processor::ExternalRegRecover(
     Buffer *cert = NULL;
         CERTCertificate *o_cert = NULL;
         char *cert_string = NULL;
+        char *cert_b64 = NULL;
+        char *pubk_b64 = NULL;
         char *o_pub = NULL;
         char *o_priv = NULL;
         char *ivParam = NULL;
@@ -3110,7 +3112,9 @@ bool RA_Enroll_Processor::ExternalRegRecover(
             (drmConn != NULL)? drmConn:"NULL", (caConn != NULL)? caConn:"NULL");
         cert = NULL;
         o_cert = NULL;
+        cert_b64 = NULL;
         cert_string = NULL;
+        pubk_b64 = NULL;
         o_pub = NULL;
         o_priv = NULL;
         ivParam = NULL;
@@ -3124,17 +3128,80 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         if (erCertKeyInfo == NULL) {
             continue;
         }
+        cert = certEnroll->RetrieveCertificate(serial, caConn, error_msg);
+
+        if (cert == NULL) {
+            RA::Debug(LL_PER_CONNECTION, FN,
+                "RetrieveCertificate() failed");
+            if (error_msg[0] != 0) {
+            // handle error
+            //    *error_code = 1;
+            RA::Debug(LL_PER_CONNECTION, FN,
+                "RetrieveCertificate() returns error: %s", error_msg);
+            }
+            o_status = STATUS_ERROR_RECOVERY_FAILED;
+            goto loser;
+        } else {
+            RA::Debug(LL_PER_CONNECTION, FN,
+                "RetrieveCertificate() succeeded");
+            cert_string = (char *) cert->string();
+            o_cert = CERT_DecodeCertFromPackage((char *) cert_string, 
+                (int) cert->size());
+            if (o_cert != NULL) {
+                RA::Debug(LL_PER_CONNECTION, FN,
+                "CERT_DecodeCertFromPackage() succeeded, add to inject");
+                erCertKeyInfo->setCert(o_cert);
+            } else {
+                RA::Debug(LL_PER_CONNECTION, FN,
+                    "CERT_DecodeCertFromPackage() returned NULL");
+                o_status = STATUS_ERROR_RECOVERY_FAILED;
+                goto loser;
+            }
+        }
+
         /*
-         * in case when drm id and keyid not supplied, the certToAdd
+         * in case when drm id not supplied, the certToAdd
          * attr expects the cert/keys to be existing on token
          */
         if (drmConn != NULL) {
             RA::Debug(LL_PER_CONNECTION, FN,
                 "calling RA::RecoverKey()");
-            RA::RecoverKey(session, cuid, userid,
-                channel->getDrmWrappedDESKey(), keyid,
-                &o_pub, &o_priv,
-                drmConn, &ivParam);
+            if (keyid > 0) {
+                /* recover by keyid */
+                RA::RecoverKey(session, cuid, userid,
+                    channel->getDrmWrappedDESKey(), keyid,
+                    &o_pub, &o_priv,
+                    drmConn, &ivParam);
+
+                char *tmp = BTOA_ConvertItemToAscii(&(o_cert->derPublicKey));
+                if (tmp != NULL) {
+                    pubk_b64 = (char *) Util::StripCR(tmp);
+                    if (pubk_b64 == NULL) {
+                        RA::Debug(LL_PER_CONNECTION, FN,
+                            "strip carriage return failed");
+                        o_status = STATUS_ERROR_RECOVERY_FAILED;
+                        goto loser;
+                    }
+                } else {
+                    RA::Debug(LL_PER_CONNECTION, FN,
+                    "BTOA_ConvertItemToAscii() returned NULL for derPublicKey");
+                    o_status = STATUS_ERROR_RECOVERY_FAILED;
+                    goto loser;
+                }
+            } else {
+                /* recover by cert if keyid otherwise */
+                cert_b64 = BTOA_ConvertItemToAscii(&(o_cert->derCert));
+                if (cert_b64 == NULL) {
+                    RA::Debug(LL_PER_CONNECTION, FN,
+                        "BTOA_ConvertItemToAscii() returned NULL for derCert");
+                    o_status = STATUS_ERROR_RECOVERY_FAILED;
+                    goto loser;
+                }
+                RA::RecoverKey(session, cuid, userid,
+                    channel->getDrmWrappedDESKey(), cert_b64,
+                    &o_pub, &o_priv,
+                    drmConn, &ivParam);
+            }
 
             if (o_pub == NULL) {
                 RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_pub is NULL");
@@ -3142,6 +3209,18 @@ bool RA_Enroll_Processor::ExternalRegRecover(
                 goto loser;
             } else {
                 RA::Debug(LL_PER_PDU, "DoEnrollment", "o_pub = %s", o_pub);
+                if (pubk_b64 != NULL) {
+                    RA::Debug(LL_PER_PDU, "DoEnrollment", "pubk_b64 = %s", pubk_b64);
+                    if (PL_strcmp(o_pub, pubk_b64) == 0) {
+                        RA::Debug(LL_PER_CONNECTION, FN,
+                            "recovered cert and keys match.");
+                    } else {
+                        RA::Debug(LL_PER_CONNECTION, FN,
+                            "recovered cert and keys do not match.");
+                        o_status = STATUS_ERROR_RECOVERY_FAILED;
+                        goto loser;
+                    }
+                }
 
                 if (o_priv == NULL) {
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_priv is NULL");
@@ -3179,35 +3258,19 @@ bool RA_Enroll_Processor::ExternalRegRecover(
                 o_pub = NULL;
             }
         }
-        erCertToRecover->setCertKeyInfo(erCertKeyInfo);
-
-        cert = certEnroll->RetrieveCertificate(serial, caConn, error_msg);
-
-        if (cert == NULL) {
-            RA::Debug(LL_PER_CONNECTION, FN,
-                "RetrieveCertificate() failed");
-            if (error_msg[0] != 0) {
-            // handle error
-            //    *error_code = 1;
-            RA::Debug(LL_PER_CONNECTION, FN,
-                "RetrieveCertificate() returns error: %s", error_msg);
-            }
-            o_status = STATUS_ERROR_RECOVERY_FAILED;
-            goto loser;
-        } else {
-            RA::Debug(LL_PER_CONNECTION, FN,
-                "RetrieveCertificate() succeeded");
-            cert_string = (char *) cert->string();
-            o_cert = CERT_DecodeCertFromPackage((char *) cert_string, 
-                (int) cert->size());
-            if (cert_string)
-                free(cert_string);
-            if (o_cert != NULL) {
-                RA::Debug(LL_PER_CONNECTION, FN,
-                "CERT_DecodeCertFromPackage() succeeded, add to inject");
-                erCertKeyInfo->setCert(o_cert);
-            }
+        if (cert_string) {
+            free(cert_string);
+            cert_string = NULL;
         }
+        if (cert_b64) {
+            free(cert_b64);
+            cert_b64 = NULL;
+        }
+        if (pubk_b64) {
+            free(pubk_b64);
+            pubk_b64 = NULL;
+        }
+        erCertToRecover->setCertKeyInfo(erCertKeyInfo);
     }
 
 /*ToDo: make sure the tokendb entry is updated if needed*/
@@ -3218,6 +3281,30 @@ loser:
     if (certEnroll) {
         delete certEnroll;
         certEnroll = NULL;
+    }
+    if (cert_string) {
+        free(cert_string);
+        cert_string = NULL;
+    }
+    if (cert_b64) {
+        free(cert_b64);
+        cert_b64 = NULL;
+    }
+    if (pubk_b64) {
+        free(pubk_b64);
+        pubk_b64 = NULL;
+    }
+    if(ivParam) {
+        PL_strfree(ivParam);
+        ivParam = NULL;
+    }
+    if(o_priv) {
+        PL_strfree(o_priv);
+        o_priv = NULL;
+    }
+    if(o_pub) {
+        PL_strfree(o_pub);
+        o_pub = NULL;
     }
 
     if (o_status ==  STATUS_ERROR_RECOVERY_FAILED)
