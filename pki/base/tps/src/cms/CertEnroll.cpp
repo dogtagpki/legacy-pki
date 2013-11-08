@@ -481,7 +481,8 @@ TOKENDB_PUBLIC Buffer *CertEnroll::RetrieveCertificate(PRUint64 serialno, const 
 
     RA::Debug(FN, "begins.");
     // on CA, GetBySerial expects parameter "serialNumber"
-    PR_snprintf((char *)parameters, 5000, "serialNumber=%llu", serialno);
+    // "b64CertOnly" will give you a slim version of the result
+    PR_snprintf((char *)parameters, 5000, "b64CertOnly=true&serialNumber=%llu", serialno);
 
     RA::Debug(FN, "got parameters =%s", parameters);
     //e.g. conn.ca1.servlet.getBySerial=/ca/ee/ca/displayBySerial

@@ -228,6 +228,12 @@ public class DisplayBySerial extends CMSServlet {
         HttpServletResponse resp, 
         Locale locale)
         throws EBaseException {
+        boolean b64CertOnly = false; // for request that needs only b64 cert
+        String isB64CertOnly = req.getParameter("b64CertOnly");
+        if (isB64CertOnly != null && isB64CertOnly.equals("true")) {
+            b64CertOnly = true;
+        }
+
         try {
             ICertRecord rec = (ICertRecord) mCertDB.readCertificateRecord(seq);
             if (rec == null)  {
@@ -303,6 +309,11 @@ public class DisplayBySerial extends CMSServlet {
                     CMS.getLogMessage("CMSGW_ERROR_PARSING_EXTENS", e.toString()));
             }
 
+            byte[] ba = cert.getEncoded();
+            // Do base 64 encoding
+
+            header.addStringValue("certChainBase64", com.netscape.osutil.OSUtil.BtoA(ba));
+
             IRevocationInfo revocationInfo = rec.getRevocationInfo();
 
             if (revocationInfo != null) {
@@ -324,9 +335,10 @@ public class DisplayBySerial extends CMSServlet {
             }
 
             ICertPrettyPrint certDetails = CMS.getCertPrettyPrint(cert);
-
-            header.addStringValue("certPrettyPrint", 
-                certDetails.toString(locale));
+            if (!b64CertOnly) {
+                header.addStringValue("certPrettyPrint", 
+                    certDetails.toString(locale));
+            }
 
             /*
              String scheme = req.getScheme();
@@ -342,21 +354,19 @@ public class DisplayBySerial extends CMSServlet {
              */
             header.addStringValue("authorityid", mAuthority.getId());
 
-            String certFingerprints = "";
+            if (!b64CertOnly) {
+                String certFingerprints = "";
 
-            try {
-                certFingerprints = CMS.getFingerPrints(cert);
-            } catch (Exception e) {
-                log(ILogger.LL_FAILURE, 
-                    CMS.getLogMessage("CMSGW_ERR_DIGESTING_CERT", e.toString()));
+                try {
+                    certFingerprints = CMS.getFingerPrints(cert);
+                } catch (Exception e) {
+                    log(ILogger.LL_FAILURE, 
+                        CMS.getLogMessage("CMSGW_ERR_DIGESTING_CERT", e.toString()));
+                }
+                if (certFingerprints.length() > 0)
+                    header.addStringValue("certFingerprint", certFingerprints);
+
             }
-            if (certFingerprints.length() > 0)
-                header.addStringValue("certFingerprint", certFingerprints);
-
-            byte[] ba = cert.getEncoded();
-            // Do base 64 encoding
-
-            header.addStringValue("certChainBase64", com.netscape.osutil.OSUtil.BtoA(ba));
             header.addStringValue("serialNumber", seq.toString(16));
 
             /*
@@ -388,28 +398,29 @@ public class DisplayBySerial extends CMSServlet {
                 }
             }
 
-            // Wrap the chain into a degenerate P7 object
-            String p7Str;
-
-            try {
-                PKCS7 p7 = new PKCS7(new AlgorithmId[0], 
+            if (!b64CertOnly) {
+                // Wrap the chain into a degenerate P7 object
+                String p7Str;
+                try {
+                    PKCS7 p7 = new PKCS7(new AlgorithmId[0], 
                         new ContentInfo(new byte[0]),
                         certsInChain,
                         new SignerInfo[0]);
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
-                p7.encodeSignedData(bos,false);
-                byte[] p7Bytes = bos.toByteArray();
+                    p7.encodeSignedData(bos,false);
+                    byte[] p7Bytes = bos.toByteArray();
 
-				p7Str = com.netscape.osutil.OSUtil.BtoA(p7Bytes);
-                header.addStringValue("pkcs7ChainBase64", p7Str);
-            } catch (Exception e) {
-                //p7Str = "PKCS#7 B64 Encoding error - " + e.toString() 
-                //+ "; Please contact your administrator";
-                log(ILogger.LL_FAILURE, 
-                    CMS.getLogMessage("CMSGW_ERROR_FORMING_PKCS7_1", e.toString())); 
-                throw new ECMSGWException(
+    				p7Str = com.netscape.osutil.OSUtil.BtoA(p7Bytes);
+                    header.addStringValue("pkcs7ChainBase64", p7Str);
+                } catch (Exception e) {
+                    //p7Str = "PKCS#7 B64 Encoding error - " + e.toString() 
+                    //+ "; Please contact your administrator";
+                    log(ILogger.LL_FAILURE, 
+                        CMS.getLogMessage("CMSGW_ERROR_FORMING_PKCS7_1", e.toString())); 
+                    throw new ECMSGWException(
                         CMS.getLogMessage("CMSGW_ERROR_FORMING_PKCS7"));
+                }
             }
         } catch (EBaseException e) {
             log(ILogger.LL_FAILURE, 
