@@ -3199,7 +3199,7 @@ int RA::tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs) {
                 ldap_msgfree(result);
                 result = NULL;
             }
-            if (!found) {
+            if (!found && !erCertToRecover->getIgnoreForUpdateCerts()) {
                 add_certificate(cuid,cuid , tokenType, userid, cert,
                     "encryption", "active");
             }

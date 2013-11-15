@@ -80,6 +80,7 @@ ExternalRegCertToRecover::ExternalRegCertToRecover() {
     certKeyInfo = NULL;
     keyid = 0;
     serial = 0;
+    ignoreForUpdateCerts = false;
 }
 
 ExternalRegCertToRecover::~ExternalRegCertToRecover() {

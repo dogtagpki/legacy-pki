@@ -3998,8 +3998,32 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
         ivParam = erCertKeyInfo->getIVParam();
         cert = erCertKeyInfo->getCert();
 
+        bool isCertPresent = false;
+
         if (o_pub == NULL || o_priv == NULL || ivParam == NULL) {
-            RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "Certifcate may be signing, retain only (not recover) cert, skipping... \n");
+            isCertPresent = isCertInObjectList(pkcs11objx, cert);
+
+            RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "Certifcate may be signing, retain only (not recover) cert, skipping... isCertPresent %d \n", isCertPresent);
+            // This condition, even though is an errror, should not result in abandoning the whole process.
+            // The profile enrollment has already taken place and the new private keys have been written to the token.
+            // Thus we want to be able to at least write the profile certs to the token.
+            // Let's audit the condition and move on.
+            if(isCertPresent == false) {
+                 RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "We may be attempting to retain a cert that was replaced by regular profile enrollment...\n");
+                 RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+                     userid != NULL ? userid : "",
+                     cuid != NULL ? cuid : "",
+                     msn != NULL ? msn : "",
+                     "failure",
+                     "external registration recovery",
+                     "",
+                     "",
+                     "Retention of a Cert failed. A cert to be retained has been overwritten by token profile. Possible misconfiguration.");
+
+
+                // This will signal the externalReg token db certificate update procedure to NOT add this cert to the token's db entry
+                erCertToRecover->setIgnoreForUpdateCerts(true);
+            }
             continue;
         }
 
@@ -4014,7 +4038,7 @@ RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Ob
         char privateKeyAttrId[3];
         char publicKeyAttrId[3];
 
-        bool isCertPresent = isCertInObjectList(pkcs11objx, cert);
+        isCertPresent = isCertInObjectList(pkcs11objx, cert);
 
         if (isCertPresent) { /* Just skip this one, it is here already */
 

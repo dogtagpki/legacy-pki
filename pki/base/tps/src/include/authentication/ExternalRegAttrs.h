@@ -139,6 +139,8 @@ class ExternalRegCertToRecover
         TPS_PUBLIC const char *getDrmConn();
         TPS_PUBLIC void setCertKeyInfo(ExternalRegCertKeyInfo *ckInfo);
         TPS_PUBLIC ExternalRegCertKeyInfo *getCertKeyInfo();
+        TPS_PUBLIC void setIgnoreForUpdateCerts(bool ignore) { ignoreForUpdateCerts = ignore; }
+        TPS_PUBLIC bool getIgnoreForUpdateCerts() { return ignoreForUpdateCerts; }
 
     private:
         PRUint64 keyid;
@@ -146,6 +148,7 @@ class ExternalRegCertToRecover
         const char *caConn;
         const char *drmConn;
         ExternalRegCertKeyInfo *certKeyInfo;
+        bool ignoreForUpdateCerts;
 };
 
 /*
