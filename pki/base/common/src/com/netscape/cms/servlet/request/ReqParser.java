@@ -18,14 +18,22 @@
 package com.netscape.cms.servlet.request;
 
 
-import java.util.Locale;
-import java.math.BigInteger;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.dbs.*;
 
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
+import com.netscape.certsrv.request.*;
+import com.netscape.cms.servlet.*;
 
 
 /**
@@ -54,8 +62,8 @@ public class ReqParser implements IReqParser {
     public void fillRequestIntoArg(Locale l, IRequest req, CMSTemplateParams argSet, IArgBlock arg)
         throws EBaseException {
         arg.addStringValue(TYPE, req.getRequestType());
-        arg.addBigIntegerValue("seqNum",
-            new BigInteger(req.getRequestId().toString()), 10);
+        arg.addLongValue("seqNum", 
+            Long.parseLong(req.getRequestId().toString()));
         arg.addStringValue(STATUS, 
             req.getRequestStatus().toString());
         arg.addLongValue(CREATE_ON, 

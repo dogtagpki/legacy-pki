@@ -1,22 +1,17 @@
 package com.netscape.cmscore.request;
 
-import java.util.Hashtable;
-
+import com.netscape.certsrv.request.IRequestRecord;
+import com.netscape.certsrv.request.RequestId;
+import com.netscape.certsrv.base.EBaseException;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.cmscore.test.TestHelper;
+import com.netscape.cmscore.test.CMSBaseTestCase;
+import com.netscape.cmscore.dbs.DBSubsystemDefaultStub;
+import com.netscape.cmscore.dbs.DBRegistryDefaultStub;
 import junit.framework.Test;
 import junit.framework.TestSuite;
 
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.dbs.EDBException;
-import com.netscape.certsrv.dbs.IDBAttrMapper;
-import com.netscape.certsrv.dbs.IDBDynAttrMapper;
-import com.netscape.certsrv.dbs.IDBRegistry;
-import com.netscape.certsrv.dbs.ModificationSet;
-import com.netscape.certsrv.request.IRequestRecord;
-import com.netscape.certsrv.request.RequestId;
-import com.netscape.cmscore.dbs.DBRegistryDefaultStub;
-import com.netscape.cmscore.dbs.DBSubsystemDefaultStub;
-import com.netscape.cmscore.test.CMSBaseTestCase;
-import com.netscape.cmscore.test.TestHelper;
+import java.util.Hashtable;
 
 public class RequestRecordTest extends CMSBaseTestCase {
 

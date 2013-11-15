@@ -18,16 +18,21 @@
 package com.netscape.cms.servlet.base;
 
 
-import java.io.IOException;
-import java.util.Date;
+import com.netscape.cms.servlet.common.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.util.*;
+import java.io.*;
+import java.security.cert.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.template.*;
+import com.netscape.certsrv.request.*;
 
 /**
  * Displays detailed information about java VM internals, including

@@ -20,12 +20,10 @@ package netscape.security.x509;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Date;
 import java.util.Enumeration;
 
-import netscape.security.util.BigInt;
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * This class defines the version of the X509 Certificate.

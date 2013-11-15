@@ -18,37 +18,34 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.util.Enumeration;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509Key;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.CryptoUtil;
+import java.util.*;
+import java.io.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.dbs.certdb.*;
+
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.base.*;
+import java.net.*;
+import java.security.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.crypto.KeyPairGenerator;
+
+import netscape.security.x509.*;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class NamePanel extends WizardPanelBase {
     private Vector mCerts = null;
@@ -327,7 +324,6 @@ public class NamePanel extends WizardPanelBase {
                 String dn = HttpInput.getDN(request, cert.getCertTag());
 
                 if (dn == null || dn.length() == 0) {
-                    context.put("updateStatus", "validate-failure");
                     throw new IOException("Empty DN for " + cert.getUserFriendlyName());
                 }
             }
@@ -732,7 +728,6 @@ public class NamePanel extends WizardPanelBase {
         if (inputChanged(request)) {
             mServlet.cleanUpFromPanel(mServlet.getPanelNo(request));
         } else if (isPanelDone()) {
-            context.put("updateStatus", "success");
             return;
         }
 
@@ -761,12 +756,10 @@ public class NamePanel extends WizardPanelBase {
                 }
                 updateCloneConfig(config);
                 CMS.debug("NamePanel: clone configuration done");
-                context.put("updateStatus", "success");
                 return;
             }
         } catch (Exception e) {
             CMS.debug("NamePanel: configCertWithTag failure - " + e);
-            context.put("updateStatus", "failure");
             return;
         }
 
@@ -877,11 +870,7 @@ public class NamePanel extends WizardPanelBase {
             config.commit(false);
         } catch (Exception e) {}
 
-        if (!hasErr) {
-            context.put("updateStatus", "success");
-        } else {
-            context.put("updateStatus", "failure");
-        }
+
         CMS.debug("NamePanel: update() done");
     }
 

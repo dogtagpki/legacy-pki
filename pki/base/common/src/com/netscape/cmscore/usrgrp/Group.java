@@ -18,13 +18,10 @@
 package com.netscape.cmscore.usrgrp;
 
 
-import java.util.Enumeration;
-import java.util.Vector;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.usrgrp.IGroup;
-import com.netscape.certsrv.usrgrp.IUsrGrp;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.certsrv.apps.*;
 
 
 /**

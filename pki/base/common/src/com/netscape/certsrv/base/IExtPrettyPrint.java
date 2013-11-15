@@ -18,6 +18,12 @@
 package com.netscape.certsrv.base;
 
 
+import java.io.*;
+import java.util.*;
+import java.text.*;
+import java.math.BigInteger;
+import java.security.cert.*;
+import java.security.*;
 
 
 /**
