@@ -298,6 +298,13 @@ sub handler {
 
     my $q = new CGI;
 
+    # check if already configured
+    my $configured = $::config->get("tps.configured");
+    if ($configured eq "true") {
+        &debug_log("TPS wizard: handler: already configured");
+        return $STATUS_ERROR;
+    }
+
     # check cookie
     my $pin = $q->param('pin');
     if (defined($pin)) {
