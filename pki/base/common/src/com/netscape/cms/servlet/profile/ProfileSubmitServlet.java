@@ -114,13 +114,19 @@ public class ProfileSubmitServlet extends ProfileServlet {
 
                 while (inputNames.hasMoreElements()) {
                     String inputName = (String) inputNames.nextElement();
-                    if (request.getParameter(inputName) != null) {
+                    CMS.debug("ProfileSubmitServlet: setInputsIntoContext() getting input name= " + inputName);
+                    String inputValue = "";
+                    inputValue = request.getParameter(inputName);
+                    if (inputValue != null) {
                         // all subject name parameters start with sn_, no other input parameters do
                         if (inputName.matches("^sn_.*")) {
                             ctx.set(inputName, escapeValueRfc1779(request.getParameter(inputName), false).toString());
                         } else {
+                            CMS.debug("ProfileSubmitServlet: setInputsIntoContext() setting value in ctx:"+ inputValue);
                             ctx.set(inputName, request.getParameter(inputName));
                         }
+                    } else {
+                        CMS.debug("ProfileSubmitServlet: setInputsIntoContext() value null");
                     }
                 }
             }
