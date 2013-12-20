@@ -55,6 +55,7 @@ import org.mozilla.jss.crypto.PBEAlgorithm;
 import org.mozilla.jss.pkix.primitive.*;
 import org.mozilla.jss.pkcs11.*;
 import org.mozilla.jss.crypto.PrivateKey;
+import org.mozilla.jss.crypto.PrivateKey.Type;
 
 
 /**
@@ -446,6 +447,7 @@ public class TokenKeyRecoveryService implements IService {
             }
         }
 
+        Type keyType = PrivateKey.RSA;
         byte wrapped[];
         if (allowEncDecrypt_recovery == true) {
             // Unwrap the archived private key
@@ -504,6 +506,20 @@ public class TokenKeyRecoveryService implements IService {
             wrapped = cipher.doFinal(privateKeyData);
         } else { //allowEncDecrypt_recovery == false
             PrivateKey privKey = recoverKey(params, keyRecord, allowEncDecrypt_recovery);
+            if (privKey == null) {
+                request.setExtData(IRequest.RESULT, Integer.valueOf(4));
+                CMS.debug("TokenKeyRecoveryService: failed getting private key");
+                auditMessage = CMS.getLogMessage(
+                    LOGGING_SIGNED_AUDIT_KEY_RECOVERY_REQUEST_PROCESSED,
+                    auditSubjectID,
+                    ILogger.FAILURE,
+                    auditRecoveryID,
+                    agentId);
+
+                audit(auditMessage);
+                return false;
+            }
+            keyType = privKey.getType();
             KeyWrapper wrapper = token.getKeyWrapper(
                     KeyWrapAlgorithm.DES3_CBC_PAD);
 
@@ -536,7 +552,15 @@ public class TokenKeyRecoveryService implements IService {
         }
 
 		//convert and put in the public key
-		String PubKey = base64Encode(pubData);
+		String PubKey = "";
+        if (keyType == PrivateKey.EC) {
+            /* url encode */
+            PubKey = com.netscape.cmsutil.util.Utils.SpecialEncode(pubData);
+            CMS.debug("TokenKeyRecoveryService: EC PubKey special encoded");
+        } else {
+            PubKey = base64Encode(pubData);
+            CMS.debug("TokenKeyRecoveryService: RSA PubKey base64 encoded");
+        }
 
 		auditMessage = CMS.getLogMessage(
 			 LOGGING_SIGNED_AUDIT_KEY_RECOVERY_REQUEST,
