@@ -18,34 +18,26 @@
 package com.netscape.cms.servlet.request;
 
 
-import java.io.IOException;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.Vector;
-import java.math.BigInteger;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.authorization.EAuthzAccessDenied;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.certsrv.request.IRequestVirtualList;
-import com.netscape.certsrv.request.RequestId;
-import com.netscape.certsrv.request.RequestStatus;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.authentication.*; 
+import com.netscape.certsrv.authorization.*; 
+import com.netscape.cms.servlet.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.logging.*;
 
 
 /**
@@ -298,8 +290,7 @@ public class QueryReq extends CMSServlet {
     	}
     	
     	
-    	BigInteger top = BigInteger.ZERO;
-    	BigInteger bottom = BigInteger.ZERO;
+    	int top=0, bottom=0;
     	
     	try {
     		String top_s = req.getParameter(OUT_FIRST_ENTRY_ON_PAGE);
@@ -309,14 +300,14 @@ public class QueryReq extends CMSServlet {
     		if (bottom_s == null) bottom_s = "0";
     		
     		if (top_s.trim().startsWith("0x")) {
-    			top = new BigInteger(top_s.trim().substring(2), 16);
+    			top = Integer.parseInt(top_s.trim().substring(2), 16);
     		} else {
-    			top = new BigInteger(top_s.trim());
+    			top = Integer.parseInt(top_s.trim());
     		}
     		if (bottom_s.trim().startsWith("0x")) {
-    			bottom = new BigInteger(bottom_s.trim().substring(2), 16);
+    			bottom = Integer.parseInt(bottom_s.trim().substring(2), 16);
     		} else {
-    			bottom = new BigInteger(bottom_s.trim());
+    			bottom = Integer.parseInt(bottom_s.trim());
     		}
     		
     	} catch (NumberFormatException e) {
@@ -377,20 +368,19 @@ public class QueryReq extends CMSServlet {
      */
     
     private CMSTemplateParams doSearch(Locale l, String filter,
-    		int count, String direction, BigInteger top, BigInteger bottom)
+    		int count, String direction, int top, int bottom)
     {
     	CMSTemplateParams ctp = null;
     	if (direction.equals("previous")) {
-    		ctp = doSearch(l, filter, -count, top);
+    		ctp = doSearch(l, filter, -count, top-1);
     	} else if (direction.equals("next")) {
-    		bottom = bottom.add(BigInteger.ONE);
-    		ctp = doSearch(l,filter, count, bottom);
+    		ctp = doSearch(l,filter, count, bottom+1);
     	} else if (direction.equals("begin")) {
-    		ctp = doSearch(l,filter, count, BigInteger.ZERO);
+    		ctp = doSearch(l,filter, count, 0);
     	} else if (direction.equals("first")) {
     		ctp = doSearch(l,filter, count, bottom);
     	} else {  // if 'direction is 'end', default here
-    		ctp = doSearch(l,filter, -count, BigInteger.ONE.negate());
+    		ctp = doSearch(l,filter, -count, -1);
     	}
     	return ctp;
     }
@@ -410,7 +400,7 @@ public class QueryReq extends CMSServlet {
     		Locale locale,
     		String filter,
     		int count, 
-    		BigInteger marker) {
+    		int marker) {
     	
     	IArgBlock header = CMS.createArgBlock();
     	IArgBlock context = CMS.createArgBlock();
@@ -426,42 +416,33 @@ public class QueryReq extends CMSServlet {
     		
     		
     		boolean jumptoend = false;
-    		if (marker.toString().equals("-1")) {
-    			marker = BigInteger.ZERO;       // I think this is inconsequential
+    		if (marker == -1) {
+    			marker = 0;       // I think this is inconsequential
     			jumptoend = true; // override  to '99' during search 
     		}
     		
-    		RequestId id = new RequestId(marker.toString());
+    		RequestId id = new RequestId(Integer.toString(marker));
     		IRequestVirtualList list =   mQueue.getPagedRequestsByFilter(
     				id,
     				jumptoend,
     				filter, 
-    				((count < 0)?count-1:count+1),
+    				count+1,
     		"requestId");
     		
-    		int maxCount = 0;
-    		if (count < 0 && jumptoend) {
-    		    maxCount = -count;
-    		} else if (count < 0) {
-    		    maxCount = -count+1;
-    		} else {
-    		    maxCount = count;
-    		}
-    		int totalCount = (jumptoend)? maxCount : (list.getSize() - list.getCurrentIndex());
+    		int totalCount = list.getSize() - list.getCurrentIndex();
     		header.addIntegerValue(OUT_TOTALCOUNT, totalCount);
     		header.addIntegerValue(OUT_CURRENTCOUNT, list.getSize());
     		
     		int numEntries = list.getSize() - list.getCurrentIndex();
     		
-    		Vector v = fetchRecords(list,maxCount);
+    		Vector v = fetchRecords(list,Math.abs(count));
     		v = normalizeOrder(v);
     		trim(v,id);
     		
     		
     		int currentCount = 0;
-    		BigInteger curNum = BigInteger.ZERO;
-    		BigInteger firstNum = BigInteger.ONE.negate();
-
+    		int curNum = 0;
+    		int firstNum = -1;
     		Enumeration requests = v.elements();
     		
     		while (requests.hasMoreElements()) {
@@ -477,10 +458,10 @@ public class QueryReq extends CMSServlet {
     				continue;
     			}
     			
-    			curNum = new BigInteger(
+    			curNum = Integer.parseInt(
     					request.getRequestId().toString());
     			
-    			if (firstNum.equals(BigInteger.ONE.negate())) {
+    			if (firstNum == -1) {
     				firstNum = curNum; 
     			}
     			
@@ -496,8 +477,8 @@ public class QueryReq extends CMSServlet {
     		
     		header.addIntegerValue(OUT_CURRENTCOUNT, currentCount);
     		header.addStringValue("time", Long.toString(endTime - startTime));
-    		header.addBigIntegerValue(OUT_FIRST_ENTRY_ON_PAGE, firstNum, 10);
-    		header.addBigIntegerValue(OUT_LAST_ENTRY_ON_PAGE, curNum, 10);
+    		header.addIntegerValue(OUT_FIRST_ENTRY_ON_PAGE, firstNum);
+    		header.addIntegerValue(OUT_LAST_ENTRY_ON_PAGE, curNum);
     		
     	} catch (EBaseException e) {
     		header.addStringValue(OUT_ERROR, e.toString(locale));
@@ -514,9 +495,10 @@ public class QueryReq extends CMSServlet {
      */
 	private void trim(Vector v, RequestId marker) {
 		int i = v.size()-1;
-		if (((IRequest)v.elementAt(i)).getRequestId().toString().equals(marker.toString())) {
+		if (((IRequest)v.elementAt(i)).getRequestId().equals(marker)) {
 			v.remove(i);
 		}
+		
 	}
 
 	/**
@@ -550,13 +532,12 @@ public class QueryReq extends CMSServlet {
      */
     private Vector normalizeOrder(Vector list) {
     	
-    	BigInteger firstrequestnum = new BigInteger(((IRequest) list.elementAt(0))
+    	int firstrequestnum = Integer.parseInt(((IRequest) list.elementAt(0))
     			.getRequestId().toString());
-    	BigInteger lastrequestnum = new BigInteger(((IRequest) list.elementAt(list
+    	int lastrequestnum = Integer.parseInt(((IRequest) list.elementAt(list
     			.size() - 1)).getRequestId().toString());
-
     	boolean reverse = false;
-    	if (firstrequestnum.compareTo(lastrequestnum) > 0){
+    	if (firstrequestnum > lastrequestnum) {
     		reverse = true; // if the order is backwards, place items at the beginning
     	}
     	Vector v = new Vector();

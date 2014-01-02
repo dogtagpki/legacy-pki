@@ -17,24 +17,21 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.csadmin;
 
-import java.io.IOException;
-import java.util.Locale;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.w3c.dom.Node;
-
+import java.io.*;
+import java.util.*;
+import java.math.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.net.*;
+import org.w3c.dom.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.logging.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISecurityDomainSessionTable;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.base.UserInfo;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cmsutil.xml.XMLObject;
+import com.netscape.cms.servlet.*;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import com.netscape.cmsutil.xml.*;
 
 public class TokenAuthenticate extends CMSServlet {
 
@@ -67,31 +64,23 @@ public class TokenAuthenticate extends CMSServlet {
         String givenHost = httpReq.getParameter("hostname");
         CMS.debug("TokenAuthentication: givenHost=" + givenHost);
 
-        boolean checkIP = false;
-        try {
-            checkIP = config.getBoolean("securitydomain.checkIP", false);
-        } catch (Exception e) {
-        }
-
         ISecurityDomainSessionTable table = CMS.getSecurityDomainSessionTable();
         String uid = "";
         String gid = "";
         CMS.debug("TokenAuthentication: checking session in the session table");
         if (table.isSessionIdExist(sessionId)) {
             CMS.debug("TokenAuthentication: found session");
-            if (checkIP) {
-                String hostname = table.getIP(sessionId);
-                if (! hostname.equals(givenHost)) {
-                    CMS.debug("TokenAuthentication: hostname=" + hostname + " and givenHost=" 
-                        + givenHost + " are different");
-                    CMS.debug("TokenAuthenticate authenticate failed, wrong hostname.");
-                    outputError(httpResp, "Error: Failed Authentication");
-                    return;
-                }
+            String hostname = table.getIP(sessionId);
+            if (hostname.equals(givenHost)) {
+                CMS.debug("TokenAuthentication: hostname and givenHost matched");
+                uid = table.getUID(sessionId);
+                gid = table.getGroup(sessionId);
+            } else {
+                CMS.debug("TokenAuthentication: hostname=" + hostname + " and givenHost=" + givenHost + " is different");
+                CMS.debug("TokenAuthenticate authenticate failed, wrong hostname.");
+                outputError(httpResp, "Error: Failed Authentication");
+                return;
             }
-
-            uid = table.getUID(sessionId);
-            gid = table.getGroup(sessionId);
         } else {
             CMS.debug("TokenAuthentication: session not found");
             CMS.debug("TokenAuthentication authenticate failed, session id does not exist.");

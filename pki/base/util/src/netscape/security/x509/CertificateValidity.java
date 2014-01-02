@@ -17,20 +17,15 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
+import java.io.*;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.Serializable;
-import java.security.cert.CertificateExpiredException;
-import java.security.cert.CertificateNotYetValidException;
+import java.security.cert.*;
 import java.util.Date;
 import java.util.Enumeration;
 
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * This class defines the interval for which the certificate is valid.

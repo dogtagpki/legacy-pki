@@ -25,8 +25,10 @@ package com.netscape.certsrv.selftests;
 // import statements //
 ///////////////////////
 
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.logging.ILogEventListener;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.selftests.*;
 
 
 //////////////////////

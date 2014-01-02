@@ -18,31 +18,31 @@
 package com.netscape.cms.servlet.key;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.util.Locale;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.authorization.EAuthzAccessDenied;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.dbs.keydb.IKeyRecord;
-import com.netscape.certsrv.dbs.keydb.IKeyRepository;
-import com.netscape.certsrv.kra.IKeyRecoveryAuthority;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.base.*;
+ 
+import com.netscape.cms.servlet.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.keydb.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.kra.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
 
 
 /**
@@ -145,11 +145,12 @@ public class DisplayBySerial extends CMSServlet {
         IArgBlock header = CMS.createArgBlock();
         IArgBlock fixed = CMS.createArgBlock();
         CMSTemplateParams argSet = new CMSTemplateParams(header, fixed);
-        BigInteger seqNum = BigInteger.ZERO;
+        int seqNum = -1;
 
         try {
             if (req.getParameter(IN_SERIALNO) != null) {
-                seqNum = new BigInteger(req.getParameter(IN_SERIALNO));
+                seqNum = Integer.parseInt(
+                            req.getParameter(IN_SERIALNO));
             }
             process(argSet, header, seqNum, req, resp, locale[0]);
         } catch (NumberFormatException e) {
@@ -174,7 +175,7 @@ public class DisplayBySerial extends CMSServlet {
      * Display information about a particular key.
      */
     private void process(CMSTemplateParams argSet,
-        IArgBlock header, BigInteger seq,
+        IArgBlock header, int seq, 
         HttpServletRequest req, HttpServletResponse resp,
         Locale locale) {
         try {
@@ -182,7 +183,8 @@ public class DisplayBySerial extends CMSServlet {
                 req.getParameter(OUT_OP));
             header.addStringValue(OUT_SERVICE_URL,
                 req.getRequestURI());
-            IKeyRecord rec = (IKeyRecord) mKeyDB.readKeyRecord(seq);
+            IKeyRecord rec = (IKeyRecord) mKeyDB.readKeyRecord(new 
+                    BigInteger(Integer.toString(seq)));
 
             KeyRecordParser.fillRecordIntoArg(rec, header);
         } catch (EBaseException e) {

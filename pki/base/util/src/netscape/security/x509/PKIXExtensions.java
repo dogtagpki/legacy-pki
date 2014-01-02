@@ -17,7 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
-import netscape.security.util.ObjectIdentifier;
+import java.io.*;
+
+import netscape.security.util.*;
 
 /**
  * Lists all the object identifiers of the X509 extensions of the PKIX profile.

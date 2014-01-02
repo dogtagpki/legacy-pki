@@ -18,23 +18,17 @@
 package com.netscape.cms.profile.def;
 
 
-import java.io.IOException;
-import java.text.ParsePosition;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import java.io.*;
+import java.text.*;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.cms.profile.common.*;
 
-import netscape.security.x509.CertificateValidity;
-import netscape.security.x509.X509CertInfo;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.EPropertyException;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
+import netscape.security.x509.*;
 
 
 /**
@@ -92,7 +86,7 @@ public class ValidityDefault extends EnrollDefault {
         if (name.equals(CONFIG_RANGE)) {
             return new Descriptor(IDescriptor.STRING,
                     null, 
-                    "2922",
+                    "180",
                     CMS.getUserMessage(locale,
                         "CMS_PROFILE_VALIDITY_RANGE"));
         } else if (name.equals(CONFIG_START_TIME)) {

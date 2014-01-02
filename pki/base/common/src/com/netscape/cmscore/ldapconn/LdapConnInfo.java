@@ -18,14 +18,11 @@
 package com.netscape.cmscore.ldapconn;
 
 
-import netscape.ldap.LDAPv2;
-
+import netscape.ldap.*;
+import com.netscape.certsrv.base.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
 import com.netscape.certsrv.base.EPropertyNotFound;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.ldap.ELdapException;
-import com.netscape.certsrv.ldap.ILdapConnInfo;
+import com.netscape.certsrv.ldap.*;
 
 
 /**

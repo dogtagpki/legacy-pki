@@ -18,10 +18,14 @@
 package com.netscape.ca;
 
 
-import java.math.BigInteger;
+import java.util.Enumeration;
+import java.util.Date;
+import java.math.*;
 
+import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
 import com.netscape.certsrv.base.EBaseException;
-import com.netscape.cmscore.dbs.CertRecord;
+import com.netscape.cmscore.util.Debug;
+import com.netscape.cmscore.dbs.*;
 
 
 /**

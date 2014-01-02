@@ -18,8 +18,8 @@
 package com.netscape.certsrv.util;
 
 
-import java.util.Enumeration;
-import java.util.Vector;
+import java.util.*;
+import java.math.*;
 
 /**
  * A statistics transaction.

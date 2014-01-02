@@ -21,11 +21,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
+import java.security.cert.CertificateException;
 import java.util.Enumeration;
 
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.PrettyPrintFormat;
+import netscape.security.util.*;
 
 
 /**

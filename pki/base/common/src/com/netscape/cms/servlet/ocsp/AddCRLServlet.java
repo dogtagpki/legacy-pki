@@ -18,42 +18,44 @@
 package com.netscape.cms.servlet.ocsp;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.cert.CRLException;
-import java.security.cert.X509CRL;
-import java.util.Locale;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
+import java.math.*;
+import java.util.Vector;
+import java.io.InputStream;
+import java.io.IOException;
+import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.ServletException;
 
-import netscape.security.x509.X509CRLImpl;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509ExtensionException;
+import org.mozilla.jss.*;
+import org.mozilla.jss.asn1.INTEGER;
+import org.mozilla.jss.pkix.cert.Certificate;
+import org.mozilla.jss.pkix.primitive.AlgorithmIdentifier;
+import org.mozilla.jss.asn1.BIT_STRING;
 
-import org.mozilla.jss.CryptoManager;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.ocsp.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.dbs.crldb.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.dbs.repository.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.cms.servlet.*;
+import com.netscape.cmsutil.util.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.dbs.crldb.ICRLIssuingPointRecord;
-import com.netscape.certsrv.dbs.repository.IRepositoryRecord;
-import com.netscape.certsrv.logging.AuditFormat;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.ocsp.IDefStore;
-import com.netscape.certsrv.ocsp.IOCSPAuthority;
-import com.netscape.certsrv.util.IStatsSubsystem;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
-import com.netscape.cmsutil.util.Cert;
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
+import java.security.cert.*;
+import java.util.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
 
 /**
@@ -310,6 +312,22 @@ public class AddCRLServlet extends CMSServlet {
             }
             log(ILogger.LL_INFO, "AddCRLServlet: CRL Issuer DN " + 
                 crl.getIssuerDN().getName());
+
+            // update the CRLIssuingPoint record
+            if (crl == null) {
+                // error
+
+                // store a message in the signed audit log file
+                auditMessage = CMS.getLogMessage(
+                    LOGGING_SIGNED_AUDIT_CRL_VALIDATION,
+                    auditSubjectID,
+                    ILogger.FAILURE );
+
+                audit( auditMessage );
+
+                throw new ECMSGWException(
+                    CMS.getUserMessage("CMS_GW_DECODING_CRL_ERROR"));
+            }
 
             ICRLIssuingPointRecord pt = null;
 

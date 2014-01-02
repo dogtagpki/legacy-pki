@@ -18,13 +18,16 @@
 package com.netscape.certsrv.extensions;
 
 
-import netscape.security.util.ObjectIdentifier;
-import netscape.security.x509.Extension;
+import java.util.Locale;
+import java.util.Vector;
 
+import com.netscape.certsrv.base.ISubsystem;
+import com.netscape.certsrv.base.IConfigStore;
 import com.netscape.certsrv.base.EBaseException;
 import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
+
+import netscape.security.x509.Extension;
+import netscape.security.util.ObjectIdentifier;
 
 
 /**

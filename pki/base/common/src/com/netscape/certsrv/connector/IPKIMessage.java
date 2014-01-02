@@ -18,9 +18,8 @@
 package com.netscape.certsrv.connector;
 
 
-import java.io.Serializable;
-
 import com.netscape.certsrv.request.IRequest;
+import java.io.Serializable;
 
 
 /**
