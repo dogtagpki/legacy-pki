@@ -46,6 +46,8 @@
 #define TPS_PUBLIC
 #endif /* !XP_WIN32 */
 
+typedef char NSSUTF8;
+
 class Util
 {
   public:
@@ -60,6 +62,7 @@ class Util
 	  TPS_PUBLIC static char *URLEncodeInHex (Buffer &data);
 	  TPS_PUBLIC static char *URLEncode (const char *data);
 	  TPS_PUBLIC static char *URLEncode1 (const char *data);
+      TPS_PUBLIC static NSSUTF8 *StripCR(NSSUTF8 *inString);
 	  TPS_PUBLIC static Buffer *URLDecode(const char *data);
 	  TPS_PUBLIC static char *SpecialURLEncode (Buffer &data);
 	  TPS_PUBLIC static Buffer *SpecialURLDecode(const char *data);

@@ -123,7 +123,9 @@ applets_DATA =	$(srcdir)/applets/1.4.4d40a449.ijc \
 		$(srcdir)/applets/1.3.44724DDE.ijc \
 		$(srcdir)/applets/1.4.51707a0d.ijc \
 		$(srcdir)/applets/1.4.51707a06.ijc \
-		$(srcdir)/applets/1.4.51a6adf3.ijc
+		$(srcdir)/applets/1.4.51a6adf3.ijc \
+		$(srcdir)/applets/1.4.52cf1c58.ijc \
+		$(srcdir)/applets/1.4.5265a65e.ijc
 
 bin_SCRIPTS =	wrappers/tpsclient
 
@@ -302,6 +304,7 @@ libtps_la_SOURCES =	src/main/Buffer.cpp                        \
 					src/main/PKCS11Obj.cpp                     \
                                         src/main/LogFile.cpp                       \
                                         src/main/RollingLogFile.cpp                \
+					src/main/ExternalRegAttrs.cpp              \
 					src/httpClient/httpClient.cpp              \
 					src/httpClient/Cache.cpp                   \
 					src/httpClient/engine.cpp                  \

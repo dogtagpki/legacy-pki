@@ -4769,7 +4769,8 @@ mod_tokendb_handler( request_rec *rq )
 
                         CERTCertificate **attr_certificate= get_certificates( e );
                         int statusNum = 0;
-                        if(( strcmp( attr_status, "revoked_on_hold" ) == 0 ) && (strcmp(revokeReason, "6" ) != 0)) {
+                         // Perform Revoke unconditionally now.
+                        if((strcmp(revokeReason, "6" ) != 0)) {
                             statusNum = certEnroll->
                                         RevokeCertificate(
                                                      false,

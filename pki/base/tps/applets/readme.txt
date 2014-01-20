@@ -57,6 +57,6 @@ Latest Applet Information:
 Applet Information:
 ------------------
 
-1.4.51a6adf3.ijc - Official ECC applet (Safenet SC650 Only, supports RSA as well)
-1.4.51707a06.ijc - Official Applet (Gemalto 64K series - RSA Only)
+1.4.52cf1c58.ijc - Official ECC applet (Safenet SC650 Only, supports RSA as well)
+1.4.5265a65e.ijc - Official Applet (Gemalto 64K series - RSA Only)
 1.4.4d40a449.ijc - Offical Applet (Safenet 330J - RSA Only)

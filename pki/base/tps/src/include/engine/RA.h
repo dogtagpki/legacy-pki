@@ -137,10 +137,23 @@ class RA
                                    char **wrappedPrivateKey_s,
                                    char **ivParam_s, const char *connId,
                                    bool archive, int keysize, bool isECC);
-	  static void RecoverKey(RA_Session *session, const char* cuid,
-                             const char *userid, char* kekSessionKey_s,
-                             char *cert_s, char **publickey_s,
-                             char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s);
+
+          /* recover by keyid */
+      static void RecoverKey(RA_Session *session, const char* cuid,
+          const char *userid, char* kekSessionKey_s,
+          PRUint64 keyid, char **publickey_s,
+          char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s);
+
+      /* recover by cert */
+      static void RecoverKey(RA_Session *session, const char* cuid,
+          const char *userid, char* kekSessionKey_s,
+          char *cert_s, char **publickey_s,
+          char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s);
+
+      static void RecoverKey(RA_Session *session, const char* cuid,
+          const char *userid, char* kekSessionKey_s,
+          char *cert_s, PRUint64 keyid, char **publickey_s,
+          char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s);
 
 	  static Buffer *ComputeHostCryptogram(Buffer &card_challenge, Buffer &host_challenge);
 
@@ -223,6 +236,7 @@ class RA
           static int tdb_add_token_entry(char *userid, char* cuid, const char *status, const char *token_type);
 	  static int tdb_update(const char *userid, char *cuid, char *applet_version, char *key_info, const char *state, const char *reason, const char * token_type);
 	  static int tdb_update_certificates(char *cuid, char **tokentypes, char *userid, CERTCertificate **certificates, char **ktypes, char **origins, int numOfCerts);
+          static int tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs);
 	  static int tdb_activity(char *ip, char *cuid, const char *op, const char *result, const char *msg, const char *userid, const char *token_type);
 	  static int testTokendb();
           static int InitializeAuthentication();
@@ -298,6 +312,8 @@ class RA
           static const char *CFG_ERROR_PREFIX;
           static const char *CFG_SELFTEST_PREFIX;
 
+      static const char *CFG_PRINTBUF_FULL;
+      static const char *CFG_RECV_BUF_SIZE;
 
       static const char *CFG_AUTHS_ENABLE;
       static const char *CFG_AUTHS_CURRENTIMPL;
@@ -352,6 +368,8 @@ class RA
           static size_t m_bytes_unflushed;
           static size_t m_buffer_size;
           static int m_flush_interval;
+          static bool m_printBuf_full; // whether printbuf should print full buffer
+          static int m_recv_buf_size;
 
       static HttpConnection* m_caConnection[];
       static HttpConnection* m_tksConnection[];
@@ -374,12 +392,17 @@ class RA
         static int Failover(HttpConnection *&conn, int len);   
 
           static bool isAlgorithmECC(BYTE algorithm);
+          static bool isCertECC(CERTCertificate *cert);
+          static BYTE getECCAlg(SECKEYECParams  *eccParams);
+          static int  getECCKeySize(SECKEYECParams *eccParams);
       TPS_PUBLIC static SECCertificateUsage getCertificateUsage(const char *certusage);
       TPS_PUBLIC static bool verifySystemCertByNickname(const char *nickname, const char *certUsage);
       TPS_PUBLIC static bool verifySystemCerts();
       static bool transition_allowed(int oldState, int newState);
 
       static int get_token_state(char *state, char *reason);
+      static bool is_printBuf_full();
+      static int get_recv_buf_size();
 
    
 };

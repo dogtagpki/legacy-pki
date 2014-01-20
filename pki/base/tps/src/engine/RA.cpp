@@ -59,6 +59,7 @@ extern "C"
 #include "main/LogFile.h"
 #include "main/RollingLogFile.h"
 #include "selftests/SelfTest.h"
+//#include "authentication/ExternalRegAttrs.h"
 
 typedef struct
 {
@@ -119,6 +120,8 @@ int RA::m_caConns_len = 0;
 int RA::m_tksConns_len = 0;
 int RA::m_drmConns_len = 0;
 int RA::m_auth_len = 0;
+bool RA::m_printBuf_full = false;
+int RA::m_recv_buf_size = 8192;
 
 #define MAX_BODY_LEN 4096
 
@@ -181,6 +184,8 @@ const char *RA::CFG_SELFTEST_PREFIX = "selftests.container.logger";
 const char *RA::CFG_TOKENDB_ALLOWED_TRANSITIONS = "tokendb.allowedTransitions";
 const char *RA::CFG_OPERATIONS_ALLOWED_TRANSITIONS = "tps.operations.allowedTransitions";
 
+const char *RA::CFG_PRINTBUF_FULL = "tps.printBufFull";
+const char *RA::CFG_RECV_BUF_SIZE = "tps.recvBufSize";
 const char *RA::CFG_AUTHS_ENABLE="auth.enable";
 
 /* default values */
@@ -212,8 +217,161 @@ enum token_ui_states  {
     TOKEN_TERMINATED = 6
 };
 
+/*
+
+{ "c2pnb163v1", SEC_OID_ANSIX962_EC_C2PNB163V1 },
+  { "c2pnb163v2", SEC_OID_ANSIX962_EC_C2PNB163V2 },
+  { "c2pnb163v3", SEC_OID_ANSIX962_EC_C2PNB163V3 },
+  { "c2pnb176v1", SEC_OID_ANSIX962_EC_C2PNB176V1 },
+  { "c2tnb191v1", SEC_OID_ANSIX962_EC_C2TNB191V1 },
+  { "c2tnb191v2", SEC_OID_ANSIX962_EC_C2TNB191V2 },
+  { "c2tnb191v3", SEC_OID_ANSIX962_EC_C2TNB191V3 },
+  { "c2onb191v4", SEC_OID_ANSIX962_EC_C2ONB191V4 },
+  { "c2onb191v5", SEC_OID_ANSIX962_EC_C2ONB191V5 },
+  { "c2pnb208w1", SEC_OID_ANSIX962_EC_C2PNB208W1 },
+  { "c2tnb239v1", SEC_OID_ANSIX962_EC_C2TNB239V1 },
+  { "c2tnb239v2", SEC_OID_ANSIX962_EC_C2TNB239V2 },
+  { "c2tnb239v3", SEC_OID_ANSIX962_EC_C2TNB239V3 },
+  { "c2onb239v4", SEC_OID_ANSIX962_EC_C2ONB239V4 },
+  { "c2onb239v5", SEC_OID_ANSIX962_EC_C2ONB239V5 },
+  { "c2pnb272w1", SEC_OID_ANSIX962_EC_C2PNB272W1 },
+  { "c2pnb304w1", SEC_OID_ANSIX962_EC_C2PNB304W1 },
+  { "c2tnb359v1", SEC_OID_ANSIX962_EC_C2TNB359V1 },
+  { "c2pnb368w1", SEC_OID_ANSIX962_EC_C2PNB368W1 },
+  { "c2tnb431r1", SEC_OID_ANSIX962_EC_C2TNB431R1 },
+
+*/
 
 
+
+
+
+/** ECC curve info **/
+
+typedef enum { ec_noName     = 0,
+               ec_sect163k1  = 1,
+               ec_sect163r1  = 2,
+               ec_sect163r2  = 3,
+               ec_sect193r1  = 4,
+               ec_sect193r2  = 5,
+               ec_sect233k1  = 6,
+               ec_sect233r1  = 7,
+               ec_sect239k1  = 8,
+               ec_sect283k1  = 9,
+               ec_sect283r1  = 10,
+               ec_sect409k1  = 11,
+               ec_sect409r1  = 12,
+               ec_sect571k1  = 13,
+               ec_sect571r1  = 14,
+               ec_secp160k1  = 15,
+               ec_secp160r1  = 16,
+               ec_secp160r2  = 17,
+               ec_secp192k1  = 18,
+               ec_secp192r1  = 19,
+               ec_secp224k1  = 20,
+               ec_secp224r1  = 21,
+               ec_secp256k1  = 22,
+               ec_secp256r1  = 23,
+               ec_secp384r1  = 24,
+               ec_secp521r1  = 25,
+               ec_pastLastName
+} ECName;
+
+/* Table containing OID tags for elliptic curves named in the
+ * ECC-TLS IETF draft.
+ */
+static const SECOidTag ecName2OIDTag[] = {
+   (SECOidTag)	0,  
+	SEC_OID_SECG_EC_SECT163K1,  /*  1 */
+	SEC_OID_SECG_EC_SECT163R1,  /*  2 */
+	SEC_OID_SECG_EC_SECT163R2,  /*  3 */
+	SEC_OID_SECG_EC_SECT193R1,  /*  4 */
+	SEC_OID_SECG_EC_SECT193R2,  /*  5 */
+	SEC_OID_SECG_EC_SECT233K1,  /*  6 */
+	SEC_OID_SECG_EC_SECT233R1,  /*  7 */
+	SEC_OID_SECG_EC_SECT239K1,  /*  8 */
+	SEC_OID_SECG_EC_SECT283K1,  /*  9 */
+	SEC_OID_SECG_EC_SECT283R1,  /* 10 */
+	SEC_OID_SECG_EC_SECT409K1,  /* 11 */
+	SEC_OID_SECG_EC_SECT409R1,  /* 12 */
+	SEC_OID_SECG_EC_SECT571K1,  /* 13 */
+	SEC_OID_SECG_EC_SECT571R1,  /* 14 */
+	SEC_OID_SECG_EC_SECP160K1,  /* 15 */
+	SEC_OID_SECG_EC_SECP160R1,  /* 16 */
+	SEC_OID_SECG_EC_SECP160R2,  /* 17 */
+	SEC_OID_SECG_EC_SECP192K1,  /* 18 */
+	SEC_OID_SECG_EC_SECP192R1,  /* 19 */
+	SEC_OID_SECG_EC_SECP224K1,  /* 20 */
+	SEC_OID_SECG_EC_SECP224R1,  /* 21 */
+	SEC_OID_SECG_EC_SECP256K1,  /* 22 */
+	SEC_OID_SECG_EC_SECP256R1,  /* 23 */
+	SEC_OID_SECG_EC_SECP384R1,  /* 24 */
+	SEC_OID_SECG_EC_SECP521R1,  /* 25 */
+};
+
+static const PRUint16 curve2bits[] = {
+	  0, /*  ec_noName     = 0,   */
+	163, /*  ec_sect163k1  = 1,   */
+	163, /*  ec_sect163r1  = 2,   */
+	163, /*  ec_sect163r2  = 3,   */
+	193, /*  ec_sect193r1  = 4,   */
+	193, /*  ec_sect193r2  = 5,   */
+	233, /*  ec_sect233k1  = 6,   */
+	233, /*  ec_sect233r1  = 7,   */
+	239, /*  ec_sect239k1  = 8,   */
+	283, /*  ec_sect283k1  = 9,   */
+	283, /*  ec_sect283r1  = 10,  */
+	409, /*  ec_sect409k1  = 11,  */
+	409, /*  ec_sect409r1  = 12,  */
+	571, /*  ec_sect571k1  = 13,  */
+	571, /*  ec_sect571r1  = 14,  */
+	160, /*  ec_secp160k1  = 15,  */
+	160, /*  ec_secp160r1  = 16,  */
+	160, /*  ec_secp160r2  = 17,  */
+	192, /*  ec_secp192k1  = 18,  */
+	192, /*  ec_secp192r1  = 19,  */
+	224, /*  ec_secp224k1  = 20,  */
+	224, /*  ec_secp224r1  = 21,  */
+	256, /*  ec_secp256k1  = 22,  */
+	256, /*  ec_secp256r1  = 23,  */
+	384, /*  ec_secp384r1  = 24,  */
+	521, /*  ec_secp521r1  = 25,  */
+      65535  /*  ec_pastLastName      */
+};
+
+typedef struct Bits2CurveStr {
+    PRUint16    bits;
+    ECName      curve;
+} Bits2Curve;
+
+static const Bits2Curve bits2curve [] = {
+   {	192,     ec_secp192r1    /*  = 19,  fast */  },
+   {	160,     ec_secp160r2    /*  = 17,  fast */  },
+   {	160,     ec_secp160k1    /*  = 15,  */       },
+   {	160,     ec_secp160r1    /*  = 16,  */       },
+   {	163,     ec_sect163k1    /*  = 1,   */       },
+   {	163,     ec_sect163r1    /*  = 2,   */       },
+   {	163,     ec_sect163r2    /*  = 3,   */       },
+   {	192,     ec_secp192k1    /*  = 18,  */       },
+   {	193,     ec_sect193r1    /*  = 4,   */       },
+   {	193,     ec_sect193r2    /*  = 5,   */       },
+   {	224,     ec_secp224r1    /*  = 21,  fast */  },
+   {	224,     ec_secp224k1    /*  = 20,  */       },
+   {	233,     ec_sect233k1    /*  = 6,   */       },
+   {	233,     ec_sect233r1    /*  = 7,   */       },
+   {	239,     ec_sect239k1    /*  = 8,   */       },
+   {	256,     ec_secp256r1    /*  = 23,  fast */  },
+   {	256,     ec_secp256k1    /*  = 22,  */       },
+   {	283,     ec_sect283k1    /*  = 9,   */       },
+   {	283,     ec_sect283r1    /*  = 10,  */       },
+   {	384,     ec_secp384r1    /*  = 24,  fast */  },
+   {	409,     ec_sect409k1    /*  = 11,  */       },
+   {	409,     ec_sect409r1    /*  = 12,  */       },
+   {	521,     ec_secp521r1    /*  = 25,  fast */  },
+   {	571,     ec_sect571k1    /*  = 13,  */       },
+   {	571,     ec_sect571r1    /*  = 14,  */       },
+   {  65535,     ec_noName    }
+};
 
 #ifdef XP_WIN32
 #define TPS_PUBLIC __declspec(dllexport)
@@ -508,6 +666,10 @@ TPS_PUBLIC int RA::Initialize(char *cfg_path, RA_Context *ctx)
 	  security_level = SECURE_MSG_MAC;
 
     RA::SetGlobalSecurityLevel(security_level);
+
+        m_printBuf_full = m_cfg->GetConfigAsBool(RA::CFG_PRINTBUF_FULL, false);
+        m_recv_buf_size = m_cfg->GetConfigAsInt(RA::CFG_RECV_BUF_SIZE, 8192);
+
 
     // Initialize the CA connection pool to be empty
     for (i=0; i<MAX_CA_CONNECTIONS; i++) {
@@ -1084,16 +1246,46 @@ SecurityLevel RA::GetGlobalSecurityLevel() {
     return m_global_security_level;
 }
 
+/*
+ * RecoverKey - by keyid
+ */
+void RA::RecoverKey(RA_Session *session, const char* cuid,
+                    const char *userid, char* desKey_s,
+                    PRUint64 keyid, char **publicKey_s,
+                    char **wrappedPrivateKey_s, const char *connId,
+                    char **ivParam_s)
+{
+    RA::RecoverKey(session, cuid,
+                    userid, desKey_s,
+                    NULL, keyid, publicKey_s,
+                    wrappedPrivateKey_s, connId, ivParam_s);
+}
+
+/*
+ * RecoverKey - by cert
+ */
+void RA::RecoverKey(RA_Session *session, const char* cuid,
+                    const char *userid, char* desKey_s,
+                    char *b64cert, char **publicKey_s,
+                    char **wrappedPrivateKey_s, const char *connId,
+                    char **ivParam_s)
+{
+    RA::RecoverKey(session, cuid,
+                    userid, desKey_s,
+                    b64cert, 0, publicKey_s,
+                    wrappedPrivateKey_s, connId, ivParam_s);
+}
 
 /*
  * recovers user encryption key that was previously archived.
- * It expects DRM to search its archival db by cert.
+ * It expects DRM to search its archival db either by cert or by keyid.
  *
  * input:
  * @param cuid (cuid of the recovering key's token)
- * @param userid (uid of the recovering key owner
- * @param desKey_s (came from TKS - session key wrapped with DRM transport
+ * @param userid (uid of the recovering key owner)
+ * @param desKey_s (came from TKS - session key wrapped with DRM transport)
  * @param cert (base64 encoded cert of the recovering key)
+ * @param keyid (serail number of the cert to be recovered)
  * @param connId (drm connectoin id)
  *
  * output:
@@ -1103,7 +1295,7 @@ SecurityLevel RA::GetGlobalSecurityLevel() {
  */
 void RA::RecoverKey(RA_Session *session, const char* cuid,
                     const char *userid, char* desKey_s,
-                    char *b64cert, char **publicKey_s,
+                    char *b64cert, PRUint64 keyid, char **publicKey_s,
                     char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s)
 {
     int status;
@@ -1111,7 +1303,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     HttpConnection *drmConn = NULL;
     char body[MAX_BODY_LEN];
     char configname[256];
-    char * cert_s;
+    char * cert_s = NULL;
     int drm_curr = 0;
     long s;
     char * content = NULL;
@@ -1133,8 +1325,8 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       RA::Debug(" RA:: RecoverKey", "in RecoverKey, userid NULL");
       goto loser;
     }
-    if (b64cert == NULL) {
-      RA::Debug(" RA:: RecoverKey", "in RecoverKey, b64cert NULL");
+    if ((b64cert == NULL) && (keyid == 0)) {
+      RA::Debug(" RA:: RecoverKey", "in RecoverKey, b64cert or keyid NULL");
       goto loser;
     }
     if (desKey_s == NULL) {
@@ -1147,7 +1339,9 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     }
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, desKey_s=%s, connId=%s",desKey_s,  connId);
 
-    cert_s = Util::URLEncode(b64cert);
+    if (b64cert != NULL) {
+        cert_s = Util::URLEncode(b64cert);
+    }
     drmConn = RA::GetDRMConn(connId);
     if (drmConn == NULL) {
         RA::Debug(" RA:: RecoverKey", "in RecoverKey, failed getting drmconn");
@@ -1162,8 +1356,15 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, wrappedDESKey_s=%s", wrappedDESKey_s);
 
-    PR_snprintf((char *)body, MAX_BODY_LEN, 
-		"CUID=%s&userid=%s&drm_trans_desKey=%s&cert=%s",cuid, userid, wrappedDESKey_s, cert_s);
+    if (cert_s != NULL) {
+        RA::Debug(" RA:: RecoverKey", "in RecoverKey, recover by cert");
+        PR_snprintf((char *)body, MAX_BODY_LEN, 
+	    	"CUID=%s&userid=%s&drm_trans_desKey=%s&cert=%s",cuid, userid, wrappedDESKey_s, cert_s);
+    } else {
+        RA::Debug(" RA:: RecoverKey", "in RecoverKey, recover by keyid number");
+        PR_snprintf((char *)body, MAX_BODY_LEN, 
+	    	"CUID=%s&userid=%s&drm_trans_desKey=%s&keyid=%d",cuid, userid, wrappedDESKey_s, (int) keyid);
+    }
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, body=%s", body);
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.TokenKeyRecovery", connId);
         servletID = GetConfigStore()->GetConfigAsString(configname);
@@ -1210,8 +1411,8 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     if ((content != NULL) && (s == 200)) {
       RA::Debug("RA::RecoverKey", "response from DRM status ok");
 
-      Buffer* status_b;
-      char* status_s;
+      Buffer* status_b = NULL;
+      char* status_s = NULL;
 
       ra_pb = ( RA_pblock * ) session->create_pblock(content);
       if (ra_pb == NULL)
@@ -1238,14 +1439,19 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 	goto loser;
       } else {
 	RA::Debug(LL_PER_PDU, "RecoverKey", "got public key =%s", tmp);
-          char *tmp_publicKey_s  = PL_strdup(tmp);
-          Buffer *decodePubKey = Util::URLDecode(tmp_publicKey_s);
-          *publicKey_s =
-              BTOA_DataToAscii(decodePubKey->getBuf(), decodePubKey->getLen());
-          if (tmp_publicKey_s)
-              PR_Free (tmp_publicKey_s);
-          if (decodePubKey)
-              PR_Free(decodePubKey);
+      //    char *tmp_publicKey_s  = PL_strdup(tmp);
+      //    Buffer *decodePubKey = Util::URLDecode(tmp_publicKey_s);
+
+          // RA::DebugBuffer("cfu debug"," public key =",decodePubKey);
+          *publicKey_s = PL_strdup(tmp);
+
+          /*    BTOA_DataToAscii(decodePubKey->getBuf(), decodePubKey->getLen()); */
+
+          RA::Debug(LL_PER_PDU, "RecoverKey", "publicKey Ascii %s", *publicKey_s);
+      //    if (tmp_publicKey_s)
+       //       PR_Free (tmp_publicKey_s);
+       //   if (decodePubKey)
+        //      PR_Free(decodePubKey);
       }
 
       tmp = NULL;
@@ -1263,7 +1469,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
           RA::Error(LL_PER_PDU, "RecoverKey",
               "did not get iv_param for recovered  key in DRM response");
       } else {
-          RA::Debug(LL_PER_PDU, "RecoverKey", "got iv_param for recovered key =%s", tmp);
+          RA::Debug(LL_PER_PDU, "ServerSideKeyGen", "got iv_param for recovered key =%s", tmp);
           *ivParam_s  = PL_strdup(tmp);
       }
 
@@ -1278,7 +1484,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       PR_Free(desKey_s);
 
     if (decodeKey != NULL)
-      PR_Free(decodeKey);
+      delete decodeKey;
 
     if (wrappedDESKey_s != NULL)
       PR_Free(wrappedDESKey_s);
@@ -1290,6 +1496,10 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       if (content != NULL)
 	response->freeContent();
       delete response;
+    }
+
+    if (cert_s != NULL) {
+        PR_Free(cert_s);
     }
 
     if (ra_pb != NULL) {
@@ -2204,7 +2414,7 @@ TPS_PUBLIC char * RA::GetAuditSigningMessage(NSSUTF8 * audit_msg)
                 goto loser;
             }
 
-            /* get rid of the carriage return line feed */
+            /* get rid of the carriage return line feed 
             int sig_len = PL_strlen(sig_b64);
             out_sig_b64 =  (char *) PORT_Alloc (sig_len);
             if (out_sig_b64 == NULL) {
@@ -2220,6 +2430,14 @@ TPS_PUBLIC char * RA::GetAuditSigningMessage(NSSUTF8 * audit_msg)
                     i--;
                     continue;
                 }
+            }
+            */
+
+             /* get rid of the carriage return line feed*/
+            out_sig_b64 = (NSSUTF8 *) Util::StripCR(sig_b64);
+            if (out_sig_b64 == NULL) {
+                RA::Debug("RA:: SignAuditLog", "strip carriage return failed");
+                goto loser;
             }
 
             /*
@@ -3049,6 +3267,176 @@ int RA::tdb_activity(char *ip, char *cuid, const char *op, const char *result, c
   return add_activity(ip, cuid, op, result, msg, userid, token_type);
 }
 
+int RA::tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs) {
+
+    int rc = -1;
+    int count = 0;
+    int delete_count = 0;
+
+    LDAPMessage  *ldapResult = NULL;
+    int k = 0;
+    char serialnumber[512];
+    char filter[512];
+    LDAPMessage *result = NULL;
+    LDAPMessage *e = NULL;
+    int i = 0;
+    int r = LDAP_SUCCESS;
+    char * cuid = NULL;
+    char * serialStr = NULL;
+
+     RA::Debug("RA::tdb_update_certificates",
+                     " With ExternalRegAttrs, entering");
+
+
+    if ( recoveryRegAttrs == NULL) {
+        return rc;
+    }
+
+    ExternalRegCertToRecover **erCertsToRecover = NULL;
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo * erCertKeyInfo = NULL;
+
+    ExternalRegCertToDelete **erCertsToDelete = NULL;
+    ExternalRegCertToDelete   *erCertToDelete = NULL;
+
+    erCertsToDelete = recoveryRegAttrs->getCertsToDelete();
+    if (erCertsToDelete) {
+        delete_count = recoveryRegAttrs->getCertsToDeleteCount();
+    }
+    
+    erCertsToRecover = recoveryRegAttrs->getCertsToRecover();
+
+    if (erCertsToRecover == NULL) {
+        goto loser;
+    }
+
+    count = recoveryRegAttrs->getCertsToRecoverCount();
+
+    if (count == 0) {
+        goto loser;
+    }
+
+    cuid = (char *) recoveryRegAttrs->getTokenCUID();
+
+    if (cuid == NULL) {
+        goto loser;
+    }
+
+    if ((rc = find_tus_db_entry(cuid, 0, &ldapResult)) != LDAP_SUCCESS) {
+        goto loser;
+    }
+
+    for (int i = 0; i < count ; i++ ) {
+        erCertToRecover = erCertsToRecover[i];
+
+        if (!erCertToRecover)
+            continue;
+
+        erCertKeyInfo = erCertToRecover->getCertKeyInfo();
+
+        if (!erCertKeyInfo)
+            continue;
+
+        CERTCertificate *cert = NULL;
+        char *tokenType = NULL;
+        char *userid = NULL;
+         
+        cert = erCertKeyInfo->getCert();
+        tokenType =  (char *) recoveryRegAttrs->getTokenType();
+        userid = (char *) recoveryRegAttrs->getUserId();
+
+         RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates",
+                "adding cert=%x", cert);
+
+            tus_print_integer(serialnumber, &(cert->serialNumber));
+
+            PR_snprintf(filter, 512, "(tokenID=%s)");
+            PR_snprintf(filter, 512, "tokenSerial=%s", serialnumber);
+
+            r = find_tus_certificate_entries_by_order_no_vlv(filter, &result, 1);
+            RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates",
+                "find_tus_certificate_entries_by_order_no_vlv returned %d", r);
+            bool found = false;
+            if (r == LDAP_SUCCESS) {
+                for (e = get_first_entry(result); e != NULL; e = get_next_entry(e)) {
+                    char **values = get_attribute_values(e, "tokenID");
+                    char *cn = get_cert_cn(e);
+                    serialStr = RA::ra_get_cert_serial(e);
+
+                    RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "With ExternalReg cn %s serialStr %s value %s", cn, serialStr, values[0]);
+
+                    if (PL_strcmp(cuid, values[0])== 0)  found = true;
+                    if (cn != NULL ) {
+                        RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Updating cert status of %s to active in tokendb", cn);
+                        r = update_cert_status(cn, "active");
+                        if (r != LDAP_SUCCESS) {
+                            RA::Debug("RA::tdb_update_certificates",
+                                      "Unable to modify cert status to active in tokendb: %s", cn);
+                        }
+                        PL_strfree(cn);
+                        cn = NULL;
+                    }
+
+                    ldap_value_free(values);
+                }
+
+                ldap_msgfree(result);
+                result = NULL;
+            }
+            if (!found && !erCertToRecover->getIgnoreForUpdateCerts()) {
+                add_certificate(cuid,cuid , tokenType, userid, cert,
+                    "encryption", "active");
+            }
+
+     } 
+     // Now let's delete certs that no longer exist on the token.
+
+     PR_snprintf(filter, 512, "(tokenID=%s)",cuid);
+
+     r = find_tus_certificate_entries_by_order_no_vlv(filter, &result, 1);
+
+     if (r == LDAP_SUCCESS) {
+         for (e = get_first_entry(result); e != NULL; e = get_next_entry(e)) {
+             PRUint64 curSerial = 0;
+             serialStr = RA::ra_get_cert_serial(e);
+             RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Cert for token in db currently: certSerial %s", serialStr);
+
+             if (serialStr != NULL && delete_count > 0 ) {
+                  curSerial = strtoull(serialStr, NULL, 16);
+                  for(int i = 0; i < delete_count ; i++) {
+              /* Rifle certs to delete to see if this one is slated to go */
+                      erCertToDelete = erCertsToDelete[i];
+                      if (!erCertToDelete)
+                          continue;
+
+                      PRUint64 certSerial = erCertToDelete->getSerial();
+
+                      if ( LL_EQ(certSerial, curSerial)) {
+                          RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Found cert to delete: certSerial %s", serialStr);
+                          ra_delete_certificate_entry(e);
+                          break;
+                      }
+
+                      RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Found cert certsToDeleteList: certSerial  %llu serialStr %s curSerial %llu", certSerial,serialStr, curSerial);
+                  }
+             }
+         }
+     }
+ 
+     if (result) {
+         ldap_msgfree(result);
+         result = NULL;
+     }
+
+loser:
+
+    if (ldapResult != NULL) {
+        ldap_msgfree(ldapResult);
+    }
+
+    return rc;
+}
+
 int RA::tdb_update_certificates(char* cuid, char **tokentypes, char *userid, CERTCertificate ** certificates, char **ktypes, char **origins, int numOfCerts)
 {
     int rc = -1;
@@ -3166,13 +3554,20 @@ int RA::tdb_add_token_entry(char *userid, char* cuid, const char *status, const 
                     ldap_value_free(uid);
                     RA::Debug(LL_PER_PDU, "RA::tdb_add_token_entry",
                           "This token does not belong to this user: %s", userid);
-                    r = -1;
-		    goto loser;
+                    /*
+                     * returns special -2 in case externalReg allows it
+                     * if tokenCUID match
+                     * and in which case, update the userid for token entry
+                     */
+                    RA::Debug(LL_PER_PDU, "RA::tdb_add_token_entry",
+                          "returning -2 to check for isExternalReg");
+                    r = -2;
+                    goto loser;
                 } else {
                     if (strlen(uid[0]) > 0 && strcmp(uid[0], userid) == 0) {
                         ldap_value_free(uid);
                         r = 0;
-			goto loser;
+                        goto loser;
                     }
                 }
             }
@@ -3702,6 +4097,65 @@ loser:
     return newKey;
 }
 
+
+static ECName
+params2ecName(SECKEYECParams * params)
+{
+    SECItem oid = { siBuffer, NULL, 0};
+    SECOidData *oidData = NULL;
+    int i = 0;
+
+    /*
+     * params->data needs to contain the ASN encoding of an object ID (OID)
+     * representing a named curve. Here, we strip away everything
+     * before the actual OID and use the OID to look up a named curve.
+     */
+    if (params->data[0] != SEC_ASN1_OBJECT_ID) return ec_noName;
+    oid.len = params->len - 2;
+    oid.data = params->data + 2;
+    if ((oidData = SECOID_FindOID(&oid)) == NULL) return ec_noName;
+    for (1; i < (int) ec_pastLastName ; i++) {
+        if (ecName2OIDTag[i] == oidData->offset)
+            return (ECName) i;
+    }
+
+    return ec_noName;
+}
+
+bool RA::isCertECC(CERTCertificate *cert) {
+
+    bool result = false;
+    
+    if (!cert) {
+        return result;
+    }
+
+    CERTSubjectPublicKeyInfo* spki = SECKEY_DecodeDERSubjectPublicKeyInfo(&cert->derPublicKey);
+
+    if(!spki) {
+        return result;
+    }
+   
+    SECKEYPublicKey *pk_p = SECKEY_ExtractPublicKey(spki); 
+
+    if(!pk_p) {
+        goto loser;
+    }
+
+   
+    if (pk_p->keyType == ecKey) {
+        result = true;
+    }
+
+loser:
+
+    if(spki) {
+        SECKEY_DestroySubjectPublicKeyInfo(spki);
+    } 
+
+    return result;
+}
+
 bool RA::isAlgorithmECC(BYTE alg)
 {
     bool result = false;
@@ -3712,6 +4166,42 @@ bool RA::isAlgorithmECC(BYTE alg)
     RA::Debug(LL_PER_SERVER, "RA::isAlgorithmECC", " alg: %d result: %d", alg, result);
 
     return result;
+}
+
+int  RA::getECCKeySize(SECKEYECParams *eccParams) 
+{
+
+    if (!eccParams)
+        return 0;
+
+    
+    ECName ecName = params2ecName(eccParams);
+
+    if(ecName == ec_noName)
+         return 0;
+
+
+    return curve2bits[ecName];          
+}
+
+BYTE RA::getECCAlg(SECKEYECParams  *eccParams) {
+
+    BYTE result = 0;
+    if (!eccParams)
+        return  result;
+
+    //For now we really only support FP
+
+    ECName ecName = params2ecName(eccParams);
+
+    if (ecName == ec_noName)
+        return 0;
+
+    // Here just make sure we have a valid alg oid.
+    // At this point we only support EC_FP type keys.
+
+    return ALG_EC_FP;
+
 }
 
 bool RA::transition_allowed(int oldState, int newState) {
@@ -3758,4 +4248,12 @@ int RA::get_token_state(char *state, char *reason)
         ret = TOKEN_PERM_LOST;
     }
     return ret;
+}
+
+bool RA::is_printBuf_full() {
+    return m_printBuf_full;
+}
+
+int RA::get_recv_buf_size() {
+    return m_recv_buf_size;
 }

@@ -245,6 +245,15 @@ void PKCS11Obj::RemoveObjectSpec(int p)
 	}
 }
 
+void PKCS11Obj::RemoveAllObjectSpecs() {
+    for (int i = 0; i < MAX_OBJECT_SPEC; i++) {
+        if (m_objSpec[i] != NULL) {
+            delete m_objSpec[i];
+            m_objSpec[i] = NULL;
+        }
+    }
+}
+
 Buffer PKCS11Obj::GetData()
 {
 	Buffer data = Buffer();
