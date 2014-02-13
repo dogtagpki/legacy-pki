@@ -726,7 +726,7 @@ sub check_for_valid_url_prefix
 # arg11 ee_client_auth_hostname
 # arg12 admin_hostname
 # return $PKI_IP_PORT_SEPARATION_MODE, $PKI_PORT_SEPARATION_MODE,
-#        $PKI_SHARED_PORTS_MODE, $RA_PORTS_MODE, $TPS_PORTS_MODE, or
+#        $PKI_SHARED_PORTS_MODE, $PKI_RA_PORTS_MODE, $PKI_TPS_PORTS_MODE, or
 #        explanatory error message
 sub get_port_configuration_mode
 {
@@ -924,10 +924,10 @@ sub get_port_configuration_mode
             }
         } elsif( $subsystem_type eq $RA ) {
             # Specified RA connector ports are valid!
-            return $RA_PORTS_MODE;
+            return $PKI_RA_PORTS_MODE;
         } elsif( $subsystem_type eq $TPS ) {
             # Specified TPS connector ports are valid!
-            return $TPS_PORTS_MODE;
+            return $PKI_TPS_PORTS_MODE;
         }
     }
 }

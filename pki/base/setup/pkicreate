@@ -1706,7 +1706,7 @@ sub parse_arguments()
         $unsecure_hostport = $ee_hostname . ':' . $unsecure_port;
         $tomcat_hostport = $host . ':' . $tomcat_server_port;
         emit( "    Using 'Shared Ports' Configuration Mode\n" );
-    } elsif( $mode eq $RA_PORTS_MODE ) {
+    } elsif( $mode eq $PKI_RA_PORTS_MODE ) {
         # Set port configuration mode
         $port_configuration_mode = $PKI_RA_PORTS_MODE;
 
@@ -1722,7 +1722,7 @@ sub parse_arguments()
         $admin_hostport = $admin_hostname . ':' . $secure_port;
         $unsecure_hostport = $ee_hostname . ':' . $unsecure_port;
         emit( "    Using '$RA Ports' Configuration Mode\n" );
-    } elsif( $mode eq $TPS_PORTS_MODE ) {
+    } elsif( $mode eq $PKI_TPS_PORTS_MODE ) {
         # Set port configuration mode
         $port_configuration_mode = $PKI_TPS_PORTS_MODE;
 
