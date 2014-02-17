@@ -17,7 +17,8 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.dbs.replicadb;
 
-import com.netscape.certsrv.dbs.repository.IRepository;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.repository.*;
 
 
 /**

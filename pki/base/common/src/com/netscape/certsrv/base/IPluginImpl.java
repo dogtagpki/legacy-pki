@@ -18,7 +18,9 @@
 package com.netscape.certsrv.base;
 
 
-import java.util.Vector;
+import java.util.*;
+import netscape.ldap.*;
+import com.netscape.certsrv.base.*;
 
 /**
  * This interface represents a plugin instance.

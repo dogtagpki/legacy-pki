@@ -18,7 +18,10 @@
 package com.netscape.certsrv.evaluators;
 
 
-import com.netscape.certsrv.authentication.IAuthToken;
+import java.util.*;
+import java.security.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authentication.*;
 
 
 /**

@@ -18,30 +18,19 @@
 package com.netscape.cms.profile.def;
 
 
-import java.io.IOException;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.StringTokenizer;
-import java.util.UUID;
+import java.io.*;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.pattern.*;
+import com.netscape.certsrv.apps.*;
 
-import netscape.security.x509.GeneralName;
-import netscape.security.x509.GeneralNameInterface;
-import netscape.security.x509.GeneralNames;
-import netscape.security.x509.PKIXExtensions;
-import netscape.security.x509.SubjectAlternativeNameExtension;
-import netscape.security.x509.X509CertInfo;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IAttrSet;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.pattern.Pattern;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.EPropertyException;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
+import netscape.security.x509.*;
+import netscape.security.util.*;
+import netscape.security.extensions.*;
+import com.netscape.cms.profile.common.*;
 
 
 /**
@@ -60,6 +49,8 @@ public class SubjectAltNameExtDefault extends EnrollExtDefault {
     public static final String CONFIG_PATTERN = "subjAltExtPattern_";
     public static final String CONFIG_SOURCE = "subjAltExtSource_";
     public static final String CONFIG_SOURCE_UUID4 = "UUID4";
+    public static final String CONFIG_SAN_REQ_PATTERN_PREFIX =
+        "$request.req_san_pattern_";
 
     public static final String CONFIG_OLD_TYPE = "subjAltExtType";
     public static final String CONFIG_OLD_PATTERN = "subjAltExtPattern";
@@ -468,7 +459,9 @@ public class SubjectAltNameExtDefault extends EnrollExtDefault {
                               // call the mapPattern that does server-side gen
                               // request is not used, but needed for the substitute
                               // function
-                              gname = mapPattern(randUUID.toString(), request, pattern);
+                              if (request != null)  {
+                                  gname = mapPattern(randUUID.toString(), request, pattern);
+                              }
                             } else { //expand more server-gen types here
                               CMS.debug("SubjectAltNameExtDefault: createExtension - unsupported server-generated type: "+source+". Supported: UUID4");
                               continue;
@@ -483,7 +476,8 @@ public class SubjectAltNameExtDefault extends EnrollExtDefault {
                         }
                     }
 
-                    if (gname.equals("")) {
+                    if (gname.equals("") ||
+                        gname.startsWith(CONFIG_SAN_REQ_PATTERN_PREFIX)) {
                         CMS.debug("gname is empty, not added");
                         continue;
                     }

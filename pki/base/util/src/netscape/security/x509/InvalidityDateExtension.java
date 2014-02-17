@@ -21,13 +21,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
-import java.security.cert.CertificateException;
-import java.util.Date;
+import java.math.BigInteger;
 import java.util.Enumeration;
+import java.util.Date;
+import java.security.cert.CertificateException;
 
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 
 /**

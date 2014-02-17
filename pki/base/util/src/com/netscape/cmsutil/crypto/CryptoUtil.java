@@ -18,86 +18,44 @@
 package com.netscape.cmsutil.crypto;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.CharConversionException;
-import java.io.FilterOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.math.BigInteger;
-import java.security.InvalidKeyException;
-import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.PublicKey;
-import java.security.SignatureException;
-import java.security.cert.CertificateEncodingException;
+import java.net.*;
+import java.io.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+
+import java.security.*;
 import java.security.cert.CertificateException;
-import java.security.interfaces.DSAParams;
-import java.security.interfaces.DSAPublicKey;
+import java.security.cert.CertificateEncodingException;
+import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPublicKey;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.StringTokenizer;
-import java.util.Vector;
+import java.security.interfaces.DSAPublicKey;
+import java.security.interfaces.DSAParams;
+import java.security.cert.*;
 
-import netscape.security.pkcs.PKCS10;
-import netscape.security.pkcs.PKCS7;
-import netscape.security.util.BigInt;
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.ObjectIdentifier;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.CertificateAlgorithmId;
-import netscape.security.x509.CertificateChain;
-import netscape.security.x509.CertificateExtensions;
-import netscape.security.x509.CertificateIssuerName;
-import netscape.security.x509.CertificateSerialNumber;
-import netscape.security.x509.CertificateSubjectName;
-import netscape.security.x509.CertificateValidity;
-import netscape.security.x509.CertificateVersion;
-import netscape.security.x509.CertificateX509Key;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X500Signer;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
-import netscape.security.x509.X509Key;
-
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.NoSuchTokenException;
-import org.mozilla.jss.asn1.ASN1Util;
-import org.mozilla.jss.asn1.InvalidBERException;
-import org.mozilla.jss.asn1.OBJECT_IDENTIFIER;
-import org.mozilla.jss.asn1.SEQUENCE;
-import org.mozilla.jss.crypto.Algorithm;
-import org.mozilla.jss.crypto.CryptoStore;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.crypto.DigestAlgorithm;
-import org.mozilla.jss.crypto.InternalCertificate;
-import org.mozilla.jss.crypto.InvalidKeyFormatException;
-import org.mozilla.jss.crypto.KeyGenAlgorithm;
-import org.mozilla.jss.crypto.KeyGenerator;
-import org.mozilla.jss.crypto.KeyPairAlgorithm;
+//import sun.misc.BASE64Encoder;
+//import sun.misc.BASE64Decoder;
+import org.mozilla.jss.*;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.util.*;
+import org.mozilla.jss.pkix.primitive.*;
+import org.mozilla.jss.pkix.crmf.*;
+import org.mozilla.jss.pkcs7.ContentInfo;
+import org.mozilla.jss.pkcs7.*;
+import org.mozilla.jss.pkcs11.*;
+import org.mozilla.jss.pkcs11.PK11KeyPairGenerator;
+import org.mozilla.jss.crypto.*;
 import org.mozilla.jss.crypto.KeyPairGenerator;
-import org.mozilla.jss.crypto.NoSuchItemOnTokenException;
-import org.mozilla.jss.crypto.ObjectNotFoundException;
 import org.mozilla.jss.crypto.PrivateKey;
 import org.mozilla.jss.crypto.Signature;
-import org.mozilla.jss.crypto.SignatureAlgorithm;
-import org.mozilla.jss.crypto.SymmetricKey;
-import org.mozilla.jss.crypto.TokenException;
 import org.mozilla.jss.crypto.X509Certificate;
-import org.mozilla.jss.pkcs11.PK11ECPublicKey;
-import org.mozilla.jss.pkix.crmf.CertReqMsg;
-import org.mozilla.jss.pkix.crmf.CertRequest;
-import org.mozilla.jss.pkix.crmf.CertTemplate;
-import org.mozilla.jss.pkix.primitive.Name;
-import org.mozilla.jss.pkix.primitive.SubjectPublicKeyInfo;
 import org.mozilla.jss.util.Base64OutputStream;
 
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
 import com.netscape.cmsutil.util.Cert;
-import com.netscape.osutil.OSUtil;
+
 
 public class CryptoUtil {
 
@@ -106,6 +64,74 @@ public class CryptoUtil {
     public static final int LINE_COUNT = 76;
     public static final String CERT_BEGIN_HEADING = "-----BEGIN CERTIFICATE-----";
     public static final String CERT_END_HEADING = "-----END CERTIFICATE-----";
+
+    private static final String[] ecCurves = {"nistp256","nistp384","nistp521","sect163k1","nistk163","sect163r1","sect163r2",
+       "nistb163","sect193r1","sect193r2","sect233k1","nistk233","sect233r1","nistb233","sect239k1","sect283k1","nistk283",
+       "sect283r1","nistb283","sect409k1","nistk409","sect409r1","nistb409","sect571k1","nistk571","sect571r1","nistb571",
+       "secp160k1","secp160r1","secp160r2","secp192k1","secp192r1","nistp192","secp224k1","secp224r1","nistp224","secp256k1",
+       "secp256r1","secp384r1","secp521r1","prime192v1","prime192v2","prime192v3","prime239v1","prime239v2","prime239v3","c2pnb163v1",
+       "c2pnb163v2","c2pnb163v3","c2pnb176v1","c2tnb191v1","c2tnb191v2","c2tnb191v3","c2pnb208w1","c2tnb239v1","c2tnb239v2","c2tnb239v3",
+       "c2pnb272w1","c2pnb304w1","c2tnb359w1","c2pnb368w1","c2tnb431r1","secp112r1","secp112r2","secp128r1","secp128r2","sect113r1","sect113r2",
+       "sect131r1","sect131r2"
+    };
+
+    private final static HashMap<String,Vector> ecOIDs = new HashMap<String,Vector>();
+ 	static
+    {
+       ecOIDs.put( "1.2.840.10045.3.1.7",  new Vector() {{add("nistp256");add("secp256r1");}});
+       ecOIDs.put( "1.3.132.0.34",         new Vector() {{add("nistp384");add("secp384r1");}});
+       ecOIDs.put( "1.3.132.0.35",         new Vector() {{add("nistp521");add("secp521r1");}});
+       ecOIDs.put( "1.3.132.0.1",          new Vector() {{add("sect163k1");add("nistk163");}});
+       ecOIDs.put( "1.3.132.0.2",          new Vector() {{add("sect163r1");}});
+       ecOIDs.put( "1.3.132.0.15",         new Vector() {{add("sect163r2");add("nistb163");}});
+       ecOIDs.put( "1.3.132.0.24",         new Vector() {{add("sect193r1");}});
+       ecOIDs.put( "1.3.132.0.25",         new Vector() {{add("sect193r2");}});
+       ecOIDs.put( "1.3.132.0.26",         new Vector() {{add("sect233k1");add("nistk233");}});
+       ecOIDs.put( "1.3.132.0.27",         new Vector() {{add("sect233r1");add("nistb233");}});
+       ecOIDs.put( "1.3.132.0.3",         new Vector() {{add("sect239k1");}});
+       ecOIDs.put( "1.3.132.0.16",         new Vector() {{add("sect283k1");add("nistk283");}});
+       ecOIDs.put( "1.3.132.0.17",         new Vector() {{add("sect283r1");add("nistb283");}});
+       ecOIDs.put( "1.3.132.0.36",         new Vector() {{add("sect409k1");add("nistk409");}});
+       ecOIDs.put( "1.3.132.0.37",         new Vector() {{add("sect409r1");add("nistb409");}});
+       ecOIDs.put( "1.3.132.0.38",         new Vector() {{add("sect571k1"); add("nistk571");}});
+       ecOIDs.put( "1.3.132.0.39",         new Vector() {{add("sect571r1");add("nistb571");}});
+       ecOIDs.put( "1.3.132.0.9",          new Vector()  {{add("secp160k1");}});
+       ecOIDs.put( "1.3.132.0.8",          new Vector()  {{add("secp160r1");}});
+       ecOIDs.put( "1.3.132.0.30",         new Vector() {{add("secp160r2");}});
+       ecOIDs.put( "1.3.132.0.31",         new Vector() {{add("secp192k1");}});
+       ecOIDs.put( "1.2.840.10045.3.1.1",  new Vector() {{add("secp192r1");add("nistp192");add("prime192v1");}});
+       ecOIDs.put( "1.3.132.0.32",         new Vector() {{add("secp224k1");}});
+       ecOIDs.put( "1.3.132.0.33",         new Vector() {{add("secp224r1");add("nistp224");}});
+       ecOIDs.put( "1.3.132.0.10",         new Vector() {{add("secp256k1");}});
+       ecOIDs.put( "1.2.840.10045.3.1.2",new Vector() {{add("prime192v2");}});
+       ecOIDs.put( "1.2.840.10045.3.1.3",new Vector() {{add("prime192v3");}});
+       ecOIDs.put( "1.2.840.10045.3.1.4",new Vector() {{add("prime239v1");}});
+       ecOIDs.put( "1.2.840.10045.3.1.5",new Vector() {{add("prime239v2");}});
+       ecOIDs.put( "1.2.840.10045.3.1.6",new Vector() {{add("prime239v3");}});
+       ecOIDs.put( "1.2.840.10045.3.0.1",  new Vector() {{add("c2pnb163v1");}});
+       ecOIDs.put( "1.2.840.10045.3.0.2",  new Vector() {{add("c2pnb163v2");}});
+       ecOIDs.put( "1.2.840.10045.3.0.3",  new Vector() {{add("c2pnb163v3");}});
+       ecOIDs.put( "1.2.840.10045.3.0.4",  new Vector() {{add("c2pnb176v1");}});
+       ecOIDs.put( "1.2.840.10045.3.0.5",  new Vector() {{add("c2tnb191v1");}});
+       ecOIDs.put( "1.2.840.10045.3.0.6",  new Vector() {{add("c2tnb191v2");}});
+       ecOIDs.put( "1.2.840.10045.3.0.7",  new Vector() {{add("c2tnb191v3");}});
+       ecOIDs.put( "1.2.840.10045.3.0.10", new Vector() {{add("c2pnb208w1");}});
+       ecOIDs.put( "1.2.840.10045.3.0.11", new Vector() {{add("c2tnb239v1");}});
+       ecOIDs.put( "1.2.840.10045.3.0.12", new Vector() {{add("c2tnb239v2");}});
+       ecOIDs.put( "1.2.840.10045.3.0.13", new Vector() {{add("c2tnb239v3");}});
+       ecOIDs.put( "1.2.840.10045.3.0.16", new Vector() {{add("c2pnb272w1");}});
+       ecOIDs.put( "1.2.840.10045.3.0.17", new Vector() {{add("c2pnb304w1");}});
+       ecOIDs.put( "1.2.840.10045.3.0.19", new Vector() {{add("c2pnb368w1");}});
+       ecOIDs.put( "1.2.840.10045.3.0.20", new Vector() {{add("c2tnb431r1");}});
+       ecOIDs.put( "1.3.132.0.6",          new Vector() {{add("secp112r1");}});
+       ecOIDs.put( "1.3.132.0.7",          new Vector() {{add("secp112r2");}});
+       ecOIDs.put( "1.3.132.0.28",         new Vector() {{add("secp128r1");}});
+       ecOIDs.put( "1.3.132.0.29",         new Vector() {{add("secp128r2");}});
+       ecOIDs.put( "1.3.132.0.4",          new Vector() {{add("sect113r1");}});
+       ecOIDs.put( "1.3.132.0.5",          new Vector() {{add("sect113r2");}});
+       ecOIDs.put( "1.3.132.0.22",         new Vector() {{add("sect131r1");}});
+       ecOIDs.put( "1.3.132.0.23",         new Vector() {{add("sect131r2");}});
+    }
 
     /*
      * encodes cert
@@ -116,7 +142,7 @@ public class CryptoUtil {
             return
                     "-----BEGIN CERTIFICATE-----\n"
                 //  + mEncoder.encodeBuffer(cert.getEncoded())
-                    + OSUtil.BtoA( cert.getEncoded() )
+                    + com.netscape.osutil.OSUtil.BtoA( cert.getEncoded() )
                     + "-----END CERTIFICATE-----\n";
         } catch (Exception e) {}
         return null;
@@ -201,15 +227,43 @@ public class CryptoUtil {
                 NoSuchTokenException,
                 NoSuchAlgorithmException,
                 TokenException {
+        return generateECCKeyPair(token, keysize, usage_ops, usage_mask,
+            false, -1, -1);
+    }
+
+    /*
+     * temporary, sensitive, and extractable usages are per defined in
+     * JSS pkcs11/PK11KeyPairGenerator.java
+     */
+    public static KeyPair generateECCKeyPair(String token, int keysize,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_ops,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_mask,
+           boolean temporary, int sensitive, int extractable)
+        throws CryptoManager.NotInitializedException,
+                NoSuchTokenException,
+                NoSuchAlgorithmException,
+                TokenException {
         CryptoToken t = getTokenByName(token);
 
         KeyPairAlgorithm alg = KeyPairAlgorithm.EC;
-        KeyPairGenerator g = t.getKeyPairGenerator(alg);
+        KeyPairGenerator keygen = t.getKeyPairGenerator(alg);
 
-        g.setKeyPairUsages(usage_ops, usage_mask);
-        g.initialize(keysize);
+        keygen.setKeyPairUsages(usage_ops, usage_mask);
+        keygen.temporaryPairs(temporary);
 
-        KeyPair pair = g.genKeyPair();
+        if (sensitive == 1 )
+            keygen.sensitivePairs(true);
+        else if (sensitive == 0)
+            keygen.sensitivePairs(false);
+
+        if (extractable == 1 )
+            keygen.extractablePairs(true);
+        else if (extractable == 0)
+            keygen.extractablePairs(false);
+
+        keygen.initialize(keysize);
+
+        KeyPair pair = keygen.genKeyPair();
 
         return pair;
     }
@@ -244,6 +298,19 @@ public class CryptoUtil {
         return generateECCKeyPair(t, curveName, usage_ops, usage_mask);
     }
 
+    public static KeyPair generateECCKeyPair(String token, String curveName,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_ops,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_mask,
+           boolean temporary, int sensitive, int extractable)
+        throws CryptoManager.NotInitializedException,
+                NoSuchTokenException,
+                NoSuchAlgorithmException,
+                TokenException {
+        CryptoToken t = getTokenByName(token);
+        return generateECCKeyPair(t, curveName, usage_ops, usage_mask,
+            temporary, sensitive, extractable);
+    }
+
     public static KeyPair generateECCKeyPair(CryptoToken token, String curveName,
            org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_ops,
            org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_mask)
@@ -251,23 +318,51 @@ public class CryptoUtil {
                 NoSuchTokenException,
                 NoSuchAlgorithmException,
                 TokenException {
+        return generateECCKeyPair(token, curveName, usage_ops, usage_mask,
+            false, -1, -1);
+    }
+
+    /*
+     * temporary, sensitive, and extractable usages are per defined in
+     * JSS pkcs11/PK11KeyPairGenerator.java
+     */
+    public static KeyPair generateECCKeyPair(CryptoToken token, String curveName,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_ops,
+           org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage[] usage_mask,
+           boolean temporary, int sensitive, int extractable)
+        throws CryptoManager.NotInitializedException,
+                NoSuchTokenException,
+                NoSuchAlgorithmException,
+                TokenException {
         KeyPairAlgorithm alg = KeyPairAlgorithm.EC;
-        KeyPairGenerator g = token.getKeyPairGenerator(alg);
+        KeyPairGenerator keygen = token.getKeyPairGenerator(alg);
 
-        g.setKeyPairUsages(usage_ops, usage_mask);
+        keygen.setKeyPairUsages(usage_ops, usage_mask);
+        keygen.temporaryPairs(temporary);
 
-        System.out.println("CryptoUtil: generateECCKeyPair: curve = "+ curveName);
+        if (sensitive == 1 )
+            keygen.sensitivePairs(true);
+        else if (sensitive == 0)
+            keygen.sensitivePairs(false);
+
+        if (extractable == 1 )
+            keygen.extractablePairs(true);
+        else if (extractable == 0)
+            keygen.extractablePairs(false);
+
+
+        //System.out.println("CryptoUtil: generateECCKeyPair: curve = "+ curveName);
         int curveCode = 0;
         try {
-            curveCode = g.getCurveCodeByName(curveName);
+            curveCode = keygen.getCurveCodeByName(curveName);
         } catch (Exception e) {
-            System.out.println("CryptoUtil: generateECCKeyPair: "+ e.toString());
+            //System.out.println("CryptoUtil: generateECCKeyPair: "+ e.toString());
             throw new NoSuchAlgorithmException();
         }
-        g.initialize(curveCode);
+        keygen.initialize(curveCode);
 
-        System.out.println("CryptoUtil: generateECCKeyPair: after KeyPairGenerator initialize with:"+ curveName);
-        KeyPair pair = g.genKeyPair();
+        //System.out.println("CryptoUtil: generateECCKeyPair: after KeyPairGenerator initialize with:"+ curveName);
+        KeyPair pair = keygen.genKeyPair();
 
         return pair;
     }
@@ -303,7 +398,7 @@ public class CryptoUtil {
     public static byte[] base64Decode(String s) throws IOException {
      // BASE64Decoder base64 = new BASE64Decoder();
      // byte[] d = base64.decodeBuffer(s);
-        byte[] d = OSUtil.AtoB( s );
+        byte[] d = com.netscape.osutil.OSUtil.AtoB( s );
                                                                                 
         return d;
     }
@@ -610,32 +705,26 @@ public class CryptoUtil {
     /**
      * Creates a Certificate template.
      */
-    public static X509CertInfo createX509CertInfo(KeyPair pair,
-            int serialno, String issuername, String subjname, 
-            Date notBefore, Date notAfter)
-        throws IOException, 
-                CertificateException, 
-                InvalidKeyException {
+	public static X509CertInfo createX509CertInfo(KeyPair pair,
+			BigInteger serialno, String issuername, String subjname,
+			Date notBefore, Date notAfter) throws IOException,
+			CertificateException, InvalidKeyException {
         return createX509CertInfo(convertPublicKeyToX509Key(pair.getPublic()), 
                 serialno, issuername, subjname, notBefore, notAfter);
     }
 
-    public static X509CertInfo createX509CertInfo(PublicKey publickey,
-            int serialno, String issuername, String subjname, 
-            Date notBefore, Date notAfter)
-        throws IOException, 
-                CertificateException, 
-                InvalidKeyException {
+	public static X509CertInfo createX509CertInfo(PublicKey publickey,
+			BigInteger serialno, String issuername, String subjname,
+			Date notBefore, Date notAfter) throws IOException,
+			CertificateException, InvalidKeyException {
         return createX509CertInfo(convertPublicKeyToX509Key(publickey), serialno,
                 issuername, subjname, notBefore, notAfter);
     }
 
-    public static X509CertInfo createX509CertInfo(X509Key x509key,
-            int serialno, String issuername, String subjname, 
-            Date notBefore, Date notAfter)
-        throws IOException, 
-                CertificateException, 
-                InvalidKeyException {
+	public static X509CertInfo createX509CertInfo(X509Key x509key,
+			BigInteger serialno, String issuername, String subjname,
+			Date notBefore, Date notAfter) throws IOException,
+			CertificateException, InvalidKeyException {
         // set default; use the other call with "alg" to set algorithm
         String alg = "SHA256withRSA";
         try {
@@ -646,13 +735,10 @@ public class CryptoUtil {
         }
     }
 
-    public static X509CertInfo createX509CertInfo(X509Key x509key,
-            int serialno, String issuername, String subjname, 
-            Date notBefore, Date notAfter, String alg)
-        throws IOException, 
-                CertificateException, 
-                InvalidKeyException,
-                NoSuchAlgorithmException {
+	public static X509CertInfo createX509CertInfo(X509Key x509key,
+			BigInteger serialno, String issuername, String subjname,
+			Date notBefore, Date notAfter, String alg) throws IOException,
+			CertificateException, InvalidKeyException, NoSuchAlgorithmException {
         X509CertInfo info = new X509CertInfo();
 
         info.set(X509CertInfo.VERSION, new
@@ -801,6 +887,51 @@ public class CryptoUtil {
     }
 
     /**
+     * Creates a PKCS#10 request
+     * (injecting the specified Certificate Extensions into the request)
+     *
+     *     NOTE:  This code was inspired by the
+     *            'getCertRequest(String subjectName, KeyPair keyPair,
+     *             Extensions exts)' method of 'KeyCertUtil.java'.
+     *
+     *  03/27/2013 - The following attempt to embed a certificate
+     *               extension into a PKCS #10 certificate request
+     *               was abandoned since we were unable to successfully
+     *               convert the certificate extension into a PKCS #10
+     *               attribute.  What was generated was an improper
+     *               PKCS #10 certificate request. - mlh
+     *
+     */
+//  public static PKCS10 createCertificationRequest(String subjectName,
+//          X509Key pubk, PrivateKey prik, String alg,
+//          CertificateExtensions exts)
+//      throws NoSuchAlgorithmException, NoSuchProviderException,
+//              InvalidKeyException, IOException, CertificateException,
+//              SignatureException {
+//      X509Key key = pubk;
+//      java.security.Signature sig = java.security.Signature.getInstance(alg,
+//              "Mozilla-JSS");
+//
+//      sig.initSign(prik);
+//      PKCS10 pkcs10 = null;
+//      if (exts != null) {
+//          PKCS10Attribute attr = new
+//              PKCS10Attribute(PKCS9Attribute.EXTENSION_REQUEST_OID,
+//                  (CertAttrSet) exts);
+//          PKCS10Attributes attrs = new PKCS10Attributes();
+//          attrs.setAttribute(attr.getAttributeValue().getName(), attr);
+//          pkcs10 = new PKCS10(key, attrs);
+//      } else {
+//          pkcs10 = new PKCS10(key);
+//      }
+//      X500Name name = new X500Name(subjectName);
+//      X500Signer signer = new X500Signer(sig, name);
+//
+//      pkcs10.encodeAndSign(signer);
+//      return pkcs10;
+//  }
+
+    /**
      * Creates a PKCS#10 request.
      */
     public static PKCS10 createCertificationRequest(String subjectName,
@@ -844,6 +975,55 @@ public class CryptoUtil {
                                                                                 
         return pkcs10;
     }
+
+    /**
+     * Creates a PKCS#10 request
+     * (injecting the specified Certificate Extensions into the request)
+     *
+     *     NOTE:  This code was inspired by the
+     *            'getCertRequest(String subjectName, KeyPair keyPair,
+     *             Extensions exts)' method of 'KeyCertUtil.java'.
+     *
+     *  03/27/2013 - The following attempt to embed a certificate
+     *               extension into a PKCS #10 certificate request
+     *               was abandoned since we were unable to successfully
+     *               convert the certificate extension into a PKCS #10
+     *               attribute.  What was generated was an improper
+     *               PKCS #10 certificate request. - mlh
+     *
+     */
+//  public static PKCS10 createCertificationRequest(String subjectName,
+//          KeyPair keyPair, String alg, CertificateExtensions exts)
+//      throws NoSuchAlgorithmException, NoSuchProviderException,
+//              InvalidKeyException, IOException, CertificateException,
+//              SignatureException {
+//      PublicKey pubk = keyPair.getPublic();
+//      X509Key key = convertPublicKeyToX509Key(pubk);
+//
+//      java.security.Signature sig = java.security.Signature.getInstance(alg,
+//              "Mozilla-JSS");
+//
+//      sig.initSign(keyPair.getPrivate());
+//
+//      PKCS10 pkcs10 = null;
+//      if (exts != null) {
+//          PKCS10Attribute attr = new
+//              PKCS10Attribute(PKCS9Attribute.EXTENSION_REQUEST_OID,
+//                  (CertAttrSet) exts);
+//          PKCS10Attributes attrs = new PKCS10Attributes();
+//          attrs.setAttribute(attr.getAttributeValue().getName(), attr);
+//          pkcs10 = new PKCS10(key, attrs);
+//      } else {
+//          pkcs10 = new PKCS10(key);
+//      }
+//
+//      X500Name name = new X500Name(subjectName);
+//      X500Signer signer = new X500Signer(sig, name);
+//
+//      pkcs10.encodeAndSign(signer);
+//
+//      return pkcs10;
+//  }
 
     public static void unTrustCert(InternalCertificate cert) {
         // remove TRUSTED_CA
@@ -1137,7 +1317,35 @@ public class CryptoUtil {
 
         return certs;
     }
+
+    public static String[] getECcurves() {
+        return ecCurves;
+    }
+
+    public static Vector getECKeyCurve(X509Key key) throws Exception {
+        AlgorithmId algid = key.getAlgorithmId();
+        //System.out.println("CryptoUtil: getECKeyCurve: algid ="+ algid);
+
+        /*
+         * Get raw string representation of alg parameters, will give 
+         * us the curve OID.
+         */
+        String params =  null;
+        if (algid != null) {
+            params = algid.getParametersString();
+        }
+
+        if ((params != null) && (params.startsWith("OID."))) {
+            params = params.substring(4);
+        }
+
+        //System.out.println("CryptoUtil: getECKeyCurve: EC key OID ="+ params);
+        Vector vect = ecOIDs.get(params);
+
+        return vect;
+    }
 }
+
 
 // START ENABLE_ECC
 // This following can be removed when JSS with ECC capability 

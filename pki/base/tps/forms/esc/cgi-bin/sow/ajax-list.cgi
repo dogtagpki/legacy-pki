@@ -24,8 +24,9 @@
 use CGI;
 use Mozilla::LDAP::Conn;
 use PKI::TPS::Common;
+no warnings qw(redefine);
 
-[REQUIRE_CFG_PL]
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 sub main()
 {
@@ -49,23 +50,23 @@ sub main()
   my $result = "";
 
   print "Content-Type: text/html\n\n";
-
+ 
   my $conn =  PKI::TPS::Common::make_connection(
                   {host => $host, port => $port, cert => $certdir},
                   $secureconn);
 
-  return if (!$conn);
+  return if (!$conn); 
 
   my $entry = $conn->search ( { base =>$basedn,
                                 scope => "sub",
                                 filter => "cn=$letters*",
                                 attrsonly => 0,
-                                attrs => qw(cn uid),
+                                attrs => qw(cn uid), 
                                 sortattrs => qw(cn)}
                             );
 
   while ($entry) {
-    my $cn =  ($entry->getValues("cn"))[0]  || "";
+    my $cn =  ($entry->getValues("cn"))[0]  || ""; 
     my $uid = ($entry->getValues("uid"))[0] || "";
     $result .= $uid . "###" . $cn . "|";
     $entry  $conn->nextEntry();

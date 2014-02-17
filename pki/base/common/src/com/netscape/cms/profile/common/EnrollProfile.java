@@ -18,87 +18,33 @@
 package com.netscape.cms.profile.common;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.InvalidKeyException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Locale;
-import java.util.StringTokenizer;
+import java.math.*;
+import java.util.*;
+import java.io.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.cmsutil.util.*;
 
-import netscape.security.pkcs.PKCS10;
-import netscape.security.pkcs.PKCS10Attribute;
-import netscape.security.pkcs.PKCS10Attributes;
-import netscape.security.pkcs.PKCS9Attribute;
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.ObjectIdentifier;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.CertificateAlgorithmId;
-import netscape.security.x509.CertificateExtensions;
-import netscape.security.x509.CertificateIssuerName;
-import netscape.security.x509.CertificateSerialNumber;
-import netscape.security.x509.CertificateSubjectName;
-import netscape.security.x509.CertificateValidity;
-import netscape.security.x509.CertificateVersion;
-import netscape.security.x509.CertificateX509Key;
-import netscape.security.x509.Extension;
-import netscape.security.x509.Extensions;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X509CertInfo;
-import netscape.security.x509.X509Key;
+import netscape.security.x509.*;
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
 
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.asn1.ASN1Util;
-import org.mozilla.jss.asn1.ASN1Value;
-import org.mozilla.jss.asn1.INTEGER;
-import org.mozilla.jss.asn1.InvalidBERException;
-import org.mozilla.jss.asn1.OBJECT_IDENTIFIER;
-import org.mozilla.jss.asn1.OCTET_STRING;
-import org.mozilla.jss.asn1.SEQUENCE;
-import org.mozilla.jss.asn1.SET;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.pkcs10.CertificationRequest;
-import org.mozilla.jss.pkcs10.CertificationRequestInfo;
-import org.mozilla.jss.pkix.cmc.LraPopWitness;
-import org.mozilla.jss.pkix.cmc.OtherMsg;
-import org.mozilla.jss.pkix.cmc.PKIData;
-import org.mozilla.jss.pkix.cmc.TaggedAttribute;
-import org.mozilla.jss.pkix.cmc.TaggedCertificationRequest;
-import org.mozilla.jss.pkix.cmc.TaggedRequest;
-import org.mozilla.jss.pkix.crmf.CertReqMsg;
-import org.mozilla.jss.pkix.crmf.CertRequest;
-import org.mozilla.jss.pkix.crmf.CertTemplate;
-import org.mozilla.jss.pkix.crmf.PKIArchiveOptions;
-import org.mozilla.jss.pkix.crmf.ProofOfPossession;
-import org.mozilla.jss.pkix.primitive.AVA;
+import java.security.*;
+import org.mozilla.jss.asn1.*;
 import org.mozilla.jss.pkix.primitive.Attribute;
-import org.mozilla.jss.pkix.primitive.Name;
-import org.mozilla.jss.pkix.primitive.SubjectPublicKeyInfo;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authentication.ISharedToken;
-import com.netscape.certsrv.authority.IAuthority;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.EPropertyNotFound;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.profile.EDeferException;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.ERejectException;
-import com.netscape.certsrv.profile.IEnrollProfile;
-import com.netscape.certsrv.profile.IProfileContext;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.cmsutil.util.HMACDigest;
+import org.mozilla.jss.pkix.primitive.*;
+import org.mozilla.jss.pkix.primitive.AVA;
+import org.mozilla.jss.pkix.crmf.*;
+import org.mozilla.jss.pkix.cmc.*;
+import org.mozilla.jss.pkcs10.*;
+import org.mozilla.jss.CryptoManager;
+import org.mozilla.jss.crypto.CryptoToken;
 
 
 /**
@@ -180,7 +126,6 @@ public abstract class EnrollProfile extends BasicProfile
             }
         }
                 
-
         // populate requests with appropriate content
         IRequest result[] = new IRequest[num_requests];
 
@@ -667,23 +612,58 @@ public abstract class EnrollProfile extends BasicProfile
         IRequest req)
         throws EProfileException {
         TaggedRequest.Type type = tagreq.getType();
+        if (type == null) {
+            CMS.debug("EnrollProfile: fillTaggedRequest: TaggedRequest type == null");
+            throw new EProfileException(
+                    CMS.getUserMessage(locale, "CMS_PROFILE_INVALID_REQUEST")+
+                    "TaggedRequest type null");
+        }
 
         if (type.equals(TaggedRequest.PKCS10)) { 
+            CMS.debug("EnrollProfile: fillTaggedRequest: TaggedRequest type == pkcs10");
+            boolean sigver = true;
+            boolean tokenSwitched = false;
+            CryptoManager cm = null;
+            CryptoToken signToken = null;
+            CryptoToken savedToken = null;
             try {
+                sigver = CMS.getConfigStore().getBoolean("ca.requestVerify.enabled", true);
+                cm = CryptoManager.getInstance();
+                if (sigver == true) {
+                    String tokenName =
+                        CMS.getConfigStore().getString("ca.requestVerify.token", "internal");   
+                    savedToken = cm.getThreadToken();
+                    if (tokenName.equals("internal")) {
+                        signToken = cm.getInternalCryptoToken();
+                    } else {
+                        signToken = cm.getTokenByName(tokenName);
+                    }
+                    if (!savedToken.getName().equals(signToken.getName())) {
+                        cm.setThreadToken(signToken);
+                        tokenSwitched = true;
+                    }
+                }
+
                 TaggedCertificationRequest tcr = tagreq.getTcr(); 
                 CertificationRequest p10 = tcr.getCertificationRequest(); 
                 ByteArrayOutputStream ostream = new ByteArrayOutputStream(); 
 
                 p10.encode(ostream); 
-                PKCS10 pkcs10 = new PKCS10(ostream.toByteArray());
+                PKCS10 pkcs10 = new PKCS10(ostream.toByteArray(), sigver);
 
                 req.setExtData("bodyPartId", tcr.getBodyPartID());
                 fillPKCS10(locale, pkcs10, info, req);
             } catch (Exception e) {
                 CMS.debug("EnrollProfile: fillTaggedRequest " + 
                     e.toString());
+            }  finally {
+                if ((sigver == true) && (tokenSwitched == true)){
+                    cm.setThreadToken(savedToken);
+                }
             }
+
         } else if (type.equals(TaggedRequest.CRMF)) { 
+            CMS.debug("EnrollProfile: fillTaggedRequest: TaggedRequest type == crmf");
             CertReqMsg crm = tagreq.getCrm(); 
             SessionContext context = SessionContext.getContext();
             Integer nums = (Integer)(context.get("numOfControls"));
@@ -705,6 +685,7 @@ public abstract class EnrollProfile extends BasicProfile
 
             fillCertReqMsg(locale, crm, info, req);
         } else {
+            CMS.debug("EnrollProfile: fillTaggedRequest: unsupported type (not CRMF or PKCS10)");
             throw new EProfileException(
                     CMS.getUserMessage(locale, "CMS_PROFILE_INVALID_REQUEST"));
         }

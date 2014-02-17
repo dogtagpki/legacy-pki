@@ -18,26 +18,18 @@
 package com.netscape.cms.servlet.common;
 
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
+import java.lang.*;
+import java.io.*;
+import java.util.*;
 import java.math.BigInteger;
-import java.util.Date;
-import java.util.Enumeration;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.StringWriter;
+import java.io.PrintWriter;
 
-import javax.servlet.ServletOutputStream;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.logging.ILogger;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.apps.*;
 
 
 /**
@@ -341,7 +333,7 @@ public class CMSTemplate extends CMSFile {
             if (v.equals(""))
                 s = "null";
             else
-                s = "\"" + escapeJavaScriptString((String) v) + "\"";
+                s = "\"" + escapeJavaScriptStringHTML((String) v) + "\"";
         } else if (v instanceof Integer) {
             s = ((Integer) v).toString();
         } else if (v instanceof Boolean) {
@@ -380,7 +372,7 @@ public class CMSTemplate extends CMSFile {
         for (int i = 0; i < l; i++) {
             char c = in[i];
 
-            if ((c > 0x23) && (c!= 0x5c) && (c!= 0x3c) && (c!= 0x3e)) {
+            if ((c > 0x23) && (c!= 0x5c) && (c!= 0x3c) && (c!= 0x3e) && (c!= 0x3b)) {
                 out[j++] = c;
                 continue;
             }
@@ -388,6 +380,7 @@ public class CMSTemplate extends CMSFile {
             if ((c == 0x5c) && ((i+1)<l) && (in[i+1] == 'n' ||
                  in[i+1] == 'r' || in[i+1] == 'f' || in[i+1] == 't' ||
                  in[i+1] == '<' || in[i+1] == '>' ||
+                 in[i+1] == 'x' || in[i+1] == ';' ||
                  in[i+1] == '\"' || in[i+1] == '\'' || in[i+1] == '\\')) {
                 if (in[i+1] == 'x' && ((i+3)<l) && in[i+2] == '3' &&
                     (in[i+3] == 'c' || in[i+3] == 'e')) {
@@ -463,7 +456,7 @@ public class CMSTemplate extends CMSFile {
     public static String escapeJavaScriptStringHTML(String v) {
         int l = v.length();
         char in[] = new char[l];
-        char out[] = new char[l * 4];
+        char out[] = new char[l * 5];
         int j = 0;
 
         v.getChars(0, l, in, 0);
@@ -479,6 +472,7 @@ public class CMSTemplate extends CMSFile {
             if ((c == 0x5c) && ((i+1)<l) && (in[i+1] == 'n' ||
                  in[i+1] == 'r' || in[i+1] == 'f' || in[i+1] == 't' ||
                  in[i+1] == '<' || in[i+1] == '>' ||
+                 in[i+1] == 'x' || in[i+1] == ';' ||
                  in[i+1] == '\"' || in[i+1] == '\'' || in[i+1] == '\\')) {
                 if (in[i+1] == 'x' && ((i+3)<l) && in[i+2] == '3' &&
                     (in[i+3] == 'c' || in[i+3] == 'e')) {
@@ -487,12 +481,37 @@ public class CMSTemplate extends CMSFile {
                     out[j++] = in[i+2];
                     out[j++] = in[i+3];
                     i += 3;
-                } else { 
+
+                    continue;
+                } else if (in[i+1] == '<' || in[i+1] == '>') {
+                    c = in[i+1];
+                    i++;
+                } else if (in[i+1] == ';') {
+                    out[j++] = in[i+1];
+                    i++;
+                    continue;
+                } else {
                     out[j++] = '\\';
                     out[j++] = in[i+1];
                     i++;
+                    continue;
                 }
-                continue;
+            }
+            if (c == '&') {
+                int k;
+                for (k = 0; k < 8 && (i+k) < l; k++) {
+                    out[j+k] = in[i+k];
+                    if (in[i+k] == ';') break;
+                    if (in[i+k] == '<' || in[i+k] == '>') {
+                        k = 8;
+                        break;
+                    }
+                }
+                if (k < 8) {
+                    i += k;
+                    j += k + 1;
+                    continue;
+                }
             }
 
             switch (c) {
@@ -527,16 +546,25 @@ public class CMSTemplate extends CMSFile {
                 break;
 
             case '<':
-                out[j++] = '\\';
-                out[j++] = 'x';
-                out[j++] = '3';
-                out[j++] = 'c';
+                out[j++] = '&';
+                out[j++] = 'l';
+                out[j++] = 't';
+                out[j++] = ';';
                 break;
+
             case '>':
-                out[j++] = '\\';
-                out[j++] = 'x';
-                out[j++] = '3';
-                out[j++] = 'e';
+                out[j++] = '&';
+                out[j++] = 'g';
+                out[j++] = 't';
+                out[j++] = ';';
+                break;
+
+            case '&':
+                out[j++] = '&';
+                out[j++] = 'a';
+                out[j++] = 'm';
+                out[j++] = 'p';
+                out[j++] = ';';
                 break;
 
             default:

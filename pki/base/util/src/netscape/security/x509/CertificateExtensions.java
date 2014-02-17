@@ -17,12 +17,10 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
+import java.io.*;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -31,9 +29,7 @@ import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
 
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * This class defines the Extensions attribute for the Certificate.
@@ -62,14 +58,9 @@ implements CertAttrSet, Serializable {
         try {
             Class extClass = OIDMap.getClass(ext.getExtensionId());
             if (extClass == null) {   // Unsupported extension
-                if (ext.isCritical()) {
-                    throw new IOException("Unsupported CRITICAL extension: "
-                            + ext.getExtensionId());
-                } else {
-                    map.put(ext.getExtensionId().toString(), ext);
-                    addElement(ext);
-                    return;
-                }
+                map.put(ext.getExtensionId().toString(), ext);
+                addElement(ext);
+                return;
             }
             Class[] params = {Boolean.class, Object.class};
             Constructor cons = extClass.getConstructor(params);

@@ -18,51 +18,59 @@
 package com.netscape.kra;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.FilterOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.math.BigInteger;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.InvalidParameterException;
-import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-
-import netscape.security.provider.RSAPublicKey;
-
-import org.mozilla.jss.crypto.Cipher;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.crypto.EncryptionAlgorithm;
-import org.mozilla.jss.crypto.IVParameterSpec;
-import org.mozilla.jss.crypto.KeyPairAlgorithm;
-import org.mozilla.jss.crypto.KeyPairGenerator;
-import org.mozilla.jss.crypto.KeyWrapAlgorithm;
-import org.mozilla.jss.crypto.KeyWrapper;
-import org.mozilla.jss.crypto.PQGParamGenException;
-import org.mozilla.jss.crypto.PQGParams;
-import org.mozilla.jss.crypto.PrivateKey;
-import org.mozilla.jss.crypto.SymmetricKey;
-import org.mozilla.jss.crypto.TokenException;
-import org.mozilla.jss.pkcs11.PK11SymKey;
-import org.mozilla.jss.pkix.crmf.PKIArchiveOptions;
-import org.mozilla.jss.util.Base64OutputStream;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.dbs.keydb.IKeyRepository;
-import com.netscape.certsrv.kra.IKeyRecoveryAuthority;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IService;
-import com.netscape.certsrv.security.IStorageKeyUnit;
-import com.netscape.certsrv.security.ITransportKeyUnit;
-import com.netscape.cmscore.dbs.KeyRecord;
 import com.netscape.cmscore.util.Debug;
+import java.util.StringTokenizer;
+import java.util.Vector;
+import java.io.IOException;
+import java.io.ByteArrayInputStream;
+
+import java.math.BigInteger;
+import java.security.*;
+import java.security.KeyPair;
+import java.security.cert.CertificateException;
+import netscape.security.util.*;
+import netscape.security.util.BigInt;
+import netscape.security.pkcs.*;
+import netscape.security.x509.*;
+import netscape.security.provider.RSAPublicKey;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.util.*;
+import org.mozilla.jss.crypto.PrivateKey;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.crypto.KeyPairGenerator;
+import org.mozilla.jss.pkix.crmf.*;
+import org.mozilla.jss.pkix.primitive.*;
+import org.mozilla.jss.pkix.primitive.AVA;
+import org.mozilla.jss.pkcs11.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.cmscore.util.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.security.*;
+import com.netscape.cmscore.crmf.*;
+import com.netscape.certsrv.kra.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.cmscore.cert.*;
+//import com.netscape.cmscore.ca.*;
+import com.netscape.cmscore.dbs.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.repository.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.dbs.keydb.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.policy.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.apps.CMS;
+import com.netscape.cmsutil.crypto.CryptoUtil;
+import com.netscape.cms.servlet.key.KeyRecordParser;
+
+
+//for b64 encoding
+import org.mozilla.jss.util.Base64OutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.io.*;
 
 /**
  * A class representing keygen/archival request procesor for requests
@@ -141,7 +149,7 @@ public class NetkeyKeygenService implements IService {
     }
 
     public  KeyPair generateKeyPair(
-        KeyPairAlgorithm kpAlg, int keySize, PQGParams pqg) 
+        KeyPairAlgorithm kpAlg, int keySize, String keyCurve, PQGParams pqg) 
         throws NoSuchAlgorithmException, TokenException, InvalidAlgorithmParameterException,
             InvalidParameterException, PQGParamGenException {
 
@@ -160,20 +168,28 @@ public class NetkeyKeygenService implements IService {
               sensitive == true
               extractable == true
         */
+        
         KeyPairGenerator kpGen = token.getKeyPairGenerator(kpAlg);
         IConfigStore config = CMS.getConfigStore();
         IConfigStore kgConfig = config.getSubStore("kra.keygen");
         boolean tp = false;
         boolean sp = false;
         boolean ep = false;
-        if (kgConfig != null) {
+        if ((kgConfig != null) && (!kgConfig.equals(""))) {
           try {
             tp = kgConfig.getBoolean("temporaryPairs", false);
             sp = kgConfig.getBoolean("sensitivePairs", false);
             ep = kgConfig.getBoolean("extractablePairs", false);
+            CMS.debug("NetkeyKeygenService: found config store: kra.keygen");
             // by default, let nethsm work
             if ((tp == false) && (sp == false) && (ep == false)) {
-                tp = true;
+                if (kpAlg == KeyPairAlgorithm.EC) {
+                    // set to what works for nethsm
+                    tp = true;
+                    sp = false;
+                    ep = true;
+                } else   
+                    tp = true;
             }
           } catch (Exception e) {
 	        CMS.debug("NetkeyKeygenService: kgConfig.getBoolean failed");
@@ -183,70 +199,111 @@ public class NetkeyKeygenService implements IService {
         } else {
             // by default, let nethsm work
             CMS.debug("NetkeyKeygenService: cannot find config store: kra.keygen, assume temporaryPairs==true");
-            tp = true;
-        }
-        /* only specified to "true" will it be set */
-        if (tp == true) {
-	        CMS.debug("NetkeyKeygenService: setting temporaryPairs to true");
-	        kpGen.temporaryPairs(true);
-        }
-        if (sp == true) {
-	        CMS.debug("NetkeyKeygenService: setting sensitivePairs to true");
-            kpGen.sensitivePairs(true);
-        }
-        if (ep == true) {
-	        CMS.debug("NetkeyKeygenService: setting extractablePairs to true");
-            kpGen.extractablePairs(true);
-        }
- 
-        if (kpAlg == KeyPairAlgorithm.DSA) {
-            if (pqg == null) {
-                kpGen.initialize(keySize);
+            if (kpAlg == KeyPairAlgorithm.EC) {
+                // set to what works for nethsm
+                tp = true;
+                sp = false;
+                ep = true;
             } else {
-                kpGen.initialize(pqg);
+                tp = true;
             }
-        } else {
-            kpGen.initialize(keySize);
         }
 
-        if (pqg == null) {
-			KeyPair kp = null;
-			synchronized (new Object()) {
-                CMS.debug("NetkeyKeygenService: key pair generation begins");
-            	kp = kpGen.genKeyPair();
-                CMS.debug("NetkeyKeygenService: key pair generation done");
-				mKRA.addEntropy(true);
-			}
-			return kp;
-        } else {
-            // DSA
-            KeyPair kp = null;
+        if (kpAlg == KeyPairAlgorithm.EC) {
 
-            /* no DSA for now... netkey prototype
-            do {
-                // 602548 NSS bug - to overcome it, we use isBadDSAKeyPair
-                kp = kpGen.genKeyPair();
+            boolean isECDHE = false;
+			KeyPair pair = null;
+
+            // used with isECDHE == true
+            org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage usages_mask_ECDSA[] = {
+              org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage.DERIVE
+            };
+
+            // used with isECDHE == false
+            org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage usages_mask_ECDH[] = {
+              org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage.SIGN,
+              org.mozilla.jss.crypto.KeyPairGeneratorSpi.Usage.SIGN_RECOVER
+            };
+
+            try {
+                pair = CryptoUtil.generateECCKeyPair(token.getName(), /*ECC_curve default*/ keyCurve ,
+                    null,
+                    (isECDHE==true) ? usages_mask_ECDSA: usages_mask_ECDH,
+                    tp /*temporary*/, sp? 1:0 /*sensitive*/, ep? 1:0 /*extractable*/);
+                CMS.debug("NetkeyKeygenService: after key pair generation" );
+            } catch (Exception e) {
+                CMS.debug("NetkeyKeygenService: key pair generation with exception:"+e.toString());
             }
-            while (isBadDSAKeyPair(kp)); 
-            */
-            return kp;
+            return pair;
+
+        } else { // !EC
+            //only specified to "true" will it be set
+            if (tp == true) {
+	            CMS.debug("NetkeyKeygenService: setting temporaryPairs to true");
+	            kpGen.temporaryPairs(true);
+            }
+
+            if (sp == true) {
+	            CMS.debug("NetkeyKeygenService: setting sensitivePairs to true");
+                kpGen.sensitivePairs(true);
+            }
+
+            if (ep == true) {
+	            CMS.debug("NetkeyKeygenService: setting extractablePairs to true");
+                kpGen.extractablePairs(true);
+            }
+ 
+            if (kpAlg == KeyPairAlgorithm.DSA) {
+                if (pqg == null) {
+                    kpGen.initialize(keySize);
+                } else {
+                    kpGen.initialize(pqg);
+                }
+            } else {
+                kpGen.initialize(keySize);
+            }
+
+            if (pqg == null) {
+		    	KeyPair kp = null;
+		    	synchronized (new Object()) {
+                    CMS.debug("NetkeyKeygenService: key pair generation begins");
+                	kp = kpGen.genKeyPair();
+                    CMS.debug("NetkeyKeygenService: key pair generation done");
+				    mKRA.addEntropy(true);
+			    }
+			    return kp;
+            } else {
+                // DSA
+                KeyPair kp = null;
+
+                /* no DSA for now... netkey prototype
+                do {
+                    // 602548 NSS bug - to overcome it, we use isBadDSAKeyPair
+                    kp = kpGen.genKeyPair();
+                }
+                while (isBadDSAKeyPair(kp)); 
+                */
+                return kp;
+            }
         }
     }
 
 
 
     public  KeyPair generateKeyPair( String alg,
-        int keySize, PQGParams pqg) throws EBaseException {
+        int keySize, String keyCurve, PQGParams pqg) throws EBaseException {
 
         KeyPairAlgorithm kpAlg = null;
 
         if (alg.equals("RSA"))
             kpAlg = KeyPairAlgorithm.RSA;
+        else if (alg.equals("EC"))
+            kpAlg = KeyPairAlgorithm.EC;
         else
             kpAlg = KeyPairAlgorithm.DSA;
 
         try {
-            KeyPair kp = generateKeyPair( kpAlg, keySize, pqg);
+            KeyPair kp = generateKeyPair( kpAlg, keySize, keyCurve, pqg);
 
             return kp;
         } catch (InvalidParameterException e) {
@@ -319,7 +376,7 @@ public class NetkeyKeygenService implements IService {
         byte[] wrapped_des_key;
 
         byte iv[] = {0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1};
-	String iv_s ="";
+        String iv_s ="";
         try {
             SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
             random.nextBytes(iv);
@@ -327,33 +384,34 @@ public class NetkeyKeygenService implements IService {
             CMS.debug("NetkeyKeygenService.serviceRequest:  "+ e.toString());
         }
 
-	IVParameterSpec algParam = new IVParameterSpec(iv);
+        IVParameterSpec algParam = new IVParameterSpec(iv);
 
         wrapped_des_key = null;
-	boolean archive = true;
-	PK11SymKey sk= null;
-	byte[] publicKeyData = null;;
-	String PubKey = "";
+        boolean archive = true;
+        PK11SymKey sk= null;
+        byte[] publicKeyData = null;;
+        String PubKey = "";
 
         String id = request.getRequestId().toString();
         if (id != null) {
             auditArchiveID = id.trim();
         }
 
-	String rArchive = request.getExtDataInString(IRequest.NETKEY_ATTR_ARCHIVE_FLAG);
-	if (rArchive.equals("true")) {
-	    archive = true;
+        String rArchive = request.getExtDataInString(IRequest.NETKEY_ATTR_ARCHIVE_FLAG);
+        if (rArchive.equals("true")) {
+	        archive = true;
             CMS.debug("NetkeyKeygenService: serviceRequest " +"archival requested for serverSideKeyGen");
-	} else {
-	    archive = false;
+        } else {
+            archive = false;
             CMS.debug("NetkeyKeygenService: serviceRequest " +"archival not requested for serverSideKeyGen");
         }
 
         String rCUID = request.getExtDataInString(IRequest.NETKEY_ATTR_CUID);
         String rUserid = request.getExtDataInString(IRequest.NETKEY_ATTR_USERID);
-	String rKeysize = request.getExtDataInString(IRequest.NETKEY_ATTR_KEY_SIZE);
-	int keysize = Integer.parseInt(rKeysize);
-	auditSubjectID=rCUID+":"+rUserid;
+
+        String rKeytype = request.getExtDataInString(IRequest.NETKEY_ATTR_KEY_TYPE);
+
+        auditSubjectID=rCUID+":"+rUserid;
 
         SessionContext sContext = SessionContext.getContext();
         String agentId="";
@@ -376,14 +434,40 @@ public class NetkeyKeygenService implements IService {
         wrapped_des_key = com.netscape.cmsutil.util.Utils.SpecialDecode(rWrappedDesKeyString);
         CMS.debug("NetkeyKeygenService: wrapped_des_key specialDecoded");
 
-	// get the token for generating user keys
-	CryptoToken keygenToken = mKRA.getKeygenToken();
-	if (keygenToken == null) {
-	    CMS.debug("NetkeyKeygenService: failed getting keygenToken");
-	    request.setExtData(IRequest.RESULT, Integer.valueOf(10));
-	    return false;
-	} else 
-	    CMS.debug("NetkeyKeygenService: got keygenToken");
+/*
+        if ((rKeytype == null) || (rKeytype.equals(""))) {
+            rKeytype = "RSA";
+        }
+*/
+
+        if ((rKeytype == null) || (rKeytype.equals(""))) {
+            CMS.debug("NetkeyKeygenService: serviceRequest: key type is null");
+            rKeytype = "RSA";
+        } else
+            CMS.debug("NetkeyKeygenService: serviceRequest: key type = "+ rKeytype);
+
+        /* for EC, keysize is ignored, only key curve is used */
+        String rKeysize = "2048";
+        int keysize = 2048;
+        String rKeycurve = "nistp256";
+        if (rKeytype.equals("EC")) {
+            rKeycurve = request.getExtDataInString(IRequest.NETKEY_ATTR_KEY_EC_CURVE);
+            if ((rKeycurve == null) || (rKeycurve.equals(""))) {
+                rKeycurve = "nistp256";
+            }
+        } else {
+            rKeysize = request.getExtDataInString(IRequest.NETKEY_ATTR_KEY_SIZE);
+            keysize = Integer.parseInt(rKeysize);
+        }
+
+        // get the token for generating user keys
+        CryptoToken keygenToken = mKRA.getKeygenToken();
+        if (keygenToken == null) {
+            CMS.debug("NetkeyKeygenService: failed getting keygenToken");
+            request.setExtData(IRequest.RESULT, Integer.valueOf(10));
+            return false;
+        } else 
+            CMS.debug("NetkeyKeygenService: got keygenToken");
 
         if ((wrapped_des_key != null) &&
             (wrapped_des_key.length > 0)) {
@@ -396,8 +480,10 @@ public class NetkeyKeygenService implements IService {
 
             CMS.debug("NetkeyKeygenService: about to generate key pair");
 
-            keypair = generateKeyPair("RSA"/*alg*/,
-                      keysize /*Integer.parseInt(len)*/, null /*pqgParams*/);
+            keypair = generateKeyPair(rKeytype /* rKeytype: "RSA" or "EC" */,
+                      keysize /*Integer.parseInt(len)*/,
+                      rKeycurve /* for "EC" only */,
+                      null /*pqgParams*/);
 
             if (keypair == null) {
                 CMS.debug("NetkeyKeygenService: failed generating key pair for "+rCUID+":"+rUserid);
@@ -416,18 +502,24 @@ public class NetkeyKeygenService implements IService {
             CMS.debug("NetkeyKeygenService: finished generate key pair for " +rCUID+":"+rUserid);
 
             try {
-		        publicKeyData = keypair.getPublic().getEncoded();
-		        if (publicKeyData == null) {
-		            request.setExtData(IRequest.RESULT, Integer.valueOf(4));
-		            CMS.debug("NetkeyKeygenService: failed getting publickey encoded");
-		            return false;
-		        } else {
-		            //CMS.debug("NetkeyKeygenService: public key binary length ="+ publicKeyData.length);
-		            PubKey = base64Encode(publicKeyData);
+                publicKeyData = keypair.getPublic().getEncoded();
+                if (publicKeyData == null) {
+                    request.setExtData(IRequest.RESULT, Integer.valueOf(4));
+                    CMS.debug("NetkeyKeygenService: failed getting publickey encoded");
+                    return false;
+                } else {
+                    //CMS.debug("NetkeyKeygenService: public key binary length ="+ publicKeyData.length);
+                    if (rKeytype.equals("EC")) {
+                        /* url encode */
+                        PubKey = com.netscape.cmsutil.util.Utils.SpecialEncode(publicKeyData);
+                        CMS.debug("NetkeyKeygenService: EC PubKey special encoded");
+                    } else {
+                        PubKey = base64Encode(publicKeyData);
+                    }
 
-		            //CMS.debug("NetkeyKeygenService: public key length =" + PubKey.length());
-		            request.setExtData("public_key", PubKey);
-	    	    }
+                    //CMS.debug("NetkeyKeygenService: public key length =" + PubKey.length());
+                    request.setExtData("public_key", PubKey);
+                }
 
                 auditMessage = CMS.getLogMessage(
                     LOGGING_SIGNED_AUDIT_SERVER_SIDE_KEYGEN_REQUEST_PROCESSED_SUCCESS,
@@ -548,18 +640,57 @@ public class NetkeyKeygenService implements IService {
 						  keypair.getPublic().getAlgorithm(),
 						  agentId);
 
-		    CMS.debug("NetkeyKeygenService: got key record");
-		    
-		    // we deal with RSA key only
-		    try {
-			RSAPublicKey rsaPublicKey = new RSAPublicKey(publicKeyData);
-
-			rec.setKeySize(Integer.valueOf(rsaPublicKey.getKeySize()));
-		    } catch (InvalidKeyException e) {
+		    if (rec == null) {
 			request.setExtData(IRequest.RESULT, Integer.valueOf(11));
-			CMS.debug("NetkeyKeygenService: failed:InvalidKeyException");
+			CMS.debug("NetkeyKeygenService: privatekey recording failed");
 			return false;
-		    }
+		    } else
+		    	CMS.debug("NetkeyKeygenService: got key record");
+		    
+            if (rKeytype.equals("RSA")) {
+		        try {
+			        RSAPublicKey rsaPublicKey = new RSAPublicKey(publicKeyData);
+
+			        rec.setKeySize(Integer.valueOf(rsaPublicKey.getKeySize()));
+		        } catch (InvalidKeyException e) {
+			        request.setExtData(IRequest.RESULT, Integer.valueOf(11));
+			        CMS.debug("NetkeyKeygenService: failed:InvalidKeyException");
+			        return false;
+		        }
+            } else if (rKeytype.equals("EC")) {
+			    CMS.debug("NetkeyKeygenService: alg is EC");
+                String oidDescription = "UNDETERMINED";
+                // for KeyRecordParser
+                MetaInfo metaInfo = new MetaInfo();
+
+                try {
+                    byte curve[] =
+                    ASN1Util.getECCurveBytesByX509PublicKeyBytes(publicKeyData,
+                        false /* without tag and size */);
+                    if (curve.length != 0) {
+                        oidDescription = ASN1Util.getOIDdescription(curve);
+                    } else {
+                        /* this is to be used by derdump */
+                        byte curveTS[] =
+                          ASN1Util.getECCurveBytesByX509PublicKeyBytes(publicKeyData,
+                              true /* with tag and size */);
+                        if (curveTS.length != 0) {
+                            oidDescription = CMS.BtoA(curveTS);
+                        }
+                    }
+                } catch (Exception e) {
+                    CMS.debug("NetkeyKeygenService: ASN1Util.getECCurveBytesByX509PublicKeyByte() throws exception: "+ e.toString());
+                    CMS.debug("NetkeyKeygenService: exception allowed. continue");
+                }
+
+                metaInfo.set(KeyRecordParser.OUT_KEY_EC_CURVE,
+                    oidDescription);
+
+                rec.set(IKeyRecord.ATTR_META_INFO, metaInfo);
+                // key size does not apply to EC; 
+                rec.setKeySize(-1);
+            }
+
 		    //??
 		    IKeyRepository storage = mKRA.getKeyRepository();
 		    BigInteger serialNo = storage.getNextSerialNumber();

@@ -51,7 +51,9 @@ void printBuf(int , char* );
 RecvBuf::RecvBuf( const PRFileDesc *socket, int size, int timeout ) {
     _socket = socket;
     _allocSize = size;
-    _buf = (char *)PR_Malloc(size);
+    _buf = NULL;
+     _buf =  (char *) PR_Malloc(size + 1);
+     memset(_buf, '\0', size + 1 );
     _curPos = 0;
     _curSize = 0;
     _chunkedMode = PR_FALSE;
@@ -178,9 +180,9 @@ PRBool RecvBuf::_getBytes(int size) {
 }
 
 int RecvBuf::getAllContent() {
-    //int result[10];
-    //int j=0;
-    //int k=0;
+    int result[10];
+    int j=0;
+    int k=0;
     int number = 0;
     for (int i=0; i<_curSize; i++) {
         if (_buf[i] == '\r') {
@@ -230,28 +232,30 @@ int RecvBuf::getAllContent() {
 void printBuf(int len, char* buf) {
     RA::Debug(LL_PER_PDU, "response:printBuf",
               "Buffer print begins");
+    if (!RA::is_printBuf_full()) {
     RA::Debug(LL_PER_PDU, "response::printBuf",
               "%s", buf);
-    RA::Debug(LL_PER_PDU, "response:printBuf",
-              "Buffer print end");
-    /*
-    int times = len/256;
-    if (len%256)
-        times++;
-    RA::Debug("response:printBuf",
+    } else {
+        int times = len/256;
+        if (len%256)
+            times++;
+        RA::Debug("response:printBuf",
               "%d times", times);
-    RA::Debug("response:printBuf",
+        RA::Debug("response:printBuf",
               "attempting to print the whole buffer:");
 
-    int i;
+        int i;
 
-    for (i = 0; i< times; i++) {
-        char *temp;
-        temp = PL_strdup((char *)buf+i*256);
-        RA::Debug("response:printBuf",
+        for (i = 0; i< times; i++) {
+            char *temp;
+            temp = PL_strdup((char *)buf+i*256);
+            RA::Debug("response:printBuf",
                   "%s", temp);
+            PL_strfree(temp);
+        }
     }
-    */
+    RA::Debug(LL_PER_PDU, "response:printBuf",
+              "Buffer print end");
 }
 
 /**
@@ -755,8 +759,7 @@ static int readHeader( RecvBuf& buf, char* headerBuf, int len ) {
 
 
 PRBool PSHttpResponse::processResponse() {
-    RecvBuf buf( _socket, 8192, _timeout );
-
+     RecvBuf buf( _socket, RA::get_recv_buf_size() /*8192*/, _timeout );
     if (_expectChunked) {
         buf.setChunkedMode();
     }

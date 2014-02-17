@@ -18,27 +18,22 @@
 package com.netscape.cms.profile.def;
 
 
-import java.io.ByteArrayInputStream;
-import java.math.BigInteger;
-import java.security.interfaces.DSAParams;
-import java.util.Locale;
-
-import netscape.security.provider.DSAPublicKey;
-import netscape.security.provider.RSAPublicKey;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.CertificateX509Key;
-import netscape.security.x509.X509CertInfo;
-import netscape.security.x509.X509Key;
-
+import java.io.*;
+import java.math.*;
+import java.util.*;
+import com.netscape.cms.profile.common.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IEnrollProfile;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.EPropertyException;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
+import com.netscape.cmsutil.crypto.CryptoUtil;
+
+import java.security.interfaces.DSAParams;
+import netscape.security.x509.*;
+import netscape.security.provider.RSAPublicKey;
+import netscape.security.provider.DSAPublicKey;
 
 
 /**
@@ -146,6 +141,12 @@ public class UserKeyDefault extends EnrollDefault {
             try {
                 if (k.getAlgorithm().equals("RSA")) {
                     return Integer.toString(getRSAKeyLen(k));
+                } else if (k.getAlgorithm().equals("EC")) {
+                    Vector vect = CryptoUtil.getECKeyCurve(k);
+                    if (vect != null)
+                        return vect.toString();
+                    else
+                        return null;
                 } else {
                     return Integer.toString(getDSAKeyLen(k));
                 }

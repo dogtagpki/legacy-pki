@@ -18,71 +18,32 @@
 package com.netscape.ca;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.NoSuchAlgorithmException;
+import java.util.*;
+import java.math.*;
+import java.io.*;
 import java.security.cert.CRLException;
-import java.util.Collection;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.TimeZone;
-import java.util.Vector;
-
-import netscape.security.util.ArraySet;
-import netscape.security.util.BitArray;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.CRLExtensions;
-import netscape.security.x509.CRLNumberExtension;
-import netscape.security.x509.CRLReasonExtension;
-import netscape.security.x509.DeltaCRLIndicatorExtension;
-import netscape.security.x509.Extension;
-import netscape.security.x509.FreshestCRLExtension;
-import netscape.security.x509.IssuingDistributionPoint;
-import netscape.security.x509.IssuingDistributionPointExtension;
-import netscape.security.x509.RevocationReason;
-import netscape.security.x509.RevokedCertImpl;
-import netscape.security.x509.RevokedCertificate;
-import netscape.security.x509.X509CRLImpl;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509ExtensionException;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.ca.ECAException;
-import com.netscape.certsrv.ca.EErrorPublishCRL;
-import com.netscape.certsrv.ca.ICMSCRLExtensions;
-import com.netscape.certsrv.ca.ICRLIssuingPoint;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.common.Constants;
-import com.netscape.certsrv.common.NameValuePair;
-import com.netscape.certsrv.common.NameValuePairs;
-import com.netscape.certsrv.dbs.EDBNotAvailException;
-import com.netscape.certsrv.dbs.IElementProcessor;
-import com.netscape.certsrv.dbs.certdb.ICertRecord;
-import com.netscape.certsrv.dbs.certdb.ICertRecordList;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.dbs.certdb.IRevocationInfo;
-import com.netscape.certsrv.dbs.crldb.ICRLIssuingPointRecord;
+import java.security.NoSuchAlgorithmException;
+import netscape.security.x509.*;
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.security.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.crldb.*;
+import com.netscape.cmscore.dbs.*;
 import com.netscape.certsrv.dbs.crldb.ICRLRepository;
-import com.netscape.certsrv.logging.AuditFormat;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.publish.ICRLPublisher;
-import com.netscape.certsrv.publish.IPublisherProcessor;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestListener;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.certsrv.request.IRequestVirtualList;
-import com.netscape.certsrv.request.RequestId;
-import com.netscape.certsrv.util.IStatsSubsystem;
-import com.netscape.cmscore.dbs.CRLIssuingPointRecord;
-import com.netscape.cmscore.dbs.CertRecord;
-import com.netscape.cmscore.dbs.CertificateRepository;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.publish.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.ca.ICMSCRLExtension;
+import com.netscape.cmscore.request.CertRequestConstants;
+import com.netscape.cmscore.ldap.*;
 import com.netscape.cmscore.util.Debug;
 
 /**
@@ -241,6 +202,11 @@ public class CRLIssuingPoint implements ICRLIssuingPoint, Runnable {
      * next update grace period
      */
     private long mNextUpdateGracePeriod; 
+
+    /**
+     * next update as this update extension
+     */
+    private long mNextAsThisUpdateExtension; 
 
     /**
      * Boolean flag controlling whether CRLv2 extensions are to be 
@@ -702,6 +668,9 @@ public class CRLIssuingPoint implements ICRLIssuingPoint, Runnable {
         // get next update grace period 
         mNextUpdateGracePeriod = MINUTE * config.getInteger(Constants.PR_GRACE_PERIOD, 0);
 
+        // get next update as this update extension 
+        mNextAsThisUpdateExtension = MINUTE * config.getInteger(Constants.PR_NEXT_AS_THIS_EXTENSION, 0);
+
         // Get V2 or V1 CRL 
         mAllowExtensions = config.getBoolean(Constants.PR_EXTENSIONS, false);
 
@@ -1038,6 +1007,16 @@ public class CRLIssuingPoint implements ICRLIssuingPoint, Runnable {
                     try {
                         if (value != null && value.length() > 0) {
                             mNextUpdateGracePeriod = MINUTE * Long.parseLong(value.trim());
+                        }
+                    } catch (NumberFormatException e) {
+                        noRestart = false;
+                    }
+                }
+
+                if (name.equals(Constants.PR_NEXT_AS_THIS_EXTENSION)) {
+                    try {
+                        if (value != null && value.length() > 0) {
+                            mNextAsThisUpdateExtension = MINUTE * Long.parseLong(value.trim());
                         }
                     } catch (NumberFormatException e) {
                         noRestart = false;
@@ -2369,6 +2348,15 @@ public class CRLIssuingPoint implements ICRLIssuingPoint, Runnable {
         mLastUpdate = thisUpdate;
         // mNextUpdate = nextUpdate;
         mNextDeltaUpdate = (nextDeltaUpdate != null)? new Date(nextDeltaUpdate.getTime()): null;
+        if (mNextAsThisUpdateExtension > 0) {
+            Date nextUpdateAsThisUpdateExtension = new Date(thisUpdate.getTime()+mNextAsThisUpdateExtension);
+            if (nextUpdate != null && nextUpdate.before(nextUpdateAsThisUpdateExtension)) {
+                nextUpdate = nextUpdateAsThisUpdateExtension;
+            }
+            if (nextDeltaUpdate != null && nextDeltaUpdate.before(nextUpdateAsThisUpdateExtension)) {
+                nextDeltaUpdate = nextUpdateAsThisUpdateExtension;
+            }
+        }
         if (nextUpdate != null) {
             nextUpdate.setTime((nextUpdate.getTime())+mNextUpdateGracePeriod);
         }

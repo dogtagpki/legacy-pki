@@ -17,14 +17,15 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.profile;
 
-import java.util.Enumeration;
-import java.util.StringTokenizer;
-import java.util.Vector;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.apps.*;
 
-import netscape.security.x509.X509CertInfo;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
+import netscape.security.x509.*;
 
 public class CertInfoProfile 
 {
@@ -96,12 +97,17 @@ public class CertInfoProfile
 
     public void populate(X509CertInfo info)
     {
+        populate(null /* request */, info);
+    }
+
+    public void populate(IRequest request, X509CertInfo info)
+    {
         Enumeration e1 = mDefaults.elements();
         while (e1.hasMoreElements()) {
           ICertInfoPolicyDefault def = 
                (ICertInfoPolicyDefault)e1.nextElement();
           try {
-            def.populate(null /* request */, info);
+            def.populate(request, info);
           } catch (Exception e) {
             CMS.debug(e);
             CMS.debug("CertInfoProfile.populate: " + e.toString());

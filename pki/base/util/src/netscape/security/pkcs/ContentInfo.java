@@ -17,12 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.pkcs;
 
-import java.io.IOException;
+import java.io.*;
 
-import netscape.security.util.DerInputStream;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.ObjectIdentifier;
+import netscape.security.util.*;
 
 /**
  * A ContentInfo type, as defined in PKCS#7.

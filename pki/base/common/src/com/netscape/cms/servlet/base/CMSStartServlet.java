@@ -18,18 +18,14 @@
 package com.netscape.cms.servlet.base;
 
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
+import com.netscape.cms.servlet.common.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.io.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.base.*;
 import com.netscape.cmsutil.util.Utils;
 
 

@@ -17,16 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.filter;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.netscape.certsrv.apps.CMS;
+import javax.servlet.http.*;
+import javax.servlet.*;
+import com.netscape.certsrv.apps.*;
 
 public class EEClientAuthRequestFilter implements Filter
 {
@@ -59,9 +52,9 @@ public class EEClientAuthRequestFilter implements Filter
 
         String request_port = null;
         String param_https_port = null;
+        String param_proxy_port = null;
         String msg = null;
         String param_active = null;
-        String param_proxy_port = null;
 
         // CMS.debug("Entering the EECA filter");
         param_active = config.getInitParameter( "active");

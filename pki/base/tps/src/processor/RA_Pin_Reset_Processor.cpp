@@ -55,7 +55,7 @@ TPS_PUBLIC RA_Pin_Reset_Processor::~RA_Pin_Reset_Processor()
  */
 TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameValueSet *extensions)
 {
-    struct berval **tokenOwner=NULL;
+    char **tokenOwner=NULL;
     char configname[256];
     const char *tokenType = NULL;
     char *cuid = NULL;
@@ -122,12 +122,15 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
     char *profile_state = NULL;
     int key_change_over_success = 0;
 
+    char *FN = ( char * ) "RA_Pin_Reset_Processor::Process";
 
     RA::Debug("RA_Pin_Reset_Processor::Process", "Client %s",                       session->GetRemoteIP());
 
     RA::Debug(LL_PER_PDU, "RA_Pin_Reset_Processor::Process",
         "RA_Pin_Reset_Processor::Process");
 
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
 
     SelectApplet(session, 0x04, 0x00, CardManagerAID);
     cplc_data = GetData(session);
@@ -189,6 +192,35 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
         goto loser;
     }
 
+if (isExternalReg) {
+        /*
+          need to reach out to the Registration DB (authid)
+          Entire user entry should be retrieved and parsed, if needed
+          The following are retrieved:
+              externalReg.tokenTypeAttributeName=tokenType
+              externalReg.certs.recoverAttributeName=certsToRecover
+              externalReg.certs.deleteAttributeName=certsToDelete 
+         */
+        /* get user login and password - set in "login" */
+        RA::Debug(LL_PER_PDU, FN,
+            "isExternalReg: calling RequestUserId");
+        /*
+          configname and tokenType are NULL for isExternalReg 
+         */
+    if (!RequestUserId(OP_PREFIX, session, extensions, NULL /*configname*/, NULL /*tokenType*/, cuid, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "RequestUserId error");
+        goto loser;
+    }
+    if (!AuthenticateUser(OP_PREFIX, session, NULL /*configname*/, cuid, extensions,
+                NULL /*tokenType*/, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "AuthenticateUser error");
+        goto loser;
+    }
+
+        RA::Debug(LL_PER_PDU, FN, "isExternalReg: get tokenType, etc."); 
+        tokenType = "userKey"; //hardcode for now until ldap part code written
+
+} else {
     // retrieve CUID
 
     if (!GetTokenType(OP_PREFIX, major_version,
@@ -197,6 +229,7 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
                 PR_snprintf(audit_msg, 512, "Failed to get token type");
 		goto loser;
     }
+}
 
     // check if profile is enabled 
     PR_snprintf((char *)configname, 256, "config.Profiles.%s.state", tokenType);
@@ -207,7 +240,7 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
         PR_snprintf(audit_msg, 512, "profile %s disabled", tokenType);
         goto loser;
     }
-
+/*isExternalReg: still allow token disabled?*/
     if (RA::ra_is_tus_db_entry_disabled(cuid)) {
         RA::Error("RA_Pin_Reset_Processor::Process",
                         "CUID %s Disabled", cuid);
@@ -320,7 +353,7 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
               security_level = SECURE_MSG_MAC;
             PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
             connid = RA::GetConfigStore()->GetConfigAsString(configname);
-            int upgrade_rc = UpgradeApplet(session, (char *) OP_PREFIX, (char*)tokenType, major_version, minor_version, 
+            int upgrade_rc = UpgradeApplet(session, OP_PREFIX, (char*)tokenType, major_version, minor_version, 
                 expected_version, applet_dir, security_level, connid, extensions, 30, 70, &keyVersion);
 	    if (upgrade_rc != 1) {
                RA::Error("RA_Pin_Reset_Processor::Process", 
@@ -342,13 +375,13 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
                   keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "setup secure channel");
              }
 
+
               RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                 userid, cuid, msn, "Failure", "pin_reset", 
                 keyVersion != NULL? keyVersion : "", 
                 appletVersion, expected_version, "applet upgrade");
               goto loser;
 	    }
-
 
             RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                   userid, cuid, msn, "Success", "pin_reset",
@@ -423,7 +456,6 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
             goto loser;
         }
 
-
 	 BYTE curVersion = ((BYTE*)curKeyInfo)[0];
          BYTE curIndex = ((BYTE*)curKeyInfo)[1];
          rc = channel->PutKeys(session,
@@ -480,7 +512,7 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
                 final_applet_version != NULL ? final_applet_version : "", curVer, newVer,
                 "key changeover");
         key_change_over_success = 1;
-      } else { key_change_over_success = 1; }
+      }  else { key_change_over_success = 1; }
     } else {
       PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
       connId = RA::GetConfigStore()->GetConfigAsString(configname);
@@ -511,92 +543,37 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
     }
 
     PR_snprintf((char *)configname, 256, "%s.%s.loginRequest.enable", OP_PREFIX, tokenType);
-    if (RA::GetConfigStore()->GetConfigAsBool(configname, 1)) {
-        if (extensions != NULL &&
-               extensions->GetValue("extendedLoginRequest") != NULL)
-        {
-                   RA::Debug("RA_Enroll_Processor::RequestUserId",
-                "Extended Login Request detected");
-                   AuthenticationEntry *entry = GetAuthenticationEntry(
-            OP_PREFIX, configname, tokenType);
-                   char **params = NULL;
-                   char pb[1024];
-                   char *locale = NULL;
-           if (extensions != NULL &&
-               extensions->GetValue("locale") != NULL)
-                   {
-                           locale = extensions->GetValue("locale");
-                   } else {
-                           locale = ( char * ) "en"; /* default to english */
-                   }
-                   int n = entry->GetAuthentication()->GetNumOfParamNames();
-                   if (n > 0) {
-                       RA::Debug("RA_Enroll_Processor::RequestUserId",
-                "Extended Login Request detected n=%d", n);
-                       params = (char **) PR_Malloc(n);
-                       for (int i = 0; i < n; i++) {
-                         sprintf(pb,"id=%s&name=%s&desc=%s&type=%s&option=%s",
-                             entry->GetAuthentication()->GetParamID(i),
-                             entry->GetAuthentication()->GetParamName(i, locale),
-                             entry->GetAuthentication()->GetParamDescription(i,
-locale),
-                             entry->GetAuthentication()->GetParamType(i),
-                             entry->GetAuthentication()->GetParamOption(i)
-                             );
-                         params[i] = PL_strdup(pb);
-                   RA::Debug("RA_Enroll_Processor::RequestUserId",
-                "params[i]=%s", params[i]);
-                       }
-                   }
-                   RA::Debug("RA_Enroll_Processor::RequestUserId", "Extended Login Request detected calling RequestExtendedLogin() locale=%s", locale);
-                                                                                
-                   char *title = PL_strdup(entry->GetAuthentication()->GetTitle(locale));
-                   RA::Debug("RA_Enroll_Processor::RequestUserId", "title=%s", title);
-                   char *description = PL_strdup(entry->GetAuthentication()->GetDescription(locale));
-                   RA::Debug("RA_Enroll_Processor::RequestUserId", "description=%s", description);
-           login = RequestExtendedLogin(session, 0 /* invalid_pw */, 0 /* blocked */, params, n, title, description);
-                                                                                
-                   RA::Debug("RA_Enroll_Processor::RequestUserId",
-    "Extended Login Request detected calling RequestExtendedLogin() login=%x", login);
 
-                    if (params != NULL) {
-                       for (int nn=0; nn < n; nn++) {
-                           if (params[nn] != NULL) {
-                               PL_strfree(params[nn]);
-                               params[nn] = NULL;
-                           }
-                       }
-                       free(params);
-                       params = NULL;
-                   }
-
-                   if (title != NULL) {
-                       PL_strfree(title);
-                       title = NULL;
-                   }
-
-                   if (description != NULL) {
-                       PL_strfree(description);
-                       description = NULL;
-                   }
-
-        } else {
-      login = RequestLogin(session, 0 /* invalid_pw */, 0 /* blocked */);
-        }
-      if (login == NULL) {
-        RA::Error("RA_Pin_Reset_Processor::Process", 
-			"login not provided");
-        status = STATUS_ERROR_LOGIN;
-        PR_snprintf(audit_msg, 512, "login not provided, status = STATUS_ERROR_LOGIN");
-
+// !isExternalReg : user already authenticated earlier... need to handle audit earlier
+if (!isExternalReg) {
+    if (!RequestUserId(OP_PREFIX, session, extensions, configname, tokenType, cuid, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "RequestUserId error");
         goto loser;
-      }
-      if( userid != NULL ) {
-        PR_Free( (char *) userid );
-        userid = NULL;
-      }
-      userid = PL_strdup( login->GetUID() );
     }
+
+    PR_snprintf((char *)configname, 256, "%s.%s.auth.enable", OP_PREFIX, tokenType);
+
+    if (!AuthenticateUser(OP_PREFIX, session, configname, cuid, extensions,
+                tokenType, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "AuthenticateUser error");
+        goto loser;
+    }
+
+    RA::Audit(EV_PIN_RESET, AUDIT_MSG_PROC, 
+        userid != NULL ? userid : "",
+        cuid != NULL ? cuid : "",
+        msn != NULL ? msn : "",
+        "success",
+        "pinReset",
+        final_applet_version != NULL ? final_applet_version : "",
+        keyVersion != NULL ? keyVersion : "",
+        "token login successful");
+
+        // get authid for audit log
+        PR_snprintf((char *)configname, 256, "%s.%s.auth.id", OP_PREFIX, tokenType);
+        authid = RA::GetConfigStore()->GetConfigAsString(configname);
+}
+
 
     if (extensions != NULL &&
            extensions->GetValue("statusUpdate") != NULL) {
@@ -614,116 +591,28 @@ locale),
       keyVersion != NULL? keyVersion : "",
       "userid obtained");
 
-    PR_snprintf(configname, 256, "cn=%s", cuid);
-    rc = RA::ra_find_tus_token_entries(configname, maxReturns, &ldapResult, 0);
+/*isExternalReg still needs to check token owner, but do it differently - later */
+    if (!isExternalReg) {
+        PR_snprintf(configname, 256, "cn=%s", cuid);
+        rc = RA::ra_find_tus_token_entries(configname, maxReturns, &ldapResult, 0);
 
-    if (rc == 0) {
-        for (e = RA::ra_get_first_entry(ldapResult); e != NULL;
-          e = RA::ra_get_next_entry(e)) {
-            tokenOwner = RA::ra_get_attribute_values(e, "tokenUserID");
-            if ((tokenOwner != NULL) && (tokenOwner[0] != NULL) &&
-                (tokenOwner[0]->bv_val != NULL) && (strlen(tokenOwner[0]->bv_val) > 0) &&
-                (strcmp(userid, tokenOwner[0]->bv_val) != 0)) {
-                status = STATUS_ERROR_NOT_TOKEN_OWNER;
-                PR_snprintf(audit_msg, 512, "token owner mismatch, status = STATUS_ERROR_NOT_TOKEN_OWNER");
-                goto loser;
-            }
-        }
-    } else {
-        RA::Error("RA_Pin_Reset_Processor::Process", "Error in ldap connection with token database.");
-        status = STATUS_ERROR_LDAP_CONN;
-        PR_snprintf(audit_msg, 512, "Error in ldap connection with token database, status = STATUS_ERROR_LDAP_CONN");
-        goto loser;
-    }
-
-    PR_snprintf((char *)configname, 256, "%s.%s.auth.enable", OP_PREFIX, tokenType);
-    if (RA::GetConfigStore()->GetConfigAsBool(configname, false)) {
-        if (login == NULL) {
-                RA::Error("RA_Pin_Reset_Processor::Process", "Login Request Disabled. Authentication failed.");
-                status = STATUS_ERROR_LOGIN;
-                PR_snprintf(audit_msg, 512, "Login Request Disabled. status = STATUS_ERROR_LOGIN");
-                goto loser;
-        }
-
-
-        PR_snprintf((char *)configname, 256, "%s.%s.auth.id", OP_PREFIX, tokenType);
-        authid = RA::GetConfigStore()->GetConfigAsString(configname);
-        if (authid == NULL) {
-                status = STATUS_ERROR_LOGIN;
-            PR_snprintf(audit_msg, 512, "authid is null, status = STATUS_ERROR_LOGIN");
-            goto loser;
-	}
-        AuthenticationEntry *auth = RA::GetAuth(authid);
-   
-        if(auth == NULL) 
-        {
-            RA::Error("RA_Pin_Reset_Processor::Process", "Authentication manager is NULL . Authentication failed.");
-            status = STATUS_ERROR_LOGIN;
-            PR_snprintf(audit_msg, 512, "Authentication manager is NULL, status = STATUS_ERROR_LOGIN");
-            goto loser;
-        }
- 
-        char *type = auth->GetType();
-        if (type == NULL) {
-            status = STATUS_ERROR_LOGIN;
-            RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "authentication is missing param type", "", tokenType);
-            PR_snprintf(audit_msg, 512, "authentication is missing param type, status = STATUS_ERROR_LOGIN");
-            goto loser;
-        }
-        if (strcmp(type, "LDAP_Authentication") == 0) {
-            RA::Debug(LL_PER_PDU, "RA_Pin_Reset_Processor::Process",
-                    "LDAP_Authentication is invoked.");
-            int passwd_retries = auth->GetAuthentication()->GetNumOfRetries();
-            int retries = 0;
-            authParams = new AuthParams();
-            authParams->SetUID(login->GetUID());
-            authParams->SetPassword(login->GetPassword());
-            rc = auth->GetAuthentication()->Authenticate(authParams);
-
-            RA::Debug("RA_Pin_Reset_Processor::Process",
-              "Authenticate returns: %d", rc);
-
-            while ((rc == -2 || rc == -3) && (retries < passwd_retries)) {
-                login = RequestLogin(session, 0 /* invalid_pw */, 0 /* blocked */);
-                if (login == NULL) {
-                    RA::Error("RA_Pin_Reset_Processor::Process", "Login Request Disabled. Authentication failed.");
-                    status = STATUS_ERROR_LOGIN;
-                    PR_snprintf(audit_msg, 512, "Login Request Disabled, r=-2 or -3. status= STATUS_ERROR_LOGIN");
+        if (rc == 0) {
+            for (e = RA::ra_get_first_entry(ldapResult); e != NULL;
+              e = RA::ra_get_next_entry(e)) {
+                tokenOwner = RA::ra_get_attribute_values(e, "tokenUserID");
+                if (tokenOwner[0] != NULL && strlen(tokenOwner[0]) > 0 &&
+                    strcmp(userid, tokenOwner[0]) != 0) {
+                    status = STATUS_ERROR_NOT_TOKEN_OWNER;
+                    PR_snprintf(audit_msg, 512, "token owner mismatch, status = STATUS_ERROR_NOT_TOKEN_OWNER");
                     goto loser;
                 }
-                retries++;
-                authParams->SetUID(login->GetUID());
-                authParams->SetPassword(login->GetPassword());
-                rc = auth->GetAuthentication()->Authenticate(authParams);
             }
-
-            if (rc == -1) {
-                RA::Error("RA_Pin_Reset_Processor::Process", "Authentication failed.");
-                status = STATUS_ERROR_LDAP_CONN;
-                RA::Debug(LL_PER_PDU, "RA_Pin_Reset_Processor::Process", "Authentication status = %d", status);
-                PR_snprintf(audit_msg, 512, "authentication failed, rc=-1, status = STATUS_ERROR_LDAP_CONN");
-                goto loser; 
-            }
-
-            if (rc == -2 || rc == -3) {
-                RA::Error("RA_Pin_Reset_Processor::Process", "Authentication failed.");
-                status = STATUS_ERROR_LOGIN;
-                RA::Debug(LL_PER_PDU, "RA_Pin_Reset_Processor::Process", "Authentication status = %d", status);
-                PR_snprintf(audit_msg, 512, "authentication failed, rc=-2 or rc=-3, status = STATUS_ERROR_LOGIN");
-                goto loser; 
-            }
-
-            RA::Debug(LL_PER_PDU, "RA_Pin_Reset_Processor::Process", "Authentication successful.");
         } else {
-            RA::Error("RA_Pin_Reset_Processor::Process", "No Authentication type was found.");
-            status = STATUS_ERROR_LOGIN;
-            RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "authentication error", "", tokenType);
-            PR_snprintf(audit_msg, 512, "No Authentication type was found. status = STATUS_ERROR_LOGIN");
+            RA::Error("RA_Pin_Reset_Processor::Process", "Error in ldap connection with token database.");
+            status = STATUS_ERROR_LDAP_CONN;
+            PR_snprintf(audit_msg, 512, "Error in ldap connection with token database, status = STATUS_ERROR_LDAP_CONN");
             goto loser;
         }
-    } else {
-        RA::Debug(LL_PER_PDU, "RA_Pin_Reset_Processor::Process", 
-          "Authentication has been disabled.");
     }
 
     RA::Audit(EV_PIN_RESET, AUDIT_MSG_PROC,
@@ -749,7 +638,9 @@ locale),
     }
 #endif
 
+/*isExternalReg should check in a different way*/
     /* check if the user owns the token */
+if (!isExternalReg) {
     token_userid = RA::ra_get_token_userid(cuid);
     if (token_userid == NULL) {
         RA::Error(LL_PER_PDU, "RA_Pin_Reset_Processor::Process", 
@@ -766,6 +657,7 @@ locale),
         goto loser;
       }
     }
+}
 
     RA::Audit(EV_PIN_RESET, AUDIT_MSG_PROC,
       userid != NULL ? userid : "",
@@ -827,8 +719,8 @@ locale),
         PR_snprintf(audit_msg, 512, "Failed to close channel, status = STATUS_ERROR_CONNECTION");
         goto loser;
     }
-    
 
+    
     //Update the KeyInfo in case of successful key changeover
     if (key_change_over_success != 0) {
         RA::tdb_update( userid  != NULL ? userid : (char *) "",
@@ -856,7 +748,7 @@ locale),
     end = PR_IntervalNow();
 
     rc = 1;
-
+/*isExternalReg, preserve such policy?*/
     if (RA::ra_is_token_present(cuid)) {
 	    /* 
 	     * we want to have a tus policy to change PIN_RESET=YES 
@@ -996,7 +888,7 @@ loser:
     }
 
     if (tokenOwner != NULL) {
-        ldap_value_free_len(tokenOwner);
+        ldap_value_free(tokenOwner);
         tokenOwner = NULL;
     }
 

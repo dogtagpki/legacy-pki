@@ -18,26 +18,25 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.util.StringTokenizer;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.crypto.CryptoStore;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.crypto.X509Certificate;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import java.io.*;
+import java.net.URL;
+import com.netscape.certsrv.base.*;
+import java.util.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class AdminAuthenticatePanel extends WizardPanelBase {
 
@@ -183,7 +182,7 @@ public class AdminAuthenticatePanel extends WizardPanelBase {
             String host = "";
             int httpsport = -1;
             try {
-                host = config.getString("preop.master.hostname");
+                host = config.getString("preop.master.httpsadminhost");
             } catch (Exception e) {
                 CMS.debug("AdminAuthenticatePanel update: "+e.toString());
                 context.put("errorString", "Missing hostname for master");
@@ -245,6 +244,11 @@ public class AdminAuthenticatePanel extends WizardPanelBase {
             }
 
             if (!cstype.equals("ca")) {
+                // preop.ca.hostname = CA EE Hostname
+                //
+                // preop.ca.list=
+                // Certificate Authority - https://<CA EE Host>:<Secure CA EE port>,
+                // ...,External CA
                 c1.append(",preop.ca.hostname,preop.ca.httpport,preop.ca.httpsport,preop.ca.list,preop.ca.pkcs7,preop.ca.type");
             }
 

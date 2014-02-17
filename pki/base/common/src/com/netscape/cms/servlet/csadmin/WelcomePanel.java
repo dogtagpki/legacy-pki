@@ -18,20 +18,19 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.cms.servlet.wizard.WizardServlet;
+import java.io.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class WelcomePanel extends WizardPanelBase {
 
@@ -89,7 +88,7 @@ public class WelcomePanel extends WizardPanelBase {
             context.put("productname",
                     cs.getString("preop.product.name"));
             context.put("productversion",
-                    cs.getString("preop.product.version"));
+                    cs.getString("cms.product.version"));
         } catch (EBaseException e) {}
         context.put("panel", "admin/console/config/welcomepanel.vm");
     }

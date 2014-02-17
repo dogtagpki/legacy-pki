@@ -18,21 +18,18 @@
 package com.netscape.cms.profile.def;
 
 
-import java.util.Locale;
+import java.io.*;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
 
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.ObjectIdentifier;
-import netscape.security.x509.Extension;
-import netscape.security.x509.X509CertInfo;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.EPropertyException;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
+import netscape.security.x509.*;
+import netscape.security.extensions.*;
+import netscape.security.util.*;
+import com.netscape.cms.profile.common.*;
 
 
 /**
@@ -101,6 +98,11 @@ public class GenericExtDefault extends EnrollExtDefault {
     public void setValue(String name, Locale locale,
         X509CertInfo info, String value)
         throws EPropertyException {
+        if (info == null) {
+            CMS.debug("GenericExtDefault: setValue() info == null");
+            throw new EPropertyException("GenericExtDefault: setValue() info == null");
+        }
+
         try {
             Extension ext = null;
 
@@ -141,7 +143,12 @@ public class GenericExtDefault extends EnrollExtDefault {
 
             replaceExtension(ext.getExtensionId().toString(), ext, info);
         } catch (EProfileException e) {
-            CMS.debug("GenericExtDefault: setValue " + e.toString());
+            CMS.debug("GenericExtDefault: setValue() " + e.toString());
+            throw new EPropertyException("GenericExtDefault:"+ e.toString());
+        } catch (Exception e) {
+            // catch all other exceptions
+            CMS.debug("GenericExtDefault: setValue() " + e.toString());
+            throw new EPropertyException("GenericExtDefault:"+ e.toString());
         }
     }
 
@@ -153,6 +160,11 @@ public class GenericExtDefault extends EnrollExtDefault {
         if (name == null) {
             throw new EPropertyException(CMS.getUserMessage( 
                         locale, "CMS_INVALID_PROPERTY", name));
+        }
+        if (info == null) {
+            CMS.debug("GenericExtDefault : getValue(): info == null");
+            throw new EPropertyException(CMS.getUserMessage( 
+                        locale, "GenericExtDefault : getValue(): info == null"));
         }
 
         ObjectIdentifier oid = new ObjectIdentifier(getConfig(CONFIG_OID));

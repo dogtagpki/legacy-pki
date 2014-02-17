@@ -18,49 +18,33 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.net.ConnectException;
-import java.net.URLEncoder;
-import java.util.Locale;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPDN;
-import netscape.ldap.LDAPEntry;
-import netscape.ldap.LDAPSearchConstraints;
-import netscape.ldap.LDAPSearchResults;
-
 import org.apache.velocity.context.Context;
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.crypto.CryptoStore;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.pkcs11.PK11Store;
-import org.mozilla.jss.ssl.SSLCertificateApprovalCallback;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import javax.servlet.http.*;
+import javax.servlet.*;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.cms.servlet.wizard.*;
+import com.netscape.cms.servlet.base.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.ssl.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.util.Base64OutputStream;
+import org.mozilla.jss.pkcs11.*;
+import netscape.security.x509.*;
+import com.netscape.cmsutil.xml.*;
+import com.netscape.cmsutil.http.*;
+import org.w3c.dom.*;
+import org.xml.sax.*;
+import java.security.cert.*;
+import java.security.*;
+import netscape.ldap.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.cms.servlet.base.UserInfo;
-import com.netscape.cms.servlet.wizard.IWizardPanel;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.CryptoUtil;
-import com.netscape.cmsutil.http.HttpClient;
-import com.netscape.cmsutil.http.HttpRequest;
-import com.netscape.cmsutil.http.HttpResponse;
-import com.netscape.cmsutil.http.JssSSLSocketFactory;
-import com.netscape.cmsutil.xml.XMLObject;
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.cms.servlet.wizard.*;
 
 public class WizardPanelBase implements IWizardPanel {
     public static String PCERT_PREFIX = "preop.cert.";
@@ -250,29 +234,38 @@ public class WizardPanelBase implements IWizardPanel {
     }
 
     public void updateDomainXML(String hostname, int port, boolean https,
-      String servlet, String uri) throws IOException {
-        CMS.debug("WizardPanelBase updateDomainXML start hostname=" + hostname + " port=" + port);
-        IConfigStore cs = CMS.getConfigStore();
-        String nickname = "";
-        String tokenname = "";
-        try {
-            nickname = cs.getString("preop.cert.subsystem.nickname", "");
-            tokenname = cs.getString("preop.module.token", "");
-        } catch (Exception e) {}
+      String servlet, String uri, boolean useClientAuth) throws IOException {
+        CMS.debug("WizardPanelBase updateDomainXML start hostname=" +
+                  hostname + " port=" + port + " url=" + servlet +
+                  " content=" + uri);
+        String c = null;
+        if (useClientAuth) {
+            CMS.debug("WizardPanelBase updateDomainXML using clientauth");
+            IConfigStore cs = CMS.getConfigStore();
+            String nickname = "";
+            String tokenname = "";
+            try {
+                nickname = cs.getString("preop.cert.subsystem.nickname", "");
+                tokenname = cs.getString("preop.module.token", "");
+            } catch (Exception e) {}
 
-        if (!tokenname.equals("") &&
-            !tokenname.equals("Internal Key Storage Token") &&
-            !tokenname.equals("internal")) {
-              nickname = tokenname+":"+nickname;
-        }
+            if (!tokenname.equals("") &&
+                !tokenname.equals("Internal Key Storage Token") &&
+                !tokenname.equals("internal")) {
+                  nickname = tokenname+":"+nickname;
+            }
 
-        CMS.debug("WizardPanelBase updateDomainXML nickname=" + nickname);
-        CMS.debug("WizardPanelBase: start sending updateDomainXML request");
-        String c = getHttpResponse(hostname, port, https, servlet, uri, nickname); 
+            CMS.debug("WizardPanelBase updateDomainXML nickname=" + nickname);
+            c = getHttpResponse(hostname, port, https, servlet, uri, nickname);
+        } else {
+            c = getHttpResponse(hostname, port, https, servlet, uri, null);
+        } 
         CMS.debug("WizardPanelBase: done sending updateDomainXML request");
 
         if (c != null) {
             try {
+               CMS.debug("WizardPanelBase updateDomainXML HTTP Response: " +
+                  c);
                 ByteArrayInputStream bis = new ByteArrayInputStream(c.getBytes());
                 XMLObject obj = null;
                 try {
@@ -299,6 +292,9 @@ public class WizardPanelBase implements IWizardPanel {
                 CMS.debug("WizardPanelBase: updateDomainXML: " + e.toString());
                 throw new IOException(e.toString());
             }
+        } else {
+               CMS.debug("WizardPanelBase updateDomainXML received " +
+                         "no HTTP Response.");
         }
     }
 
@@ -632,7 +628,7 @@ public class WizardPanelBase implements IWizardPanel {
                             config.putString("preop.internaldb.master.replicationpwd", v);
                         } else if (name.equals("instanceId")) {
                             config.putString("preop.master.instanceId", v);
-                        } else if (name.equals("cloning.cert.signing.nickname")) {
+                        } else if (name.equals("cloning.signing.nickname")) {
                             config.putString("preop.master.signing.nickname", v);
                             config.putString("preop.cert.signing.nickname", v);
                         } else if (name.equals("cloning.ocsp_signing.nickname")) {
@@ -785,11 +781,11 @@ public class WizardPanelBase implements IWizardPanel {
         }
     }
 
-    public void updateNumberRange(String hostname, int port, boolean https, 
+    public void updateNumberRange(String hostname, int eePort, int adminPort, boolean https, 
         String content, String type, HttpServletResponse response) 
       throws IOException {
         CMS.debug("WizardPanelBase updateNumberRange start host=" + hostname + 
-                                " port=" + port);
+                  " adminPort=" + adminPort + " eePort=" + eePort);
         IConfigStore cs = CMS.getConfigStore();
         String cstype = "";
         try {
@@ -798,61 +794,69 @@ public class WizardPanelBase implements IWizardPanel {
         }
 
         cstype = toLowerCaseSubsystemType(cstype);
-        String c = getHttpResponse(hostname, port, https, 
-          "/"+cstype+"/ee/"+cstype+"/updateNumberRange", content, null);
-        if (c == null || c.equals("")) {
-            CMS.debug("WizardPanelBase updateNumberRange: content is null.");
-            throw new IOException("The server you want to contact is not available");
-        } else {
-            CMS.debug("content="+c);
-            try {
-                ByteArrayInputStream bis = new ByteArrayInputStream(c.getBytes());
-                XMLObject parser = null;
-
-                try {
-                    parser = new XMLObject(bis);
-                } catch (Exception e) {
-                    CMS.debug( "WizardPanelBase::updateNumberRange() - "
-                             + "Exception="+e.toString() );
-                    throw new IOException( e.toString() );
-                }
-
-                String status = parser.getValue("Status");
-
-                CMS.debug("WizardPanelBase updateNumberRange: status=" + status);
-                if (status.equals(SUCCESS)) {
-                    String beginNum = parser.getValue("beginNumber");
-                    String endNum = parser.getValue("endNumber");
-                    if (type.equals("request")) {
-                        cs.putString("dbs.beginRequestNumber", beginNum);
-                        cs.putString("dbs.endRequestNumber", endNum);
-                    } else if (type.equals("serialNo")) {
-                        cs.putString("dbs.beginSerialNumber", beginNum);
-                        cs.putString("dbs.endSerialNumber", endNum);
-                    } else if (type.equals("replicaId")) {
-                        cs.putString("dbs.beginReplicaNumber", beginNum);
-                        cs.putString("dbs.endReplicaNumber", endNum);
-                    }
-                    // enable serial number management in clone
-                    cs.putString("dbs.enableSerialManagement", "true");
-                    cs.commit(false);
-                } else if (status.equals(AUTH_FAILURE)) {
-                    reloginSecurityDomain(response);
-                    return;
-                } else {
-                    String error = parser.getValue("Error");
-
-                    throw new IOException(error);
-                } 
-            } catch (IOException e) {
-                CMS.debug("WizardPanelBase: updateNumberRange: " + e.toString());
-                CMS.debug(e);
-                throw e;
-            } catch (Exception e) {
-                CMS.debug("WizardPanelBase: updateNumberRange: " + e.toString());
-                CMS.debug(e);
-                throw new IOException(e.toString());
+        String serverPath = "/" + cstype + "/admin/" + cstype + "/updateNumberRange";
+        String c = null;
+        XMLObject parser = null;
+        try {
+            c = getHttpResponse(hostname, adminPort, https, serverPath, content, null, null);
+            if (c == null || c.equals("")) {
+                CMS.debug("updateNumberRange: content is null.");
+                throw new IOException("The server you want to contact is not available");
             }
+            CMS.debug("content from admin interface ="+ c);
+            // when the admin servlet is unavailable, we return a badly formatted error page
+            // in that case, this will throw an exception and be passed into the catch block.
+            parser = new XMLObject(new ByteArrayInputStream(c.getBytes()));
+        } catch (Exception e) {
+            // for backward compatibility, try the old ee interface too
+            CMS.debug("updateNumberRange: Failed to contact master using admin port" + e);
+            CMS.debug("updateNumberRange: Attempting to contact master using EE port");
+            serverPath = "/" + cstype + "/ee/" + cstype + "/updateNumberRange";
+            c = getHttpResponse(hostname, eePort, https, serverPath, content, null, null);
+            if (c == null || c.equals("")) {
+                CMS.debug("updateNumberRange: content is null.");
+                throw new IOException("The server you want to contact is not available");
+            }
+            CMS.debug("content from ee interface =" + c);
+        }
+
+        try {
+            parser = new XMLObject(new ByteArrayInputStream(c.getBytes()));
+            String status = parser.getValue("Status");
+
+            CMS.debug("WizardPanelBase updateNumberRange: status=" + status);
+            if (status.equals(SUCCESS)) {
+                String beginNum = parser.getValue("beginNumber");
+                String endNum = parser.getValue("endNumber");
+                if (type.equals("request")) {
+                    cs.putString("dbs.beginRequestNumber", beginNum);
+                    cs.putString("dbs.endRequestNumber", endNum);
+                } else if (type.equals("serialNo")) {
+                    cs.putString("dbs.beginSerialNumber", beginNum);
+                    cs.putString("dbs.endSerialNumber", endNum);
+                } else if (type.equals("replicaId")) {
+                    cs.putString("dbs.beginReplicaNumber", beginNum);
+                    cs.putString("dbs.endReplicaNumber", endNum);
+                }
+                // enable serial number management in clone
+                cs.putString("dbs.enableSerialManagement", "true");
+                cs.commit(false);
+            } else if (status.equals(AUTH_FAILURE)) {
+                reloginSecurityDomain(response);
+                return;
+            } else {
+                String error = parser.getValue("Error");
+
+                throw new IOException(error);
+            } 
+        } catch (IOException e) {
+            CMS.debug("WizardPanelBase: updateNumberRange: " + e.toString());
+            CMS.debug(e);
+            throw e;
+        } catch (Exception e) {
+            CMS.debug("WizardPanelBase: updateNumberRange: " + e.toString());
+            CMS.debug(e);
+            throw new IOException(e.toString());
         }
     }
 
@@ -963,7 +967,7 @@ public class WizardPanelBase implements IWizardPanel {
     public boolean isSDHostDomainMaster (IConfigStore config) {
         String dm="false";
         try {
-            String hostname = config.getString("securitydomain.host");
+            String hostname = config.getString("securitydomain.adminhost");
             int httpsadminport = config.getInteger("securitydomain.httpsadminport");
 
             CMS.debug("Getting domain.xml from CA...");
@@ -978,17 +982,27 @@ public class WizardPanelBase implements IWizardPanel {
 
             int len = nodeList.getLength();
             for( int i = 0; i < len; i++ ) {
+                // First, check to see if the Security Domain
+                // is using an IP Port Separation Schema:
                 Vector v_hostname =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "Host" );
+                                                      "AdminHost",
+                                                      true );
+                if ( v_hostname.isEmpty()) {
+                    // No, the Security Domain is using a Port Separation Schema
+                    v_hostname = parser.getValuesFromContainer(
+                                            nodeList.item(i), "Host", true );
+                }
 
                 Vector v_https_admin_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecureAdminPort" );
+                                                      "SecureAdminPort",
+                                                      true );
 
                 Vector v_domain_mgr =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "DomainManager" );
+                                                      "DomainManager",
+                                                      true );
 
                 if( v_hostname.elementAt( 0 ).equals( hostname ) &&
                     v_https_admin_port.elementAt( 0 ).equals( Integer.toString(httpsadminport) ) ) {
@@ -1008,7 +1022,7 @@ public class WizardPanelBase implements IWizardPanel {
         Vector v = new Vector();
 
         try {
-            String hostname = config.getString("securitydomain.host");
+            String hostname = config.getString("securitydomain.adminhost");
             int httpsadminport = config.getInteger("securitydomain.httpsadminport");
 
             CMS.debug("Getting domain.xml from CA...");
@@ -1031,9 +1045,12 @@ public class WizardPanelBase implements IWizardPanel {
                 !portType.equals( "SecureAgentPort" ) &&
                 !portType.equals( "SecurePort" )      &&
                 !portType.equals( "SecureAdminPort" ) ) {
-                CMS.debug( "getPortFromSecurityDomain:  " +
-                           "unknown port type " + portType );
-                return v;
+                if (!type.equals("CA") ||
+                    !portType.equals( "SecureEEClientAuthPort" ) ) {
+                    CMS.debug( "getPortFromSecurityDomain:  " +
+                               "unknown port type " + portType );
+                    return v;
+                }
             }
 
             ByteArrayInputStream bis = new ByteArrayInputStream(c.getBytes());
@@ -1050,16 +1067,44 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug("Len " + len);
             for (int i = 0; i < len; i++) {
                 Vector v_clone = parser.getValuesFromContainer(nodeList.item(i),
-                  "Clone");
+                  "Clone", true);
                 String clone = (String)v_clone.elementAt(0);
                 if (clone.equalsIgnoreCase("true"))
                     continue;
                 Vector v_name = parser.getValuesFromContainer(nodeList.item(i),
-                        "SubsystemName");
-                Vector v_host = parser.getValuesFromContainer(nodeList.item(i),
-                        "Host");
+                        "SubsystemName", true);
+                // First, check to see if the Security Domain
+                // is using an IP Port Separation Schema:
+                Vector v_host = null;
+                if( portType.equals( "UnSecurePort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "EEHost",
+                                                            true );
+                } else if( portType.equals( "SecureAgentPort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "AgentHost",
+                                                            true );
+                } else if( portType.equals( "SecurePort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "EEHost",
+                                                            true );
+                } else if( portType.equals( "SecureAdminPort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "AdminHost",
+                                                            true );
+                } else if( portType.equals( "SecureEEClientAuthPort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                     "EEClientAuthHost",
+                                                     true );
+                }
+                if (v_host.isEmpty()) {
+                    // No, the Security Domain is using a Port Separation Schema
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "Host",
+                                                            true );
+                }
                 Vector v_port = parser.getValuesFromContainer(nodeList.item(i),
-                        portType);
+                        portType, true);
 
                 v.addElement( v_name.elementAt(0)
                             + " - https://"
@@ -1080,7 +1125,7 @@ public class WizardPanelBase implements IWizardPanel {
         Vector v = new Vector();
 
         try {
-            String hostname = config.getString("securitydomain.host");
+            String hostname = config.getString("securitydomain.adminhost");
             int httpsadminport = config.getInteger("securitydomain.httpsadminport");
 
             CMS.debug("Getting domain.xml from CA...");
@@ -1103,9 +1148,12 @@ public class WizardPanelBase implements IWizardPanel {
                 !portType.equals( "SecureAgentPort" ) &&
                 !portType.equals( "SecurePort" )      &&
                 !portType.equals( "SecureAdminPort" ) ) {
-                CMS.debug( "getPortFromSecurityDomain:  " +
-                           "unknown port type " + portType );
-                return v;
+                if (!type.equals("CA") ||
+                    !portType.equals( "SecureEEClientAuthPort" ) ) {
+                    CMS.debug( "getPortFromSecurityDomain:  " +
+                               "unknown port type " + portType );
+                    return v;
+                }
             }
 
             ByteArrayInputStream bis = new ByteArrayInputStream(c.getBytes());
@@ -1122,15 +1170,51 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug("Len " + len);
             for (int i = 0; i < len; i++) {
                 Vector v_name = parser.getValuesFromContainer(nodeList.item(i),
-                        "SubsystemName");
-                Vector v_host = parser.getValuesFromContainer(nodeList.item(i),
-                        "Host");
+                        "SubsystemName", true);
+                // First, check to see if the Security Domain
+                // is using an IP Port Separation Schema:
+                Vector v_host = null;
+                if( portType.equals( "UnSecurePort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "EEHost",
+                                                            true );
+                } else if( portType.equals( "SecureAgentPort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "AgentHost",
+                                                            true );
+                } else if( portType.equals( "SecurePort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "EEHost",
+                                                            true );
+                } else if( portType.equals( "SecureAdminPort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "AdminHost",
+                                                            true );
+                } else if( portType.equals( "SecureEEClientAuthPort" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                     "EEClientAuthHost",
+                                                      true );
+                }
+                if (v_host.isEmpty()) {
+                    // No, the Security Domain is using a Port Separation Schema
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "Host",
+                                                            true );
+                }
                 Vector v_port = parser.getValuesFromContainer(nodeList.item(i),
-                        portType);
-                Vector v_admin_port = parser.getValuesFromContainer(nodeList.item(i),
-                        "SecureAdminPort");
+                        portType, true);
+                Vector v_admin_host = parser.getValuesFromContainer( nodeList.item(i),
+                           "AdminHost", true);
+                if (v_admin_host.isEmpty()) {
+                    v_admin_host = v_host;
+                }
 
-                if (v_host.elementAt(0).equals(hostname) && v_admin_port.elementAt(0).equals(new Integer(httpsadminport).toString())) {
+                Vector v_admin_port = parser.getValuesFromContainer(nodeList.item(i),
+                        "SecureAdminPort", true);
+              
+                if( ( v_admin_host.elementAt( 0 ).equals( hostname ) ) &&
+                    ( v_admin_port.elementAt( 0 ).equals(
+                      new Integer( httpsadminport ).toString() ) ) ) {
                     // add security domain CA to the beginning of list
                     v.add( 0, v_name.elementAt(0)
                             + " - https://"
@@ -1146,6 +1230,7 @@ public class WizardPanelBase implements IWizardPanel {
                 }
             }
         } catch (Exception e) {
+            e.printStackTrace();
             CMS.debug(e.toString());
         }
 
@@ -1161,7 +1246,7 @@ public class WizardPanelBase implements IWizardPanel {
         String https_admin_port = new String();
 
         try {
-            String sd_hostname = config.getString( "securitydomain.host" );
+            String sd_hostname = config.getString( "securitydomain.adminhost" );
             int sd_httpsadminport =
                 config.getInteger( "securitydomain.httpsadminport" );
 
@@ -1178,17 +1263,27 @@ public class WizardPanelBase implements IWizardPanel {
 
             int len = nodeList.getLength();
             for( int i = 0; i < len; i++ ) {
+                // First, check to see if the Security Domain
+                // is using an IP Port Separation Schema:
                 Vector v_hostname =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "Host" );
+                                                      "EEHost",
+                                                      true );
+                if ( v_hostname.isEmpty()) {
+                    // No, the Security Domain is using a Port Separation Schema
+                    v_hostname = parser.getValuesFromContainer(
+                                            nodeList.item(i), "Host", true );
+                }
 
                 Vector v_https_ee_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecurePort" );
+                                                      "SecurePort",
+                                                      true );
 
                 Vector v_https_admin_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecureAdminPort" );
+                                                      "SecureAdminPort",
+                                                      true );
 
                 if( v_hostname.elementAt( 0 ).equals( hostname ) &&
                     v_https_ee_port.elementAt( 0 ).equals( https_ee_port ) ) {
@@ -1201,7 +1296,72 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug( e.toString() );
         }
 
-        return( https_admin_port );
+        return https_admin_port;
+    }
+
+    // Given an HTTPS Hostname and EE port,
+    // retrieve the associated HTTPS Admin host
+    public String getSecurityDomainAdminHost( IConfigStore config,
+                                              String hostname,
+                                              String https_ee_port,
+                                              String cstype ) {
+        String https_admin_host = new String();
+
+        try {
+            String sd_hostname = config.getString( "securitydomain.adminhost" );
+            int sd_httpsadminport =
+                config.getInteger( "securitydomain.httpsadminport" );
+
+            CMS.debug( "Getting domain.xml from CA ..." );
+            String c = getDomainXML( sd_hostname, sd_httpsadminport, true );
+
+            CMS.debug( "Getting associated HTTPS Admin host from " +
+                       "HTTPS Hostname '" + hostname +
+                       "' and EE port '" + https_ee_port + "'" );
+            ByteArrayInputStream bis = new ByteArrayInputStream( c.getBytes() );
+            XMLObject parser = new XMLObject( bis );
+            Document doc = parser.getDocument();
+            NodeList nodeList = doc.getElementsByTagName( cstype.toUpperCase() );
+
+            int len = nodeList.getLength();
+            for( int i = 0; i < len; i++ ) {
+                // First, check to see if the Security Domain
+                // is using an IP Port Separation Schema:
+                Vector v_hostname =
+                       parser.getValuesFromContainer( nodeList.item(i),
+                                                      "EEHost",
+                                                      true );
+                Vector v_https_admin_host =
+                       parser.getValuesFromContainer( nodeList.item(i),
+                                                      "AdminHost",
+                                                      true );
+                if (v_hostname.isEmpty()) {
+                    // No, the Security Domain is using a Port Separation Schema
+                    v_hostname = parser.getValuesFromContainer(
+                                            nodeList.item(i), "Host", true );
+                }
+                if (v_https_admin_host.isEmpty()) {
+                    // No, the Security Domain is using a Port Separation Schema
+                    v_https_admin_host = v_hostname;
+                }
+
+                Vector v_https_ee_port =
+                       parser.getValuesFromContainer( nodeList.item(i),
+                                                      "SecurePort",
+                                                      true );
+
+                if( v_hostname.elementAt( 0 ).equals( hostname ) &&
+                    v_https_ee_port.elementAt( 0 ).equals( https_ee_port ) ) {
+                    https_admin_host =
+                                v_https_admin_host.elementAt( 0 ).toString();
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            CMS.debug( e.toString() );
+        }
+
+        return https_admin_host;
     }
 
     public String getSecurityDomainPort( IConfigStore config,
@@ -1209,7 +1369,7 @@ public class WizardPanelBase implements IWizardPanel {
         String port = new String();
 
         try {
-            String hostname = config.getString( "securitydomain.host" );
+            String hostname = config.getString( "securitydomain.adminhost" );
             int httpsadminport =
                 config.getInteger( "securitydomain.httpsadminport" );
 
@@ -1220,7 +1380,8 @@ public class WizardPanelBase implements IWizardPanel {
             if( !portType.equals( "UnSecurePort" )    &&
                 !portType.equals( "SecureAgentPort" ) &&
                 !portType.equals( "SecurePort" )      &&
-                !portType.equals( "SecureAdminPort" ) ) {
+                !portType.equals( "SecureAdminPort" ) &&
+                !portType.equals( "SecureEEClientAuthPort" ) ) {
                 CMS.debug( "getPortFromSecurityDomain:  " +
                            "unknown port type " + portType );
                 return "";
@@ -1235,21 +1396,30 @@ public class WizardPanelBase implements IWizardPanel {
             for( int i = 0; i < len; i++ ) {
                 Vector v_admin_port =
                        parser.getValuesFromContainer( nodeList.item(i),
-                                                      "SecureAdminPort" );
+                                                      "SecureAdminPort",
+                                                      true );
 
                 Vector v_port = null;
                 if( portType.equals( "UnSecurePort" ) ) {
                     v_port = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "UnSecurePort" );
+                                                            "UnSecurePort",
+                                                            true );
                 } else if( portType.equals( "SecureAgentPort" ) ) {
                     v_port = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "SecureAgentPort" );
+                                                            "SecureAgentPort",
+                                                            true );
                 } else if( portType.equals( "SecurePort" ) ) {
                     v_port = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "SecurePort" );
+                                                            "SecurePort",
+                                                            true );
                 } else if( portType.equals( "SecureAdminPort" ) ) {
                     v_port = parser.getValuesFromContainer( nodeList.item(i),
-                                                            "SecureAdminPort" );
+                                                            "SecureAdminPort",
+                                                            true );
+                } else if( portType.equals( "SecureEEClientAuthPort" ) ) {
+                    v_port = parser.getValuesFromContainer( nodeList.item(i),
+                                                     "SecureEEClientAuthPort",
+                                                     true );
                 }
 
                 if( ( v_port != null ) &&
@@ -1263,7 +1433,96 @@ public class WizardPanelBase implements IWizardPanel {
             CMS.debug( e.toString() );
         }
 
-        return( port );
+        return port;
+    }
+
+    public String getSecurityDomainHost( IConfigStore config,
+                                         String hostType ) {
+        String host = new String();
+
+        try {
+            String hostname = config.getString( "securitydomain.adminhost" );
+            int httpsadminport =
+                config.getInteger( "securitydomain.httpsadminport" );
+
+            CMS.debug( "Getting domain.xml from CA ..." );
+            String c = getDomainXML( hostname, httpsadminport, true );
+
+            CMS.debug( "Getting " + hostType + " from Security Domain ..." );
+            if( !hostType.equals( "Host" )      &&
+                !hostType.equals( "AgentHost" ) &&
+                !hostType.equals( "EEHost" )    &&
+                !hostType.equals( "AdminHost" ) &&
+                !hostType.equals( "EEClientAuthHost" ) ) {
+                CMS.debug( "getHostFromSecurityDomain:  " +
+                           "unknown host type " + hostType );
+                return "";
+            }
+
+            ByteArrayInputStream bis = new ByteArrayInputStream( c.getBytes() );
+            XMLObject parser = new XMLObject( bis );
+            Document doc = parser.getDocument();
+            NodeList nodeList = doc.getElementsByTagName( "CA" );
+
+            int len = nodeList.getLength();
+            for( int i = 0; i < len; i++ ) {
+                Vector v_admin_host =
+                       parser.getValuesFromContainer( nodeList.item(i),
+                                                      "AdminHost",
+                                                      true );
+                if(v_admin_host.isEmpty()) {
+                    v_admin_host =
+                        parser.getValuesFromContainer( nodeList.item(i),
+                                                       "Host",
+                                                       true );
+                }
+
+                Vector v_admin_port =
+                       parser.getValuesFromContainer( nodeList.item(i),
+                                                      "SecureAdminPort",
+                                                      true );
+
+                Vector v_host = null;
+                if( hostType.equals( "Host" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "Host",
+                                                            true );
+                } else if( hostType.equals( "AgentHost" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "AgentHost",
+                                                            true );
+                } else if( hostType.equals( "EEHost" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "EEHost",
+                                                            true );
+                } else if( hostType.equals( "AdminHost" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                            "AdminHost",
+                                                            true );
+                } else if( hostType.equals( "EEClientAuthHost" ) ) {
+                    v_host = parser.getValuesFromContainer( nodeList.item(i),
+                                                     "EEClientAuthHost",
+                                                     true );
+                }
+
+                if( ( v_admin_host.elementAt( 0 ).equals( hostname ) ) &&
+                    ( v_admin_port.elementAt( 0 ).equals(
+                      new Integer( httpsadminport ).toString() ) ) ) {
+                    if (! v_host.isEmpty()) {
+                        // Security Domain is using IP Port Separation Schema
+                        host = v_host.elementAt( 0 ).toString();
+                    } else {
+                        // Security Domain is using Port Separation Schema
+                        host = v_admin_host.elementAt( 0 ).toString();
+                    }
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            CMS.debug( e.toString() );
+        }
+
+        return host;
     }
 
     public String pingCS( String hostname, int port, boolean https,
@@ -1321,119 +1580,6 @@ public class WizardPanelBase implements IWizardPanel {
         return x;
     }
 
-    public void getTokenInfo(IConfigStore config, String type, String host, 
-      int https_ee_port, boolean https, Context context, 
-      ConfigCertApprovalCallback certApprovalCallback) throws IOException {
-        CMS.debug("WizardPanelBase getTokenInfo start");
-        String uri = "/"+type+"/ee/"+type+"/getTokenInfo";
-        CMS.debug("WizardPanelBase getTokenInfo: uri="+uri);
-        String c = getHttpResponse(host, https_ee_port, https, uri, null, null,
-          certApprovalCallback);
-        if (c != null) {
-            try {
-                ByteArrayInputStream bis = new ByteArrayInputStream(c.getBytes());
-                XMLObject parser = null;
-
-                try {
-                    parser = new XMLObject(bis);
-                } catch (Exception e) {
-                    CMS.debug( "WizardPanelBase::getTokenInfo() - "
-                             + "Exception="+e.toString() );
-                    throw new IOException( e.toString() );
-                }
-
-                String status = parser.getValue("Status");
-
-                CMS.debug("WizardPanelBase getTokenInfo: status=" + status);
-
-                if (status.equals(SUCCESS)) {
-                    Document doc = parser.getDocument();
-                    NodeList list = doc.getElementsByTagName("name");
-                    int len = list.getLength();
-                    for (int i=0; i<len; i++) {
-                        Node n = list.item(i);
-                        NodeList nn = n.getChildNodes();
-                        String name = nn.item(0).getNodeValue();
-                        Node parent = n.getParentNode();
-                        nn = parent.getChildNodes();
-                        int len1 = nn.getLength();
-                        String v = "";
-                        for (int j=0; j<len1; j++) {
-                            Node nv = nn.item(j);
-                            String val = nv.getNodeName();
-                            if (val.equals("value")) {
-                                NodeList n2 = nv.getChildNodes();
-                                if (n2.getLength() > 0)
-                                    v = n2.item(0).getNodeValue();
-                                break;    
-                            }
-                        }
-                        if (name.equals("cloning.signing.nickname")) {                            
-                            config.putString("preop.master.signing.nickname", v);
-                            config.putString(type + ".cert.signing.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.ocsp_signing.nickname")) {
-                            config.putString("preop.master.ocsp_signing.nickname", v);
-                            config.putString(type + ".cert.ocsp_signing.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.subsystem.nickname")) {
-                            config.putString("preop.master.subsystem.nickname", v);
-                            config.putString(type + ".cert.subsystem.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.transport.nickname")) {
-                            config.putString("preop.master.transport.nickname", v);
-                            config.putString("kra.transportUnit.nickName", v);
-                            config.putString("kra.cert.transport.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.storage.nickname")) {
-                            config.putString("preop.master.storage.nickname", v);
-                            config.putString("kra.storageUnit.nickName", v);
-                            config.putString("kra.cert.storage.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.audit_signing.nickname")) {
-                            config.putString("preop.master.audit_signing.nickname", v);
-                            config.putString(type + ".cert.audit_signing.nickname", v);
-                            config.putString(name, v);
-                        } else if (name.equals("cloning.module.token")) {
-                            config.putString("preop.module.token", v);
-                        } else if (name.startsWith("cloning.ca")) {
-                            config.putString(name.replaceFirst("cloning", "preop"), v);
-                        } else if (name.startsWith("cloning")) {
-                            config.putString(name.replaceFirst("cloning", "preop.cert"), v);
-                        } else {
-                            config.putString(name, v);
-                        }
-                    }
-
-                    // reset nicknames for system cert verification
-                    String token = config.getString("preop.module.token", 
-                                                    "Internal Key Storage Token");
-                    if (! token.equals("Internal Key Storage Token")) {
-                        String certlist = config.getString("preop.cert.list");
-
-                        StringTokenizer t1 = new StringTokenizer(certlist, ",");
-                        while (t1.hasMoreTokens()) {
-                            String tag = t1.nextToken();
-                            if (tag.equals("sslserver")) continue;
-                            config.putString(type + ".cert." + tag + ".nickname", 
-                                token + ":" + 
-                                config.getString(type + ".cert." + tag + ".nickname", ""));
-                        } 
-                    }
-                } else {
-                    String error = parser.getValue("Error");
-                    throw new IOException(error);
-                }
-            } catch (IOException e) {
-                CMS.debug("WizardPanelBase: getTokenInfo: " + e.toString());
-                throw e;
-            } catch (Exception e) {
-                CMS.debug("WizardPanelBase: getTokenInfo: " + e.toString());
-                throw new IOException(e.toString());
-            }
-        }           
-    }
-
     public void importCertChain(String id) throws IOException {
         CMS.debug("DisplayCertChainPanel importCertChain");
         IConfigStore config = CMS.getConfigStore();
@@ -1459,6 +1605,7 @@ public class WizardPanelBase implements IWizardPanel {
                          https, context, null );
     }
 
+
     public void updateCertChain(IConfigStore config, String name, String host,
       int https_admin_port, boolean https, Context context, 
       ConfigCertApprovalCallback certApprovalCallback) throws IOException {
@@ -1466,53 +1613,6 @@ public class WizardPanelBase implements IWizardPanel {
                                                              https_admin_port,
                                                              https,
                                                              certApprovalCallback );
-        config.putString("preop."+name+".pkcs7", certchain);
-
-        byte[] decoded = CryptoUtil.base64Decode(certchain);
-        java.security.cert.X509Certificate[] b_certchain = null;
-
-        try {
-            b_certchain = CryptoUtil.getX509CertificateFromPKCS7(decoded);
-        } catch (Exception e) {
-            context.put("errorString",
-              "Failed to get the certificate chain.");
-            return;
-        }
-
-        int size = 0;
-        if (b_certchain != null) {
-            size = b_certchain.length;
-        }
-        config.putInteger("preop."+name+".certchain.size", size);
-        for (int i = 0; i < size; i++) {
-            byte[] bb = null;
-
-            try {
-                bb = b_certchain[i].getEncoded();
-            } catch (Exception e) {
-                context.put("errorString",
-                  "Failed to get the der-encoded certificate chain.");
-                return;
-            }
-            config.putString("preop."+name+".certchain." + i,
-              CryptoUtil.normalizeCertStr(CryptoUtil.base64Encode(bb)));
-        }
-
-        try {
-            config.commit(false);
-        } catch (EBaseException e) {
-        }
-    }
-
-    public void updateCertChainUsingSecureEEPort( IConfigStore config,
-                                                  String name, String host,
-                                                  int https_ee_port,
-                                                  boolean https,
-                                                  Context context, 
-                                                  ConfigCertApprovalCallback certApprovalCallback ) throws IOException {
-        String certchain = getCertChainUsingSecureEEPort( host, https_ee_port,
-                                                          https,
-                                                          certApprovalCallback);
         config.putString("preop."+name+".pkcs7", certchain);
 
         byte[] decoded = CryptoUtil.base64Decode(certchain);
@@ -1618,9 +1718,9 @@ public class WizardPanelBase implements IWizardPanel {
     public void reloginSecurityDomain(HttpServletResponse response) {
         IConfigStore cs = CMS.getConfigStore();
         try {
-            String hostname = cs.getString("securitydomain.host", "");
+            String hostname = cs.getString("securitydomain.adminhost", "");
             int port = cs.getInteger("securitydomain.httpsadminport", -1);
-            String cs_hostname = cs.getString("machineName", "");
+            String cs_hostname = cs.getString("adminMachineName", "");
             int cs_port = cs.getInteger("pkicreate.admin_secure_port", -1);
             int panel = getPanelNo();
             String subsystem = cs.getString("cs.type", "");

@@ -17,13 +17,10 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.x509;
 
-import java.io.IOException;
-import java.util.Enumeration;
-import java.util.Vector;
+import java.io.*;
+import java.util.*;
 
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
-import netscape.security.util.PrettyPrintFormat;
+import netscape.security.util.*;
 
 /**
  * Represent the GeneralSubtrees ASN.1 object.

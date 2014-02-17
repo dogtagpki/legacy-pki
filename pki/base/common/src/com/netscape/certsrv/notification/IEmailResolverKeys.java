@@ -18,7 +18,8 @@
 package com.netscape.certsrv.notification;
 
 
-import com.netscape.certsrv.base.IAttrSet;
+import com.netscape.certsrv.base.*;
+import java.util.*;
 
 
 /**

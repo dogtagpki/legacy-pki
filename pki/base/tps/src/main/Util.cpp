@@ -96,9 +96,9 @@ TPS_PUBLIC BYTE* Util::bool2byte(bool b) {
 
 static int isAlphaNumeric (char ch)
 {
-    return (((ch >='a') && (ch <= 'z')) ||   /* logical AND &&, OR || */ 
-  	    ((ch >='A') && (ch <= 'Z')) || 
-	    ((ch >='0') && (ch <= '9')) );
+    return ((ch >='a') && (ch <= 'z') ||   /* logical AND &&, OR || */ 
+  	    (ch >='A') && (ch <= 'Z') || 
+	    (ch >='0') && (ch <= '9') );
 }
 
 static char bin2hex (BYTE ch)
@@ -474,6 +474,39 @@ TPS_PUBLIC Buffer *Util::SpecialURLDecode(const char *data)
         }
         return ret;
 }
+
+/*
+ * get rid of the carriage return line feed
+ */
+TPS_PUBLIC NSSUTF8 *Util::StripCR(NSSUTF8 *inString) {
+    NSSUTF8 *outString = NULL;
+    int i = 0;
+    char *p = inString;
+
+    if (inString == NULL) {
+        return NULL;
+    }
+
+    int sig_len = PL_strlen(inString);
+    int final_sig_len = sig_len;
+    outString =  (char *) PORT_Alloc (sig_len + 1);
+    if (outString == NULL) {
+        goto loser;
+    }
+    for (i = 0; i< sig_len; i++, p++) {
+        if ((*p!=13) && (*p!= 10)) {
+            outString[i] = *p;
+        } else {
+            i--;
+            final_sig_len--;
+            continue;
+        }
+    }
+    outString[final_sig_len] = 0;
+loser:
+    return outString;
+}
+
 
 TPS_PUBLIC Buffer *Util::URLDecode(const char *data)
 {

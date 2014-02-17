@@ -18,54 +18,36 @@
 package com.netscape.cms.servlet.cert;
 
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigInteger;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
-import java.util.Enumeration;
-import java.util.Locale;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.extensions.NSCertTypeExtension;
-import netscape.security.pkcs.ContentInfo;
-import netscape.security.pkcs.PKCS7;
-import netscape.security.pkcs.SignerInfo;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.CRLExtensions;
-import netscape.security.x509.CRLReasonExtension;
-import netscape.security.x509.CertificateExtensions;
-import netscape.security.x509.Extension;
-import netscape.security.x509.KeyUsageExtension;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authority.ICertAuthority;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.base.ICertPrettyPrint;
-import com.netscape.certsrv.base.MetaInfo;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.EDBRecordNotFoundException;
-import com.netscape.certsrv.dbs.certdb.ICertRecord;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.dbs.certdb.IRevocationInfo;
-import com.netscape.certsrv.logging.ILogger;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.security.x509.*;
+import netscape.security.extensions.*;
+import netscape.security.pkcs.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.extensions.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.certdb.*;
 import com.netscape.certsrv.request.IRequest;
 import com.netscape.certsrv.request.RequestId;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.cms.servlet.*;
 
 
 /**
@@ -246,6 +228,12 @@ public class DisplayBySerial extends CMSServlet {
         HttpServletResponse resp, 
         Locale locale)
         throws EBaseException {
+        boolean b64CertOnly = false; // for request that needs only b64 cert
+        String isB64CertOnly = req.getParameter("b64CertOnly");
+        if (isB64CertOnly != null && isB64CertOnly.equals("true")) {
+            b64CertOnly = true;
+        }
+
         try {
             ICertRecord rec = (ICertRecord) mCertDB.readCertificateRecord(seq);
             if (rec == null)  {
@@ -321,6 +309,11 @@ public class DisplayBySerial extends CMSServlet {
                     CMS.getLogMessage("CMSGW_ERROR_PARSING_EXTENS", e.toString()));
             }
 
+            byte[] ba = cert.getEncoded();
+            // Do base 64 encoding
+
+            header.addStringValue("certChainBase64", com.netscape.osutil.OSUtil.BtoA(ba));
+
             IRevocationInfo revocationInfo = rec.getRevocationInfo();
 
             if (revocationInfo != null) {
@@ -342,9 +335,10 @@ public class DisplayBySerial extends CMSServlet {
             }
 
             ICertPrettyPrint certDetails = CMS.getCertPrettyPrint(cert);
-
-            header.addStringValue("certPrettyPrint", 
-                certDetails.toString(locale));
+            if (!b64CertOnly) {
+                header.addStringValue("certPrettyPrint", 
+                    certDetails.toString(locale));
+            }
 
             /*
              String scheme = req.getScheme();
@@ -360,21 +354,19 @@ public class DisplayBySerial extends CMSServlet {
              */
             header.addStringValue("authorityid", mAuthority.getId());
 
-            String certFingerprints = "";
+            if (!b64CertOnly) {
+                String certFingerprints = "";
 
-            try {
-                certFingerprints = CMS.getFingerPrints(cert);
-            } catch (Exception e) {
-                log(ILogger.LL_FAILURE, 
-                    CMS.getLogMessage("CMSGW_ERR_DIGESTING_CERT", e.toString()));
+                try {
+                    certFingerprints = CMS.getFingerPrints(cert);
+                } catch (Exception e) {
+                    log(ILogger.LL_FAILURE, 
+                        CMS.getLogMessage("CMSGW_ERR_DIGESTING_CERT", e.toString()));
+                }
+                if (certFingerprints.length() > 0)
+                    header.addStringValue("certFingerprint", certFingerprints);
+
             }
-            if (certFingerprints.length() > 0)
-                header.addStringValue("certFingerprint", certFingerprints);
-
-            byte[] ba = cert.getEncoded();
-            // Do base 64 encoding
-
-            header.addStringValue("certChainBase64", com.netscape.osutil.OSUtil.BtoA(ba));
             header.addStringValue("serialNumber", seq.toString(16));
 
             /*
@@ -406,28 +398,29 @@ public class DisplayBySerial extends CMSServlet {
                 }
             }
 
-            // Wrap the chain into a degenerate P7 object
-            String p7Str;
-
-            try {
-                PKCS7 p7 = new PKCS7(new AlgorithmId[0], 
+            if (!b64CertOnly) {
+                // Wrap the chain into a degenerate P7 object
+                String p7Str;
+                try {
+                    PKCS7 p7 = new PKCS7(new AlgorithmId[0], 
                         new ContentInfo(new byte[0]),
                         certsInChain,
                         new SignerInfo[0]);
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                    ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
-                p7.encodeSignedData(bos,false);
-                byte[] p7Bytes = bos.toByteArray();
+                    p7.encodeSignedData(bos,false);
+                    byte[] p7Bytes = bos.toByteArray();
 
-				p7Str = com.netscape.osutil.OSUtil.BtoA(p7Bytes);
-                header.addStringValue("pkcs7ChainBase64", p7Str);
-            } catch (Exception e) {
-                //p7Str = "PKCS#7 B64 Encoding error - " + e.toString() 
-                //+ "; Please contact your administrator";
-                log(ILogger.LL_FAILURE, 
-                    CMS.getLogMessage("CMSGW_ERROR_FORMING_PKCS7_1", e.toString())); 
-                throw new ECMSGWException(
+    				p7Str = com.netscape.osutil.OSUtil.BtoA(p7Bytes);
+                    header.addStringValue("pkcs7ChainBase64", p7Str);
+                } catch (Exception e) {
+                    //p7Str = "PKCS#7 B64 Encoding error - " + e.toString() 
+                    //+ "; Please contact your administrator";
+                    log(ILogger.LL_FAILURE, 
+                        CMS.getLogMessage("CMSGW_ERROR_FORMING_PKCS7_1", e.toString())); 
+                    throw new ECMSGWException(
                         CMS.getLogMessage("CMSGW_ERROR_FORMING_PKCS7"));
+                }
             }
         } catch (EBaseException e) {
             log(ILogger.LL_FAILURE, 

@@ -18,17 +18,11 @@
 package com.netscape.cmscore.ldapconn;
 
 
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPException;
-import netscape.ldap.LDAPSocketFactory;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.ldap.ELdapException;
-import com.netscape.certsrv.ldap.ELdapServerDownException;
-import com.netscape.certsrv.ldap.ILdapConnFactory;
-import com.netscape.certsrv.logging.ILogger;
+import netscape.ldap.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.ldap.*;
 
 
 /**
@@ -370,9 +364,10 @@ public class LdapAnonConnFactory implements ILdapConnFactory {
 
         // this returned connection might authenticate as someone other than
         // anonymonus. Reset it to anonymous first before it returns
-        // to the pool.
+        // to the pool.  Do this by calling connect() again on this connection
+        // to avoid doing an explicit anonymous bind
         try {
-            anon.authenticate(null, null);
+            anon.connect(mConnInfo.getHost(), mConnInfo.getPort());
 
             // return conn.
             CMS.debug("returnConn: mNumConns now " + mNumConns);

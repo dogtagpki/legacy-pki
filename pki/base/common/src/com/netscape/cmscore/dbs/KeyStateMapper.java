@@ -18,16 +18,12 @@
 package com.netscape.cmscore.dbs;
 
 
-import java.util.Enumeration;
-import java.util.Vector;
-
-import netscape.ldap.LDAPAttribute;
-import netscape.ldap.LDAPAttributeSet;
-
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.dbs.IDBAttrMapper;
-import com.netscape.certsrv.dbs.IDBObj;
-import com.netscape.certsrv.dbs.keydb.KeyState;
+import java.util.*;
+import java.math.*;
+import netscape.ldap.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.keydb.*;
 
 
 /**

@@ -55,21 +55,38 @@ class CertEnroll
   TOKENDB_PUBLIC CertEnroll();
   TOKENDB_PUBLIC ~CertEnroll();
 
+
   SECKEYPublicKey *ParsePublicKeyBlob(unsigned char * /*blob*/,
-			 Buffer * /*challenge*/);
+      Buffer * /*challenge*/, bool isECC);
   Buffer *EnrollCertificate(SECKEYPublicKey * /*pk_parsed*/,
 		            const char *profileId,
 			    const char * /*uid*/,
 			    const char * /*token cuid*/, const char *connid,
                             char *error_msg,
 			    	SECItem** encodedPublicKeyInfo = NULL);
+  Buffer *EnrollCertificate(SECKEYPublicKey * /*pk_parsed*/,
+      const char *profileId,
+      const char * /*uid*/,
+      const char * /*subjectdn*/,
+      int /*san_num*/,
+      const char * /*url_SAN_ext*/,
+      const char * /*token cuid*/, const char *connid,
+      char *error_msg,
+      SECItem** encodedPublicKeyInfo = NULL);
   ReturnStatus verifyProof(SECKEYPublicKey* /*pk*/, SECItem* /*siProof*/,
-			   unsigned short /*pkeyb_len*/, unsigned char* /*pkeyb*/,
-			   Buffer* /*challenge*/);
+          unsigned short /*pkeyb_len*/, unsigned char* /*pkeyb*/,
+           Buffer* /*challenge*/, bool /*isECC*/);
+  TOKENDB_PUBLIC Buffer *RetrieveCertificate(PRUint64 serialno, const char *connid, char *error_msg);
   TOKENDB_PUBLIC Buffer *RenewCertificate(PRUint64 serialno, const char *connid, const char *profileId, char *error_msg);
   TOKENDB_PUBLIC int RevokeCertificate(const char *reason, const char *serialno, const char *connid, char *&status);
   TOKENDB_PUBLIC int UnrevokeCertificate(const char *serialno, const char *connid, char *&status);
+  TPS_PUBLIC int revokeFromOtherCA(bool revoke, CERTCertificate *cert, const char*serialno, char *&o_status, const char *reason);
+  TOKENDB_PUBLIC int RevokeCertificate(bool revoke, CERTCertificate *cert, const char *reason, const char *serialno, const char *connid, char *&status);
   PSHttpResponse * sendReqToCA(const char *servlet, const char *parameters, const char *connid);
   Buffer * parseResponse(PSHttpResponse * /*resp*/);
+  Buffer * parseResponse(PSHttpResponse * /*resp*/, char *certB64Param);
+
+  SECKEYECParams * encode_ec_params(char *curve);
+
 };
 #endif /* CERTENROLL_H */

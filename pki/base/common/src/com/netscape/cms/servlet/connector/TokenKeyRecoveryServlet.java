@@ -17,27 +17,21 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.connector;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
+import java.io.*;
+
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authority.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthSubsystem;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authority.IAuthority;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IPrettyPrintFormat;
-import com.netscape.certsrv.common.Constants;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
 
 
 /**
@@ -153,6 +147,7 @@ public class TokenKeyRecoveryServlet extends CMSServlet {
 
         String rCUID = req.getParameter("CUID");
         String rUserid = req.getParameter("userid");
+        String rKeyid = req.getParameter("keyid");
         String rdesKeyString = req.getParameter("drm_trans_desKey");
 	String rCert = req.getParameter("cert");
 
@@ -172,8 +167,9 @@ public class TokenKeyRecoveryServlet extends CMSServlet {
             missingParam = true;
         }
 
-        if ((rCert == null) || (rCert.equals(""))) {
-            CMS.debug("TokenKeyRecoveryServlet: processTokenKeyRecovery(): missing request parameter: cert");
+        if (((rCert == null) || (rCert.equals(""))) &&
+            ((rKeyid == null) || (rKeyid.equals("")))) {
+            CMS.debug("TokenKeyRecoveryServlet: processTokenKeyRecovery(): missing request parameter: cert or keyid");
             missingParam = true;
         }
 
@@ -186,7 +182,14 @@ public class TokenKeyRecoveryServlet extends CMSServlet {
             thisreq.setExtData(IRequest.NETKEY_ATTR_CUID, rCUID);
             thisreq.setExtData(IRequest.NETKEY_ATTR_USERID, rUserid);
             thisreq.setExtData(IRequest.NETKEY_ATTR_DRMTRANS_DES_KEY, rdesKeyString);
-            thisreq.setExtData(IRequest.NETKEY_ATTR_USER_CERT, rCert);
+            if ((rCert != null) && (!rCert.equals(""))) {
+                thisreq.setExtData(IRequest.NETKEY_ATTR_USER_CERT, rCert);
+                CMS.debug("TokenKeyRecoveryServlet: processTokenKeyRecovery(): received request parameter: cert");
+            }
+            if ((rKeyid != null) && (!rKeyid.equals(""))) {
+                thisreq.setExtData(IRequest.NETKEY_ATTR_KEYID, rKeyid); 
+                CMS.debug("TokenKeyRecoveryServlet: processTokenKeyRecovery(): received request parameter: keyid");
+            }
 
 	    //XXX auto process for netkey
 	    queue.processRequest( thisreq );

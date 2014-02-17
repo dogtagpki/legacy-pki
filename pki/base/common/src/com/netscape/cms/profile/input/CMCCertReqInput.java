@@ -18,22 +18,26 @@
 package com.netscape.cms.profile.input;
 
 
-import java.util.Locale;
+import java.security.cert.*;
+import java.io.*;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
 
-import netscape.security.x509.X509CertInfo;
+import netscape.security.x509.*;
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
 
-import org.mozilla.jss.pkix.cmc.TaggedRequest;
+import com.netscape.cms.profile.common.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.profile.IProfileContext;
-import com.netscape.certsrv.profile.IProfileInput;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.cms.profile.common.EnrollProfile;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.pkix.primitive.*;
+import org.mozilla.jss.pkix.crmf.*;
+import org.mozilla.jss.pkix.cmc.*;
+import org.mozilla.jss.pkcs10.*;
 
 
 /**
@@ -92,9 +96,15 @@ public class CMCCertReqInput extends EnrollInput implements IProfileInput {
         X509CertInfo info =
             request.getExtDataInCertInfo(EnrollProfile.REQUEST_CERTINFO);
 
+        if (cert_request == null) {
+            CMS.debug("CMCCertReqInput: populate - invalid certificate request");
+            throw new EProfileException(CMS.getUserMessage(
+                        getLocale(request), "CMS_PROFILE_NO_CERT_REQ"));
+        }
         TaggedRequest msgs[] = mEnrollProfile.parseCMC(getLocale(request), cert_request);
 
         if (msgs == null) {
+            CMS.debug("CMCCertReqInput: populate - parseCMC returns null TaggedRequest msgs");
             return; 
         }
         // This profile only handle the first request in CRMF

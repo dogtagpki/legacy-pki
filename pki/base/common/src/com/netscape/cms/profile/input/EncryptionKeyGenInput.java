@@ -18,25 +18,25 @@
 package com.netscape.cms.profile.input;
 
 
-import java.util.Locale;
+import java.security.cert.*;
+import java.io.*;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
 
-import netscape.security.pkcs.PKCS10;
-import netscape.security.util.DerInputStream;
-import netscape.security.x509.X509CertInfo;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.pkix.crmf.*;
+import org.mozilla.jss.pkix.cmc.*;
+import org.mozilla.jss.pkcs10.*;
 
-import org.mozilla.jss.pkix.cmc.TaggedRequest;
-import org.mozilla.jss.pkix.crmf.CertReqMsg;
+import netscape.security.x509.*;
+import netscape.security.util.*;
+import netscape.security.pkcs.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.profile.IProfileContext;
-import com.netscape.certsrv.profile.IProfileInput;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.cms.profile.common.EnrollProfile;
+import com.netscape.cms.profile.common.*;
 
 
 /**
@@ -106,6 +106,11 @@ public class EncryptionKeyGenInput extends EnrollInput implements IProfileInput 
                     CMS.getUserMessage(getLocale(request),
                         "CMS_PROFILE_UNKNOWN_CERT_REQ_TYPE",
                         ""));
+        }
+        if (keygen_request == null) {
+            CMS.debug("EncryptionKeyGenInput: populate - invalid certificate request");
+            throw new EProfileException(CMS.getUserMessage(
+                        getLocale(request), "CMS_PROFILE_NO_CERT_REQ"));
         }
         if (keygen_request_type.startsWith(EnrollProfile.REQ_TYPE_PKCS10)) {
             PKCS10 pkcs10 = mEnrollProfile.parsePKCS10(getLocale(request), keygen_request);

@@ -18,49 +18,33 @@
 package com.netscape.cmscore.request;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.cert.CRLException;
+import java.util.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.Set;
-import java.util.Vector;
+import java.security.cert.CRLException;
+import java.math.BigInteger;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ByteArrayInputStream;
 
-import netscape.security.util.DerInputStream;
-import netscape.security.x509.CertificateExtensions;
-import netscape.security.x509.CertificateSubjectName;
-import netscape.security.x509.RevokedCertImpl;
+import com.netscape.cmscore.util.*;
+import com.netscape.certsrv.base.EBaseException;
+import com.netscape.certsrv.base.SessionContext;
+import com.netscape.certsrv.base.IAttrSet;
+
+import com.netscape.certsrv.logging.ILogger;
+
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.authentication.IAuthToken;
+import com.netscape.certsrv.authentication.AuthToken;
 import netscape.security.x509.X509CertImpl;
 import netscape.security.x509.X509CertInfo;
+import netscape.security.x509.RevokedCertImpl;
 import netscape.security.x509.X509ExtensionException;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.AuthToken;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IAttrSet;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.request.AgentApprovals;
-import com.netscape.certsrv.request.IEnrollmentRequest;
-import com.netscape.certsrv.request.INotify;
-import com.netscape.certsrv.request.IPolicy;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestList;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.certsrv.request.IRequestScheduler;
-import com.netscape.certsrv.request.IService;
-import com.netscape.certsrv.request.PolicyResult;
-import com.netscape.certsrv.request.RequestId;
-import com.netscape.certsrv.request.RequestStatus;
+import netscape.security.x509.CertificateExtensions;
+import netscape.security.x509.CertificateSubjectName;
+import netscape.security.util.DerInputStream;
 
 
 /**
@@ -1093,6 +1077,7 @@ class Request
             try {
                 return new X509CertImpl(data);
             } catch (CertificateException e) {
+                CMS.debug("ARequestQueue: getExtDataInCert(): "+e.toString());
                 return null;
             }
         }
@@ -1124,6 +1109,7 @@ class Request
             try {
                 certArray[index] = new X509CertImpl(CMS.AtoB(stringArray[index]));
             } catch (CertificateException e) {
+                CMS.debug("ARequestQueue: getExtDataInCertArray(): "+e.toString());
                 return null;
             }
         }
@@ -1147,6 +1133,7 @@ class Request
             try {
                 return new X509CertInfo(data);
             } catch (CertificateException e) {
+                CMS.debug("ARequestQueue: getExtDataInCertInfo(): "+e.toString());
                 return null;
             }
         }
@@ -1178,6 +1165,7 @@ class Request
             try {
                 certArray[index] = new X509CertInfo(CMS.AtoB(stringArray[index]));
             } catch (CertificateException e) {
+                CMS.debug("ARequestQueue: getExtDataInCertInfoArray(): "+e.toString());
                 return null;
             }
         }
@@ -1295,8 +1283,10 @@ class Request
         try {
             data.encode(byteStream);
         } catch (CertificateException e) {
+            CMS.debug("ARequestQueue: setExtData(): "+e.toString());
             return false;
         } catch (IOException e) {
+            CMS.debug("ARequestQueue: setExtData(): "+e.toString());
             return false;
         }
         return setExtData(key, byteStream.toByteArray());

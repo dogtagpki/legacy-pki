@@ -50,46 +50,59 @@
 
 class RA_Enroll_Processor : public RA_Processor
 {
-	public:
-		TPS_PUBLIC RA_Enroll_Processor();
-		TPS_PUBLIC ~RA_Enroll_Processor();
-	public:
-		int ParsePublicKeyBlob(unsigned char *blob,
-				unsigned char *challenge,
-				SECKEYPublicKey *pk);
-		RA_Status DoEnrollment(AuthParams *login, RA_Session *session,
-				CERTCertificate **certificates,
-				char **origins,
-				char **ktypes,
-				int pkcs11obj,
-				PKCS11Obj * pkcs_objx,
-				NameValueSet *extensions,
-				int index, int keyTypeNum,
-				int start_progress,
-				int end_progress,
-				Secure_Channel *channel, Buffer *wrapped_challenge,
-				const char *tokenType,
-				const char *keyType,
-				Buffer *key_check,
-				Buffer *plaintext_challenge,
-				const char *cuid,
-				const char *msn,
-				const char *khex,
-				TokenKeyType key_type,
-				const char *profileId,
-				const char *userid,
-				const char *cert_id,
-				const char *publisher_id,
-				const char *cert_attr_id,
-				const char *pri_attr_id,
-				const char *pub_attr_id,
-				BYTE se_p1, BYTE se_p2, int keysize, const char *connid, const char *keyTypePrefix,char * applet_version);
+    public:
+        TPS_PUBLIC RA_Enroll_Processor();
+        TPS_PUBLIC ~RA_Enroll_Processor();
+    public:
+        int ParsePublicKeyBlob(unsigned char *blob,
+            unsigned char *challenge,
+        SECKEYPublicKey *pk);
+        RA_Status DoEnrollment(AuthParams *login, RA_Session *session,
+            CERTCertificate **certificates,
+            char **origins,
+            char **ktypes,
+            int pkcs11obj,
+            PKCS11Obj * pkcs_objx,
+            NameValueSet *extensions,
+            int index, int keyTypeNum,
+            int start_progress,
+            int end_progress,
+            Secure_Channel *channel, Buffer *wrapped_challenge,
+            const char *tokenType,
+            const char *keyType,
+            Buffer *key_check,
+            Buffer *plaintext_challenge,
+            const char *cuid,
+            const char *msn,
+            const char *khex,
+            TokenKeyType key_type,
+            const char *profileId,
+            const char *userid,
+            const char *cert_id,
+            const char *publisher_id,
+            const char *cert_attr_id,
+            const char *pri_attr_id,
+            const char *pub_attr_id,
+            BYTE se_p1, BYTE se_p2, BYTE algorithm, int keysize, const char *connid, const char *keyTypePrefix,char * applet_version);
 
         bool DoRenewal(const char *connid,
                 const char *profileId,
                 CERTCertificate *i_cert,
                 CERTCertificate **o_cert, 
                 char *error_msg, int *error_code);
+
+        bool ExternalRegRecover(
+                RA_Session *session,
+                const char *userid,
+                PKCS11Obj *pkcs11objx,
+                Secure_Channel *channel,
+                char *cuid,
+                RA_Status &o_status);
+
+        bool ExternalRegDelete(
+                RA_Session *session,
+                const char *userid,
+                RA_Status &o_status);
 
         bool GenerateCertificate(AuthParams *login,
                 int keyTypeNum, 
@@ -228,38 +241,6 @@ class RA_Enroll_Processor : public RA_Processor
 				char * &o_appletVersion       // out
 				);
 
-		bool RequestUserId(
-				RA_Session * a_session,
-				NameValueSet *extensions,
-				const char * a_configname,
-				const char * a_tokenType,
-				char *a_cuid,
-				AuthParams *& o_login,  // out 
-				const char *&o_userid,   // out 
-				RA_Status &o_status //out 
-				);
-
-
-		bool AuthenticateUser(
-				RA_Session * a_session,
-				const char * a_configname,
-				char *a_cuid,
-				NameValueSet *a_extensions,
-				const char *a_tokenType,
-				AuthParams *& a_login, 
-				const char *&o_userid,
-				RA_Status &o_status
-				);
-
-		bool AuthenticateUserLDAP(
-				RA_Session *a_session,
-				NameValueSet *extensions,
-				char *a_cuid,
-				AuthenticationEntry *a_auth,
-				AuthParams *& o_login,
-				RA_Status &o_status,
-                                const char *token_type);
-
 		bool CheckAndUpgradeApplet(
 				RA_Session *a_session,
 				NameValueSet *a_extensions,
@@ -292,9 +273,8 @@ class RA_Enroll_Processor : public RA_Processor
 		TPS_PUBLIC RA_Status Process(RA_Session *session, NameValueSet *extensions);
 
 	private:
-		int GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx);
                 bool isCertRenewable(CERTCertificate *cert, int graceBefore, int graceAfter);
-                int UnrevokeRecoveredCert(const LDAPMessage *e, char *&statusString);
+                int UnrevokeRecoveredCert(LDAPMessage *e, char *&statusString);
 };
 
 #endif /* RA_ENROLL_PROCESSOR_H */

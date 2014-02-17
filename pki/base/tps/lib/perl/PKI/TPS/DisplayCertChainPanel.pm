@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -250,40 +250,99 @@ sub get_domain_xml
                         $c->{'SecureAdminPort'}[0]);
         $::config->put("preop.securitydomain.ca" . $count . ".unsecureport", 
                         $c->{'UnSecurePort'}[0]);
-        $::config->put("preop.securitydomain.ca" . $count . ".host", 
-                        $c->{'Host'}[0]);
+        $::config->put("preop.securitydomain.ca" . $count . ".secureeecaport", 
+                        $c->{'SecureEEClientAuthPort'}[0]);
+        # Account for a Security Domain using either an IP Port Separation
+        # Schema, or a Port Separation Schema
+        my $ca_agent_hostname = "";
+        my $ca_ee_hostname = "";
+        my $ca_admin_hostname = "";
+        my $ca_eeca_hostname = "";
+        if( $c->{'AgentHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.ca" . $count . ".agenthost", 
+                            $c->{'AgentHost'}[0]);
+            $ca_agent_hostname = $c->{'AgentHost'}[0];
+        } else {
+            $::config->put("preop.securitydomain.ca" . $count . ".agenthost", 
+                            $c->{'Host'}[0]);
+            $ca_agent_hostname = $c->{'Host'}[0];
+        }
+        if( $c->{'EEHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.ca" . $count . ".eehost", 
+                            $c->{'EEHost'}[0]);
+            $ca_ee_hostname = $c->{'EEHost'}[0];
+        } else {
+            $::config->put("preop.securitydomain.ca" . $count . ".eehost", 
+                            $c->{'Host'}[0]);
+            $ca_ee_hostname = $c->{'Host'}[0];
+        }
+        if( $c->{'AdminHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.ca" . $count . ".adminhost", 
+                            $c->{'AdminHost'}[0]);
+            $ca_admin_hostname = $c->{'AdminHost'}[0];
+        } else {
+            $::config->put("preop.securitydomain.ca" . $count . ".adminhost", 
+                            $c->{'Host'}[0]);
+            $ca_admin_hostname = $c->{'Host'}[0];
+        }
+        if( $c->{'EEClientAuthHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.ca" . $count . ".eecahost", 
+                            $c->{'EEClientAuthHost'}[0]);
+            $ca_eeca_hostname = $c->{'EEClientAuthHost'}[0];
+        } else {
+            $::config->put("preop.securitydomain.ca" . $count . ".eecahost", 
+                            $c->{'Host'}[0]);
+            $ca_eeca_hostname = $c->{'Host'}[0];
+        }
 
         # The user previously specified the CA Security Domain's
         # SSL Admin URL in the "Security Domain Panel";
         # now retrieve this specified CA Security Domain's
-        # non-SSL EE, SSL Agent, and SSL EE URLs:
-        if( $sd_admin_port eq $c->{'SecureAdminPort'}[0] ) {
+        # non-SSL EE, SSL Agent, SSL EE, and SSL EECA URLs:
+        if( ( $sd_host eq $ca_admin_hostname ) &&
+            ( $sd_admin_port eq $c->{'SecureAdminPort'}[0] ) ) {
             # Build the URLs
-            my $http_ee_port = "https://"
-                             . $c->{'Host'}[0]
+            my $http_ee_url = "http://"
+                            . $ca_ee_hostname
+                            . ":"
+                            . $c->{'UnSecurePort'}[0];
+            my $https_agent_url = "https://"
+                                . $ca_agent_hostname
+                                . ":"
+                                . $c->{'SecureAgentPort'}[0];
+            my $https_ee_url = "https://"
+                             . $ca_ee_hostname
                              . ":"
-                             . $c->{'UnSecurePort'}[0];
-            my $https_agent_port = "https://"
-                                 . $c->{'Host'}[0]
-                                 . ":"
-                                 . $c->{'SecureAgentPort'}[0];
-            my $https_ee_port = "https://"
-                              . $c->{'Host'}[0]
-                              . ":"
-                              . $c->{'SecurePort'}[0];
+                             . $c->{'SecurePort'}[0];
+            my $https_eeca_url = "https://"
+                               . $ca_eeca_hostname
+                               . ":"
+                               . $c->{'SecureEEClientAuthPort'}[0];
 
             # Store the URLs
-            $::config->put( "config.sdomainHttpURL", $http_ee_port );
-            $::config->put( "config.sdomainAgentURL", $https_agent_port );
-            $::config->put( "config.sdomainEEURL", $https_ee_port );
+            $::config->put( "config.sdomainHttpURL", $http_ee_url );
+            $::config->put( "config.sdomainAgentURL", $https_agent_url );
+            $::config->put( "config.sdomainEEURL", $https_ee_url );
+            $::config->put( "config.sdomainEECAURL", $https_eeca_url );
 
             # Store additional values necessary for 'pkiremove' . . .
+            $::config->put( "securitydomain.agenthost",
+                            $::config->get("preop.securitydomain.ca" .
+                                           $count . ".agenthost") );
+            $::config->put( "securitydomain.eehost",
+                            $::config->get("preop.securitydomain.ca" .
+                                           $count . ".eehost") );
+            $::config->put( "securitydomain.eecahost",
+                            $::config->get("preop.securitydomain.ca" .
+                                           $count . ".eecahost") );
             $::config->put( "securitydomain.httpport",
                             $c->{'UnSecurePort'}[0] );
             $::config->put( "securitydomain.httpsagentport",
                             $c->{'SecureAgentPort'}[0] );
             $::config->put( "securitydomain.httpseeport",
                             $c->{'SecurePort'}[0] );
+            $::config->put( "securitydomain.httpseecaport",
+                            $c->{'SecureEEClientAuthPort'}[0] );
         }
 
         $count++;
@@ -303,8 +362,29 @@ sub get_domain_xml
                         $c->{'SecureAdminPort'}[0]);
         $::config->put("preop.securitydomain.tks" . $count . ".unsecureport", 
                         $c->{'UnSecurePort'}[0]);
-        $::config->put("preop.securitydomain.tks" . $count . ".host", 
-                        $c->{'Host'}[0]);
+        # Account for a Security Domain using either an IP Port Separation
+        # Schema, or a Port Separation Schema
+        if( $c->{'AgentHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.tks" . $count . ".agenthost", 
+                            $c->{'AgentHost'}[0]);
+        } else {
+            $::config->put("preop.securitydomain.tks" . $count . ".agenthost", 
+                            $c->{'Host'}[0]);
+        }
+        if( $c->{'EEHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.tks" . $count . ".eehost", 
+                            $c->{'EEHost'}[0]);
+        } else {
+            $::config->put("preop.securitydomain.tks" . $count . ".eehost", 
+                            $c->{'Host'}[0]);
+        }
+        if( $c->{'AdminHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.tks" . $count . ".adminhost", 
+                            $c->{'AdminHost'}[0]);
+        } else {
+            $::config->put("preop.securitydomain.tks" . $count . ".adminhost", 
+                            $c->{'Host'}[0]);
+        }
         $count++;
     }
 
@@ -322,8 +402,29 @@ sub get_domain_xml
                         $c->{'SecureAdminPort'}[0]);
         $::config->put("preop.securitydomain.kra" . $count . ".unsecureport", 
                         $c->{'UnSecurePort'}[0]);
-        $::config->put("preop.securitydomain.kra" . $count . ".host", 
-                        $c->{'Host'}[0]);
+        # Account for a Security Domain using either an IP Port Separation
+        # Schema, or a Port Separation Schema
+        if( $c->{'AgentHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.kra" . $count . ".agenthost", 
+                            $c->{'AgentHost'}[0]);
+        } else {
+            $::config->put("preop.securitydomain.kra" . $count . ".agenthost", 
+                            $c->{'Host'}[0]);
+        }
+        if( $c->{'EEHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.kra" . $count . ".eehost", 
+                            $c->{'EEHost'}[0]);
+        } else {
+            $::config->put("preop.securitydomain.kra" . $count . ".eehost", 
+                            $c->{'Host'}[0]);
+        }
+        if( $c->{'AdminHost'}[0] ne "" ) {
+            $::config->put("preop.securitydomain.kra" . $count . ".adminhost", 
+                            $c->{'AdminHost'}[0]);
+        } else {
+            $::config->put("preop.securitydomain.kra" . $count . ".adminhost", 
+                            $c->{'Host'}[0]);
+        }
         $count++;
     }
 

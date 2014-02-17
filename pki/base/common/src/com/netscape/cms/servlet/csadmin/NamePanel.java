@@ -18,37 +18,34 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.util.Enumeration;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509Key;
-
+import org.apache.velocity.Template;
+import org.apache.velocity.servlet.VelocityServlet;
+import org.apache.velocity.app.Velocity;
 import org.apache.velocity.context.Context;
+import javax.servlet.*;
+import javax.servlet.http.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.property.PropertySet;
-import com.netscape.certsrv.util.HttpInput;
-import com.netscape.cms.servlet.wizard.WizardServlet;
-import com.netscape.cmsutil.crypto.CryptoUtil;
+import java.util.*;
+import java.io.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.util.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.dbs.certdb.*;
+
+import com.netscape.cmsutil.crypto.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.base.*;
+import java.net.*;
+import java.security.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.*;
+import org.mozilla.jss.crypto.KeyPairGenerator;
+
+import netscape.security.x509.*;
+
+import com.netscape.cms.servlet.wizard.*;
 
 public class NamePanel extends WizardPanelBase {
     private Vector mCerts = null;
@@ -206,7 +203,7 @@ public class NamePanel extends WizardPanelBase {
             String host = "";
             int sd_admin_port = -1;
             if (domaintype.equals("existing")) {
-                host = config.getString("securitydomain.host", "");
+                host = config.getString("securitydomain.adminhost", "");
                 sd_admin_port = config.getInteger("securitydomain.httpsadminport", -1);
                 count = getSubsystemCount(host, sd_admin_port, true, cstype);
             }
@@ -300,6 +297,9 @@ public class NamePanel extends WizardPanelBase {
         }
 
         try {
+            // preop.ca.list=
+            // Certificate Authority - https://<CA EE Host>:<Secure CA EE port>,
+            // ...,External CA
             config.putString("preop.ca.list", list.toString());
             config.commit(false);
         } catch (Exception e) {}
@@ -327,7 +327,6 @@ public class NamePanel extends WizardPanelBase {
                 String dn = HttpInput.getDN(request, cert.getCertTag());
 
                 if (dn == null || dn.length() == 0) {
-                    context.put("updateStatus", "validate-failure");
                     throw new IOException("Empty DN for " + cert.getUserFriendlyName());
                 }
             }
@@ -373,7 +372,7 @@ public class NamePanel extends WizardPanelBase {
     /*
      * get some of the "preop" parameters to persisting parameters
      */
-    public void updateConfig(IConfigStore config, String certTag)
+    public void updateConfig(IConfigStore config, String certTag, String caType)
         throws EBaseException, IOException {
         String token = config.getString(PRE_CONF_CA_TOKEN);
         String subsystem = config.getString(PCERT_PREFIX + certTag + ".subsystem");
@@ -438,7 +437,7 @@ public class NamePanel extends WizardPanelBase {
          */
 
         // for system certs verification
-	    if (!token.equals("Internal Key Storage Token") && !token.equals("")) {
+	if (!token.equals("Internal Key Storage Token") && !token.equals("")) {
             config.putString(subsystem + ".cert." + certTag + ".nickname",
                 token + ":" +  nickname);
         } else {
@@ -464,7 +463,7 @@ public class NamePanel extends WizardPanelBase {
         String certTag = certObj.getCertTag();
 
         try {
-            updateConfig(config, certTag);
+            updateConfig(config, certTag, caType);
             if (caType.equals("remote")) {
                 String v = config.getString("preop.ca.type", "");
 
@@ -480,33 +479,49 @@ public class NamePanel extends WizardPanelBase {
                 String sd_hostname = "";
                 int sd_ee_port = -1;
                 try {
-                    sd_hostname = config.getString("securitydomain.host", "");
+                    sd_hostname = config.getString("securitydomain.eehost", "");
                     sd_ee_port = config.getInteger("securitydomain.httpseeport", -1);
                 } catch (Exception ee) {
                     CMS.debug("NamePanel: configCert() exception caught:"+ee.toString());
                 }
                 String sysType = config.getString("cs.type", "");
-                String machineName = config.getString("machineName", "");
+                String agentMachineName = config.getString("agentMachineName", "");
                 String securePort = config.getString("service.securePort", "");
                 if (certTag.equals("subsystem")) {
-                    String content = "requestor_name=" + sysType + "-" + machineName + "-" + securePort + "&profileId="+profileId+"&cert_request_type=pkcs10&cert_request="+URLEncoder.encode(pkcs10, "UTF-8")+"&xmlOutput=true&sessionID="+session_id;
+                    String content = "requestor_name=" + sysType + "-" + agentMachineName + "-" + securePort + "&profileId="+profileId+"&cert_request_type=pkcs10&cert_request="+URLEncoder.encode(pkcs10, "UTF-8")+"&xmlOutput=true&sessionID="+session_id;
                     cert = CertUtil.createRemoteCert(sd_hostname, sd_ee_port, 
                       content, response, this);
                     if (cert == null) {
                         throw new IOException("Error: remote certificate is null");
                     }
                 } else if (v.equals("sdca")) {
-                    String ca_hostname = "";
-                    int ca_port = -1;
+                    String ca_ee_hostname = "";
+                    int ca_ee_port = -1;
                     try {
-                        ca_hostname = config.getString("preop.ca.hostname", "");
-                        ca_port = config.getInteger("preop.ca.httpsport", -1);
+                        ca_ee_hostname = config.getString(
+                                             "preop.ca.hostname", "");
+                        ca_ee_port = config.getInteger(
+                                         "preop.ca.httpsport", -1);
                     } catch (Exception ee) {
                     }
 
-                    String content = "requestor_name=" + sysType + "-" + machineName + "-" + securePort + "&profileId="+profileId+"&cert_request_type=pkcs10&cert_request="+URLEncoder.encode(pkcs10, "UTF-8")+"&xmlOutput=true&sessionID="+session_id;
-                    cert = CertUtil.createRemoteCert(ca_hostname, ca_port, 
-                      content, response, this);
+                    // 03/27/2013 - Should consider removing this
+                    //              "sslserver_extension" code if it
+                    //              becomes possible to embed a
+                    //              certificate extension into a
+                    //              PKCS #10 certificate request.
+                    String sslserver_extension = "";
+                    String mode = config.getString(
+                                      "service.portConfigurationMode");
+                    if (certTag.equals("sslserver") &&
+                        mode.equals("IP Port Separation")) {
+                        sslserver_extension = 
+                            CertUtil.buildSANSSLserverURLExtension(config);
+                    }
+
+                    String content = "requestor_name=" + sysType + "-" + agentMachineName + "-" + securePort + "&profileId="+profileId+"&cert_request_type=pkcs10&cert_request="+URLEncoder.encode(pkcs10, "UTF-8")+"&xmlOutput=true&sessionID="+session_id+sslserver_extension;
+                    cert = CertUtil.createRemoteCert(ca_ee_hostname,
+                      ca_ee_port, content, response, this);
                     if (cert == null) {
                         throw new IOException("Error: remote certificate is null");
                     }
@@ -704,6 +719,9 @@ public class NamePanel extends WizardPanelBase {
         } else {
           try {
             int x = Integer.parseInt(index);
+            // preop.ca.list=
+            // Certificate Authority - https://<CA EE Host>:<Secure CA EE port>,
+            // ...,External CA
             String list = config.getString("preop.ca.list", "");
             StringTokenizer tokenizer = new StringTokenizer(list, ",");
             int counter = 0;
@@ -732,7 +750,6 @@ public class NamePanel extends WizardPanelBase {
         if (inputChanged(request)) {
             mServlet.cleanUpFromPanel(mServlet.getPanelNo(request));
         } else if (isPanelDone()) {
-            context.put("updateStatus", "success");
             return;
         }
 
@@ -746,12 +763,11 @@ public class NamePanel extends WizardPanelBase {
             String cstype = config.getString("preop.subsystem.select", "");
             if (cstype.equals("clone")) {
                 CMS.debug("NamePanel: clone configuration detected");
-                // still need to handle SSL certificate
-                configCertWithTag(request, response, context, "sslserver");
                 String url = getURL(request, config);
                 if (url != null && !url.equals("External CA")) {
                    // preop.ca.url and admin port are required for setting KRA connector
                    url = url.substring(url.indexOf("https"));
+                   // preop.ca.url=https://<CA EE Host>:<Secure CA EE Port>
                    config.putString("preop.ca.url", url);
 
                    URL urlx = new URL(url);
@@ -760,13 +776,14 @@ public class NamePanel extends WizardPanelBase {
 
                 }
                 updateCloneConfig(config);
+
+                // still need to handle SSL certificate
+                configCertWithTag(request, response, context, "sslserver");
                 CMS.debug("NamePanel: clone configuration done");
-                context.put("updateStatus", "success");
                 return;
             }
         } catch (Exception e) {
             CMS.debug("NamePanel: configCertWithTag failure - " + e);
-            context.put("updateStatus", "failure");
             return;
         }
 
@@ -794,6 +811,7 @@ public class NamePanel extends WizardPanelBase {
             select = "sdca";
             // parse URL (CA1 - https://...)
             url = url.substring(url.indexOf("https"));
+            // preop.ca.url=https://<CA EE Host>:<Secure CA EE Port>
             config.putString("preop.ca.url", url);
 
             urlx = new URL(url);
@@ -877,86 +895,104 @@ public class NamePanel extends WizardPanelBase {
             config.commit(false);
         } catch (Exception e) {}
 
-        if (!hasErr) {
-            context.put("updateStatus", "success");
-        } else {
-            context.put("updateStatus", "failure");
-        }
         CMS.debug("NamePanel: update() done");
     }
 
-    private void updateCloneSDCAInfo(HttpServletRequest request, Context context, String hostname, String httpsPortStr) throws IOException {
-        CMS.debug("NamePanel updateCloneSDCAInfo: selected CA hostname=" + hostname + " port=" + httpsPortStr);
+    private void updateCloneSDCAInfo(HttpServletRequest request, Context context, String ca_ee_hostname, String ca_ee_httpsPortStr) throws IOException {
+        CMS.debug("NamePanel updateCloneSDCAInfo: selected CA EE hostname=" +
+                  ca_ee_hostname + " Secure CA EE port=" + ca_ee_httpsPortStr);
+        String https_admin_host = "";
         String https_admin_port = "";
         IConfigStore config = CMS.getConfigStore();
 
-        if (hostname == null || hostname.length() == 0) {
+        if (ca_ee_hostname == null || ca_ee_hostname.length() == 0) {
             context.put("errorString", "Hostname is null");
             throw new IOException("Hostname is null");
         }
 
-        // Retrieve the associated HTTPS Admin port so that it
+        // Retrieve the associated HTTPS Admin host and port so that they
         // may be stored for use with ImportAdminCertPanel
-        https_admin_port = getSecurityDomainAdminPort( config,
-                                                       hostname,
-                                                       httpsPortStr,
+        https_admin_host = getSecurityDomainAdminHost( config,
+                                                       ca_ee_hostname,
+                                                       ca_ee_httpsPortStr,
                                                        "CA" );
+        https_admin_port = getSecurityDomainAdminPort( config,
+                                                       ca_ee_hostname,
+                                                       ca_ee_httpsPortStr,
+                                                       "CA" );
+        CMS.debug("NamePanel: updateCloneSDCAInfo " + 
+                  "ca_ee_hostname=" + ca_ee_hostname +
+                  " ca_ee_httpsPortStr=" + ca_ee_httpsPortStr +
+                  " https_admin_host=" + https_admin_host +
+                  " https_admin_port=" + https_admin_port);
 
-        int httpsport = -1;
+        int ca_ee_httpsport = -1;
 
         try {
-             httpsport = Integer.parseInt(httpsPortStr);
+             ca_ee_httpsport = Integer.parseInt(ca_ee_httpsPortStr);
         } catch (Exception e) {
-            CMS.debug(
-                    "NamePanel update: Https port is not valid. Exception: "
-                            + e.toString());
-            throw new IOException("Https Port is not valid.");
+            CMS.debug("NamePanel update: Https CA EE port is not valid. " +
+                      "Exception: " + e.toString());
+            throw new IOException("Https CA EE Port is not valid.");
         }
 
-        config.putString("preop.ca.hostname", hostname);
-        config.putString("preop.ca.httpsport", httpsPortStr);
+        // <CA EE host>:<Secure CA EE port> from preop.ca.list
+        config.putString("preop.ca.hostname", ca_ee_hostname);
+        config.putString("preop.ca.httpsport", ca_ee_httpsPortStr);
+        config.putString("preop.ca.httpsadminhost", https_admin_host);
         config.putString("preop.ca.httpsadminport", https_admin_port);
     }
 
-    private void sdca(HttpServletRequest request, Context context, String hostname, String httpsPortStr) throws IOException {
+    private void sdca(HttpServletRequest request, Context context, String ca_ee_hostname, String ca_ee_httpsPortStr) throws IOException {
         CMS.debug("NamePanel update: this is the CA in the security domain.");
-        CMS.debug("NamePanel update: selected CA hostname=" + hostname + " port=" + httpsPortStr);
+        CMS.debug("NamePanel update: selected CA EE hostname=" +
+                  ca_ee_hostname + " Secure CA EE port=" + ca_ee_httpsPortStr);
+        String https_admin_host = "";
         String https_admin_port = "";
         IConfigStore config = CMS.getConfigStore();
 
-        context.put("sdcaHostname", hostname);
-        context.put("sdHttpPort", httpsPortStr);
+        context.put("sdcaHostname", ca_ee_hostname);
+        context.put("sdHttpPort", ca_ee_httpsPortStr);
 
-        if (hostname == null || hostname.length() == 0) {
+        if (ca_ee_hostname == null || ca_ee_hostname.length() == 0) {
             context.put("errorString", "Hostname is null");
             throw new IOException("Hostname is null");
         }
 
-        // Retrieve the associated HTTPS Admin port so that it
+        // Retrieve the associated HTTPS Admin host and port so that they
         // may be stored for use with ImportAdminCertPanel
-        https_admin_port = getSecurityDomainAdminPort( config,
-                                                       hostname,
-                                                       httpsPortStr,
+        https_admin_host = getSecurityDomainAdminHost( config,
+                                                       ca_ee_hostname,
+                                                       ca_ee_httpsPortStr,
                                                        "CA" );
+        https_admin_port = getSecurityDomainAdminPort( config,
+                                                       ca_ee_hostname,
+                                                       ca_ee_httpsPortStr,
+                                                       "CA" );
+        CMS.debug("NamePanel: sdca " + 
+                  "ca_ee_hostname=" + ca_ee_hostname +
+                  " ca_ee_httpsPortStr=" + ca_ee_httpsPortStr +
+                  " https_admin_host=" + https_admin_host +
+                  " https_admin_port=" + https_admin_port);
 
-        int httpsport = -1;
-
+        int admin_port = -1;
         try {
-             httpsport = Integer.parseInt(httpsPortStr);
+             admin_port = Integer.parseInt(https_admin_port);
         } catch (Exception e) {
-            CMS.debug(
-                    "NamePanel update: Https port is not valid. Exception: "
-                            + e.toString());
-            throw new IOException("Https Port is not valid.");
+            CMS.debug("NamePanel update: Https CA Admin port is not valid. " +
+                      "Exception: " + e.toString());
+            throw new IOException("Https CA Admin Port is not valid.");
         }
 
-        config.putString("preop.ca.hostname", hostname);
-        config.putString("preop.ca.httpsport", httpsPortStr);
+        // <CA EE host>:<Secure CA EE port> from preop.ca.url
+        config.putString("preop.ca.hostname", ca_ee_hostname);
+        config.putString("preop.ca.httpsport", ca_ee_httpsPortStr);
+        config.putString("preop.ca.httpsadminhost", https_admin_host);
         config.putString("preop.ca.httpsadminport", https_admin_port);
         ConfigCertApprovalCallback certApprovalCallback = new ConfigCertApprovalCallback();
-        updateCertChainUsingSecureEEPort( config, "ca", hostname,
-                                          httpsport, true, context,
-                                          certApprovalCallback );
+        updateCertChain(config, "ca", https_admin_host, admin_port,
+                        true, context, certApprovalCallback );
+
         try {
            CMS.debug("Importing CA chain");
            importCertChain("ca");

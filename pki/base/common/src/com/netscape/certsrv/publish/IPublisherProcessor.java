@@ -18,19 +18,24 @@
 package com.netscape.certsrv.publish;
 
 
-import java.math.BigInteger;
-import java.security.cert.X509CRL;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
 import java.security.cert.X509Certificate;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Vector;
-
-import netscape.security.x509.X509CRLImpl;
-
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.ldap.ELdapException;
-import com.netscape.certsrv.ldap.ILdapConnModule;
+import netscape.ldap.*;
+import java.security.cert.*;
+import netscape.security.util.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.dbs.certdb.*;
 import com.netscape.certsrv.request.IRequest;
+import com.netscape.certsrv.ldap.*;
 
 
 /**
@@ -78,6 +83,14 @@ public interface IPublisherProcessor extends ISubsystem {
     public Hashtable getRuleInsts();
 
     /**
+     * Adds rule instance to the instance list.
+     * @param insName rule instance name
+     * @param c config store
+     */
+    public void addRuleInstance(String insName, IConfigStore c) throws
+            EBaseException;
+
+    /**
      *
      * Returns Hashtable of mapper plugins.
      */
@@ -101,6 +114,14 @@ public interface IPublisherProcessor extends ISubsystem {
      * Returns Hashtable of rule publisher instances.
      */
     public Hashtable getPublisherInsts();
+
+    /**
+     * Adds publisher instance to the instance list.
+     * @param insName publisher instance name
+     * @param c config store
+     */
+    public void addPublisherInstance(String insName, IConfigStore c) throws
+            EBaseException;
 
     /**
      *

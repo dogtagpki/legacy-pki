@@ -18,20 +18,18 @@
 package com.netscape.cms.profile.def;
 
 
-import java.security.cert.CertificateException;
-import java.util.Locale;
+import java.io.*;
+import java.security.cert.*;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.apps.*;
 
-import netscape.security.extensions.NSCertTypeExtension;
-import netscape.security.x509.X509CertInfo;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.profile.EProfileException;
-import com.netscape.certsrv.profile.IProfile;
-import com.netscape.certsrv.property.Descriptor;
-import com.netscape.certsrv.property.EPropertyException;
-import com.netscape.certsrv.property.IDescriptor;
-import com.netscape.certsrv.request.IRequest;
+import netscape.security.x509.*;
+import netscape.security.extensions.*;
+import com.netscape.cms.profile.common.*;
 
 
 /**
@@ -409,9 +407,10 @@ public class NSCertTypeExtDefault extends EnrollExtDefault {
         bits[1] = getConfigBoolean(CONFIG_SSL_SERVER);
         bits[2] = getConfigBoolean(CONFIG_EMAIL);
         bits[3] = getConfigBoolean(CONFIG_OBJECT_SIGNING);
-        bits[4] = getConfigBoolean(CONFIG_SSL_CA);
-        bits[5] = getConfigBoolean(CONFIG_EMAIL_CA);
-        bits[6] = getConfigBoolean(CONFIG_OBJECT_SIGNING_CA);
+        bits[4] = false;
+        bits[5] = getConfigBoolean(CONFIG_SSL_CA);
+        bits[6] = getConfigBoolean(CONFIG_EMAIL_CA);
+        bits[7] = getConfigBoolean(CONFIG_OBJECT_SIGNING_CA);
         try {
             ext = new NSCertTypeExtension(critical, bits);
         } catch (Exception e) {

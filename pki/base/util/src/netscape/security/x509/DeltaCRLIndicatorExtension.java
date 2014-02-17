@@ -22,12 +22,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.math.BigInteger;
-import java.security.cert.CertificateException;
 import java.util.Enumeration;
+import java.security.cert.CertificateException;
 
-import netscape.security.util.BigInt;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * Represent the Delta CRL Indicator Extension.
