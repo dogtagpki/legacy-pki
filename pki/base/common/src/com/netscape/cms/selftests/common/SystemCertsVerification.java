@@ -47,7 +47,7 @@ import netscape.security.x509.*;
  * of the subsystem
  * <P>
  * 
- * @version $Revision: $, $Date:  $
+ * @version $Revision$, $Date$
  */
 public class SystemCertsVerification
 extends ASelfTest

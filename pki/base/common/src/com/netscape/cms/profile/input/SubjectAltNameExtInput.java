@@ -38,7 +38,7 @@ import com.netscape.cms.profile.common.*;
  * fomulating the SAN attributes in the certificate.
  * <p>
  *
- * @version $Revision: $ $Date: $
+ * @version $Revision$ $Date$
  */
 public class SubjectAltNameExtInput extends EnrollInput implements IProfileInput { 
 

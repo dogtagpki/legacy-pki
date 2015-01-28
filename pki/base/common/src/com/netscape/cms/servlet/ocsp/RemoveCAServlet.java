@@ -49,7 +49,7 @@ import javax.servlet.http.*;
 /**
  * Configure the CA to no longer respond to OCSP requests for a CA
  *
- * @version $Revision: 1274 $ $Date: 2010-09-07 22:14:41 -0700 (Tue, 07 Sep 2010) $
+ * @version $Revision$ $Date$
  */
 public class RemoveCAServlet extends CMSServlet {
 

@@ -30,7 +30,7 @@ import java.awt.event.*;
  * LDAP server setting tab
  *
  * @author Ade Lee
- * @version $Revision: 1211 $, $Date: 2010-08-18 13:15:37 -0400 (Wed, 18 Aug 2010) $
+ * @version $Revision$, $Date$
  */
 public class GeneralLogPanel extends CMSBaseTab {
 
