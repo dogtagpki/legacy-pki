@@ -18,88 +18,42 @@
 package com.netscape.cmscore.security;
 
 
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.math.BigInteger;
-import java.net.SocketException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.InvalidParameterException;
-import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.Principal;
-import java.security.PublicKey;
-import java.security.SignatureException;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Locale;
-import java.util.StringTokenizer;
-import java.util.Vector;
-
-import netscape.ldap.util.DN;
-import netscape.security.x509.AlgIdDSA;
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.BasicConstraintsExtension;
-import netscape.security.x509.CertificateExtensions;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
-
-import org.mozilla.jss.CryptoManager;
-import org.mozilla.jss.CryptoManager.NicknameConflictException;
-import org.mozilla.jss.CryptoManager.NotInitializedException;
-import org.mozilla.jss.CryptoManager.UserCertConflictException;
-import org.mozilla.jss.NoSuchTokenException;
-import org.mozilla.jss.asn1.ASN1Util;
-import org.mozilla.jss.asn1.InvalidBERException;
-import org.mozilla.jss.asn1.SET;
-import org.mozilla.jss.crypto.AlreadyInitializedException;
-import org.mozilla.jss.crypto.CryptoStore;
-import org.mozilla.jss.crypto.CryptoToken;
-import org.mozilla.jss.crypto.InternalCertificate;
-import org.mozilla.jss.crypto.KeyPairAlgorithm;
-import org.mozilla.jss.crypto.NoSuchItemOnTokenException;
-import org.mozilla.jss.crypto.ObjectNotFoundException;
-import org.mozilla.jss.crypto.PQGParamGenException;
-import org.mozilla.jss.crypto.PQGParams;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.dbs.*;
+import org.mozilla.jss.*;
+import org.mozilla.jss.crypto.KeyPairGenerator;
 import org.mozilla.jss.crypto.PrivateKey;
-import org.mozilla.jss.crypto.SignatureAlgorithm;
-import org.mozilla.jss.crypto.TokenCertificate;
-import org.mozilla.jss.crypto.TokenException;
-import org.mozilla.jss.crypto.X509Certificate;
-import org.mozilla.jss.pkcs11.PK11SecureRandom;
-import org.mozilla.jss.pkcs7.ContentInfo;
-import org.mozilla.jss.pkcs7.SignedData;
+import org.mozilla.jss.crypto.*;
 import org.mozilla.jss.pkix.cert.Certificate;
-import org.mozilla.jss.ssl.SSLServerSocket;
-import org.mozilla.jss.ssl.SSLSocket;
-import org.mozilla.jss.util.IncorrectPasswordException;
+import org.mozilla.jss.ssl.*;
+import org.mozilla.jss.asn1.*;
+import org.mozilla.jss.pkcs7.*;
 import org.mozilla.jss.util.Password;
 import org.mozilla.jss.util.PasswordCallback;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
+import org.mozilla.jss.util.ConsolePasswordCallback;
+import org.mozilla.jss.util.IncorrectPasswordException;
 import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.common.Constants;
-import com.netscape.certsrv.common.NameValuePair;
-import com.netscape.certsrv.common.NameValuePairs;
 import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.security.ICryptoSubsystem;
-import com.netscape.certsrv.security.KeyCertData;
-import com.netscape.cmscore.cert.CertPrettyPrint;
-import com.netscape.cmscore.cert.CertUtils;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.security.*;
+import java.util.*;
+import java.net.*;
+import java.io.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
+import java.security.cert.CertificateEncodingException;
+import netscape.security.x509.*;
+import java.security.cert.CertificateException;
+import org.mozilla.jss.CryptoManager.NotInitializedException;
+import org.mozilla.jss.CryptoManager.NicknameConflictException;
+import org.mozilla.jss.CryptoManager.UserCertConflictException;
+import org.mozilla.jss.pkcs11.PK11SecureRandom;
+import com.netscape.cmscore.cert.*;
 import com.netscape.cmscore.util.Debug;
-import com.netscape.cmsutil.crypto.CryptoUtil;
+import netscape.ldap.util.*;
+import com.netscape.cmsutil.crypto.*;
 
 
 /**
@@ -110,7 +64,6 @@ import com.netscape.cmsutil.crypto.CryptoUtil;
 public final class JssSubsystem implements ICryptoSubsystem {
     public static final String ID = "jss";
 
-    private static final String CONFIG_DIR = "configDir";
     private static final String CERTPREFIX_ALIAS = "certPrefix";
     private static final String KEYPREFIX_ALIAS = "keyPrefix";
     private static final String CONFIGDIR_ALIAS = "configDir";
@@ -291,11 +244,11 @@ public final class JssSubsystem implements ICryptoSubsystem {
         if (!enabled)
             return;
 
-        try {
-            devRandomInputStream = new FileInputStream("/dev/urandom");
-        } catch (IOException ioe) {
-            // XXX - add new exception
-        }
+		try {
+			devRandomInputStream = new FileInputStream("/dev/urandom");
+		} catch (IOException ioe) {
+			// XXX - add new exception
+		}
 
         // get hardcoded password (for debugging.
         String pw;
@@ -306,31 +259,9 @@ public final class JssSubsystem implements ICryptoSubsystem {
             CMS.debug("JssSubsystem init() got password from hardcoded in config");
         }
 
-        String certDir;
-
-        certDir = config.getString(CONFIG_DIR, null);
-        
-        CryptoManager.InitializationValues vals = 
-            new CryptoManager.InitializationValues(certDir,
-                                                   "", "", "secmod.db");
-
-        vals.removeSunProvider = false;
-        vals.installJSSProvider = true;
-        try {
-            CryptoManager.initialize(vals);
-        } catch (AlreadyInitializedException e) {
-            // do nothing
-        } catch (Exception e) {
-            String[] params = {mId, e.toString()};
-            EBaseException ex = new EBaseException(
-                    CMS.getUserMessage("CMS_BASE_CREATE_SERVICE_FAILED", params));
-
-            log(ILogger.LL_FAILURE, CMS.getLogMessage("CMSCORE_SECURITY_GENERAL_ERROR", ex.toString()));
-            throw ex;
-        }
-
         try {
             mCryptoManager = CryptoManager.getInstance();
+
             initSSL();
         } catch (CryptoManager.NotInitializedException e) {
             String[] params = {mId, e.toString()};
@@ -553,7 +484,7 @@ public final class JssSubsystem implements ICryptoSubsystem {
     public boolean isTokenLoggedIn(String name) throws EBaseException {
         try {
             if (name.equals(Constants.PR_INTERNAL_TOKEN_NAME))
-                name = Constants.PR_FULL_INTERNAL_TOKEN_NAME;
+                name = getInternalTokenName();
             CryptoToken ctoken = mCryptoManager.getTokenByName(name);
 
             return ctoken.isLoggedIn();
@@ -809,7 +740,7 @@ public final class JssSubsystem implements ICryptoSubsystem {
 
         String t = tokenName;
         if (tokenName.equals(Constants.PR_INTERNAL_TOKEN))
-            t = Constants.PR_FULL_INTERNAL_TOKEN_NAME;
+            t = getInternalTokenName();
         CryptoToken token = null;
 
         try {

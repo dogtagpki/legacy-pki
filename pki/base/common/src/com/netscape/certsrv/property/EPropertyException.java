@@ -18,7 +18,7 @@
 package com.netscape.certsrv.property;
 
 
-import com.netscape.certsrv.base.EBaseException;
+import com.netscape.certsrv.base.*;
 
 /**
  * This is the base exception for property handling.

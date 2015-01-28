@@ -17,7 +17,7 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.acls;
 
-import java.util.ListResourceBundle;
+import java.util.*;
 
 /**
  * A class represents a resource bundle for the entire ACL component.

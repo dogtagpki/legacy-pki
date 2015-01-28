@@ -68,12 +68,13 @@ class PKCS11Obj
 	ObjectSpec *GetObjectSpec(int p);
 	void AddObjectSpec(ObjectSpec *p);
 	void RemoveObjectSpec(int p);
+        void RemoveAllObjectSpecs();
   public:
 	unsigned short m_formatVersion;
 	unsigned short m_objectVersion;
 	Buffer m_CUID;
 	Buffer m_tokenName;
-#define MAX_OBJECT_SPEC 20
+#define MAX_OBJECT_SPEC 100
 	ObjectSpec *m_objSpec[MAX_OBJECT_SPEC];
 };
 

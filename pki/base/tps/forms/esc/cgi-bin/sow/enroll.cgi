@@ -32,11 +32,13 @@
 #    
 ########################################################################
 
-[REQUIRE_CFG_PL]
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 use CGI;
 use Mozilla::LDAP::Conn;
 use PKI::TPS::Common;
+
+no warnings qw(redefine);
 
 $gQuery = new CGI;
 
@@ -192,7 +194,7 @@ sub GenerateEnrollmentPage
   my $secure_port = get_secure_port();
   my $certdir = get_ldap_certdir();
 
-  ExitError("Failed to load enrollment page!") if (!open(ENROLL_FILE, "< enroll.html"));
+  ExitError("Failed to load enrollment page!") if (!open(ENROLL_FILE, "< [SERVER_ROOT]/cgi-bin/sow/enroll.html"));
 
   print $gQuery->header();
 
@@ -209,7 +211,7 @@ sub GenerateEnrollmentPage
                               "uid=$uid",
                               0
                             );
-
+  
   if (!$entry) {
     $conn->close();
     ExitError("User $uid not found");
@@ -221,8 +223,8 @@ sub GenerateEnrollmentPage
   $uid = ($entry->getValues("uid"))[0] || "-";
   my $mail = ($entry->getValues("mail"))[0] || "-";
   my $phone = ($entry->getValues("telephoneNumber"))[0] || "-";
-  my $departmentNumber = ($entry->getValues("departmentNumber"))[0] || "";
-  my $employeeNumber = ($entry->getValues("employeeNumber"))[0] || "";
+  my $departmentNumber = ($entry->getValues("departmentNumber"))[0] || ""; 
+  my $employeeNumber = ($entry->getValues("employeeNumber"))[0] || ""; 
 
   while ($l = <ENROLL_FILE>)
   {
@@ -241,6 +243,7 @@ sub GenerateEnrollmentPage
   }
 
   close(ENROLL_FILE);
+  $conn->close();
 }
 
 &DoPage();

@@ -18,32 +18,39 @@
 package com.netscape.cms.servlet.csadmin;
 
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.util.Locale;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.w3c.dom.Node;
-
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import java.math.*;
+import javax.servlet.*;
+import java.security.cert.*;
+import javax.servlet.http.*;
+import netscape.ldap.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.policy.*;
+import com.netscape.certsrv.request.IRequest;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.dbs.repository.*;
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.logging.*;
 import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.authorization.EAuthzAccessDenied;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.repository.IRepository;
-import com.netscape.certsrv.kra.IKeyRecoveryAuthority;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.base.UserInfo;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.ICMSTemplateFiller;
-import com.netscape.cmsutil.xml.XMLObject;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.kra.*;
+import com.netscape.cms.servlet.*;
+import com.netscape.cmsutil.xml.*;
+import org.w3c.dom.*;
+import org.apache.xerces.parsers.DOMParser;
+import org.apache.xerces.dom.*;
+import javax.xml.parsers.*;
+import javax.xml.transform.*;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 
 public class UpdateNumberRange extends CMSServlet {
@@ -180,14 +187,36 @@ public class UpdateNumberRange extends CMSServlet {
 
             String endNumStr = cs.getString(endNumConfig, "");
             endNum = new BigInteger(endNumStr, radix);
+            if ( endNum == null ) {
+                CMS.debug( "UpdateNumberRange::process() - " +
+                           "request endNum is null!" );
+                return;
+            }
+
             String decrementStr = cs.getString(cloneNumConfig, "");
             BigInteger decrement = new BigInteger(decrementStr, radix);
+            if (decrement == null) {
+                CMS.debug("UpdateNumberRange::process() - " +
+                           "request decrement string is null!" );
+                return;
+            }
+  
             beginNum = endNum.subtract(decrement).add(oneNum);
 
             if (beginNum.compareTo(repo.getTheSerialNumber()) < 0) {
                 String nextEndNumStr = cs.getString(nextEndConfig, "");
                 BigInteger endNum2 = new BigInteger(nextEndNumStr, radix);
-                {
+                if (endNum2 == null) {
+                    CMS.debug("UpdateNumberRange::process() - " +
+                        "Unused requests less than cloneTransferNumber!" );
+                    auditMessage = CMS.getLogMessage(
+                                       LOGGING_SIGNED_AUDIT_CONFIG_SERIAL_NUMBER,
+                                       auditSubjectID,
+                                       ILogger.FAILURE,
+                                       auditParams);
+                    audit(auditMessage);
+                    return;
+                } else {
                     CMS.debug("Transferring from the end of on-deck range");
                     String newValStr = endNum2.subtract(decrement).toString(radix);
                     repo.setNextMaxSerial(newValStr);
@@ -206,6 +235,18 @@ public class UpdateNumberRange extends CMSServlet {
             if( beginNum == null ) {
                 CMS.debug( "UpdateNumberRange::process() - " +
                            "beginNum is null!" );
+                auditMessage = CMS.getLogMessage(
+                                   LOGGING_SIGNED_AUDIT_CONFIG_SERIAL_NUMBER,
+                                   auditSubjectID,
+                                   ILogger.FAILURE,
+                                   auditParams);
+                audit(auditMessage);
+                return;
+            }
+
+            if( endNum == null ) {
+                CMS.debug( "UpdateNumberRange::process() - " +
+                           "endNum is null!" );
                 auditMessage = CMS.getLogMessage(
                                    LOGGING_SIGNED_AUDIT_CONFIG_SERIAL_NUMBER,
                                    auditSubjectID,

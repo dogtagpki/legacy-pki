@@ -61,6 +61,8 @@ class Authentication
 	  TPS_PUBLIC virtual ~Authentication();
   public:
           virtual int Authenticate(AuthParams *params);  
+          //virtual int Authenticate(AuthParams *params, ExternalRegAttrs *erAttrs);  
+          virtual int Authenticate(AuthParams *params, RA_Session *session);  
           virtual void Initialize(int index);
   public: 
           virtual const char *GetTitle(char *locale);

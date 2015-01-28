@@ -17,10 +17,14 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.profile;
 
-import netscape.security.x509.X509CertInfo;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.common.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.authentication.*;
 
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.request.IRequest;
+import netscape.security.x509.*;
 
 public interface ICertInfoPolicyDefault extends IPolicyDefault {
 

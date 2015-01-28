@@ -18,10 +18,8 @@
 package com.netscape.cmscore.cert;
 
 
-import java.util.Comparator;
-import java.util.Date;
-
-import netscape.security.x509.X509CertImpl;
+import java.util.*;
+import netscape.security.x509.*;
 
 
 /**

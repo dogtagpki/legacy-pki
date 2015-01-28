@@ -19,12 +19,10 @@ package netscape.security.x509;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.security.ProviderException;
+import java.security.*;
 import java.security.interfaces.DSAParams;
 
-import netscape.security.util.BigInt;
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 
 /**

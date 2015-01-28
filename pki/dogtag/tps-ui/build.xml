@@ -1,16 +1,17 @@
 <!-- ### BEGIN COPYRIGHT BLOCK ###
-  This program is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; version 2 of the License.
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation.
 
-  This program is distributed in the hope that it will be useful,
+  This library is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License along
-  with this program; if not, write to the Free Software Foundation, Inc.,
-  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin Street, Fifth Floor,
+  Boston, MA  02110-1301  USA
 
   Copyright (C) 2007 Red Hat, Inc.
   All rights reserved.
@@ -137,18 +138,12 @@
         <echo message="${begin.binary.zip.log.message}"/>
         <zip destfile="${dist.base.binaries}/${dist.name}.zip">
             <zipfileset dir="./shared"
-                        filemode="644"
-                        prefix="usr/share/${product.prefix}/${product}">
-                <include name="**"/>
-                <exclude name="cgi-bin/sow/cfg.pl"/>
-            </zipfileset>
-            <zipfileset dir="./shared"
                         filemode="755"
                         prefix="usr/share/${product.prefix}/${product}">
-                <include name="cgi-bin/sow/cfg.pl"/>
+                <include name="**"/>
             </zipfileset>
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="usr/share/doc/${dist.name}">
                 <include name="LICENSE"/>
             </zipfileset>
@@ -159,18 +154,12 @@
         <tar longfile="gnu"
              destfile="${dist.base.binaries}/${dist.name}.tar">
             <tarfileset dir="./shared"
-                        mode="644"
-                        prefix="${dist.name}/usr/share/${product.prefix}/${product}">
-                <include name="**"/>
-                <exclude name="cgi-bin/sow/cfg.pl"/>
-            </tarfileset>
-            <tarfileset dir="./shared"
                         mode="755"
                         prefix="${dist.name}/usr/share/${product.prefix}/${product}">
-                <include name="cgi-bin/sow/cfg.pl"/>
+                <include name="**"/>
             </tarfileset>
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${dist.name}/usr/share/doc/${dist.name}">
                 <include name="LICENSE"/>
             </tarfileset>
@@ -212,7 +201,7 @@
         <echo message="${begin.source.zip.log.message}"/>
         <zip destfile="${dist.base.source}/${src.dist.name}.zip">
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="${src.dist.name}">
                 <include name="${specfile}"/>
                 <include name="LICENSE"/>
@@ -229,7 +218,7 @@
         <tar longfile="gnu"
              destfile="${dist.base.source}/${src.dist.name}.tar">
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${src.dist.name}">
                 <include name="${specfile}"/>
                 <include name="LICENSE"/>
