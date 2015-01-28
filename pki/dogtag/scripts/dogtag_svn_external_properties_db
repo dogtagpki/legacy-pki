@@ -7,5 +7,5 @@
 #  to by each external SVN property (i.e. - 'pki/base/config' AND             #
 #  'pki/dogtag/config-ext').                                                  #
 ###############################################################################
-config http://svn.fedorahosted.org/svn/pki/branches/PKI_8_1_RTM_BRANCH/pki/base/config
-config-ext http://svn.fedorahosted.org/svn/pki/branches/PKI_8_1_RTM_BRANCH/pki/dogtag/config-ext
+config http://svn.fedorahosted.org/svn/pki/branches/PKI_8_1_ADVANCED_ERRATA_BRANCH/pki/base/config
+config-ext http://svn.fedorahosted.org/svn/pki/branches/PKI_8_1_ADVANCED_ERRATA_BRANCH/pki/dogtag/config-ext
