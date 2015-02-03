@@ -848,15 +848,25 @@ public class TokenServlet extends CMSServlet {
             cryptogram = 
                 com.netscape.cmsutil.util.Utils.SpecialEncode(host_cryptogram);
         } else {
-            status = "2";
+            // AC: Bugfix: Don't override status's value if an error was already flagged
+            if (status.equals("0") == true){
+                status = "2";
+            }
         }
 
         if (selectedToken == null || keyNickName == null) {
-            status = "4";
+            // AC: Bugfix: Don't override status's value if an error was already flagged
+            if (status.equals("0") == true){
+                status = "4";
+            }
         }
 
         if (!sameCardCrypto) {
-            status = "3";
+            // AC: Bugfix: Don't override status's value if an error was already flagged
+            if (status.equals("0") == true){
+                // AC: Bugfix: Don't mis-represent host cryptogram mismatch errors as TPS parameter issues
+                status = "5";
+            }
         }
 
         // AC: KDF SPEC CHANGE - check for settings file issue (flag)
@@ -866,6 +876,7 @@ public class TokenServlet extends CMSServlet {
         }
         
         if (missingParam) {
+            // AC: Intentionally override previous errors if parameters were missing.
             status = "3";
         }
  
@@ -878,6 +889,11 @@ public class TokenServlet extends CMSServlet {
  
            if(status.equals("2")) {
                errorMsg = "Problem creating host_cryptogram.";
+           }
+
+           // AC: Bugfix: Don't mis-represent card cryptogram mismatch errors as TPS parameter issues
+           if(status.equals("5")){
+               errorMsg = "Card cryptogram mismatch. Token likely has incorrect keys.";
            }
  
            if(status.equals("4")) {
@@ -1162,7 +1178,9 @@ public class TokenServlet extends CMSServlet {
               oldKeyNickName = st.nextToken();
           }
 
-          String newKeyInfoMap = "tks.mk_mappings." + rnewKeyInfo; //#xx#xx
+          // AC: Bugfix:  Use mk_mappings value associated with specified keyset.
+          //   Note:  I assume this is a bug since there is no documentation explaining why a different mk_mappings value is used.
+          String newKeyInfoMap = "tks." + keySet + ".mk_mappings." + rnewKeyInfo; //#xx#xx
           String newMappingValue = CMS.getConfigStore().getString(newKeyInfoMap, null);
           String newSelectedToken = null;
           if (newMappingValue == null) {
