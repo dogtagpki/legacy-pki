@@ -33,9 +33,6 @@
 #include "main/Util.h"
 #include "nuxwdog/WatchdogClient.h"
 
-/* should be undefined before delivery */
-#define ExternalRegPrototype
-
 /**
  * Constructs a base processor.
  */
@@ -48,7 +45,6 @@ LDAP_Authentication::LDAP_Authentication ()
     m_ssl = NULL;
     m_bindDN = NULL;
     m_bindPwd = NULL;
-    m_isPrototype = false;
     m_isExternalReg = false;
     m_isDelegate = false;
     m_attrName_tokenType = NULL;
@@ -205,7 +201,6 @@ void LDAP_Authentication::Initialize(int instanceIndex) {
 
     // support External Registration DB (externalReg)
     PR_snprintf((char *)configname, 256, "externalReg.prototype.enable");
-    m_isPrototype = RA::GetConfigStore()->GetConfigAsBool(configname, false);
 
     PR_snprintf((char *)configname, 256, "externalReg.enable");
     m_isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
@@ -220,7 +215,7 @@ void LDAP_Authentication::Initialize(int instanceIndex) {
      *    auth.instance.2.externalReg.certs.recoverAttributeName=certsToRecover
      *    auth.instance.2.externalReg.certs.deleteAttributeName=certsToDelete
      */
-    if (!m_isPrototype && m_isExternalReg) {
+    if (m_isExternalReg) {
         RA::Debug(FN, " isExternalReg init begins");
         // init the LDAP attribute names for externalReg
         PR_snprintf((char *)configname, 256, "%s.%d.externalReg.tokenTypeAttributeName", prefix, instanceIndex);
@@ -530,7 +525,7 @@ int LDAP_Authentication::Authenticate(AuthParams *params, RA_Session *session)
                                  v = ldap_get_values(ld, e, token);
                                  if (v != NULL) {
                                      RA::Debug("LDAP_Authentication::Authenticate", "found value for attr=%s",token);
-                                     if (!m_isPrototype && m_isExternalReg) {
+                                     if (m_isExternalReg) {
                                          ProcessExternalRegAttrs(token, v, params, session);
                                      } else {
                                          RA::Debug("LDAP_Authentication::Authenticate", "Exposed %s=%s", token, v[0]);
@@ -562,89 +557,6 @@ int LDAP_Authentication::Authenticate(AuthParams *params, RA_Session *session)
                     goto loser;
                 } 
             }
-#ifdef ExternalRegPrototype
-            if ((m_isPrototype) && (m_isExternalReg) && (session != NULL)) {
-                ExternalRegAttrs *erAttrs = NULL;
-                if (session != NULL)
-                    erAttrs = new ExternalRegAttrs();
-
-                RA::Debug("LDAP_Authentication::Authenticate:", " ExternalRegPrototype begins");
-                /*
-                 * For Prototype/Demo only,
-                 * in CS.cfg (instead of getting from ldap) e.g.
-                 *
-                 * externalReg.prototype.tokenType=delegateISEtoken
-                 * externalReg.prototype.recoverNum=2
-                 * externalReg.prototype.recover0.serial=6
-                 * externalReg.prototype.recover0.keyid=3
-                 * externalReg.prototype.recover0.caConn=ca1
-                 * externalReg.prototype.recover0.drmConn=drm1
-                 * externalReg.prototype.recover1.serial=8
-                 * externalReg.prototype.recover1.keyid=4
-                 * externalReg.prototype.recover1.caConn=ca1
-                 * externalReg.prototype.recover1.drmConn=drm1
-                 * externalReg.prototype.deleteNum=2
-                 * externalReg.prototype.delete0.serial=10
-                 * externalReg.prototype.delete0.caConn=ca1
-                 * externalReg.prototype.delete0.revoke=false
-                 * externalReg.prototype.delete1.serial=12
-                 * externalReg.prototype.delete1.caConn=ca1
-                 * externalReg.prototype.delete1.revoke=true
-                 */
-                char proto_recover_prefix[256] = "externalReg.prototype.recover";
-                PR_snprintf((char *)configname, 256, "%sNum", proto_recover_prefix);
-                int protoNum = RA::GetConfigStore()->GetConfigAsInt(configname);
-                for (int i=0; i<protoNum; i++) {
-                    ExternalRegCertToRecover *erCertToRecover = new ExternalRegCertToRecover();
-                    PR_snprintf((char *)configname, 256, "%s%d.keyid", proto_recover_prefix,i);
-                    PRUint64 keyid = RA::GetConfigStore()->GetConfigAsInt(configname);
-                    erCertToRecover->setKeyid(keyid);
-                    PR_snprintf((char *)configname, 256, "%s%d.serial", proto_recover_prefix,i);
-                    PRUint64 serial = RA::GetConfigStore()->GetConfigAsInt(configname);
-                    erCertToRecover->setSerial(serial);
-                    PR_snprintf((char *)configname, 256, "%s%d.caConn", proto_recover_prefix,i);
-                    erCertToRecover->setCaConn(RA::GetConfigStore()->GetConfigAsString(configname));
-                    PR_snprintf((char *)configname, 256, "%s%d.drmConn", proto_recover_prefix,i);
-                    erCertToRecover->setDrmConn(RA::GetConfigStore()->GetConfigAsString(configname));
-                    erAttrs->addCertToRecover(erCertToRecover); 
-                }
-
-                char proto_delete_prefix[256] = "externalReg.prototype.delete";
-                PR_snprintf((char *)configname, 256, "%sNum", proto_delete_prefix);
-                protoNum = RA::GetConfigStore()->GetConfigAsInt(configname);
-                for (int i=0; i<protoNum; i++) {
-                    ExternalRegCertToDelete *erCertToDelete =
-                        new ExternalRegCertToDelete();
-                    PR_snprintf((char *)configname, 256, "%s%d.serial", proto_delete_prefix,i);
-                    PRUint64 serial = RA::GetConfigStore()->GetConfigAsInt(configname);
-                    erCertToDelete->setSerial(serial);
-                    PR_snprintf((char *)configname, 256, "%s%d.caConn", proto_delete_prefix,i);
-                    erCertToDelete->setCaConn(RA::GetConfigStore()->GetConfigAsString(configname));
-                    PR_snprintf((char *)configname, 256, "%s%d.revoke", proto_delete_prefix,i);
-                    erCertToDelete->setRevoke(RA::GetConfigStore()->GetConfigAsBool(configname, 0));
-                    erAttrs->addCertToDelete(erCertToDelete);
-                }
-                PR_snprintf((char *)configname, 256, "externalReg.prototype.tokenType");
-                erAttrs->setTokenType(RA::GetConfigStore()->GetConfigAsString(configname));
-                session->setExternalRegAttrs(erAttrs);
-                PR_snprintf((char *)configname, 256, "externalReg.prototype.cuid");
-                erAttrs->setTokenCUID(RA::GetConfigStore()->GetConfigAsString(configname));
-                RA::Debug("LDAP_Authentication::Authenticate:", " ExternalRegPrototype ends");
-               /*
-                * isDelegate
-                */
-                if (m_isDelegate) {
-                    params->Add("lastname", "Doe");
-                    params->Add("firstname", "Jane");
-                    params->Add("edipi", "0123456789");
-                    params->Add("pcc", "BB");
-                    params->Add("mail", "jdoe@redhat.com");
-                    params->Add("exec-edipi", "9123456789");
-                    params->Add("exec-pcc", "AA");
-                    params->Add("exec-mail", "exec@redhat.com");
-                }
-            }
-#endif /*ExternalRegPrototype*/
             RA::Debug("LDAP_Authentication::Authenticate:", " authentication completed for %s",uid);
             break;
         }

@@ -82,7 +82,6 @@ class LDAP_Authentication : public Authentication
           int m_connectRetries; // for failover
           ConnectionInfo *m_connInfo;
           // for externalReg
-          bool m_isPrototype;
           bool m_isExternalReg;
           bool m_isDelegate;
           char *m_attrName_tokenType;
