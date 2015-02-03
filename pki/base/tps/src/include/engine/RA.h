@@ -114,6 +114,7 @@ class RA
 
  	  static PK11SymKey *ComputeSessionKey(RA_Session *session,
                                            Buffer &CUID,
+                                           Buffer &KDD,
                                            Buffer &keyinfo,
                                            Buffer &card_challenge,
                                            Buffer &host_challenge,
@@ -197,6 +198,7 @@ class RA
       TPS_PUBLIC static char *ra_get_cert_cn(LDAPMessage *entry);
       TPS_PUBLIC static char *ra_get_cert_status(LDAPMessage *entry);
       TPS_PUBLIC static char *ra_get_cert_type(LDAPMessage *entry);
+      TPS_PUBLIC static char *ra_get_key_info(char * cuid);
       TPS_PUBLIC static char *ra_get_cert_serial(LDAPMessage *entry);
       TPS_PUBLIC static char *ra_get_cert_issuer(LDAPMessage *entry);
           TPS_PUBLIC static int ra_delete_certificate_entry(LDAPMessage *entry);

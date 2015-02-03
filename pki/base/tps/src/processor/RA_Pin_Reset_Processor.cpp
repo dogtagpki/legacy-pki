@@ -354,7 +354,7 @@ if (isExternalReg) {
             PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
             connid = RA::GetConfigStore()->GetConfigAsString(configname);
             int upgrade_rc = UpgradeApplet(session, OP_PREFIX, (char*)tokenType, major_version, minor_version, 
-                expected_version, applet_dir, security_level, connid, extensions, 30, 70, &keyVersion);
+                expected_version, applet_dir, security_level, connid, extensions, 30, 70, &keyVersion, token_cuid);
 	    if (upgrade_rc != 1) {
                RA::Error("RA_Pin_Reset_Processor::Process", 
 			"upgrade failure");
@@ -410,14 +410,14 @@ if (isExternalReg) {
           channel = NULL;
       }
       channel = SetupSecureChannel(session, requiredVersion, 
-                  0x00  /* default key index */, connId);
+                  0x00  /* default key index */, connId, token_cuid, OP_PREFIX, tokenType);
       if (channel == NULL) {
 
         /* if version 0x02 key not found, create them */
         SelectApplet(session, 0x04, 0x00, CardManagerAID);
         channel = SetupSecureChannel(session,
                   0x00,  /* default key version */
-                  0x00  /* default key index */, connId);
+                  0x00  /* default key index */, connId, token_cuid, OP_PREFIX, tokenType);
 
         if (channel == NULL) {
             RA::Error("RA_Pin_Reset_Processor::Process", 
@@ -444,10 +444,11 @@ if (isExternalReg) {
         PR_snprintf((char *)configname,  256,"%s.%s.tks.conn", OP_PREFIX, tokenType);
         connid = RA::GetConfigStore()->GetConfigAsString(configname);
         rc = CreateKeySetData(
+             token_cuid,
              channel->GetKeyDiversificationData(),
              curKeyInfo,
              newVersion,
-             key_data_set, connid);
+             key_data_set, connid, OP_PREFIX, tokenType);
         if (rc != 1) {
             RA::Error("RA_Pin_Reset_Processor::Process",
                         "failed to create new key set");
@@ -480,13 +481,72 @@ if (isExternalReg) {
             newVer[0] = 0;
         }
 
+        /**
+         * PAS Modification
+         * Removed only audit log entry for put key failure and replaced with additional logging and token activity database update.  ABOVE ^^^
+         */
+
+        /**
         if (rc!=0) {
             RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
                 userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "Failure", "pin_reset",
                 final_applet_version != NULL ? final_applet_version : "", curVer, newVer,
                 "key changeover failed");
         }
+         */
 
+        /**
+         * PAS Modification
+         * Previously the return code from put keys was not evaluated or recorded on failure
+         * Prior comment block identified the necessity of evaluation and audit logging on failure
+         */
+
+        if(rc < 0){
+            RA::Debug("RA_Processor::Format", "Failed to Put Keys for token %s", cuid);
+            status = STATUS_ERROR_KEY_CHANGE_OVER;
+
+            RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                                userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "failure", "format",
+                                        final_applet_version != NULL ? final_applet_version : "", curKeyInfoStr, newVersionStr,
+                                                "failed to put new GP key set to token");
+
+            // update activity database with entry about put key event
+            RA::tdb_activity(session->GetRemoteIP(), cuid, OP_PREFIX, "failure", "Failed to send new GP Key Set to token", (userid == NULL) ? "" : userid, tokenType);
+
+            /**
+             * PAS Modification
+             * New configuration value to permit rollback of KeyInfo in Token DB, default disabled
+             *
+             */
+            snprintf((char *)configname, 256, "%s.%s.rollbackKeyVersionOnPutKeyFailure", OP_PREFIX, tokenType);
+            if(RA::GetConfigStore()->GetConfigAsBool(configname, 0)){
+                rc = RA::tdb_update(NULL, cuid, NULL, curKeyInfoStr, NULL, NULL, NULL);
+                if (rc < 0) {
+                    RA::Debug(LL_PER_PDU, "RA_Processor::Format","Failed to update the token database with current key version");
+                    status = STATUS_ERROR_UPDATE_TOKENDB_FAILED;  //clobbers the previous failure message :-(
+
+                    RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", cuid, "", curKeyInfoStr, "", "", "", "failed to update tokenDB to current key version");
+
+                    goto loser;
+                }else{
+
+                    RA::Debug(LL_PER_PDU, "RA_Processor::Format","Successfully updated the token database with current key version");
+                    RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", cuid, "", curKeyInfoStr, "", "", "", "successfully updated tokenDB to current key version");
+
+                }
+            }
+            goto loser;
+        }else {
+
+
+            RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                                userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "success", "format",
+                                        final_applet_version != NULL ? final_applet_version : "", curKeyInfoStr, newVersionStr,
+                                                "put new GP key set to token");
+
+            RA::tdb_activity(session->GetRemoteIP(), cuid, OP_PREFIX, "success", "Sent new GP Key Set to token", (userid == NULL) ? "" : userid, tokenType);
+
+        }
          SelectApplet(session, 0x04, 0x00, NetKeyAID);
         PR_snprintf((char *)configname, 256, "%s.%s.update.symmetricKeys.requiredVersion", OP_PREFIX, tokenType);
         if( channel != NULL ) {
@@ -498,7 +558,7 @@ if (isExternalReg) {
         connId = RA::GetConfigStore()->GetConfigAsString(configname);
          channel = SetupSecureChannel(session, 
                   RA::GetConfigStore()->GetConfigAsInt(configname, 0x00),
-                  0x00  /* default key index */, connId);
+                  0x00  /* default key index */, connId, token_cuid, OP_PREFIX, tokenType);
          if (channel == NULL) {
             RA::Error("RA_Pin_Reset_Processor::Process", 
 			"setup secure channel failure");
@@ -522,7 +582,7 @@ if (isExternalReg) {
       }
       channel = SetupSecureChannel(session,
                   0x00,
-                  0x00  /* default key index */, connId);
+                  0x00  /* default key index */, connId, token_cuid, OP_PREFIX, tokenType);
     }
 
     /* we should have a good channel here */

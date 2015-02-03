@@ -1275,6 +1275,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 		RA_Session *a_session,
 		NameValueSet *a_extensions,
 		char *a_cuid,
+		Buffer &CUID,
 		const char *a_tokenType,
 		char *&o_current_applet_on_token,
 		BYTE &o_major_version,
@@ -1336,7 +1337,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 				connid, a_extensions, 
 				5, 
 				12, 
-                                keyVersion) != 1) {
+                                keyVersion, CUID) != 1) {
 
 				RA::Debug(FN, "applet upgrade failed");
 				/**
@@ -1423,6 +1424,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 	RA_Session *a_session,
 	NameValueSet* a_extensions,
 	char *a_cuid,
+	Buffer &CUID,
 	const char *a_tokenType,
 	char *a_msn,
         const char *a_applet_version,
@@ -1482,7 +1484,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
 		o_channel = SetupSecureChannel(a_session, 
 				requiredV,
-				defKeyIndex  /* default key index */, tksid);
+				defKeyIndex  /* default key index */, tksid, CUID, OP_PREFIX, a_tokenType);
 
 		// If that failed, we need to find out what version of keys 
 		// are on the token
@@ -1515,7 +1517,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
 			o_channel = SetupSecureChannel(a_session, 
 					defKeyVer,  /* default key version */
-					defKeyIndex  /* default key index */, tksid);
+					defKeyIndex  /* default key index */, tksid, CUID, OP_PREFIX, a_tokenType);
 
 			if (o_channel == NULL) {
                                 PR_snprintf(audit_msg, 512, "enrollment processing, failed to create secure channel"); 
@@ -1556,10 +1558,11 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 			connid = RA::GetConfigStore()->GetConfigAsString(configname);
 
 			rc = CreateKeySetData(
+			        CUID,
 					o_channel->GetKeyDiversificationData(), 
 					curKeyInfo,
 					newVersion,
-					key_data_set, connid);
+					key_data_set, connid, OP_PREFIX, a_tokenType);
 			if (rc != 1) {
 				RA::Error(FN, "failed to create new key set");
 				o_status = STATUS_ERROR_CREATE_CARDMGR;
@@ -1596,6 +1599,11 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
                             newVer[0] = 0;
                         }
 
+                        /**
+                         * PAS Modification
+                         * Removed this check of return code and replaced with additional logging and token activity database update
+                         */
+                        /**
                         if (rc!=0) {
                             RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
                               a_userid != NULL ? a_userid : "", a_cuid != NULL ? a_cuid : "",  a_msn != NULL ? a_msn : "", "Failure", "enrollment",
@@ -1618,6 +1626,64 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
                               a_applet_version != NULL ? a_applet_version : "", curVer, newVer,
                               "key changeover");
                         }
+                        */
+
+
+
+                        /**
+                         * PAS Modification
+                         * Previously the return code from put keys was not evaluated or recorded on failure
+                         * Prior comment block identified the necessity of evaluation and audit logging on failure
+                         */
+
+                        if(rc < 0){
+                            RA::Debug("RA_Processor::Format", "Failed to Put Keys for token %s", a_cuid);
+                            o_status = STATUS_ERROR_KEY_CHANGE_OVER;
+
+                            RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                                                a_userid != NULL ? a_userid : "", a_cuid != NULL ? a_cuid : "", a_msn != NULL ? a_msn : "", "failure", "format",
+                                                        a_applet_version != NULL ? a_applet_version : "", curKeyInfoStr, newVersionStr,
+                                                                "failed to put new GP key set to token");
+
+                            // update activity database with entry about put key event
+                            RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, OP_PREFIX, "failure", "Failed to send new GP Key Set to token", (a_userid == NULL) ? "" : a_userid, a_tokenType);
+
+                            /**
+                             * PAS Modification
+                             * New configuration value to permit rollback of KeyInfo in Token DB, default disabled
+                             *
+                             */
+                            snprintf((char *)configname, 256, "%s.%s.rollbackKeyVersionOnPutKeyFailure", OP_PREFIX, a_tokenType);
+                            if(RA::GetConfigStore()->GetConfigAsBool(configname, 0)){
+                                rc = RA::tdb_update(NULL, a_cuid, NULL, curKeyInfoStr, NULL, NULL, NULL);
+                                if (rc < 0) {
+                                    RA::Debug(LL_PER_PDU, "RA_Processor::Format","Failed to update the token database with current key version");
+                                    o_status = STATUS_ERROR_UPDATE_TOKENDB_FAILED;  //clobbers the previous failure message :-(
+
+                                    RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", a_cuid, "", curKeyInfoStr, "", "", "", "failed to update tokenDB to current key version");
+
+                                    goto loser;
+                                }else{
+
+                                    RA::Debug(LL_PER_PDU, "RA_Processor::Format","Successfully updated the token database with current key version");
+                                    RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", a_cuid, "", curKeyInfoStr, "", "", "", "successfully updated tokenDB to current key version");
+
+                                }
+                            }
+                            goto loser;
+                        }else {
+
+
+                            RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                                                a_userid != NULL ? a_userid : "", a_cuid != NULL ? a_cuid : "", a_msn != NULL ? a_msn : "", "success", "format",
+                                                        a_applet_version != NULL ? a_applet_version : "", curKeyInfoStr, newVersionStr,
+                                                                "put new GP key set to token");
+
+                            RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, OP_PREFIX, "success", "Sent new GP Key Set to token", (a_userid == NULL) ? "" : a_userid, a_tokenType);
+
+                        }
+
+
 
 			/**
 			 * Re-select the Applet.
@@ -1630,7 +1696,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 
 			// Make a new secure channel with the new symmetric keys
 			o_channel = SetupSecureChannel(a_session, requiredV,
-					defKeyIndex  /* default key index */, tksid);
+					defKeyIndex  /* default key index */, tksid, CUID, OP_PREFIX, a_tokenType);
 			if (o_channel == NULL) {
 				RA::Error(FN, "failed to establish secure channel after reselect");
 				o_status = STATUS_ERROR_CREATE_CARDMGR;
@@ -1661,7 +1727,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
 		o_channel = SetupSecureChannel(a_session, 
 				defKeyVer,
-				defKeyIndex  /* default key index */, tksid);
+				defKeyIndex  /* default key index */, tksid, CUID, OP_PREFIX, a_tokenType);
 		r = true;	  // Sucess!!
                 RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
                   a_userid, a_cuid, a_msn, "success", "enrollment", a_applet_version, 
@@ -2011,6 +2077,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 		    session,
 		    extensions,
 		    cuid,
+		    token_cuid,
 		    tokenType,
 		    final_applet_version,
 		    app_major_version, app_minor_version,
@@ -2043,6 +2110,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 		session,
 		extensions,
 		cuid,
+		token_cuid,
 		tokenType,
 		msn,
                 final_applet_version,
@@ -2197,7 +2265,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
     connid = RA::GetConfigStore()->GetConfigAsString(configname);
     /* wrap challenge with KEK key */
-    rc = EncryptData(kdd,
+    rc = EncryptData(token_cuid, kdd,
       channel->GetKeyInfoData(), *plaintext_challenge, *wrapped_challenge, connid);
     if (rc == -1) {
 	RA::Error("RA_Enroll_Processor::Process",

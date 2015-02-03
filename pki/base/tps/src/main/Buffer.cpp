@@ -228,8 +228,18 @@ Buffer::toHex()
     unsigned int i;
 
     char *hx =  (char *)PR_Malloc(1024);
+
     if (hx == NULL)
 	    return NULL;
+
+    /**
+     * PAS Modification
+     * Insert \0 to hx[0] to protect against empty buffers
+     *
+     */
+
+    hx[0] = '\0';
+
     for( i=0; i < len; ++i ) {
       PR_snprintf(hx+(i*2),1024-(i*2),"%02x", (unsigned char)buf[i]);
     }

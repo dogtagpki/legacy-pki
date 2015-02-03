@@ -126,9 +126,15 @@ class RA_Processor
 
 		Buffer *GetAppletVersion(RA_Session *session);
 
-		Secure_Channel *SetupSecureChannel(RA_Session *session, BYTE key_version, BYTE key_index, const char *connId);
+		/**
+		 * PAS Modification
+		 * Added Buffer CUID parameter
+		 * Added const char *opPrefix
+		 * Added const char *tokenType
+		 */
+		Secure_Channel *SetupSecureChannel(RA_Session *session, BYTE key_version, BYTE key_index, const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType);
 		Secure_Channel *SetupSecureChannel(RA_Session *session,
-				BYTE key_version, BYTE key_index, SecurityLevel security_level, const char *connId);
+				BYTE key_version, BYTE key_index, SecurityLevel security_level, const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType);
 
 		SecureId *RequestSecureId(RA_Session *session);
 
@@ -136,16 +142,21 @@ class RA_Processor
 
 		char *RequestASQ(RA_Session *session, char *question);
 
-		int EncryptData(Buffer &cuid, Buffer &versionID, Buffer &in, Buffer &out, const char *connid);
+		/**
+		 * PAS Modification
+		 * Added KDD buffer parameter
+		 */
+		int EncryptData(Buffer &cuid, Buffer &kdd, Buffer &versionID, Buffer &in, Buffer &out, const char *connid);
                 
 		int ComputeRandomData(Buffer &data_out, int dataSize,  const char *connid);
 
 		int CreateKeySetData(
-			Buffer &cuid, 
+			Buffer &CUID,
+			Buffer &KDD,
 			Buffer &versionID, 
 			Buffer &NewMasterVer, 
 			Buffer &out, 
-			const char *connid);
+			const char *connid, const char *opPrefix, const char *tokenType);
 
 		bool GetTokenType(
 			const char *prefix, 
@@ -163,6 +174,10 @@ class RA_Processor
 
 		int SelectApplet(RA_Session *session, BYTE p1, BYTE p2, Buffer *aid);
 
+		/**
+         * PAS Modification
+         * Added Buffer CUID parameter
+         */
 		int UpgradeApplet(
 				RA_Session *session, 
                 char *prefix,
@@ -174,7 +189,8 @@ class RA_Processor
 				const char *connid, 
 				NameValueSet *extensions,
 				int start_progress, int end_progress,
-                                char **key_version);
+                                char **key_version,
+                                Buffer &CUID);
 
 		int UpgradeKey(RA_Session *session, BYTE major_version, BYTE minor_version, int new_version);
 
@@ -191,13 +207,24 @@ class RA_Processor
 				unsigned short keyCreationPermissions,
 				unsigned short pinCreationPermissions);
 
+		/**
+		 * PAS Modification
+		 *
+		 * Added Buffer card_cuid
+		 * Added const char *opPrefix
+		 * Added const char *tokenType
+		 */
+
 		Secure_Channel *GenerateSecureChannel(
 				RA_Session *session, const char *connid,
+				Buffer &card_cuid,
 				Buffer &card_diversification_data,
 				Buffer &card_key_data,
 				Buffer &card_challenge,
 				Buffer &card_cryptogram,
-				Buffer &host_challenge);
+				Buffer &host_challenge,
+				const char *opPrefix,
+				const char *tokenType);
                 AuthenticationEntry *GetAuthenticationEntry(
                                 const char * a_prefix,
                                 const char * a_configname,
@@ -250,6 +277,22 @@ class RA_Processor
 				char *keyVersion,
                                 char *tokenType, char *userid, RA_Status &status );
 		int IsTokenDisabledByTus(Secure_Channel *channel);
+
+		/**
+		 * PAS Modification
+		 *
+		 * New functions to enforce GP sanity checks
+		 */
+		int checkCUIDMatchesKDD(Buffer &bufCUID, Buffer &bufKDD,
+		                        const char *pcharOpPrefix);
+
+		int checkCardGPKeyVersionIsInRange(Buffer &bufCUID, Buffer &bufKDD,
+		                                   Buffer &bufCardSuppliedKeyInfo,
+		                                   const char *pcharOpPrefix, const char *pcharTokenType);
+
+		int checkCardGPKeyVersionMatchesTokenDB(Buffer &bufCUID, Buffer &bufKDD,
+		                                        Buffer &bufCardSuppliedKeyInfo, const char *pcharOpPrefix,
+		                                        const char *pcharTokenType);
 
                 int totalAvailableMemory;
                 int totalFreeMemory;

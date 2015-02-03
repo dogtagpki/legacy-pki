@@ -1356,12 +1356,21 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
     if (PR_snprintf(dn, 255, "cn=%s,%s", cn, baseDN) < 0)
         return -1;
 
+    /**
+     * PAS Modification
+     *
+     * Updated the function to update the LDAP directory entry with only non-NULL argument values
+     * Increased each allocate_modifications by 1, so 5->6, 6->7, and 7->8.  These will probably all result in over allocation
+     * The increase was necessary to assign a NULL to the element in the array immediately following the last populated LDAPMod structure in the event that all LDAPMods were actually populated.
+     */
+
+
         if (keyInfo == NULL && token_type == NULL)
-            mods = allocate_modifications(5);
+            mods = allocate_modifications(6); //increase from 5 to 6
         else if (keyInfo == NULL || token_type == NULL)
-            mods = allocate_modifications(6);
+            mods = allocate_modifications(7); //increase from 6 to 7
         else
-            mods = allocate_modifications(7);
+            mods = allocate_modifications(8);  //increase from 7 to 8
         if (mods == NULL)
             return -1;
 
@@ -1377,6 +1386,8 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
         mods[0]->mod_type = tokenAttributes[I_TOKEN_M_DATE];
         mods[0]->mod_values = v;
         k = 1;
+
+
         if (applet_version != NULL && PL_strlen(applet_version) > 0) {
             len = PL_strlen(applet_version);
             if ((v = allocate_values(1, len+1)) == NULL) {
@@ -1395,25 +1406,28 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
         }
 
     /* for userid */
-    if (uid != NULL && PL_strlen(uid) > 0)
-        len = PL_strlen(uid);
-    else
-        len = 0;
-    if ((v = allocate_values(1, len+1)) == NULL) {
-        if( mods != NULL ) {
-            free_modifications( mods, 0 );
-            mods = NULL;
+        if(uid != NULL){
+            if (uid != NULL && PL_strlen(uid) > 0)
+                len = PL_strlen(uid);
+            else
+                len = 0;
+            if ((v = allocate_values(1, len+1)) == NULL) {
+                if( mods != NULL ) {
+                    free_modifications( mods, 0 );
+                    mods = NULL;
+                }
+                return -1;
+            }
+            mods[k]->mod_op = LDAP_MOD_REPLACE;
+            mods[k]->mod_type = "tokenUserID";
+            if (uid != NULL && PL_strlen(uid) > 0)
+                PL_strcpy(v[0], uid);
+            else
+                v[0] = "";
+            mods[k]->mod_values = v;
+            k++;
         }
-        return -1;
-    }
-    mods[k]->mod_op = LDAP_MOD_REPLACE;
-    mods[k]->mod_type = "tokenUserID";
-    if (uid != NULL && PL_strlen(uid) > 0)
-        PL_strcpy(v[0], uid);
-    else
-        v[0] = "";
-    mods[k]->mod_values = v;
-    k++;
+
 
         if (status != NULL && PL_strlen(status) > 0) {
             len = PL_strlen(status);
@@ -1433,6 +1447,7 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
         }
 
     /* for tokenReason */
+        if (reason != NULL){
     if (reason != NULL && PL_strlen(reason) > 0)
         len = PL_strlen(reason);
     else
@@ -1452,7 +1467,7 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
         v[0] = "";
     mods[k]->mod_values = v;
     k++;
-
+        }
     /* for keyinfo */
     if (keyInfo != NULL) {
         if (keyInfo != NULL && PL_strlen(keyInfo) > 0)
@@ -1498,6 +1513,8 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid, char *cn, const char *u
         mods[k]->mod_values = v;
         k++;
     }
+
+        mods[k] = NULL;
 
         for (tries = 0; tries < MAX_RETRIES; tries++) {
             if ((rc = ldap_modify_ext_s(ld, dn, mods, NULL, NULL)) == LDAP_SUCCESS) {
@@ -2058,10 +2075,15 @@ int add_new_tus_db_entry (const char *userid, char *cn, const char *uid, int fla
     policy_values[0] = defaultPolicy;
     policy_values[1] = NULL;
 
+    /**
+     * PAS Modification
+     * Wrapped all input values with null test to prevent LDAP errors
+     *
+     */
     if (uid != NULL) uid_values[0] = ( char * ) uid;
     if (key_info != NULL) key_info_values[0] = key_info;
-    status_values[0] = ( char * ) status;
-    token_type_values[0] = ( char *) token_type;
+    if (status != NULL) status_values[0] = ( char * ) status;
+    if (token_type != NULL) token_type_values[0] = ( char *) token_type;
 
     a01.mod_op = 0;
     a01.mod_type = TOKEN_ID;

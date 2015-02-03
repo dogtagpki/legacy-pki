@@ -97,6 +97,9 @@ extern "C"
 #endif
 #endif
 
+#define MAX_OP_PREFIX_LENGTH 50
+#define MAX_TOKEN_TYPE_LENGTH 50
+
 /**
  * Constructs a base processor.
  */
@@ -302,7 +305,7 @@ int RA_Processor::UpgradeApplet(RA_Session *session, char *prefix, char *tokenTy
 		NameValueSet *extensions,
 		int start_progress,
 		int end_progress, 
-                char **key_version)
+                char **key_version, Buffer &CUID)
 {
         Buffer *NetKeyAID = RA::GetConfigStore()->GetConfigAsBuffer(
 			RA::CFG_APPLET_NETKEY_INSTANCE_AID,
@@ -390,7 +393,7 @@ int RA_Processor::UpgradeApplet(RA_Session *session, char *prefix, char *tokenTy
     defKeyVer = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
     PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
     defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-	channel = SetupSecureChannel(session, defKeyVer, defKeyIndex, security_level, connid);
+	channel = SetupSecureChannel(session, defKeyVer, defKeyIndex, security_level, connid, CUID, prefix, tokenType);
 	if (channel == NULL) {
              RA::Error(LL_PER_PDU, "RA_Processor::UpgradeApplet", 
 		  "channel creation failure");
@@ -1395,11 +1398,19 @@ loser:
 /*
  * this one sets the security level
  */
+
+/**
+ * PAS Modification
+ *
+ * Added Buffer CUID
+ * Added const char *opPrefix
+ * Added const char *tokenType
+ */
 Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session, 
      BYTE key_version, BYTE key_index, SecurityLevel security_level,
-     const char *connId)
+     const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType)
 {
-    Secure_Channel *channel = SetupSecureChannel(session, key_version, key_index, connId);
+    Secure_Channel *channel = SetupSecureChannel(session, key_version, key_index, connId, CUID, opPrefix, tokenType);
     RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel","Resetting security level ...");
 
     /* Bugscape Bug #55774: Prevent NetKey RA from crashing . . . */
@@ -1534,8 +1545,16 @@ loser:
 /**
  * Setup secure channel between RA and the token.
  */
+
+/**
+ * PAS Modification
+ *
+ * Added Buffer CUID
+ * Added const char *opPrefix
+ * Added const char *tokenType
+ */
 Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session, 
-     BYTE key_version, BYTE key_index, const char *connId)
+     BYTE key_version, BYTE key_index, const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType)
 {
     Secure_Channel *channel = NULL;
     APDU_Response *initialize_update_response = NULL;
@@ -1648,11 +1667,12 @@ Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session,
 
     channel = GenerateSecureChannel(
         session, connId,
+        CUID,
         key_diversification_data,
         key_info_data,
         card_challenge,
         card_cryptogram,
-        host_challenge);
+        host_challenge, opPrefix, tokenType);
 
 loser:
     if( initialize_update_request_msg != NULL ) {
@@ -1853,11 +1873,14 @@ loser:
  */
 Secure_Channel *RA_Processor::GenerateSecureChannel(
     RA_Session *session, const char *connId,
-    Buffer &key_diversification_data, /* CUID */
+    Buffer &CUID, /* CUID */
+    Buffer &key_diversification_data, /* KDD */
     Buffer &key_info_data,
     Buffer &card_challenge,
     Buffer &card_cryptogram,
-    Buffer &host_challenge)
+    Buffer &host_challenge,
+    const char *opPrefix,
+    const char *tokenType)
 {
     PK11SymKey *session_key = NULL;
     Buffer *host_cryptogram = NULL;
@@ -1874,7 +1897,67 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
     char *kek_desKey_s = NULL;
     char *keycheck_s = NULL;
 
-    session_key = RA::ComputeSessionKey(session, key_diversification_data, 
+    /**
+     * PAS modification
+     * New configuration value to enable verification that the CUID matches the KDD, default disabled
+     * Return with NULL if CUID does not match KDD
+     */
+
+
+      PR_snprintf(configname, 256, "%s.%s.cuidMustMatchKDD", opPrefix, tokenType);
+      if(RA::GetConfigStore()->GetConfigAsBool(configname, 0)){
+          if(checkCUIDMatchesKDD(CUID, key_diversification_data, opPrefix) < 0){
+              return NULL;
+          }
+      }
+
+      /**
+       * PAS modification
+       * New configuration values to enforce a bound/range for GP key version for put key operation.
+       * Return with NULL if the cards current key version is not inside the GPKeyVersion range
+       */
+
+      PR_snprintf(configname, 256, "%s.%s.enableBoundedGPKeyVersion", opPrefix, tokenType);
+      if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
+
+          if(checkCardGPKeyVersionIsInRange(CUID, key_diversification_data, key_info_data, opPrefix, tokenType) < 0){
+              return NULL;
+          }
+
+
+      }
+
+      /**
+       * PAS modification
+       * New configuration value to validate the KeyInfo value obtained from INITIALIZE UPDATE RESPONSE matches what is in the Token DB for a known token, default enabled
+       * Return with NULL if the KeyInfo value does not match what is in the Token DB
+       *
+       */
+
+
+      PR_snprintf(configname, 256, "%s.%s.validateCardKeyInfoAgainstTokenDB", opPrefix, tokenType);
+
+      if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
+
+          if(checkCardGPKeyVersionMatchesTokenDB(CUID, key_diversification_data, key_info_data, opPrefix, tokenType) < 0){
+              return NULL;
+          }
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    session_key = RA::ComputeSessionKey(session, CUID, key_diversification_data,
                                         key_info_data, card_challenge,
                                         host_challenge, &host_cryptogram, 
 		                                card_cryptogram, &enc_session_key,
@@ -1964,8 +2047,30 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
     return channel;
 } /* GenerateSecureChannel */
 
-int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version, 
-  Buffer &NewMasterVer, Buffer &out, const char *connid)
+/**
+ *
+ * CreateKeySetData
+ * Try to create a new GP key set for the token
+ * This function can check that the CUID from GET DATA and KDD from INITIALIZE UPDATE RESPONSE are the same, by default this is disabled
+ * This function can check that the KeyInfo from INITIALIZE UPDATE RESPONSE matches the KeyInfo stored in the Token DB for a known token, by default this is enabled
+ * On successful key set creation, this function will update the Token DB with the new KeyInfo information for the token.
+ * If an entry in the database does not exist, the Token DB update function adds a new record.
+ * Only KeyInfo information is added or updated in this function
+ * Returns < 0 on failure for keyset creation or token DB update
+ *
+ */
+
+/**
+ * PAS modifications
+ * Added arguments opPrefix and tokenType to support per operation and per card configuration settings.
+ * Added argument KDD to fix communication semantics with TKS.  previously TKS received a CUID HTTP parameter which was actually the KDD.  This function now sends both CUID and KDD to TKS.
+ * New configuration value [opPrefix].[tokenType].cuidMustMatchKDD, default to false
+ * New configuration value [opPrefix].[tokenType].validateCardKeyInfoAgainstTokenDB, default to true
+ * New configuration value [opPrefix].[tokenType].enableBoundedGPKeyVersion, default to true
+ */
+
+int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &KDD, Buffer &version,
+  Buffer &NewMasterVer, Buffer &out, const char *connid, const char *opPrefix, const char *tokenType)
 {
     char body[5000];
     char configname[256];
@@ -1976,10 +2081,60 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
         RA::Error(LL_PER_PDU, "RA_Processor::CreateKeySetData", "Failed to get TKSConnection %s", connid);
         return -1;
     } else {
+
+        /**
+         * PAS modification
+         * New configuration value to enable verification that the CUID matches the KDD, default disabled
+         * Return with -1 if CUID does not match KDD
+         */
+
+
+        PR_snprintf(configname, 256, "%s.%s.cuidMustMatchKDD", opPrefix, tokenType);
+        if(RA::GetConfigStore()->GetConfigAsBool(configname, 0)){
+            if(checkCUIDMatchesKDD(CUID, KDD, opPrefix) < 0){
+                return -1;
+            }
+        }
+
+        /**
+         * PAS modification
+         * New configuration values to enforce a bound/range for GP key version for put key operation.
+         * Return with -1 if the cards current key version is not inside the GPKeyVersion range
+         */
+
+        PR_snprintf(configname, 256, "%s.%s.enableBoundedGPKeyVersion", opPrefix, tokenType);
+        if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
+
+            if(checkCardGPKeyVersionIsInRange(CUID, KDD, version, opPrefix, tokenType) < 0){
+                return -1;
+            }
+
+
+        }
+
+        /**
+         * PAS modification
+         * New configuration value to validate the KeyInfo value obtained from INITIALIZE UPDATE RESPONSE matches what is in the Token DB for a known token, default enabled
+         * Return with -1 if the KeyInfo value from KDD does not match what is in the Token DB
+         *
+         */
+
+
+        PR_snprintf(configname, 256, "%s.%s.validateCardKeyInfoAgainstTokenDB", opPrefix, tokenType);
+
+        if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
+
+            if(checkCardGPKeyVersionMatchesTokenDB(CUID, KDD, version, opPrefix, tokenType) < 0){
+                return -1;
+            }
+        }
+
+
         // PRLock *tks_lock = RA::GetTKSLock();
         int tks_curr = RA::GetCurrentIndex(tksConn);
         int currRetries = 0;
         char *cuid = Util::SpecialURLEncode(CUID);
+        char *kdd = Util::SpecialURLEncode(KDD);
         char *versionID = Util::SpecialURLEncode(version);
         char *masterV = Util::SpecialURLEncode(NewMasterVer);
 
@@ -1987,7 +2142,7 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
         const char *keySet = RA::GetConfigStore()->GetConfigAsString(configname);
 
         PR_snprintf((char *)body, 5000,
-           "newKeyInfo=%s&CUID=%s&KeyInfo=%s&keySet=%s", masterV, cuid, versionID,keySet);
+           "newKeyInfo=%s&CUID=%s&KDD=%s&KeyInfo=%s&keySet=%s", masterV, cuid, kdd, versionID, keySet);
 
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.createKeySetData", connid);
         const char *servletID = RA::GetConfigStore()->GetConfigAsString(configname);
@@ -1995,6 +2150,10 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
         if( cuid != NULL ) {
             PR_Free( cuid );
             cuid = NULL;
+        }
+        if( kdd != NULL ){
+            PR_Free( kdd );
+            kdd = NULL;
         }
         if( versionID != NULL ) {
             PR_Free( versionID );
@@ -2107,8 +2266,60 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
 	if (tksConn != NULL) {
             RA::ReturnTKSConn(tksConn);
 	}
+
+
+    /**
+     * PAS modification
+     * If creating a new keyset is successful. Prior to returning, update the Token DB with the new KeyInfo data.
+     * The thought here is to record that TPS/TKS has generated cryptographic keys for a token and record this fact prior to sending the keys over the wire to the token
+     *
+     */
+
+
+    int rc = 0;
+
+    char *pcharCUID = Util::Buffer2String(CUID);
+
+    char *pcharNewMasterVersion = Util::Buffer2String(NewMasterVer);
+
+    rc = RA::tdb_update(NULL, pcharCUID, NULL, pcharNewMasterVersion, NULL, NULL, NULL);
+
+    RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", pcharCUID, "", pcharNewMasterVersion, "", "", "", "successfully updated tokenDB to new key version");
+
+    if (rc < 0) {
+        RA::Debug(LL_PER_PDU, "RA_Processor::CreateKeySetData","Failed to update the token database with new key version");
+
+        RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", pcharCUID, "", pcharNewMasterVersion, "", "", "", "failed to update tokenDB to new key version");
+
+        if( pcharNewMasterVersion != NULL){
+            PR_Free(pcharNewMasterVersion);
+            pcharNewMasterVersion = NULL;
+        }
+
+        if ( pcharCUID != NULL){
+            PR_Free(pcharCUID);
+            pcharCUID = NULL;
+        }
+
+        return -1;
+    }
+
+    if( pcharNewMasterVersion != NULL){
+        PR_Free(pcharNewMasterVersion);
+        pcharNewMasterVersion = NULL;
+    }
+
+    if ( pcharCUID != NULL){
+        PR_Free(pcharCUID);
+        pcharCUID = NULL;
+    }
+
+
+
         return 1;
     }
+
+    /**
         BYTE kek_key[] = {
                 0x40, 0x41, 0x42, 0x43,
                 0x44, 0x45, 0x46, 0x47,
@@ -2138,14 +2349,576 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
 	if (tksConn != NULL) {
 		RA::ReturnTKSConn(tksConn);
 	}
+
+
+
+
    return 1;
+
+   */
+}
+
+
+/**
+ * PAS modification
+ * New function to enable verification that the CUID matches the KDD, default disabled
+ * Return with -1 if CUID does not match KDD, pcharOpPrefix is NULL, or pcharOpPrefix is character count is greater than 50
+ */
+int RA_Processor::checkCUIDMatchesKDD(Buffer &bufCUID, Buffer &bufKDD, const char* pcharOpPrefix){
+
+    char *pcharCUID = NULL;
+    char *pcharKDD = NULL;
+    char charArrayAuditMsg[500];
+
+
+    if(pcharOpPrefix == NULL){
+
+    	RA::Debug("RA_Processor::checkCUIDMatchesKDD", "Argument pcharOpPrefix is NULL.");
+
+    	return -1;
+
+    }
+
+
+    if(PL_strlen(pcharOpPrefix) > MAX_OP_PREFIX_LENGTH){
+
+ 	   RA::Debug("RA_Processor::checkCUIDMatchesKDD", "opPrefix is longer than 50 characters.");
+
+ 	   return -1;
+
+    }
+
+
+    if(bufCUID != bufKDD){
+
+        pcharCUID = Util::Buffer2String(bufCUID);
+        pcharKDD = Util::Buffer2String(bufKDD);
+
+        PR_snprintf(charArrayAuditMsg, 500, "CUID: %s does not equal KDD: %s", pcharCUID, pcharKDD);
+        RA::Debug("RA_Processor::checkCUIDMatchesKDD", charArrayAuditMsg);
+        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, pcharKDD, "failure", pcharOpPrefix, "", "", "", charArrayAuditMsg);
+        RA::tdb_activity("", pcharCUID, pcharOpPrefix, "failure", charArrayAuditMsg, "", "");
+
+        if (pcharCUID != NULL){
+            PR_Free(pcharCUID);
+            pcharCUID = NULL;
+        }
+
+        if (pcharKDD != NULL){
+            PR_Free(pcharKDD);
+            pcharKDD = NULL;
+        }
+
+        return -1;
+
+    }
+
+    return 0;
+
+}
+
+/**
+ * PAS modification
+ * New function to validate the KeyInfo value obtained from INITIALIZE UPDATE RESPONSE matches what is in the Token DB for a known token
+ * Return with -1 if the KeyInfo value from KDD does not match what is in the Token DB
+ */
+int RA_Processor::checkCardGPKeyVersionMatchesTokenDB(Buffer &bufCUID, Buffer &bufKDD, Buffer &bufCardSuppliedKeyInfo, const char *pcharOpPrefix, const char *pcharTokenType){
+
+    char *pcharCardSuppliedKeyInfo = NULL;
+    char *pcharCUID = NULL;
+    char *pcharKDD = NULL;
+    char *pcharNewMasterVersion = NULL;
+    char *pcharCardDatabaseKeyInfo = NULL;
+    char charArrayAuditMsg[500];
+    Buffer *pbufCardDatabaseKeyInfo = NULL;
+
+
+    if(pcharOpPrefix == NULL){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Argument pcharOpPrefix is NULL.");
+
+    	return -1;
+
+    }
+
+
+    if(PL_strlen(pcharOpPrefix) > MAX_OP_PREFIX_LENGTH){
+
+ 	   RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "opPrefix is longer than 50 characters.");
+
+ 	   return -1;
+
+    }
+
+
+    if(pcharTokenType == NULL){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Argument pcharTokenType is NULL.");
+
+    	return -1;
+
+    }
+
+   if(PL_strlen(pcharTokenType) > MAX_TOKEN_TYPE_LENGTH){
+
+	   RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "TokenType is longer than 50 characters.  Check configuration file for token type %s", pcharTokenType);
+
+	   return -1;
+
+   }
+
+
+
+                pcharCUID = Util::Buffer2String(bufCUID);
+
+                if(RA::ra_is_token_present(pcharCUID)){ //is token present?
+
+                    if((pcharCardDatabaseKeyInfo = RA::ra_get_key_info(pcharCUID)) == NULL){ //get key info from database as char *
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "RA::ra_get_key_info returned NULL for %s but %s is present in database", pcharCUID);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "failure", pcharOpPrefix, "", "", "", "RA::ra_get_key_info returned NULL but token CUID is present in database");
+
+
+                        if(pcharCUID != NULL)
+                            PR_Free(pcharCUID);
+                        pcharCUID = NULL;
+
+                        return -1;
+
+                    }
+
+
+                    if((pcharCardSuppliedKeyInfo = Util::Buffer2String(bufCardSuppliedKeyInfo)) == NULL){ //convert what was supplied from the card to a char * for printing to various log messages
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Converting cardSuppliedKeyInfo to char * failed");
+
+
+                        if(pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+                        }
+
+                        if(pcharCardDatabaseKeyInfo != NULL){
+                            PL_strfree(pcharCardDatabaseKeyInfo);
+                            pcharCardDatabaseKeyInfo = NULL;
+                        }
+
+                        return -1;
+
+                    }
+
+                    RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Card %s claims keyinfo of: %s, tokenDB has %s", pcharCUID, pcharCardSuppliedKeyInfo, pcharCardDatabaseKeyInfo);
+
+
+                    if((pbufCardDatabaseKeyInfo = Util::Str2Buf(pcharCardDatabaseKeyInfo)) == NULL){ //this uses hex2bin to convert a char * of hex values to a buffer
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Converting pcharCardDatabaseKeyInfo to buffer failed");
+
+                        if(pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+                        }
+
+                        if(pcharCardSuppliedKeyInfo != NULL){
+                            PR_Free(pcharCardSuppliedKeyInfo);
+                            pcharCardSuppliedKeyInfo = NULL;
+                        }
+
+                        if(pcharCardDatabaseKeyInfo != NULL){
+                            PL_strfree(pcharCardDatabaseKeyInfo);
+                            pcharCardDatabaseKeyInfo = NULL;
+                        }
+
+                        return -1;
+                    }
+
+
+
+
+
+                    if((*pbufCardDatabaseKeyInfo) != bufCardSuppliedKeyInfo){
+
+                        PR_snprintf(charArrayAuditMsg, 500, "Card claimed key info: %s does not match Card DB key info: %s", pcharCardSuppliedKeyInfo, pcharCardDatabaseKeyInfo);
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", charArrayAuditMsg);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "failure", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", pcharCardDatabaseKeyInfo, charArrayAuditMsg);
+                        RA::tdb_activity("", pcharCUID, pcharOpPrefix, "failure", charArrayAuditMsg, "", pcharTokenType);
+
+
+                        if(pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+                        }
+
+                        if(pcharCardSuppliedKeyInfo != NULL){
+                            PR_Free(pcharCardSuppliedKeyInfo);
+                            pcharCardSuppliedKeyInfo = NULL;
+                        }
+
+                        if(pcharCardDatabaseKeyInfo != NULL){
+                            PL_strfree(pcharCardDatabaseKeyInfo);
+                            pcharCardDatabaseKeyInfo = NULL;
+                        }
+
+                        if(pbufCardDatabaseKeyInfo != NULL){
+                            delete pbufCardDatabaseKeyInfo;
+                            pbufCardDatabaseKeyInfo = NULL;
+                        }
+
+                        return -1;
+
+                    }else{
+
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Card %s claimed key info: %s matches tokenDB key info: %s", pcharCUID, pcharCardSuppliedKeyInfo, pcharCardDatabaseKeyInfo);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "success", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", pcharCardDatabaseKeyInfo, "Card GP key info matches TokenDB GP key info.");
+
+
+
+                    }
+
+                    if(pcharCUID != NULL){
+                        PR_Free(pcharCUID);
+                        pcharCUID = NULL;
+                    }
+
+                    if(pcharCardSuppliedKeyInfo != NULL){
+                        PR_Free(pcharCardSuppliedKeyInfo);
+                        pcharCardSuppliedKeyInfo = NULL;
+                    }
+
+                    if(pcharCardDatabaseKeyInfo != NULL){
+                        PL_strfree(pcharCardDatabaseKeyInfo);
+                        pcharCardDatabaseKeyInfo = NULL;
+                    }
+
+                    if(pbufCardDatabaseKeyInfo != NULL){
+                        delete pbufCardDatabaseKeyInfo;
+                        pbufCardDatabaseKeyInfo = NULL;
+                    }
+
+
+                }
+
+                return 0;
+
+}
+
+/**
+ * PAS modificationconfiguration values
+ * New function to enforce a bound/range for GP key version.
+ * Return with -1 if the cards current key version is not inside the GPKeyVersion range, or on error
+ */
+int RA_Processor::checkCardGPKeyVersionIsInRange(Buffer &bufCUID, Buffer &bufKDD, Buffer &bufCardSuppliedKeyInfo, const char *pcharOpPrefix, const char *pcharTokenType){
+
+    char configname[256];
+    char charArrayAuditMsg[500];
+    char *pcharCardSuppliedKeyInfo = NULL;
+    char *pcharCUID = NULL;
+    char *pcharKDD = NULL;
+    char *pcharNewMasterVersion = NULL;
+    char *pcharCardDatabaseKeyInfo = NULL;
+    Buffer *pbufCfgMinGPKeyVersion = NULL;
+    Buffer *pbufCfgMaxGPKeyVersion = NULL;
+    Buffer *pbufCardDatabaseKeyInfo = NULL;
+    unsigned char charCfgMinGPKeyVersion;
+    unsigned char charCfgMaxGPKeyVersion;
+    unsigned char charCardGPKeyVersion;
+
+
+    if(pcharOpPrefix == NULL){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "Argument pcharOpPrefix is NULL.");
+
+    	return -1;
+
+    }
+
+
+    if(PL_strlen(pcharOpPrefix) > MAX_OP_PREFIX_LENGTH){
+
+ 	   RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "opPrefix is longer than 50 characters.");
+
+ 	   return -1;
+
+    }
+
+
+    if(pcharTokenType == NULL){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "Argument pcharTokenType is NULL.");
+
+    	return -1;
+
+    }
+
+    if(PL_strlen(pcharTokenType) > MAX_TOKEN_TYPE_LENGTH){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "TokenType is longer than 50 characters.  Check configuration file for token type %s", pcharTokenType);
+
+    	return -1;
+
+    }
+
+
+
+                //read min/maxGPKeyVersion configuration value in as a buffer.  This supports defining key version values hex values to align with how key version is sent by cards.
+                PR_snprintf(configname, 256, "%s.%s.minimumGPKeyVersion", pcharOpPrefix, pcharTokenType);
+                pbufCfgMinGPKeyVersion = RA::GetConfigStore()->GetConfigAsBuffer(configname, "01");
+
+                PR_snprintf(configname, 256, "%s.%s.maximumGPKeyVersion", pcharOpPrefix, pcharTokenType);//a hack to support safenet's 0xFF initial key version
+                pbufCfgMaxGPKeyVersion = RA::GetConfigStore()->GetConfigAsBuffer(configname, "FF");
+
+                if(pbufCfgMinGPKeyVersion != NULL && pbufCfgMaxGPKeyVersion != NULL){
+
+                    if(pbufCfgMinGPKeyVersion->size() != 1){ //the buffer returned from the config file is larger than expected.  we expect [KeyVersion] only, so 1 byte
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "minimumGPKeyVersion defined in %s.%s.minimumGPKeyVersion appears to be %i bytes, should be only 1 byte (2 asciihex characters)", pcharOpPrefix, pcharTokenType, pbufCfgMinGPKeyVersion->size());
+
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+                        return -1;
+                    }
+
+                    if(pbufCfgMaxGPKeyVersion->size() != 1){ //the buffer returned from the config file is larger than expected.  we expect [KeyVersion] only, so 1 byte
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "maximumGPKeyVersion defined in %s.%s.maximumGPKeyVersion appears to be %i bytes, should be only 1 byte (2 asciihex characters)", pcharOpPrefix, pcharTokenType, pbufCfgMaxGPKeyVersion->size());
+
+
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+                        return -1;
+                    }
+
+                    //initial cuid for printing (yet again)
+                    pcharCUID = Util::Buffer2String(bufCUID);
+
+                    //min/max and card Key Version as a byte
+                    charCfgMinGPKeyVersion = ((BYTE *)(*pbufCfgMinGPKeyVersion))[0];
+                    charCfgMaxGPKeyVersion = ((BYTE *)(*pbufCfgMaxGPKeyVersion))[0];
+                    charCardGPKeyVersion = ((BYTE *)bufCardSuppliedKeyInfo)[0];
+
+                    if(charCardGPKeyVersion < charCfgMinGPKeyVersion){
+
+                        if((pcharCardSuppliedKeyInfo = Util::Buffer2String(bufCardSuppliedKeyInfo)) == NULL){
+                            if (pbufCfgMinGPKeyVersion != NULL){
+                                delete pbufCfgMinGPKeyVersion;
+                                pbufCfgMinGPKeyVersion = NULL;
+                            }
+
+                            if (pbufCfgMaxGPKeyVersion != NULL){
+                                delete pbufCfgMaxGPKeyVersion;
+                                pbufCfgMaxGPKeyVersion = NULL;
+                            }
+
+                            if (pcharCUID != NULL){
+                                PR_Free(pcharCUID);
+                                pcharCUID = NULL;
+
+                            }
+
+                            return -1;
+                        }
+
+                        PR_snprintf(charArrayAuditMsg, 500, "Token %s is less than minimum GP key version %x, token key version is %x", pcharCUID, charCfgMinGPKeyVersion, charCardGPKeyVersion);
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", charArrayAuditMsg);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "failure", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", "", charArrayAuditMsg);
+                        RA::tdb_activity("", pcharCUID, pcharOpPrefix, "failure", charArrayAuditMsg, "", pcharTokenType);
+
+                        if(pcharCardSuppliedKeyInfo != NULL){
+                            PR_Free(pcharCardSuppliedKeyInfo);
+                            pcharCardSuppliedKeyInfo = NULL;
+                        }
+
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+                        if (pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+
+                        }
+
+
+                        return -1;
+
+                    }else{
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "Token %s is greater than minimum key version %x, and is at key version %x ", pcharCUID, charCfgMinGPKeyVersion, charCardGPKeyVersion);
+
+
+                    }
+
+
+                    if(charCardGPKeyVersion > charCfgMaxGPKeyVersion){
+
+
+                        if((pcharCardSuppliedKeyInfo = Util::Buffer2String(bufCardSuppliedKeyInfo)) == NULL){
+                            if (pbufCfgMinGPKeyVersion != NULL){
+                                delete pbufCfgMinGPKeyVersion;
+                                pbufCfgMinGPKeyVersion = NULL;
+                            }
+
+                            if (pbufCfgMaxGPKeyVersion != NULL){
+                                delete pbufCfgMaxGPKeyVersion;
+                                pbufCfgMaxGPKeyVersion = NULL;
+                            }
+
+                            if (pcharCUID != NULL){
+                                PR_Free(pcharCUID);
+                                pcharCUID = NULL;
+
+                            }
+
+                            return -1;
+                        }
+
+                        PR_snprintf(charArrayAuditMsg, 500, "Token %s is greater than maximum key version %x, token key version is %x", pcharCUID, charCfgMaxGPKeyVersion, charCardGPKeyVersion);
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", charArrayAuditMsg);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "failure", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", "", charArrayAuditMsg);
+                        RA::tdb_activity("", pcharCUID, pcharOpPrefix, "failure", charArrayAuditMsg, "", pcharTokenType);
+
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+
+                        if(pcharCardSuppliedKeyInfo != NULL){
+                            PR_Free(pcharCardSuppliedKeyInfo);
+                            pcharCardSuppliedKeyInfo = NULL;
+                        }
+
+                        if (pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+
+                        }
+
+                        return -1;
+
+                    }else{
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "Token %s is not greater than maximum key version %x, and is at key version %x ", pcharCUID, charCfgMaxGPKeyVersion, charCardGPKeyVersion);
+
+                    }
+
+                    if((pcharCardSuppliedKeyInfo = Util::Buffer2String(bufCardSuppliedKeyInfo)) == NULL){
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+                        if (pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+
+                        }
+
+                        return -1;
+                    }
+
+
+                    RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "success", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", "", "Token GP key version is within GP key version range.");
+
+
+                    if(pcharCardSuppliedKeyInfo != NULL){
+                        PR_Free(pcharCardSuppliedKeyInfo);
+                        pcharCardSuppliedKeyInfo = NULL;
+                    }
+
+                    if (pbufCfgMinGPKeyVersion != NULL){
+                        delete pbufCfgMinGPKeyVersion;
+                        pbufCfgMinGPKeyVersion = NULL;
+                    }
+
+                    if (pbufCfgMaxGPKeyVersion != NULL){
+                        delete pbufCfgMaxGPKeyVersion;
+                        pbufCfgMaxGPKeyVersion = NULL;
+                    }
+
+                    if (pcharCUID != NULL){
+                        PR_Free(pcharCUID);
+                        pcharCUID = NULL;
+
+                    }
+
+
+                }else{
+
+                    //either minKeyVerion or bufCfgMaxGPKeyVersion was not correctly retrieved from RA::ConfigStore
+
+                    RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange","pbufCfgMinGPKeyVersion is %s and pbufCfgMaxGPKeyVersion is %s", (pbufCfgMinGPKeyVersion == NULL)? "null":"not null", (pbufCfgMaxGPKeyVersion == NULL)?"null":"not null");
+
+                    if (pbufCfgMinGPKeyVersion != NULL){
+                        delete pbufCfgMinGPKeyVersion;
+                        pbufCfgMinGPKeyVersion = NULL;
+                    }
+
+                    if (pbufCfgMaxGPKeyVersion != NULL){
+                        delete pbufCfgMaxGPKeyVersion;
+                        pbufCfgMaxGPKeyVersion = NULL;
+                    }
+
+                    if (pcharCUID != NULL){
+                        PR_Free(pcharCUID);
+                        pcharCUID = NULL;
+
+                    }
+
+                    return -1;
+
+                }
+
+
+        return 0;
+
+
+
 }
 
 
 /**
  * Input data wrapped by KEK key in TKS.
  */
-int RA_Processor::EncryptData(Buffer &CUID, Buffer &version, Buffer &in, Buffer &out, const char *connid)
+
+/**
+ * PAS Modification
+ * Added KDD argument to allow TKS the ability to decide between CUID or KDD for KDF seed
+ * Added CUID and KDD http parameters to send to TKS
+ *
+ */
+int RA_Processor::EncryptData(Buffer &CUID, Buffer &KDD, Buffer &version, Buffer &in, Buffer &out, const char *connid)
 {
     char body[5000];
     char configname[256];
@@ -2181,19 +2954,24 @@ int RA_Processor::EncryptData(Buffer &CUID, Buffer &version, Buffer &in, Buffer 
         }
 
         char *cuid = Util::SpecialURLEncode(CUID);
+        char *kdd = Util::SpecialURLEncode(KDD);
         char *versionID = Util::SpecialURLEncode(version);
 
         PR_snprintf((char *)configname, 256, "conn.%s.keySet", connid);
         const char *keySet = RA::GetConfigStore()->GetConfigAsString(configname);
 
-        PR_snprintf((char *)body, 5000, "data=%s&CUID=%s&KeyInfo=%s&keySet=%s",
-          ((data != NULL)? data:""), cuid, versionID,keySet);
+        PR_snprintf((char *)body, 5000, "data=%s&CUID=%s&KDD=%s&KeyInfo=%s&keySet=%s",
+          ((data != NULL)? data:""), cuid, kdd, versionID, keySet);
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.encryptData", connid);
         const char *servletID = RA::GetConfigStore()->GetConfigAsString(configname);
 
         if( cuid != NULL ) {
             PR_Free( cuid );
             cuid = NULL;
+        }
+        if( kdd != NULL ) {
+            PR_Free( kdd );
+            kdd = NULL;
         }
         if( versionID != NULL ) {
             PR_Free( versionID );
@@ -3441,7 +4219,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     connid = RA::GetConfigStore()->GetConfigAsString(configname);
     upgrade_rc = UpgradeApplet(session,(char *) OP_PREFIX, (char*)tokenType, major_version, 
       minor_version, expected_version, applet_dir, security_level, connid,
-			       extensions, 10, 90, &keyVersion);
+			       extensions, 10, 90, &keyVersion, token_cuid);
     if (upgrade_rc != 1) {
         RA::Debug("RA_Processor::Format", 
           "applet upgrade failed");
@@ -3500,7 +4278,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
         channel = SetupSecureChannel(session, 0x00,
-                  defKeyIndex  /* default key index */, connid);
+                  defKeyIndex  /* default key index */, connid, token_cuid, OP_PREFIX, tokenType);
 
         if (channel != NULL) {
             char issuer[224];
@@ -3539,7 +4317,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
         channel = SetupSecureChannel(session, requiredV,
-                   defKeyIndex  /* default key index */, tksid);
+                   defKeyIndex  /* default key index */, tksid, token_cuid, OP_PREFIX, tokenType);
         if (channel == NULL) {
             /**
              * Select Card Manager for Put Key operation.
@@ -3560,7 +4338,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
             channel = SetupSecureChannel(session, 
                   defKeyVer,  /* default key version */
-                  defKeyIndex  /* default key index */, tksid);
+                  defKeyIndex  /* default key index */, tksid, token_cuid, OP_PREFIX, tokenType);
  
             if (channel == NULL) {
                 RA::Error("RA_Upgrade_Processor::Process", 
@@ -3587,10 +4365,11 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
             PR_snprintf((char *)configname,  256,"%s.%s.tks.conn", OP_PREFIX, tokenType);
             connid = RA::GetConfigStore()->GetConfigAsString(configname);
             rc = CreateKeySetData(
+                    token_cuid,
               channel->GetKeyDiversificationData(), 
               curKeyInfo,
               newVersion,
-              key_data_set, connid);
+              key_data_set, connid, OP_PREFIX, tokenType);
             if (rc != 1) {
                 RA::Error("RA_Format_Processor::Process", 
                   "failed to create new key set");
@@ -3622,6 +4401,62 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
             curKeyInfoStr = Util::Buffer2String(curKeyInfo);
             newVersionStr = Util::Buffer2String(newVersion);
     
+            /**
+             * PAS Modification
+             * Previously the return code from put keys was not evaluated or recorded on failure
+             * Prior comment block identified the necessity of evaluation and audit logging on failure
+             */
+
+            if(rc < 0){
+                RA::Debug("RA_Processor::Format", "Failed to Put Keys for token %s", cuid);
+                status = STATUS_ERROR_KEY_CHANGE_OVER;
+
+                RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "failure", "format",
+                                            final_applet_version != NULL ? final_applet_version : "", curKeyInfoStr, newVersionStr,
+                                                    "failed to put new GP key set to token");
+
+                // update activity database with entry about put key event
+                RA::tdb_activity(session->GetRemoteIP(), cuid, OP_PREFIX, "failure", "Failed to send new GP Key Set to token", (userid == NULL) ? "" : userid, tokenType);
+
+                /**
+                 * PAS Modification
+                 * New configuration value to permit rollback of KeyInfo in Token DB, default disabled
+                 *
+                 */
+                snprintf((char *)configname, 256, "%s.%s.rollbackKeyVersionOnPutKeyFailure", OP_PREFIX, tokenType);
+                if(RA::GetConfigStore()->GetConfigAsBool(configname, 0)){
+                    rc = RA::tdb_update(NULL, cuid, NULL, curKeyInfoStr, NULL, NULL, NULL);
+                    if (rc < 0) {
+                        RA::Debug(LL_PER_PDU, "RA_Processor::Format","Failed to update the token database with current key version");
+                        status = STATUS_ERROR_UPDATE_TOKENDB_FAILED;  //clobbers the previous failure message :-(
+
+                        RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", cuid, "", curKeyInfoStr, "", "", "", "failed to update tokenDB to current key version");
+
+                        goto loser;
+                    }else{
+
+                        RA::Debug(LL_PER_PDU, "RA_Processor::Format","Successfully updated the token database with current key version");
+                        RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", cuid, "", curKeyInfoStr, "", "", "", "successfully updated tokenDB to current key version");
+
+                    }
+                }
+                goto loser;
+            }else {
+
+
+                RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "success", "format",
+                                            final_applet_version != NULL ? final_applet_version : "", curKeyInfoStr, newVersionStr,
+                                                    "put new GP key set to token");
+
+                RA::tdb_activity(session->GetRemoteIP(), cuid, OP_PREFIX, "success", "Sent new GP Key Set to token", (userid == NULL) ? "" : userid, tokenType);
+
+            }
+
+
+
+
             char curVer[10];
             char newVer[10];
             
@@ -3669,7 +4504,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
 
 
             channel = SetupSecureChannel(session, requiredV,
-              defKeyIndex  /* default key index */, tksid);
+              defKeyIndex  /* default key index */, tksid, token_cuid, OP_PREFIX, tokenType);
             if (channel == NULL) {
                 RA::Error("RA_Format_Processor::Process", 
 			      "failed to establish secure channel after reselect");

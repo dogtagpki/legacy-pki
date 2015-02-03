@@ -1575,6 +1575,7 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 
 PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
                                   Buffer &CUID,
+                                  Buffer &KDD,
                                   Buffer &keyInfo,
                                   Buffer &card_challenge,
                                   Buffer &host_challenge,
@@ -1597,6 +1598,7 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
     char * hostc = NULL;
     char * cardCrypto = NULL;
     char * cuid = NULL;
+    char * kdd = NULL;
     char * keyinfo =  NULL;
     PSHttpResponse *response = NULL;
     HttpConnection *tksConn = NULL;
@@ -1627,6 +1629,7 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
         hostc = Util::SpecialURLEncode(host_challenge);
         cardCrypto = Util::SpecialURLEncode(card_cryptogram);
         cuid = Util::SpecialURLEncode(CUID);
+        kdd = Util::SpecialURLEncode(KDD);
         keyinfo = Util::SpecialURLEncode(keyInfo);
 
         if ((cardc == NULL) || (hostc == NULL) || (cardCrypto == NULL) ||
@@ -1634,8 +1637,8 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
 	    goto loser;
 
         PR_snprintf((char *)body, MAX_BODY_LEN, 
-          "serversideKeygen=%s&CUID=%s&card_challenge=%s&host_challenge=%s&KeyInfo=%s&card_cryptogram=%s&keySet=%s", serverKeygen? "true":"false", cuid, 
-          cardc, hostc, keyinfo, cardCrypto, keySet);
+          "serversideKeygen=%s&CUID=%s&KDD=%s&card_challenge=%s&host_challenge=%s&KeyInfo=%s&card_cryptogram=%s&keySet=%s", serverKeygen? "true":"false", cuid,
+          kdd, cardc, hostc, keyinfo, cardCrypto, keySet);
 
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.computeSessionKey", connId);
         const char *servletID = GetConfigStore()->GetConfigAsString(configname);
@@ -1858,6 +1861,10 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
     if( cuid != NULL ) {
         PR_Free( cuid );
         cuid = NULL;
+    }
+    if( kdd != NULL ){
+        PR_Free( kdd );
+        kdd = NULL;
     }
     if( keyinfo != NULL ) {
         PR_Free( keyinfo );
@@ -2971,6 +2978,53 @@ TPS_PUBLIC char *RA::ra_get_cert_serial(LDAPMessage *entry) {
 TPS_PUBLIC char *RA::ra_get_cert_issuer(LDAPMessage *entry) {
     return get_cert_issuer(entry);
 }
+
+/**
+ *
+ *  Returns a string representation of the key info value from TokenDB, if it exists, otherwise returns NULL
+ *  cuid is the token cuid for key info
+ *
+ */
+
+/**
+ *
+ * PAS Modification
+ * Introduced this function to wrap the get_key_info(LDAPMessage) function in tus_db.c
+ *
+ */
+
+
+TPS_PUBLIC char *RA::ra_get_key_info(char *cuid){
+
+    LDAPMessage *result = NULL;
+    LDAPMessage *e = NULL;
+//    char **v = NULL;
+    char *ret = NULL;
+    int rc = -1;
+
+    if (cuid != NULL && PL_strlen(cuid) > 0) {
+        if ((rc = find_tus_db_entry (cuid, 0, &result)) == LDAP_SUCCESS) {
+            e = get_first_entry (result);
+            if (e != NULL) {
+
+                ret = get_key_info(e);
+
+
+                if(ret == NULL){
+                    RA::Debug("RA::ra_get_key_info", "keyinfo for %s is NULL!", cuid);
+                }
+
+            }
+            if( result != NULL ) {
+                free_results( result );
+                result = NULL;
+            }
+        }
+    }
+    return ret;
+
+}
+
 
 TPS_PUBLIC int RA::ra_tus_has_active_tokens(char *userid) {
     return tus_has_active_tokens(userid);
