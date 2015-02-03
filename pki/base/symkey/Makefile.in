@@ -94,6 +94,7 @@ am_libsymkey_la_OBJECTS =  \
 	src/com/netscape/symkey/libsymkey_la-Buffer.lo \
 	src/com/netscape/symkey/libsymkey_la-EncryptData.lo \
 	src/com/netscape/symkey/libsymkey_la-SessionKey.lo \
+	src/com/netscape/symkey/libsymkey_la-NistSP800_108KDF.lo \
 	src/com/netscape/symkey/libsymkey_la-SymKey.lo
 libsymkey_la_OBJECTS = $(am_libsymkey_la_OBJECTS)
 symkey_jarSCRIPT_INSTALL = $(INSTALL_SCRIPT)
@@ -320,6 +321,7 @@ symkey_jar_SCRIPTS = $(srcdir)/build/jars/symkey.jar
 libsymkey_la_SOURCES = src/com/netscape/symkey/Buffer.cpp              \
 						src/com/netscape/symkey/EncryptData.cpp         \
 						src/com/netscape/symkey/SessionKey.cpp          \
+						src/com/netscape/symkey/NistSP800_108KDF.cpp    \
 						src/com/netscape/symkey/SymKey.cpp
 
 libsymkey_la_CPPFLAGS = $(AM_CPPFLAGS) @nss_inc@ @nspr_inc@
@@ -424,6 +426,9 @@ src/com/netscape/symkey/libsymkey_la-EncryptData.lo:  \
 src/com/netscape/symkey/libsymkey_la-SessionKey.lo:  \
 	src/com/netscape/symkey/$(am__dirstamp) \
 	src/com/netscape/symkey/$(DEPDIR)/$(am__dirstamp)
+src/com/netscape/symkey/libsymkey_la-NistSP800_108KDF.lo:  \
+	src/com/netscape/symkey/$(am__dirstamp) \
+	src/com/netscape/symkey/$(DEPDIR)/$(am__dirstamp)
 src/com/netscape/symkey/libsymkey_la-SymKey.lo:  \
 	src/com/netscape/symkey/$(am__dirstamp) \
 	src/com/netscape/symkey/$(DEPDIR)/$(am__dirstamp)
@@ -455,6 +460,8 @@ mostlyclean-compile:
 	-rm -f src/com/netscape/symkey/libsymkey_la-Buffer.lo
 	-rm -f src/com/netscape/symkey/libsymkey_la-EncryptData.$(OBJEXT)
 	-rm -f src/com/netscape/symkey/libsymkey_la-EncryptData.lo
+	-rm -f src/com/netscape/symkey/libsymkey_la-NistSP800_108KDF.$(OBJEXT)
+	-rm -f src/com/netscape/symkey/libsymkey_la-NistSP800_108KDF.lo
 	-rm -f src/com/netscape/symkey/libsymkey_la-SessionKey.$(OBJEXT)
 	-rm -f src/com/netscape/symkey/libsymkey_la-SessionKey.lo
 	-rm -f src/com/netscape/symkey/libsymkey_la-SymKey.$(OBJEXT)
@@ -465,6 +472,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-Buffer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-EncryptData.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-NistSP800_108KDF.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-SessionKey.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-SymKey.Plo@am__quote@
 
@@ -512,6 +520,13 @@ src/com/netscape/symkey/libsymkey_la-SessionKey.lo: src/com/netscape/symkey/Sess
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/netscape/symkey/SessionKey.cpp' object='src/com/netscape/symkey/libsymkey_la-SessionKey.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsymkey_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/netscape/symkey/libsymkey_la-SessionKey.lo `test -f 'src/com/netscape/symkey/SessionKey.cpp' || echo '$(srcdir)/'`src/com/netscape/symkey/SessionKey.cpp
+
+src/com/netscape/symkey/libsymkey_la-NistSP800_108KDF.lo: src/com/netscape/symkey/NistSP800_108KDF.cpp
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsymkey_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/netscape/symkey/libsymkey_la-NistSP800_108KDF.lo -MD -MP -MF "src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-NistSP800_108KDF.Tpo" -c -o src/com/netscape/symkey/libsymkey_la-NistSP800_108KDF.lo `test -f 'src/com/netscape/symkey/NistSP800_108KDF.cpp' || echo '$(srcdir)/'`src/com/netscape/symkey/NistSP800_108KDF.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-NistSP800_108KDF.Tpo" "src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-NistSP800_108KDF.Plo"; else rm -f "src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-NistSP800_108KDF.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/com/netscape/symkey/NistSP800_108KDF.cpp' object='src/com/netscape/symkey/libsymkey_la-NistSP800_108KDF.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsymkey_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/com/netscape/symkey/libsymkey_la-NistSP800_108KDF.lo `test -f 'src/com/netscape/symkey/NistSP800_108KDF.cpp' || echo '$(srcdir)/'`src/com/netscape/symkey/NistSP800_108KDF.cpp
 
 src/com/netscape/symkey/libsymkey_la-SymKey.lo: src/com/netscape/symkey/SymKey.cpp
 @am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsymkey_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/com/netscape/symkey/libsymkey_la-SymKey.lo -MD -MP -MF "src/com/netscape/symkey/$(DEPDIR)/libsymkey_la-SymKey.Tpo" -c -o src/com/netscape/symkey/libsymkey_la-SymKey.lo `test -f 'src/com/netscape/symkey/SymKey.cpp' || echo '$(srcdir)/'`src/com/netscape/symkey/SymKey.cpp; \

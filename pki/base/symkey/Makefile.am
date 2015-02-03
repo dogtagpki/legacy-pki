@@ -89,6 +89,7 @@ symkey_jar_SCRIPTS = $(srcdir)/build/jars/symkey.jar
 libsymkey_la_SOURCES =	src/com/netscape/symkey/Buffer.cpp              \
 						src/com/netscape/symkey/EncryptData.cpp         \
 						src/com/netscape/symkey/SessionKey.cpp          \
+						src/com/netscape/symkey/NistSP800_108KDF.cpp    \
 						src/com/netscape/symkey/SymKey.cpp
 
 libsymkey_la_CPPFLAGS = $(AM_CPPFLAGS) @nss_inc@ @nspr_inc@
