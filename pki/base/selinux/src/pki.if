@@ -187,6 +187,11 @@ template(`pki_ca_template',`
         can_exec($1_t, pki_common_t)
         init_stream_connect_script($1_t)
 
+        # for ncipher hsm 11.70+, devices may be labelled pki_common_t
+        # instead of pki_common_dev_t
+        allow $1_t pki_common_t:sock_file write;
+        allow $1_t pki_common_t:dir search;
+
         #allow java subsystems to talk to lunasa hsm
         allow $1_t devlog_t:sock_file write;
 	allow $1_t self:unix_dgram_socket { write create connect };
@@ -594,6 +599,11 @@ template(`pki_tps_template',`
         can_exec(pki_tps_t, pki_common_t)
         init_stream_connect_script(pki_tps_t)
 
+        # for ncipher hsm 11.70+, devices may be labelled pki_common_t
+        # instead of pki_common_dev_t
+        allow $1_t pki_common_t:sock_file write;
+        allow $1_t pki_common_t:dir search;
+
         #allow tps to talk to lunasa hsm
         allow pki_tps_t devlog_t:sock_file write;
         allow pki_tps_t self:unix_dgram_socket { write create connect };
@@ -769,6 +779,11 @@ template(`pki_ra_template',`
         manage_files_pattern(pki_ra_t, pki_common_t, pki_common_t)
         can_exec(pki_ra_t, pki_common_t)
         init_stream_connect_script(pki_ra_t)
+
+        # for ncipher hsm 11.70+, devices may be labelled pki_common_t
+        # instead of pki_common_dev_t
+        allow $1_t pki_common_t:sock_file write;
+        allow $1_t pki_common_t:dir search;
 
        # allow rpm -q in init scripts
        rpm_exec(pki_ra_t)
