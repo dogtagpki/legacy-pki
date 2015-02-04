@@ -211,6 +211,8 @@ public class DoRevokeTPS extends CMSServlet {
             }
 
             if (authorized) {
+                o_status = "status=0";
+                errorString = "error=";
                 process(argSet, header, reason, invalidityDate, initiative, req,
                   resp, revokeAll, totalRecordCount, comments, locale[0]);
             }
