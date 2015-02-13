@@ -876,6 +876,491 @@ void getActivityFilter( char *filter, int filterSize, char *query )
 }
 
 /**
+ * Function isLastActiveSharedCert
+ *
+ * This function determines if a certificate with a given serial number,
+ * certSerial, which resides on a specific token, targetTokenCUID, is
+ * the last active shared certificate.  (Based on patch submission by PAS)
+ *
+ * Arguments:
+ * char *certSerial - the certificate serial number to test
+ * char *certIssuer - certificate issuer
+ * char *targetTokenCUID - target token CUID
+ *
+ * returns false if - 
+ *     either argument is NULL,
+ *     certificate database access failure,
+ *     token database access failure,
+ *     another active token with the certificate serial number exists
+ */
+
+bool isLastActiveSharedCert(const char *certSerial, const char *certIssuer,
+                            const char *targetTokenCUID){
+
+    bool ret = true;
+    char activeTokensWithCertFilter[500], tokenDataWithCertFilter[500];
+    char *tokenCUID, *tokenUID, *tokenStatus;
+    LDAPMessage *tokensWithCert = NULL, *tokenData = NULL;
+    LDAPMessage *tokenWithCert = NULL, *tokenEntry = NULL;
+    int tokenEntryCount = 0, certEntryCount = 0, ldapReturn = 0;
+
+    if (certSerial == NULL){
+        RA::Error("mod_tokendb::isLastActiveSharedCert", "certSerial is NULL");
+        return false;
+    }
+
+    if (certIssuer == NULL){
+        RA::Error("mod_tokendb::isLastActiveSharedCert", "certIssuer is NULL");
+        return false;
+    }
+
+    if (targetTokenCUID == NULL){
+        RA::Error(
+            "mod_tokendb::isLastActiveSharedCert",
+            "targetTokenCUID is NULL");
+        return false;
+    }
+
+    RA::Debug(
+        "mod_tokendb::isLastActiveSharedCert",
+        "token serial %s, token id %s, tokenIssuer: %s",
+        certSerial, targetTokenCUID, certIssuer);
+
+    snprintf(activeTokensWithCertFilter, 500,
+        "(&(tokenSerial=%s)(!(tokenID=%s))(tokenIssuer=%s))",
+        certSerial, targetTokenCUID, certIssuer);
+
+    /**
+     * First find all certificate entries with the serial number. certSerial,
+     * exclude the current token being processed, tokenCUID
+     * Then for each certificate entry check if the owning token is still "active"
+     */
+
+    if ((ldapReturn = RA::ra_find_tus_certificate_entries_by_order_no_vlv(activeTokensWithCertFilter,&tokensWithCert, 0)) == LDAP_SUCCESS){
+        certEntryCount = 0;
+        for (tokenWithCert = get_first_entry(tokensWithCert);
+             tokenWithCert != NULL;
+             tokenWithCert = get_next_entry(tokenWithCert)){
+
+            //We need to get the CUID and UID to ensure that we pull the
+            //current token in use.  Token reuse might be permitted which
+            //means one CUID many times in tokenDB
+            tokenCUID = get_token_attr_byname(tokenWithCert, "tokenID");
+            tokenUID = get_token_attr_byname(tokenWithCert, "tokenUserID");
+            snprintf(tokenDataWithCertFilter, 500, "(&(cn=%s)(tokenUserID=%s))",
+                tokenCUID, tokenUID);
+
+            RA::Debug(
+                "mod_tokendb::isLastActiveSharedCert",
+                "processing certificate entry serial: %s for cuid: %s for userid: %s",
+                certSerial, tokenCUID, tokenUID);
+
+            if (RA::ra_find_tus_token_entries_no_vlv(tokenDataWithCertFilter, &tokenData, 0) == LDAP_SUCCESS){
+                tokenEntryCount = 0;
+
+                //This kind of stinks but to make sure we handle errant
+                //entries, let's loop through the results
+                for (tokenEntry = get_first_entry(tokenData);
+                     tokenEntry != NULL;
+                     tokenEntry = get_next_entry(tokenEntry)){
+                    tokenStatus = get_token_attr_byname(tokenEntry, "tokenStatus");
+                    RA::Debug(
+                        "mod_tokendb::isLastActiveSharedCert",
+                        "processing token entry: %i cuid %s, uid: %s, status: %s",
+                        tokenEntryCount, tokenCUID, tokenUID, tokenStatus);
+
+                    if (strcmp(tokenStatus, "active") == 0){
+                        //if this token's status is active, the the target
+                        //token is not the last active token in the group.
+                        ret = false;
+                    }
+
+                    tokenEntryCount++;
+
+                    if (tokenStatus != NULL){
+                        PL_strfree(tokenStatus);
+                        tokenStatus = NULL;
+                    }
+
+                }//end inner for loop
+
+                if (tokenEntryCount != 1){
+                    RA::Error(
+                        "mod_tokendb::isLastActiveSharedCert",
+                        "Processed %i entries for token %s assigned to uid %s in token database",
+                        tokenEntryCount, tokenCUID, tokenUID);
+                }
+                RA::Debug(
+                    "mod_tokendb::isLastActiveSharedCert",
+                    "processed %i token entries for token cuid %s",
+                    tokenEntryCount, tokenCUID);
+            } else {
+                //on token database access error, set the return value to
+                //false (we can't determine if another token exists), and bail
+                RA::Error(
+                    "mod_tokendb::isLastActiveSharedCert",
+                    "Querying TUS for token entry with CUID %s failed.",
+                    tokenCUID);
+                ret = false;
+
+                if (tokenCUID != NULL){
+                    PL_strfree(tokenCUID);
+                    tokenCUID = NULL;
+                }
+
+                if (tokenUID != NULL){
+                    PL_strfree(tokenUID);
+                    tokenUID = NULL;
+                }
+
+                break;
+            }
+
+            if (tokenEntry != NULL){
+                free_results(tokenEntry);
+                tokenEntry = NULL;
+            }
+
+            if (tokenData != NULL){
+                free_results(tokenData);
+                tokenData = NULL;
+            }
+
+            if (tokenCUID != NULL){
+                PL_strfree(tokenCUID);
+                tokenCUID = NULL;
+            }
+
+            if (tokenUID != NULL){
+                PL_strfree(tokenUID);
+                tokenUID = NULL;
+            }
+
+        }//end outer for loop
+
+        RA::Debug(
+           "mod_tokendb::isLastActiveSharedCert",
+           "Processed %i certificate entries for serial %s.",
+           certEntryCount, certSerial);
+
+    } else {
+        //on certificate database access error, set the return value to false
+        //(we can't determine if other tokens have this certificate) and exit
+        RA::Debug(
+            "mod_tokendb::isLastActiveSharedCert",
+            "LDAP return value: %i",
+            ldapReturn);
+        RA::Error(
+            "mod_tokendb::isLastActiveSharedCert",
+            "Querying TUS for certificate entry with serial number %s failed.",
+            certSerial);
+        ret = false;
+    }
+
+    if (tokensWithCert != NULL){
+        free_results(tokensWithCert);
+        tokensWithCert = NULL;
+    }
+
+    RA::Debug("mod_tokendb::isLastActiveSharedCert", "End returning %i", ret);
+    return ret;
+}
+
+/**
+ * Function updateCerts
+ *
+ * In some configurations, it is possible to have multiple tokenCert entries
+ * for the same cert.  If the cert revocation status changes, then that change
+ * should be reflected in all tokenCert entries.
+ *
+ * Arguments: certSerial - serial number of cert
+ *            certIssuer - issuer of cert
+ *            status     - certificate status to set
+ *
+ * Returns: true on success, false on failure
+ */
+bool updateCerts(const char *certSerial, const char *certIssuer,
+                 const char *status){
+
+    char certsFilter[500];
+    LDAPMessage *tokensWithCert = NULL;
+    LDAPMessage *tokenWithCert = NULL;
+    int ldapReturn = 0;
+    bool retValue = true;
+
+    if (certSerial == NULL){
+        RA::Error("mod_tokendb::updateCerts", "certSerial is NULL");
+        return false;
+    }
+
+    if (certIssuer == NULL){
+        RA::Error("mod_tokendb::updateCerts", "certIssuer is NULL");
+        return false;
+    }
+
+    if (status == NULL){
+        RA::Error("mod_tokendb::updateCerts", "status is NULL");
+        return false;
+    }
+
+    RA::Debug(
+        "mod_tokendb::updateCerts",
+        "certSerial %s, certIssuer %s, status: %s",
+        certSerial, certIssuer, status);
+
+    snprintf(certsFilter, 500, "(&(tokenSerial=%s)(tokenIssuer=%s))",
+        certSerial, certIssuer);
+
+    if ((ldapReturn = RA::ra_find_tus_certificate_entries_by_order_no_vlv(
+           certsFilter,&tokensWithCert, 0)) == LDAP_SUCCESS){
+
+        for (tokenWithCert = get_first_entry(tokensWithCert);
+             tokenWithCert != NULL;
+             tokenWithCert = get_next_entry(tokenWithCert)){
+
+            char *attr_cn = get_cert_cn(tokenWithCert);
+            update_cert_status(attr_cn, status);
+
+            RA::Debug("mod_tokendb::updateCerts",
+                "updated certificate entry: %s to status %s",
+                attr_cn, status);
+
+            if (attr_cn != NULL) {
+                PL_strfree(attr_cn);
+                attr_cn = NULL;
+            }
+        }
+    } else {
+        // certificate database access error
+        RA::Error("mod_tokendb::updateCerts", "LDAP return value: %i",
+            ldapReturn);
+        RA::Error("mod_tokendb::updateCerts",
+            "Querying TUS for certificate entry with serial number %s failed.",
+            certSerial);
+        retValue = false;
+    }
+
+    if (tokensWithCert != NULL){
+        free_results(tokensWithCert);
+        tokensWithCert = NULL;
+    }
+
+    return retValue;
+}
+
+void updateCertRevocationStatus(const char* revokeReason, const char* cn, 
+        const char* attr_serial, const char *issuer, char* cuid, const char* cuidUserId,
+        const char* tokenType, char* remoteIP, const char* userid,
+        const char* connid) {
+
+    char msg[256] = "";
+    char serial[100] = "";
+
+    PR_snprintf( serial, 100, "0x%s", attr_serial );
+
+    if ((revokeReason != NULL) && (strcmp(revokeReason, "6") == 0)) {
+        PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", cn);
+        RA::tdb_activity(remoteIP, cuid, "do_token", "success", msg, cuidUserId, tokenType);
+        if (updateCerts( attr_serial, issuer, "revoked_on_hold" )) {
+            PR_snprintf((char *)msg, 256, "Record for certificate '%s' updated", cn);
+            RA::tdb_activity(remoteIP, cuid, "do_token", "success", msg, cuidUserId, tokenType);
+            RA::Debug( "mod_tokendb::updateCertRevocationStatus", msg);
+        } else {
+            PR_snprintf((char *)msg, 256, "Error in updating record for certificate '%s'", cn);
+            RA::tdb_activity(remoteIP, cuid, "do_token", "failure", msg, cuidUserId, tokenType);
+            RA::Error( "mod_tokendb::updateCertRevocationStatus", msg);
+        }
+                   
+        RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
+            "Success", "revoked_on_hold", serial, connid, ""); 
+    } else {
+        PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", cn);
+        RA::tdb_activity(remoteIP, cuid, "do_token", "success", msg, cuidUserId, tokenType);
+        if (updateCerts( attr_serial, issuer, "revoked" )) {
+            PR_snprintf((char *)msg, 256, "Record for certificate '%s' updated", cn);
+            RA::tdb_activity(remoteIP, cuid, "do_token", "success", msg, cuidUserId, tokenType);
+            RA::Debug( "mod_tokendb::updateCertRevocationStatus", msg);
+        } else {
+            PR_snprintf((char *)msg, 256, "Error in updating record for certificate '%s'", cn);
+            RA::tdb_activity(remoteIP, cuid, "do_token", "failure", msg, cuidUserId, tokenType);
+            RA::Error( "mod_tokendb::updateCertRevocationStatus", msg);
+        }
+
+        RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
+            "Success", "revoke", serial, connid, ""); 
+    }
+}
+
+void logCertRevocationFailure(const char* revokeReason, const char* cn,
+        const char* statusString, char* remoteIP, char* cuid,
+        const char* cuidUserId, const char* tokenType, const char* userid,
+        const char* serial, const char* connid) {
+ 
+    char msg[256] = "";
+
+    if ((revokeReason != NULL) && (strcmp(revokeReason, "6") == 0)) {
+        PR_snprintf((char *)msg, 256, "Errors in marking certificate on_hold '%s' : %s", cn, statusString);
+        RA::tdb_activity(remoteIP, cuid, "do_token", "failure", msg, cuidUserId, tokenType);
+        RA::Error( "mod_tokendb::logCertRevocationFailure", msg);
+
+        RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
+            "Failure", "revoked_on_hold", serial, connid, statusString); 
+    } else {
+        PR_snprintf((char *)msg, 256, "Errors in revoking certificate '%s' : %s", cn, statusString);
+        RA::tdb_activity(remoteIP, cuid, "do_token", "failure", msg, cuidUserId, tokenType);
+        RA::Error( "mod_tokendb::logCertRevocationFailure", msg);
+
+        RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
+            "Failure", "revoke", serial, connid, statusString); 
+    }
+}
+
+/**
+ * Function isCertificateValid
+ *
+ * This function determines if the system's current time is in between a
+ * certificate's NotBefore and NotAfter values.
+ * certNotBeforeDate <= system time <= certNotAfterDate
+ * (Based on patch submission by PAS)
+ *
+ * argument - char *certNotBeforeDate - the certificate's notBefore date as a string
+ * argument - char *certNotAfterDate - the Certificate's notAfter date as a string
+ *
+ * Returns true if either argument is null, strptime conversion fails,
+ * or the system's current time is between certNotBeforeDate and certNotAfterDate
+ */
+
+bool isCertificateValid(const char *certNotBeforeDate, const char *certNotAfterDate){
+    char *certValidityDateFmt = "%Y%m%d%H%M%SZ";
+    struct tm tmCertNotBefore, tmCertNotAfter;
+
+    time_t notBefore, now, notAfter;
+
+    if (certNotBeforeDate == NULL){
+	RA::Error("mod_tokendb::isCertificateValid", "certNotBeforeDate is NULL.");
+	return true;
+    }
+
+    if (certNotAfterDate == NULL){
+	RA::Error("mod_tokendb::isCertificateValid", "certNotAfterDate is NULL.");
+	return true;
+    }
+
+    if (strptime(certNotBeforeDate, certValidityDateFmt, &tmCertNotBefore) == NULL){
+	RA::Error("mod_tokendb::isCertificateValid",
+            "Error parsing LDAP tokennotbefore value, %s", certNotBeforeDate);
+	return true; //in the event of an error, should lie to the caller?
+    }
+
+    if (strptime(certNotAfterDate, certValidityDateFmt, &tmCertNotAfter) == NULL){
+	RA::Error("is_certificate_valid", "Error parsing LDAP tokennotafter value, %s",
+            certNotAfterDate);
+	return true; //in the event of an error, should lie to the caller?
+    }
+
+    tmCertNotBefore.tm_isdst = -1;
+    tmCertNotAfter.tm_isdst = -1;
+
+    notBefore = mktime(&tmCertNotBefore);
+    notAfter = mktime(&tmCertNotAfter);
+    now = time(NULL);
+
+    RA::Debug("mod_tokendb::isCertificateValid", "notBefore: %lu, now: %lu, notAfter: %lu",
+        (unsigned long) notBefore, (unsigned long) now, (unsigned long) notAfter);
+
+    return (now >= notBefore) && (now <= notAfter);
+}
+
+/**
+ * Function shouldRevoke
+ *
+ * Determines whether a certificate should be revoked, based on
+ * configuration for that particular token, key type and end state,
+ * 
+ * Arguments:
+ *    entry - pointer to LDAPMessage containing a tokenCert as output
+ *        from find_tus_certificate_entries_by_order_no_vlv()
+ *    endState - state which is being transitioned to (eg. terminated)
+ *    tokenType - token type
+ *    keyType - key type
+ *    cuid - token cuid
+ *    certSerial - serial number of cert
+ *    certIssuer - issuer of certificate
+ *    cuidUserId - token user (for activity logs)
+ *    rq - pointer to request (for activity logs)
+ */
+bool shouldRevoke(LDAPMessage* entry, const char* endState,
+                  const char* tokenType, const char* keyType,
+                  const char* cuid, const char* certSerial,
+                  const char* certIssuer, const char* cuidUserId,
+                  request_rec *rq) {
+    char configname[256] = "";
+    char msg[512] = "";
+
+    // check if cert revocation is enabled
+    PR_snprintf((char *) configname, 256,
+                "op.enroll.%s.keyGen.%s.recovery.%s.revokeCert",
+                tokenType, keyType, endState);
+    if (!RA::GetConfigStore()-> GetConfigAsBool(configname, true)) {
+        PR_snprintf((char *)msg, 512,
+            "cert revocation (serial %s) not enabled for tokenType: %s, " 
+            "keyType: %s, state: %s",
+            certSerial, tokenType, keyType, endState);
+        RA::tdb_activity(rq->connection->remote_ip, (char*) cuid, "do_token", "success",
+            msg, cuidUserId, tokenType);
+        return false;
+    }
+    
+    // check if expired certs should be revoked.
+    PR_snprintf((char*) configname, 256,
+                "op.enroll.%s.keyGen.%s.recovery.%s.revokeExpiredCerts",
+                tokenType, keyType, endState);
+    bool revokeExpired = RA::GetConfigStore()->GetConfigAsBool(configname, true);
+
+    if (!revokeExpired) {
+        char *notBefore = get_cert_attr_byname(entry, "tokennotbefore");
+        char *notAfter = get_cert_attr_byname(entry, "tokennotafter");
+        bool isCertValid = isCertificateValid(notBefore, notAfter);
+    
+        if (notBefore != NULL){
+            PL_strfree( notBefore );
+            notBefore = NULL;
+        }
+
+        if (notAfter != NULL){
+            PL_strfree( notAfter );
+            notAfter = NULL;
+        }
+
+        if (!isCertValid) {
+            PR_snprintf((char *)msg, 512,
+                "revocation not enabled for expired cert: %s", certSerial);
+            RA::tdb_activity(rq->connection->remote_ip, (char *)cuid, "do_token", "success",
+                msg, cuidUserId, tokenType);
+            return false;
+        }
+    }
+
+    // check if certs on multiple tokens should be revoked
+    PR_snprintf((char*) configname, 256,
+                "op.enroll.%s.keyGen.%s.recovery.%s.holdRevocationUntilLastCredential",
+                tokenType, keyType, endState);
+    bool holdRevocation = RA::GetConfigStore()->GetConfigAsBool(configname, false);
+    if (holdRevocation){
+        if (!isLastActiveSharedCert(certSerial, certIssuer, cuid)) {
+            PR_snprintf((char *)msg, 512,
+                "revocation not permitted as cert %s is shared by anothr active token",
+                certSerial);
+            RA::tdb_activity(rq->connection->remote_ip, (char *)cuid, "do_token", "success",
+                msg, cuidUserId, tokenType);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * get_user_filter
  * summary: returns an ldap search filter used for displaying 
  *          user data when searching users based on uid, firstName and lastName
@@ -3873,14 +4358,13 @@ mod_tokendb_handler( request_rec *rq )
                     char *attr_serial= get_cert_serial( e );
                     char *attr_tokenType = get_cert_tokenType( e );
                     char *attr_keyType = get_cert_type( e );
+                    char *attr_issuer = get_cert_attr_byname(e, "tokenIssuer");
 
-                    PR_snprintf( ( char * ) configname, 256,
-                                 "op.enroll.%s.keyGen.%s.recovery."
-                                 "destroyed.revokeCert",
-                                 attr_tokenType, attr_keyType );
 
-                    bool revokeCert = RA::GetConfigStore()->
-                                      GetConfigAsBool( configname, true );
+                    bool revokeCert = shouldRevoke(e, "destroyed", attr_tokenType,
+                                                   attr_keyType, cuid, attr_serial,
+                                                   attr_issuer, cuidUserId, rq);
+
 
                     PR_snprintf( ( char * ) configname, 256,
                                  "op.enroll.%s.keyGen.%s.recovery."
@@ -3915,36 +4399,15 @@ mod_tokendb_handler( request_rec *rq )
                             CERT_DestroyCertificate(attr_certificate[0]);
 
                         if (statusNum != 0) { // revocation errors
-                            if( strcmp( revokeReason, "6" ) == 0 ) {
-                                PR_snprintf((char *)msg, 256, "Errors in marking certificate on_hold '%s' : %s", attr_cn, statusString);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure", msg, cuidUserId, attr_tokenType);
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
-                                  "Failure", "revoked_on_hold", serial, connid, statusString); 
-                            } else {
-                                PR_snprintf((char *)msg, 256, "Errors in revoking certificate '%s' : %s", attr_cn, statusString);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure", msg, cuidUserId, attr_tokenType);
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
-                                  "Failure", "revoke", serial, connid, statusString); 
-                            }
+                            logCertRevocationFailure(
+                                revokeReason, attr_cn, statusString,
+                                rq->connection->remote_ip, cuid,
+                                cuidUserId, tokenType, userid, serial, connid);
                         } else {
-                            // update certificate status
-                            if( strcmp( revokeReason, "6" ) == 0 ) {
-                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
-                                update_cert_status( attr_cn, "revoked_on_hold" );
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
-                                  "Success", "revoked_on_hold", serial, connid, ""); 
-                            } else {
-                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
-                                update_cert_status( attr_cn, "revoked" );
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid, 
-                                  "Success", "revoke", serial, connid, ""); 
-                            }
+                            updateCertRevocationStatus(
+                                revokeReason, attr_cn, attr_serial, attr_issuer,
+                                cuid, cuidUserId, attr_tokenType,
+                                rq->connection->remote_ip, userid, connid);
                         }
 
                         if( attr_cn != NULL ) {
@@ -3972,6 +4435,11 @@ mod_tokendb_handler( request_rec *rq )
                     if( attr_keyType != NULL ) {
                         PL_strfree( attr_keyType );
                         attr_keyType = NULL;
+                    }
+
+                    if( attr_issuer != NULL ) {
+                        PL_strfree( attr_issuer );
+                        attr_issuer = NULL;
                     }
                 }
 
@@ -4062,15 +4530,9 @@ mod_tokendb_handler( request_rec *rq )
                      msg, cuidUserId, tokenType);
 
         /* Is this token permanently lost? */
-        } else if(((q == 2) && (transition_allowed(token_ui_state, 2))) || 
-                  ((q == 6) && (transition_allowed(token_ui_state, 6)))) {
-            if (q == 2) {
-              PR_snprintf((char *)msg, 256,
-                "'%s' marked token permanently lost", userid);             
-            } else {
-              PR_snprintf((char *)msg, 256,
-                "'%s' marked token terminated", userid);             
-            }
+        } else if(((q == 2) && (transition_allowed(token_ui_state, 2)))) {
+            PR_snprintf((char *)msg, 256,
+                "'%s' marked token permanently lost", userid);  
             RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated",
                      msg, cuidUserId, tokenType);
 
@@ -4100,24 +4562,21 @@ mod_tokendb_handler( request_rec *rq )
                     char *attr_serial= get_cert_serial( e );
                     char *attr_tokenType = get_cert_tokenType( e );
                     char *attr_keyType = get_cert_type( e );
+                    char *attr_issuer = get_cert_attr_byname(e, "tokenIssuer");
 
-                    PR_snprintf( ( char * ) configname, 256,
-                                 "op.enroll.%s.keyGen.%s.recovery."
-                                 "keyCompromise.revokeCert",
-                                 attr_tokenType, attr_keyType );
-
-                    bool revokeCert = RA::GetConfigStore()->
-                                      GetConfigAsBool( configname, true );
-
+                    bool revokeCert = shouldRevoke(e, "keyCompromise", attr_tokenType,
+                                                   attr_keyType, cuid, attr_serial,
+                                                   attr_issuer, cuidUserId, rq);
+ 
                     PR_snprintf( ( char * ) configname, 256,
                                  "op.enroll.%s.keyGen.%s.recovery."
                                  "keyCompromise.revokeCert.reason",
                                  attr_tokenType, attr_keyType );
 
-                    char *revokeReason = ( char * )
-                                         ( RA::GetConfigStore()->
+                    char *revokeReason = (char *)
+                                         (RA::GetConfigStore()->
                                            GetConfigAsString( configname,
-                                                              "1" ) );
+                                                              "1" ));
 
                     if( revokeCert ) {
                         char *attr_cn = get_cert_cn( e );
@@ -4145,36 +4604,15 @@ mod_tokendb_handler( request_rec *rq )
                             CERT_DestroyCertificate(attr_certificate[0]);
 
                         if (statusNum != 0) { // revocation errors
-                            if( strcmp( revokeReason, "6" ) == 0 ) {
-                                PR_snprintf((char *)msg, 256, "Errors in marking certificate on_hold '%s' : %s", attr_cn, statusString);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure", msg, cuidUserId, attr_tokenType);
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                  "Failure", "revoked_on_hold", serial, connid, statusString);
-                            } else {
-                                PR_snprintf((char *)msg, 256, "Errors in revoking certificate '%s' : %s", attr_cn, statusString);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure", msg, cuidUserId, attr_tokenType);
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                  "Failure", "revoke", serial, connid, statusString);
-                            }
+                            logCertRevocationFailure(
+                                revokeReason, attr_cn, statusString,
+                                rq->connection->remote_ip, cuid,
+                                cuidUserId, tokenType, userid, serial, connid);
                         } else {
-                            // update certificate status
-                            if( strcmp( revokeReason, "6" ) == 0 ) {
-                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
-                                update_cert_status( attr_cn, "revoked_on_hold" );
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                  "Success", "revoked_on_hold", serial, connid, "");                 
-                            } else {
-                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
-                                update_cert_status( attr_cn, "revoked" );
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                  "Success", "revoke", serial, connid, "");        
-                            }
+                            updateCertRevocationStatus(
+                                revokeReason, attr_cn, attr_serial, attr_issuer,
+                                cuid, cuidUserId, attr_tokenType,
+                                rq->connection->remote_ip, userid, connid);
                         }
 
                         if( attr_cn != NULL ) {
@@ -4203,6 +4641,11 @@ mod_tokendb_handler( request_rec *rq )
                         PL_strfree( attr_keyType );
                         attr_keyType = NULL;
                     }
+
+                    if( attr_issuer != NULL ) {
+                        PL_strfree( attr_issuer );
+                        attr_issuer = NULL;
+                    }
                 }
 
                 if( result != NULL ) {
@@ -4223,23 +4666,17 @@ mod_tokendb_handler( request_rec *rq )
 
             PR_snprintf(oString, 512, "token_id;;%s", cuid);
 
-            if (q == 6) { /* terminated */
-              PR_snprintf(pString, 512, "tokenStatus;;terminated+tokenReason;;keyCompromise");
-              rc = update_token_status_reason( cuidUserId, cuid,
-                                             "terminated", "keyCompromise" );
-            } else {
-              PR_snprintf(pString, 512, "tokenStatus;;lost+tokenReason;;keyCompromise");
-              rc = update_token_status_reason( cuidUserId, cuid,
-                                             "lost", "keyCompromise" );
-            }
+            PR_snprintf(pString, 512, "tokenStatus;;lost+tokenReason;;keyCompromise");
+            rc = update_token_status_reason(cuidUserId, cuid,
+                                            "lost", "keyCompromise");
+
             if( rc == -1 ) {
-                if (q == 6) { /* terminated*/
-                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked terminated, rc=-1");
-                    PR_snprintf((char *)msg, 256, "Failure in updating token status to terminated");
-                } else {
-                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked permanently lost, rc=-1");
-                    PR_snprintf((char *)msg, 256, "Failure in updating token status to permanently lost");
-                }
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent",
+                    "Failure", oString, pString,
+                    "token marked permanently lost, rc=-1");
+                PR_snprintf((char *)msg, 256,
+                    "Failure in updating token status to permanently lost");
+
                 RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure",
                      msg, cuidUserId, tokenType);
 
@@ -4263,13 +4700,12 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             } else if( rc > 0 ) {
-                if (q == 6) { /* terminated*/
-                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked terminated, rc=>0");
-                    PR_snprintf((char *)msg, 256, "Failure in updating token status to terminated");
-                } else {
-                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure", oString, pString, "token marked permanently lost, rc>0");
-                    PR_snprintf((char *)msg, 256, "Failure in updating token status to permanently lost");
-                }
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid,
+                    "Agent", "Failure", oString, pString,
+                    "token marked permanently lost, rc>0");
+                PR_snprintf((char *)msg, 256,
+                    "Failure in updating token status to permanently lost");
+
                 RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure",
                      msg, cuidUserId, tokenType);
 
@@ -4295,13 +4731,207 @@ mod_tokendb_handler( request_rec *rq )
 
                 return DONE;
             }
-            if (q == 6) { /* terminated*/
-                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pString, "token marked terminated");
-                PR_snprintf((char *)msg, 256, "Token marked terminated");
-            } else {
-                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Success", oString, pString, "token marked permanently lost");
-                PR_snprintf((char *)msg, 256, "Token marked permanently lost");
+
+            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent",
+                "Success", oString, pString, "token marked permanently lost");
+            PR_snprintf((char *)msg, 256, "Token marked permanently lost");
+            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success",
+                 msg, cuidUserId, tokenType);
+
+        } else if(((q == 6) && (transition_allowed(token_ui_state, 6)))){
+            PR_snprintf((char *)msg, 256, "'%s' marked token terminated", userid);
+            RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated",msg, cuidUserId, tokenType);
+
+            /* get the certificates on this lost token */
+            PR_snprintf( ( char * ) filter, 256, "(&(tokenID=%s)(tokenUserID=%s))", cuid, cuidUserId );
+
+            rc = find_tus_certificate_entries_by_order_no_vlv( filter,
+                                                               &result, 1 );
+            if( rc == 0 ) {
+                CertEnroll *certEnroll = new CertEnroll();
+                for( e = get_first_entry( result );
+                     e != NULL;
+                     e = get_next_entry( e ) ) {
+                    char *attr_status = get_cert_status( e );
+
+                    if( strcmp( attr_status, "revoked" ) == 0 ) {
+                        if( attr_status != NULL ) {
+                            PL_strfree( attr_status );
+                            attr_status = NULL;
+                        }
+
+                        continue;
+                    }
+
+                    char *attr_serial= get_cert_serial( e );
+                    char *attr_tokenType = get_cert_tokenType( e );
+                    char *attr_keyType = get_cert_type( e );
+                    char *attr_issuer = get_cert_attr_byname(e, "tokenIssuer");
+
+                    bool revokeCert = shouldRevoke(e, "terminated", attr_tokenType,
+                                                   attr_keyType, cuid, attr_serial,
+                                                   attr_issuer, cuidUserId, rq);
+
+                    PR_snprintf( ( char * ) configname, 256,
+                                 "op.enroll.%s.keyGen.%s.recovery."
+                                 "terminated.revokeCert.reason",
+                                 attr_tokenType, attr_keyType );
+
+                    char *revokeReason = ( char * )
+                                         ( RA::GetConfigStore()->
+                                           GetConfigAsString( configname,
+                                                              "0" ) );
+
+                    if( revokeCert ) {
+                        char *attr_cn = get_cert_cn( e );
+
+                        PR_snprintf( ( char * ) configname, 256,
+                                     "op.enroll.%s.keyGen.%s.ca.conn",
+                                     attr_tokenType, attr_keyType ); 
+
+                        char *connid = ( char * )
+                                       ( RA::GetConfigStore()->
+                                         GetConfigAsString( configname ) );
+
+                        PR_snprintf( serial, 100, "0x%s", attr_serial );
+
+                        CERTCertificate **attr_certificate= get_certificates( e );
+                        statusNum = certEnroll->
+                                    RevokeCertificate(
+                                                       true,
+                                                       attr_certificate[0],
+                                                       revokeReason,
+                                                       serial,
+                                                       connid,
+                                                       statusString );
+                        if (attr_certificate[0] != NULL)
+                            CERT_DestroyCertificate(attr_certificate[0]);
+
+                        if (statusNum != 0) { // revocation errors
+                            logCertRevocationFailure(
+                                revokeReason, attr_cn, statusString,
+                                rq->connection->remote_ip, cuid,
+                                cuidUserId, tokenType, userid, serial, connid);
+                        } else {
+                            updateCertRevocationStatus(
+                                revokeReason, attr_cn, attr_serial, attr_issuer,
+                                cuid, cuidUserId, attr_tokenType,
+                                rq->connection->remote_ip, userid, connid);
+                        }
+
+                        if( attr_cn != NULL ) {
+                            PL_strfree( attr_cn );
+                            attr_cn = NULL;
+                        }
+                        do_free(statusString);
+                    }
+
+                    if( attr_status != NULL ) {
+                        PL_strfree( attr_status );
+                        attr_status = NULL;
+                    }
+
+                    if( attr_serial != NULL ) {
+                        PL_strfree( attr_serial );
+                        attr_serial = NULL;
+                    }
+
+                    if( attr_tokenType != NULL ) {
+                        PL_strfree( attr_tokenType );
+                        attr_tokenType = NULL;
+                    }
+
+                    if( attr_keyType != NULL ) {
+                        PL_strfree( attr_keyType );
+                        attr_keyType = NULL;
+                    }
+
+                    if( attr_issuer != NULL ) {
+                        PL_strfree( attr_issuer );
+                        attr_issuer = NULL;
+                    }
+                }
+
+                if( result != NULL ) {
+                    ldap_msgfree( result );
+                }
+
+                if( certEnroll != NULL ) {
+                    delete certEnroll;
+                    certEnroll = NULL;
+                }
             }
+
+            /* revoke all the certs on the token. make http connection to CA */
+         
+            /* change the tokenStatus to lost (reason: keyCompromise) */
+            tokendbDebug( "Revoke all the certs on this token "
+                          "(reason: keyCompromise)\n" );
+
+            PR_snprintf(oString, 512, "token_id;;%s", cuid);
+
+            PR_snprintf(pString, 512, "tokenStatus;;terminated+tokenReason;;keyCompromise");
+            rc = update_token_status_reason(cuidUserId, cuid,
+                                            "terminated", "keyCompromise");
+
+            if( rc == -1 ) {
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent",
+                    "Failure", oString, pString, "token marked terminated, rc=-1");
+                PR_snprintf((char *)msg, 256, "Failure in updating token status to terminated");
+                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure",
+                     msg, cuidUserId, tokenType);
+
+                PR_snprintf( injection, MAX_INJECTION_SIZE,
+                             "%s%s%s%s", JS_START,
+                             "var error = \"Failed to create LDAPMod: ",
+                             "\";\n", JS_STOP );
+
+                buf = getData( errorTemplate, injection );
+
+                ap_log_error( ( const char * ) "tus", __LINE__,
+                              APLOG_ERR, 0, rq->server,
+                              ( const char * ) "Failed to create LDAPMod" );
+
+                ( void ) ap_rwrite( ( const void * ) buf,
+                                    PL_strlen( buf ), rq );
+
+                do_free(buf);
+                do_strfree(uri);
+                do_strfree(query);
+
+                return DONE;
+            } else if( rc > 0 ) {
+                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent", "Failure",
+                    oString, pString, "token marked terminated, rc=>0");
+                PR_snprintf((char *)msg, 256, "Failure in updating token status to terminated");
+                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure",
+                     msg, cuidUserId, tokenType);
+
+                PR_snprintf( injection, MAX_INJECTION_SIZE,
+                             "%s%s%s%s%s", JS_START,
+                             "var error = \"LDAP mod error: ",
+                             ldap_err2string( rc ),
+                             "\";\n", JS_STOP );
+
+                buf = getData( errorTemplate, injection );
+
+                ap_log_error( ( const char * ) "tus", __LINE__,
+                              APLOG_ERR, 0, rq->server,
+                              ( const char * ) "LDAP error: %s",
+                              ldap_err2string( rc ) );
+
+                ( void ) ap_rwrite( ( const void * ) buf,
+                                    PL_strlen( buf ), rq );
+
+                do_free(buf);
+                do_strfree(uri);
+                do_strfree(query);
+
+                return DONE;
+            }
+            RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CONFIG, userid, "Agent",
+                "Success", oString, pString, "token marked terminated");
+            PR_snprintf((char *)msg, 256, "Token marked terminated");
             RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success",
                  msg, cuidUserId, tokenType);
 
@@ -4343,25 +4973,21 @@ mod_tokendb_handler( request_rec *rq )
                     char *attr_serial= get_cert_serial( e );
                     char *attr_tokenType = get_cert_tokenType( e );
                     char *attr_keyType = get_cert_type( e );
+                    char *attr_issuer = get_cert_attr_byname(e, "tokenIssuer");
+
+                    bool revokeCert = shouldRevoke(e, "onHold", attr_tokenType,
+                                                   attr_keyType, cuid, attr_serial,
+                                                   attr_issuer, cuidUserId, rq);
 
                     PR_snprintf( ( char * ) configname, 256,
                                  "op.enroll.%s.keyGen.%s.recovery."
-                                 "onHold.revokeCert",
-                                 attr_tokenType, attr_keyType );
-
-                    bool revokeCert = RA::GetConfigStore()->
-                                      GetConfigAsBool( configname, true );
-
-                    PR_snprintf( ( char * ) configname, 256,
-                                 "op.enroll.%s.keyGen.%s.recovery.onHold."
-                                 "revokeCert.reason",
+                                 ".onHold.revokeCert.reason",
                                  attr_tokenType, attr_keyType );
 
                     char *revokeReason = ( char * )
                                          ( RA::GetConfigStore()->
                                            GetConfigAsString( configname,
                                                               "0" ) );
-
                     if( revokeCert ) {
                         char *attr_cn = get_cert_cn( e );
 
@@ -4388,37 +5014,17 @@ mod_tokendb_handler( request_rec *rq )
                             CERT_DestroyCertificate(attr_certificate[0]);
 
                         if (statusNum != 0) { // revocation errors
-                            if( strcmp( revokeReason, "6" ) == 0 ) {
-                                PR_snprintf((char *)msg, 256, "Errors in marking certificate on_hold '%s' : %s", attr_cn, statusString);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure", msg, cuidUserId, attr_tokenType);
+                            logCertRevocationFailure(
+                                revokeReason, attr_cn, statusString,
+                                rq->connection->remote_ip, cuid,
+                                cuidUserId, tokenType, userid, serial, connid);
 
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                  "Failure", "revoked_on_hold", serial, connid, statusString);
-                            } else {
-                                PR_snprintf((char *)msg, 256, "Errors in revoking certificate '%s' : %s", attr_cn, statusString);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure", msg, cuidUserId, attr_tokenType);
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                  "Failure", "revoke", serial, connid, statusString);
-                            }
                             revocation_errors = true;
                         } else {
-                            // update certificate status
-                            if( strcmp( revokeReason, "6" ) == 0 ) {
-                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked_on_hold", attr_cn);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
-                                update_cert_status( attr_cn, "revoked_on_hold" );
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                  "Success", "revoked_on_hold", serial, connid, "");
-                            } else {
-                                PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
-                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
-                                update_cert_status( attr_cn, "revoked" );
-
-                                RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                  "Success", "revoke", serial, connid, "");
-                            }
+                            updateCertRevocationStatus(
+                                revokeReason, attr_cn, attr_serial, attr_issuer,
+                                cuid, cuidUserId, attr_tokenType,
+                                rq->connection->remote_ip, userid, connid);
                         }
 
                         do_free(statusString);
@@ -4442,6 +5048,11 @@ mod_tokendb_handler( request_rec *rq )
                     if( attr_keyType != NULL ) {
                         PL_strfree( attr_keyType );
                         attr_keyType = NULL;
+                    }
+
+                    if( attr_issuer != NULL ) {
+                        PL_strfree( attr_issuer );
+                        attr_issuer = NULL;
                     }
                 }
 
@@ -4574,6 +5185,7 @@ mod_tokendb_handler( request_rec *rq )
                     char *attr_serial= get_cert_serial( e );
                     char *attr_tokenType = get_cert_tokenType( e );
                     char *attr_keyType = get_cert_type( e );
+                    char *attr_issuer = get_cert_attr_byname(e, "tokenIssuer");
 
                     PR_snprintf( ( char * ) configname, 256,
                                  "op.enroll.%s.keyGen.%s.recovery."
@@ -4611,7 +5223,13 @@ mod_tokendb_handler( request_rec *rq )
                         if (statusNum == 0) {
                             PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as active", attr_cn);
                             RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
-                            update_cert_status( attr_cn, "active" );
+                            if (updateCerts( attr_serial, attr_issuer, "active" )) {
+                                PR_snprintf((char *)msg, 256, "Record for certificate '%s' updated", attr_cn);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
+                            } else {
+                                PR_snprintf((char *)msg, 256, "Error in updating record for certificate '%s'", attr_cn);
+                                RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure", msg, cuidUserId, attr_tokenType);
+                            }
 
                             RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
                               "Success", "unrevoke", serial, connid, "");
@@ -4644,6 +5262,11 @@ mod_tokendb_handler( request_rec *rq )
                     if( attr_keyType != NULL ) {
                         PL_strfree( attr_keyType );
                         attr_keyType = NULL;
+                    }
+
+                    if( attr_issuer != NULL ) {
+                        PL_strfree( attr_issuer );
+                        attr_issuer = NULL;
                     }
                 } // end of for loop
              
@@ -4735,14 +5358,11 @@ mod_tokendb_handler( request_rec *rq )
                     char *attr_serial= get_cert_serial( e );
                     char *attr_tokenType = get_cert_tokenType( e );
                     char *attr_keyType = get_cert_type( e );
+                    char *attr_issuer = get_cert_attr_byname(e, "tokenIssuer");
 
-                    PR_snprintf( ( char * ) configname, 256,
-                                 "op.enroll.%s.keyGen.%s.recovery."
-                                 "keyCompromise.revokeCert",
-                                 attr_tokenType, attr_keyType );
-
-                    bool revokeCert = RA::GetConfigStore()->
-                                      GetConfigAsBool( configname, true );
+                    bool revokeCert = shouldRevoke(e, "keyCompromise", attr_tokenType,
+                                                   attr_keyType, cuid, attr_serial,
+                                                   attr_issuer, cuidUserId, rq);
 
                     PR_snprintf( ( char * ) configname, 256,
                                  "op.enroll.%s.keyGen.%s.recovery."
@@ -4782,7 +5402,13 @@ mod_tokendb_handler( request_rec *rq )
                             if (statusNum == 0) {
                                 PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as active", attr_cn);
                                 RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "initiated", msg, cuidUserId, attr_tokenType);
-                                update_cert_status( attr_cn, "active" );
+                                if (updateCerts( attr_serial, attr_issuer, "active" )) {
+                                    PR_snprintf((char *)msg, 256, "Record for certificate '%s' updated", attr_cn);
+                                    RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
+                                } else {
+                                    PR_snprintf((char *)msg, 256, "Error in updating record for certificate '%s'", attr_cn);
+                                    RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure", msg, cuidUserId, attr_tokenType);
+                                }
 
                                 RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
                                   "Success", "unrevoke", serial, connid, "");
@@ -4801,18 +5427,15 @@ mod_tokendb_handler( request_rec *rq )
                                     CERT_DestroyCertificate(attr_certificate[0]);
 
                                 if (statusNum == 0) {
-                                    PR_snprintf((char *)msg, 256, "Certificate '%s' is marked as revoked", attr_cn);
-                                    RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "success", msg, cuidUserId, attr_tokenType);
-                                    update_cert_status( attr_cn, "revoked" );
-
-                                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                      "Success", "revoke", serial, connid, "");
+                                    updateCertRevocationStatus(
+                                        revokeReason, attr_cn, attr_serial, attr_issuer,
+                                        cuid, cuidUserId, attr_tokenType,
+                                        rq->connection->remote_ip, userid, connid);
                                 } else {
-                                    PR_snprintf((char *)msg, 256, "Errors in revoking Certificate '%s' : %s", attr_cn, statusString);
-                                    RA::tdb_activity(rq->connection->remote_ip, cuid, "do_token", "failure", msg, cuidUserId, attr_tokenType);
-
-                                    RA::Audit(EV_CONFIG_TOKEN, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
-                                      "Failure", "revoke", serial, connid, statusString);
+                                    logCertRevocationFailure(
+                                        revokeReason, attr_cn, statusString,
+                                        rq->connection->remote_ip, cuid,
+                                        cuidUserId, tokenType, userid, serial, connid);
                                 }
                             } else {
                                 PR_snprintf((char *)msg, 256, "Errors in unrevoking Certificate '%s' : %s", attr_cn, statusString);
@@ -4844,6 +5467,11 @@ mod_tokendb_handler( request_rec *rq )
                     if( attr_keyType != NULL ) {
                         PL_strfree( attr_keyType );
                         attr_keyType = NULL;
+                    }
+
+                    if( attr_issuer != NULL ) {
+                        PL_strfree( attr_issuer );
+                        attr_issuer = NULL;
                     }
                 } // end of the for loop
 

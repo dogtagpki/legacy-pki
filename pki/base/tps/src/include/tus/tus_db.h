@@ -202,6 +202,7 @@ TPS_PUBLIC LDAPMessage *get_next_entry (LDAPMessage *entry);
 TPS_PUBLIC CERTCertificate **get_certificates(LDAPMessage *entry);
 
 TPS_PUBLIC char **get_token_states();
+TPS_PUBLIC char *get_token_attr_byname(LDAPMessage *entry, char *name);
 TPS_PUBLIC char **get_token_attributes();
 TPS_PUBLIC char **get_activity_attributes();
 TPS_PUBLIC char **get_user_attributes();

@@ -3469,6 +3469,32 @@ TPS_PUBLIC char **get_token_attributes()
 {
     return tokenAttributes;
 }
+/**
+ * Added by PAS
+ *
+ * Helper function to return a specific LDAP attribute by name from a LDAPMessage
+ *
+ * Added to only be consistent with how a LDAPMessage for a certificate entry is handled
+ *
+ */
+char *get_token_attr_byname(LDAPMessage *entry, char *name)
+{
+    char **v = NULL;
+    char *value = NULL;
+
+    v = ldap_get_values(ld, entry, name);
+    if (v == NULL) return NULL;
+    if (v[0] != NULL && PL_strlen(v[0]) > 0) {
+        value = PL_strdup(v[0]);
+    }
+    if( v != NULL ) {
+        ldap_value_free( v );
+        v = NULL;
+    }
+
+    return value;
+}
+
 
 TPS_PUBLIC char **get_user_attributes()
 {
