@@ -25,6 +25,25 @@ that can be used by the TPS for applet upgrade.
 Applet Information:
 ------------------
 
+Beta applet:
+
+RSA / Key Recovery:  
+
+1.4.54de790f.ijc
+
+Additional applets:
+
+SC650/ECC:
+
+1.4.54de746f.ijc
+
+330J/RSA: 
+
+1.4.54de7a99.ijc
+
+
+
+
 Official TPS Key Recovery applet for RSA:
 
 1.4.5265a65e.ijc
