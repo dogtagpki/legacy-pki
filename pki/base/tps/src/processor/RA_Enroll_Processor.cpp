@@ -292,13 +292,10 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
 		 (progress_block_size * 15/100) /* progress */, 
 		 "PROGRESS_KEY_GENERATION");
 
-    if (key_type == KEY_TYPE_ENCRYPTION) {// do serverSide keygen?
-                                                                                
-      PR_snprintf((char *)configname, 256, "%s.serverKeygen.enable", keyTypePrefix);
-      RA::Debug(LL_PER_CONNECTION,FN,
-		"looking for config %s", configname);
-      serverKeygen = RA::GetConfigStore()->GetConfigAsBool(configname, false);
-    }
+    PR_snprintf((char *)configname, 256, "%s.serverKeygen.enable", keyTypePrefix);
+    RA::Debug(LL_PER_CONNECTION,FN,
+        "looking for config %s", configname);
+    serverKeygen = RA::GetConfigStore()->GetConfigAsBool(configname, false);
 
     certEnroll = new CertEnroll();
 
