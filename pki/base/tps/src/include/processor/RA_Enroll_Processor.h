@@ -268,6 +268,8 @@ class RA_Enroll_Processor : public RA_Processor
                                 const char* key_version,
 				Buffer *a_cardmanagerAID,  /* in */
 				Buffer *a_appletAID,       /* in */
+				BYTE major_version,
+				BYTE minor_version,
 				Secure_Channel *&channel,  /* out */
 				RA_Status &status          /* out */
 				);

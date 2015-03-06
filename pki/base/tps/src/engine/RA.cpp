@@ -53,6 +53,8 @@ extern "C"
 #include "main/RA_Context.h"
 #include "channel/Secure_Channel.h"
 #include "engine/RA.h"
+#include "processor/RA_Enroll_Processor.h"
+#include "processor/RA_Processor.h"
 #include "main/Util.h"
 #include "cms/HttpConnection.h"
 #include "main/RA_pblock.h"
@@ -217,8 +219,7 @@ enum token_ui_states  {
     TOKEN_TERMINATED = 6
 };
 
-
-
+static RA_Enroll_Processor enroll_processor;
 
 #ifdef XP_WIN32
 #define TPS_PUBLIC __declspec(dllexport)
@@ -270,6 +271,18 @@ void RA::do_free(char *p)
         p = NULL;
     }
 }
+
+AppletInfo *RA::CreateAppletInfo(BYTE major_version, BYTE minor_version,
+    const char *msn, NameValueSet *extensions)
+{  
+    AppletInfo *info = (AppletInfo *) malloc(sizeof(AppletInfo));
+    info->major_version = major_version;
+    info->minor_version = minor_version;
+    info->msn = msn;
+    info->extensions = extensions;
+    return info;
+}
+
 
 int RA::InitializeSignedAudit()
 {
@@ -1585,7 +1598,8 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
                                   char** drm_desKey_s,
                                   char** kek_desKey_s,
                                   char** keycheck_s,
-                                  const char *connId)
+                                  const char *connId,
+                                  AppletInfo *appInfo)
 {
     PK11SymKey *symKey = NULL;
     PK11SymKey *symKey24 = NULL;
@@ -1598,13 +1612,16 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
     char * hostc = NULL;
     char * cardCrypto = NULL;
     char * cuid = NULL;
+    char * cuid_x = NULL;
     char * kdd = NULL;
     char * keyinfo =  NULL;
+    char * keySet = NULL;
     PSHttpResponse *response = NULL;
     HttpConnection *tksConn = NULL;
     RA_pblock *ra_pb = NULL;
     SECItem *SecParam = PK11_ParamFromIV(CKM_DES3_ECB, NULL);
     char* transportKeyName = NULL;
+    RA_Status status = STATUS_NO_ERROR;
 
     RA::Debug(LL_PER_PDU, "Start ComputeSessionKey", "");
     tksConn = RA::GetTKSConn(connId);
@@ -1615,8 +1632,6 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
         int currRetries = 0;
         ConnectionInfo *connInfo = tksConn->GetFailoverList();
 
-	PR_snprintf((char *) configname, 256, "conn.%s.keySet", connId);
-	const char *keySet = RA::GetConfigStore()->GetConfigAsString(configname, "defKeySet");
 	// is serversideKeygen on?
 	PR_snprintf((char *) configname, 256, "conn.%s.serverKeygen", connId);
 	bool serverKeygen = RA::GetConfigStore()->GetConfigAsBool(configname, false);
@@ -1629,12 +1644,19 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
         hostc = Util::SpecialURLEncode(host_challenge);
         cardCrypto = Util::SpecialURLEncode(card_cryptogram);
         cuid = Util::SpecialURLEncode(CUID);
+	cuid_x = Util::Buffer2String(CUID);
         kdd = Util::SpecialURLEncode(KDD);
         keyinfo = Util::SpecialURLEncode(keyInfo);
 
         if ((cardc == NULL) || (hostc == NULL) || (cardCrypto == NULL) ||
-          (cuid == NULL) || (keyinfo == NULL))
+          (cuid == NULL) || (keyinfo == NULL) || (cuid_x == NULL))
 	    goto loser;
+
+	keySet = enroll_processor.GetKeySet(appInfo, cuid_x, connId, status);
+        if (keySet == NULL) {
+	    RA::Error(LL_PER_PDU, "RA::ComputeSessionKey", "Failed to get keySet");
+            goto loser;
+        }
 
         PR_snprintf((char *)body, MAX_BODY_LEN, 
           "serversideKeygen=%s&CUID=%s&KDD=%s&card_challenge=%s&host_challenge=%s&KeyInfo=%s&card_cryptogram=%s&keySet=%s", serverKeygen? "true":"false", cuid,
@@ -1862,6 +1884,10 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
         PR_Free( cuid );
         cuid = NULL;
     }
+    if( cuid_x != NULL ) {
+        PR_Free( cuid_x );
+        cuid_x = NULL;
+    }
     if( kdd != NULL ){
         PR_Free( kdd );
         kdd = NULL;
@@ -1873,6 +1899,11 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
     if (cardCrypto != NULL) {
         PR_Free( cardCrypto );
         cardCrypto = NULL;
+    }
+
+    if (keySet != NULL) {
+        PL_strfree( keySet );
+        keySet = NULL;
     }
 
     if( response != NULL ) {

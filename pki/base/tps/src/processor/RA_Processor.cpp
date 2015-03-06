@@ -305,7 +305,8 @@ int RA_Processor::UpgradeApplet(RA_Session *session, char *prefix, char *tokenTy
 		NameValueSet *extensions,
 		int start_progress,
 		int end_progress, 
-                char **key_version, Buffer &CUID)
+                char **key_version, Buffer &CUID,
+		const char *msn)
 {
         Buffer *NetKeyAID = RA::GetConfigStore()->GetConfigAsBuffer(
 			RA::CFG_APPLET_NETKEY_INSTANCE_AID,
@@ -348,6 +349,7 @@ int RA_Processor::UpgradeApplet(RA_Session *session, char *prefix, char *tokenTy
 	int defKeyVer;
 	int defKeyIndex;
 	char *ext;
+	AppletInfo *appInfo = NULL;
 
 	if (applet_dir == NULL) {
                 RA::Error(LL_PER_PDU, "RA_Processor::UpgradeApplet", 
@@ -393,7 +395,13 @@ int RA_Processor::UpgradeApplet(RA_Session *session, char *prefix, char *tokenTy
     defKeyVer = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
     PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
     defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-	channel = SetupSecureChannel(session, defKeyVer, defKeyIndex, security_level, connid, CUID, prefix, tokenType);
+
+    appInfo = RA::CreateAppletInfo(major_version, minor_version, msn, extensions);
+ 
+	channel = SetupSecureChannel(
+            session, defKeyVer, defKeyIndex,
+            security_level, connid, CUID, prefix, tokenType, appInfo);
+
 	if (channel == NULL) {
              RA::Error(LL_PER_PDU, "RA_Processor::UpgradeApplet", 
 		  "channel creation failure");
@@ -551,7 +559,12 @@ loser:
         dataf = NULL;
     }
 
-	return rc;
+    if (appInfo != NULL) {
+	free((AppletInfo *) appInfo);
+        appInfo = NULL;
+    }
+
+    return rc;
 }
 
 char *RA_Processor::MapPattern(NameValueSet *nv, char *pattern)
@@ -669,12 +682,14 @@ loser:
 }
 
 /**
- * Determine the Token Type. The user can set up mapping rules in the 
- * config file which allow different operations depending on the
- * CUID, applet version, ATR, etc.
+ * Process the mapping rules to determine either the keySet or the token type,
+ * depending on if external registration is enabled or not.
+ * 
+ * The user can set up mapping rules in the config file which allow different
+ * operations depending on the CUID, applet version, ATR, etc.
  */
-bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor_version, const char *cuid, const char *msn, NameValueSet *extensions, 
-	RA_Status &o_status /* out */, const char *&o_tokenType /* out */)
+bool RA_Processor::ProcessMappingFilter(const char *prefix, AppletInfo *appInfo, const char *cuid,
+	bool getKeySet, RA_Status &o_status /* out */, const char *&o_selection /* out */)
 {
 	const char *e_tokenATR = NULL;
 	const char *tokenATR = NULL;
@@ -682,7 +697,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 	const char *tokenType = NULL;
 	const char *tokenCUIDStart = NULL;
 	const char *tokenCUIDEnd = NULL;
-	const char *targetTokenType = NULL;
+	const char *targetSelection = NULL;
 	const char *majorVersion = NULL;
 	const char *minorVersion = NULL;
 	const char *order = NULL;
@@ -693,27 +708,33 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 	unsigned int end_pos = 0;
 	const char *cuid_x = NULL;
 
+        const char *e_keySet = NULL;
+        const char *keySet = NULL;
+        const char *FN="RA_Processor::ProcessMappingFilter";
+
+	BYTE major_version = appInfo->major_version;
+	BYTE minor_version = appInfo->minor_version;
+	const char *msn = appInfo->msn;
+	NameValueSet *extensions = appInfo->extensions;
+        
 	cuid_x = cuid;
 
-	sprintf(configname, "%s.mapping.order", prefix);
+	snprintf(configname, 256, "%s.mapping.order", prefix);
 	order = RA::GetConfigStore()->GetConfigAsString(configname);
 	if (order == NULL) {
-		RA::Error("RA_Processor::GetTokenType", "Token type is not found");
-    	o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_NOT_FOUND;
-		RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType", 
-				"cannot find config ", configname);
+		RA::Error(FN, "Token type is not found");
+		o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_NOT_FOUND;
+		RA::Debug(LL_PER_PDU, FN, "cannot find config ", configname);
 		return false; /* no mapping found */
 	}
 
-	RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
-			"Starting:");
+	RA::Debug(LL_PER_PDU, FN, "Starting:");
 	order_x = PL_strdup(order);
 
 	start_pos = 0;
 	end_pos = 0;
 	done = 0;
-	while (1) 
-	{
+	while (1) {
 		if (done) {
 			break;
 		}
@@ -728,39 +749,64 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 			done = 1;
 		}
 		mappingId = &order_x[start_pos];
-		RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType", 
-				"mappingId='%s'", mappingId);
+		RA::Debug(LL_PER_PDU, FN, "mappingId='%s'", mappingId);
 
 		start_pos = end_pos + 1;
 
-		sprintf(configname, "%s.mapping.%s.target.tokenType", prefix, 
+		if (!getKeySet) {
+			snprintf(configname, 256, "%s.mapping.%s.target.tokenType", prefix,
+               			mappingId);
+		} else {
+			snprintf(configname, 256, "%s.mapping.%s.target.keySet", prefix,
 				mappingId);
-		targetTokenType = RA::GetConfigStore()->GetConfigAsString(configname);
+		}
+		targetSelection = RA::GetConfigStore()->GetConfigAsString(configname);
 
-
-		if (targetTokenType == NULL) {
+		if (targetSelection == NULL) {
 			break;
 		}
-		sprintf(configname, "%s.mapping.%s.filter.tokenType", prefix, 
+
+		if (!getKeySet) {
+			snprintf(configname, 256, "%s.mapping.%s.filter.tokenType", prefix,
 				mappingId);
-		tokenType = RA::GetConfigStore()->GetConfigAsString(configname);
+			tokenType = RA::GetConfigStore()->GetConfigAsString(configname);
 
-		RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
-				"tokenType: %s",tokenType);
+			RA::Debug(LL_PER_PDU, FN, "tokenType: %s",tokenType);
 
-		if (tokenType != NULL && strlen(tokenType) > 0) {
-			if (extensions == NULL) {
-				continue; /* mapping not matched, next mapping */
+			if (tokenType != NULL && strlen(tokenType) > 0) {
+				if (extensions == NULL) {
+					continue; /* mapping not matched, next mapping */
+				}
+				e_tokenType = extensions->GetValue("tokenType");
+				if (e_tokenType == NULL) {
+					continue; /* mapping not matched, next mapping */
+				}
+				if (strcmp(tokenType, e_tokenType) != 0) {
+					continue; /* mapping not matched, next mapping */
+				}
 			}
-			e_tokenType = extensions->GetValue("tokenType");
-			if (e_tokenType == NULL) {
-				continue; /* mapping not matched, next mapping */
-			}
-			if (strcmp(tokenType, e_tokenType) != 0) {
-				continue; /* mapping not matched, next mapping */
+		} else {
+			snprintf(configname, 256, "%s.mapping.%s.filter.keySet", prefix,
+				mappingId);
+			keySet = RA::GetConfigStore()->GetConfigAsString(configname);
+
+			RA::Debug(LL_PER_PDU, FN, "keySet: %s",keySet);
+
+			if (keySet != NULL && strlen(keySet) > 0) {
+				if (extensions == NULL) {
+					continue; /* mapping not matched, next mapping */
+				}
+				e_keySet = extensions->GetValue("keySet");
+				if (e_keySet == NULL) {
+					continue; /* mapping not matched, next mapping */
+				}
+				if (strcmp(keySet, e_keySet) != 0) {
+					continue; /* mapping not matched, next mapping */
+				}
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.tokenATR", prefix, 
+
+		snprintf(configname, 256, "%s.mapping.%s.filter.tokenATR", prefix, 
 				mappingId);
 		tokenATR = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (tokenATR != NULL && strlen(tokenATR) > 0) {
@@ -775,20 +821,20 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 				continue; /* mapping not matched, next mapping */
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.tokenCUID.start", prefix, 
+		snprintf(configname, 256, "%s.mapping.%s.filter.tokenCUID.start", prefix, 
 				mappingId);
 		tokenCUIDStart = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (tokenCUIDStart != NULL && strlen(tokenCUIDStart) > 0) {
 			if (cuid_x == NULL) {
 				continue; /* mapping not matched, next mapping */
 			}
-			RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType", 
+			RA::Debug(LL_PER_PDU, FN, 
 					"cuid_x=%s tokenCUIDStart=%s %d", cuid_x, tokenCUIDStart, 
 					PL_strcasecmp(cuid_x, tokenCUIDStart));
 
 			if(strlen(tokenCUIDStart) != 20)
 			{
-				RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
+				RA::Debug(LL_PER_PDU, FN,
 						"Invalid tokenCUIDStart: %s",tokenCUIDStart);
 				continue;
 			}
@@ -798,7 +844,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 
 			if(*pend != '\0')
 			{
-				RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
+				RA::Debug(LL_PER_PDU, FN,
 						"Invalid tokenCUIDStart: %s",tokenCUIDStart);
 
 				continue;
@@ -808,20 +854,20 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 				continue; /* mapping not matched, next mapping */
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.tokenCUID.end", prefix, 
+		snprintf(configname, 256, "%s.mapping.%s.filter.tokenCUID.end", prefix, 
 				mappingId);
 		tokenCUIDEnd = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (tokenCUIDEnd != NULL && strlen(tokenCUIDEnd) > 0) {
 			if (cuid_x == NULL) {
 				continue; /* mapping not matched, next mapping */
 			}
-			RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType", 
+			RA::Debug(LL_PER_PDU, FN, 
 					"cuid_x=%s tokenCUIDEnd=%s %d", cuid_x, tokenCUIDEnd, 
 					PL_strcasecmp(cuid_x, tokenCUIDEnd));
 
 			if(strlen(tokenCUIDEnd) != 20)
 			{
-				RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
+				RA::Debug(LL_PER_PDU, FN,
 						"Invalid tokenCUIDEnd: %s",tokenCUIDEnd);
 				continue;
 			}
@@ -832,7 +878,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 			if(*pend != '\0')
 			{
 
-				RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
+				RA::Debug(LL_PER_PDU, FN,
 						"Invalid tokenCUIDEnd: %s",tokenCUIDEnd);
 
 				continue;
@@ -842,7 +888,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 				continue; /* mapping not matched, next mapping */
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.appletMajorVersion", 
+		snprintf(configname, 256, "%s.mapping.%s.filter.appletMajorVersion", 
 				prefix, mappingId);
 		majorVersion = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (majorVersion != NULL && strlen(majorVersion) > 0) {
@@ -850,7 +896,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 				continue; /* mapping not matched, next mapping */
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.appletMinorVersion", 
+		snprintf(configname, 256, "%s.mapping.%s.filter.appletMinorVersion", 
 				prefix, mappingId);
 		minorVersion = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (minorVersion != NULL && strlen(minorVersion) > 0) {
@@ -863,9 +909,8 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 			PL_strfree( order_x );
 			order_x = NULL;
 		}
-	    RA::Debug("RA_Processor::GetTokenType",
-                        "Selected Token type is '%s'", targetTokenType);
-		o_tokenType = targetTokenType;
+		RA::Debug(FN, "Selection is '%s'", targetSelection);
+		o_selection = targetSelection;
 		return true;
 	}
 
@@ -874,10 +919,46 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 		PL_strfree( order_x );
 		order_x = NULL;
 	}
-	RA::Error("RA_Processor::GetTokenType", "Token type is not found");
-    o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_NOT_FOUND;
+	RA::Error(FN, "Token type or key set is not found");
+	o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_NOT_FOUND;
 	
 	return false;
+}
+
+bool RA_Processor::GetTokenType(const char *prefix, AppletInfo *appInfo, const char *cuid,
+	RA_Status &o_status /* out */, const char *&o_tokenType /* out */)
+{
+	return ProcessMappingFilter(prefix, appInfo, cuid, false, o_status, o_tokenType);
+}
+
+char* RA_Processor::GetKeySet(AppletInfo *appInfo, const char *cuid, const char *connid, RA_Status &o_status /* out */)
+{
+	char configname[256];
+	char *keySet = NULL;
+	const char *o_keySet = NULL;
+
+        PR_snprintf((char *)configname, 256, "externalReg.enable");
+        bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, false);
+
+        PR_snprintf((char *)configname, 256, "externalReg.keySet.mapping.enable");
+        bool isExternalRegMapping = RA::GetConfigStore()->GetConfigAsBool(configname, false);
+
+	if (!isExternalReg || !isExternalRegMapping) {
+        	PR_snprintf((char *)configname, 256, "conn.%s.keySet", connid);
+        	keySet = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname));
+		return keySet;
+	}
+
+	if (!ProcessMappingFilter("externalReg", appInfo, cuid, true, o_status, o_keySet)) {
+		PR_snprintf((char *)configname, 256, "externalReg.keySet.mapping.default");
+		const char *keySetDefault = RA::GetConfigStore()->GetConfigAsString(configname);
+		if ((keySetDefault != NULL) && (strlen(keySetDefault) != 0))
+			keySet =  PL_strdup(keySetDefault);
+	} else {
+        	keySet = PL_strdup(o_keySet);
+	}
+
+	return keySet;
 }
 
 int RA_Processor::SelectCardManager(RA_Session *session, char *prefix, char *tokenType)
@@ -1408,9 +1489,13 @@ loser:
  */
 Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session, 
      BYTE key_version, BYTE key_index, SecurityLevel security_level,
-     const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType)
+     const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType,
+     AppletInfo *appInfo)
 {
-    Secure_Channel *channel = SetupSecureChannel(session, key_version, key_index, connId, CUID, opPrefix, tokenType);
+    Secure_Channel *channel = SetupSecureChannel(
+        session, key_version, key_index, connId,
+        CUID, opPrefix, tokenType, appInfo);
+
     RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel","Resetting security level ...");
 
     /* Bugscape Bug #55774: Prevent NetKey RA from crashing . . . */
@@ -1554,7 +1639,8 @@ loser:
  * Added const char *tokenType
  */
 Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session, 
-     BYTE key_version, BYTE key_index, const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType)
+     BYTE key_version, BYTE key_index, const char *connId, Buffer &CUID, const char *opPrefix,
+     const char *tokenType, AppletInfo *appInfo)
 {
     Secure_Channel *channel = NULL;
     APDU_Response *initialize_update_response = NULL;
@@ -1672,7 +1758,8 @@ Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session,
         key_info_data,
         card_challenge,
         card_cryptogram,
-        host_challenge, opPrefix, tokenType);
+        host_challenge, opPrefix, tokenType,
+	appInfo);
 
 loser:
     if( initialize_update_request_msg != NULL ) {
@@ -1880,7 +1967,8 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
     Buffer &card_cryptogram,
     Buffer &host_challenge,
     const char *opPrefix,
-    const char *tokenType)
+    const char *tokenType,
+    AppletInfo *appInfo)
 {
     PK11SymKey *session_key = NULL;
     Buffer *host_cryptogram = NULL;
@@ -1919,12 +2007,9 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
 
       PR_snprintf(configname, 256, "%s.%s.enableBoundedGPKeyVersion", opPrefix, tokenType);
       if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
-
           if(checkCardGPKeyVersionIsInRange(CUID, key_diversification_data, key_info_data, opPrefix, tokenType) < 0){
               return NULL;
           }
-
-
       }
 
       /**
@@ -1938,31 +2023,18 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
       PR_snprintf(configname, 256, "%s.%s.validateCardKeyInfoAgainstTokenDB", opPrefix, tokenType);
 
       if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
-
           if(checkCardGPKeyVersionMatchesTokenDB(CUID, key_diversification_data, key_info_data, opPrefix, tokenType) < 0){
               return NULL;
           }
       }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     session_key = RA::ComputeSessionKey(session, CUID, key_diversification_data,
                                         key_info_data, card_challenge,
                                         host_challenge, &host_cryptogram, 
 		                                card_cryptogram, &enc_session_key,
                                         &drm_desKey_s, &kek_desKey_s,
-                                        &keycheck_s, connId);
+                                        &keycheck_s, connId,
+					appInfo);
     if (session_key == NULL) {
       RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 	  "RA_Processor::GenerateSecureChannel - did not get session_key");
@@ -2070,10 +2142,14 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
  */
 
 int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &KDD, Buffer &version,
-  Buffer &NewMasterVer, Buffer &out, const char *connid, const char *opPrefix, const char *tokenType)
+    Buffer &NewMasterVer, Buffer &out, const char *connid, const char *opPrefix,
+    const char *tokenType, AppletInfo * appInfo)
 {
     char body[5000];
     char configname[256];
+    char* keySet = NULL;
+    RA_Status status = STATUS_NO_ERROR;
+
     HttpConnection *tksConn = NULL;
     tksConn = RA::GetTKSConn(connid);
     if (tksConn == NULL) {
@@ -2134,12 +2210,16 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &KDD, Buffer &version,
         int tks_curr = RA::GetCurrentIndex(tksConn);
         int currRetries = 0;
         char *cuid = Util::SpecialURLEncode(CUID);
+	char *cuid_x = Util::Buffer2String(CUID);
         char *kdd = Util::SpecialURLEncode(KDD);
         char *versionID = Util::SpecialURLEncode(version);
         char *masterV = Util::SpecialURLEncode(NewMasterVer);
 
-        PR_snprintf((char *)configname, 256, "conn.%s.keySet", connid);
-        const char *keySet = RA::GetConfigStore()->GetConfigAsString(configname);
+	keySet = GetKeySet(appInfo, cuid_x, connid, status);
+	if (keySet == NULL) {
+		RA::Error(LL_PER_PDU, "RA_Processor::CreateKeySetData", "Failed to get keySet");
+		return -1;
+	}
 
         PR_snprintf((char *)body, 5000,
            "newKeyInfo=%s&CUID=%s&KDD=%s&KeyInfo=%s&keySet=%s", masterV, cuid, kdd, versionID, keySet);
@@ -2151,6 +2231,12 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &KDD, Buffer &version,
             PR_Free( cuid );
             cuid = NULL;
         }
+
+        if( cuid_x != NULL ) {
+            PR_Free( cuid_x );
+            cuid_x = NULL;
+        }
+
         if( kdd != NULL ){
             PR_Free( kdd );
             kdd = NULL;
@@ -2162,6 +2248,11 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &KDD, Buffer &version,
         if( masterV != NULL ) {
             PR_Free( masterV );
             masterV = NULL;
+        }
+
+        if (keySet != NULL) {
+            PL_strfree(keySet);
+            keySet = NULL;
         }
 
         tks_curr = RA::GetCurrentIndex(tksConn);
@@ -2918,10 +3009,13 @@ int RA_Processor::checkCardGPKeyVersionIsInRange(Buffer &bufCUID, Buffer &bufKDD
  * Added CUID and KDD http parameters to send to TKS
  *
  */
-int RA_Processor::EncryptData(Buffer &CUID, Buffer &KDD, Buffer &version, Buffer &in, Buffer &out, const char *connid)
+int RA_Processor::EncryptData(Buffer &CUID, Buffer &KDD, Buffer &version, Buffer &in, Buffer &out, const char *connid,
+    AppletInfo *appInfo)
 {
     char body[5000];
     char configname[256];
+    char* keySet = NULL;
+    RA_Status ra_status;
 #define PLAINTEXT_CHALLENGE_SIZE 16
 	// khai, here we wrap the input with the KEK key
 	// in TKS
@@ -2954,11 +3048,15 @@ int RA_Processor::EncryptData(Buffer &CUID, Buffer &KDD, Buffer &version, Buffer
         }
 
         char *cuid = Util::SpecialURLEncode(CUID);
+	char *cuid_x = Util::Buffer2String(CUID);
         char *kdd = Util::SpecialURLEncode(KDD);
         char *versionID = Util::SpecialURLEncode(version);
 
-        PR_snprintf((char *)configname, 256, "conn.%s.keySet", connid);
-        const char *keySet = RA::GetConfigStore()->GetConfigAsString(configname);
+	keySet = GetKeySet(appInfo, cuid_x, connid, ra_status);
+	if (keySet == NULL) {
+		RA::Error(LL_PER_PDU, "RA_Processor::EncryptData", "Failed to get keySet");
+		return -1;
+	}
 
         PR_snprintf((char *)body, 5000, "data=%s&CUID=%s&KDD=%s&KeyInfo=%s&keySet=%s",
           ((data != NULL)? data:""), cuid, kdd, versionID, keySet);
@@ -2969,6 +3067,10 @@ int RA_Processor::EncryptData(Buffer &CUID, Buffer &KDD, Buffer &version, Buffer
             PR_Free( cuid );
             cuid = NULL;
         }
+        if( cuid_x != NULL ) {
+            PR_Free( cuid_x );
+            cuid_x = NULL;
+        }
         if( kdd != NULL ) {
             PR_Free( kdd );
             kdd = NULL;
@@ -2976,6 +3078,11 @@ int RA_Processor::EncryptData(Buffer &CUID, Buffer &KDD, Buffer &version, Buffer
         if( versionID != NULL ) {
             PR_Free( versionID );
             versionID = NULL;
+        }
+
+        if (keySet != NULL) {
+            PL_strfree(keySet);
+            keySet = NULL;
         }
 
         PSHttpResponse *response = tksConn->getResponse(tks_curr, servletID, body);
@@ -3882,6 +3989,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     char audit_msg[512] = "";
     char *profile_state = NULL;
     ExternalRegAttrs *regAttrs = NULL;
+    AppletInfo *appInfo = NULL;
 
 
     Buffer *CardManagerAID = RA::GetConfigStore()->GetConfigAsBuffer(
@@ -3964,6 +4072,8 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     RA::Debug(LL_PER_PDU, "RA_Processor::Format",
 	      "Applet Major=%d Applet Minor=%d", app_major_version, app_minor_version);
 
+    appInfo = RA::CreateAppletInfo(major_version, minor_version, msn, extensions);
+
     if (isExternalReg) {
         /*
           need to reach out to the Registration DB (authid)
@@ -4017,10 +4127,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
         }
 
     } else {
-
-        if (!GetTokenType(OP_PREFIX, major_version,
-                    minor_version, cuid, msn,
-                    extensions, status, tokenType)) {
+        if (!GetTokenType(OP_PREFIX, appInfo, cuid, status, tokenType)) {
             PR_snprintf(audit_msg, 512, "Failed to get token type");
             goto loser;
         }
@@ -4219,7 +4326,7 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     connid = RA::GetConfigStore()->GetConfigAsString(configname);
     upgrade_rc = UpgradeApplet(session,(char *) OP_PREFIX, (char*)tokenType, major_version, 
       minor_version, expected_version, applet_dir, security_level, connid,
-			       extensions, 10, 90, &keyVersion, token_cuid);
+			       extensions, 10, 90, &keyVersion, token_cuid, msn);
     if (upgrade_rc != 1) {
         RA::Debug("RA_Processor::Format", 
           "applet upgrade failed");
@@ -4274,11 +4381,13 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     // add issuer info to the token
     PR_snprintf((char *)configname, 256, "%s.%s.issuerinfo.enable", 
           OP_PREFIX, tokenType);
+
     if (RA::GetConfigStore()->GetConfigAsBool(configname, 0)) {
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-        channel = SetupSecureChannel(session, 0x00,
-                  defKeyIndex  /* default key index */, connid, token_cuid, OP_PREFIX, tokenType);
+        channel = SetupSecureChannel(
+            session, 0x00, defKeyIndex  /* default key index */,
+            connid, token_cuid, OP_PREFIX, tokenType, appInfo);
 
         if (channel != NULL) {
             char issuer[224];
@@ -4316,8 +4425,11 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
         tksid = RA::GetConfigStore()->GetConfigAsString(configname);
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-        channel = SetupSecureChannel(session, requiredV,
-                   defKeyIndex  /* default key index */, tksid, token_cuid, OP_PREFIX, tokenType);
+        channel = SetupSecureChannel(
+            session, requiredV,
+            defKeyIndex  /* default key index */,
+            tksid, token_cuid, OP_PREFIX, tokenType, appInfo);
+
         if (channel == NULL) {
             /**
              * Select Card Manager for Put Key operation.
@@ -4336,9 +4448,11 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
         int defKeyVer = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-            channel = SetupSecureChannel(session, 
+            channel = SetupSecureChannel(
+                  session, 
                   defKeyVer,  /* default key version */
-                  defKeyIndex  /* default key index */, tksid, token_cuid, OP_PREFIX, tokenType);
+                  defKeyIndex  /* default key index */,
+                  tksid, token_cuid, OP_PREFIX, tokenType, appInfo);
  
             if (channel == NULL) {
                 RA::Error("RA_Upgrade_Processor::Process", 
@@ -4366,10 +4480,12 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
             connid = RA::GetConfigStore()->GetConfigAsString(configname);
             rc = CreateKeySetData(
                     token_cuid,
-              channel->GetKeyDiversificationData(), 
-              curKeyInfo,
-              newVersion,
-              key_data_set, connid, OP_PREFIX, tokenType);
+                    channel->GetKeyDiversificationData(), 
+                    curKeyInfo,
+                    newVersion,
+                    key_data_set, connid, OP_PREFIX, tokenType,
+		    appInfo 
+		);
             if (rc != 1) {
                 RA::Error("RA_Format_Processor::Process", 
                   "failed to create new key set");
@@ -4503,8 +4619,11 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
 	    }
 
 
-            channel = SetupSecureChannel(session, requiredV,
-              defKeyIndex  /* default key index */, tksid, token_cuid, OP_PREFIX, tokenType);
+            channel = SetupSecureChannel(
+                session, requiredV,
+                defKeyIndex  /* default key index */,
+                tksid, token_cuid, OP_PREFIX, tokenType, appInfo);
+
             if (channel == NULL) {
                 RA::Error("RA_Format_Processor::Process", 
 			      "failed to establish secure channel after reselect");
@@ -4684,6 +4803,11 @@ loser:
     if( login != NULL ) {
         delete login;
         login = NULL;
+    }
+
+    if (appInfo != NULL) {
+	free((AppletInfo *) appInfo);
+        appInfo = NULL;
     }
 
 #ifdef   MEM_PROFILING     

@@ -79,6 +79,15 @@ enum RA_Log_Level {
 	LL_ALL_DATA_IN_PDU = 9
 };
 
+struct AppletInfo
+{
+    int major_version;
+    int minor_version;
+    const char *msn;
+    NameValueSet *extensions;
+};
+
+typedef struct AppletInfo AppletInfo;
 
 #ifdef XP_WIN32
 #define TPS_PUBLIC __declspec(dllexport)
@@ -124,7 +133,9 @@ class RA
                                            char** drm_kekSessionKey_s,
                                            char** kek_kekSessionKey_s,
                                            char **keycheck_s,
-                                           const char *connId);
+                                           const char *connId,
+                                           AppletInfo *appInfo);
+
 	  static void ServerSideKeyGen(RA_Session *session, const char* cuid,
                                    const char *userid, char* kekSessionKey_s,
 		                           char **publickey_s,
@@ -237,6 +248,7 @@ class RA
 	  static int testTokendb();
           static int InitializeAuthentication();
           static AuthenticationEntry *GetAuth(const char *id);
+          static AppletInfo *CreateAppletInfo(BYTE major_version, BYTE minor_version, const char *msn, NameValueSet *extensions);
   public:
           static HttpConnection *GetCAConn(const char *id);
           static void ReturnCAConn(HttpConnection *conn);

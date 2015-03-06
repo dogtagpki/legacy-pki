@@ -1334,7 +1334,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeApplet(
 				connid, a_extensions, 
 				5, 
 				12, 
-                                keyVersion, CUID) != 1) {
+                                keyVersion, CUID,
+				a_msn) != 1) {
 
 				RA::Debug(FN, "applet upgrade failed");
 				/**
@@ -1429,6 +1430,8 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
         const char *a_key_version,
 	Buffer *a_cardmanagerAID,  /* in */
 	Buffer *a_appletAID,       /* in */
+	BYTE major_version,
+	BYTE minor_version,
     Secure_Channel *&o_channel,  /* out */
 	RA_Status &o_status          /* out */
 	)
@@ -1455,6 +1458,7 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 	PR_snprintf((char *)configname, 256,"%s.%s.update.symmetricKeys.enable", OP_PREFIX, a_tokenType);
 
 	RA::Debug(FN, "Symmetric Keys %s", configname);
+	AppletInfo *appInfo = RA::CreateAppletInfo(major_version, minor_version, a_msn, a_extensions);
 
 	if (RA::GetConfigStore()->GetConfigAsBool(configname, 0)) {
 
@@ -1479,9 +1483,11 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 		// of the keys
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-		o_channel = SetupSecureChannel(a_session, 
-				requiredV,
-				defKeyIndex  /* default key index */, tksid, CUID, OP_PREFIX, a_tokenType);
+
+		o_channel = SetupSecureChannel(
+				a_session, requiredV,
+				defKeyIndex  /* default key index */,
+				tksid, CUID, OP_PREFIX, a_tokenType, appInfo);
 
 		// If that failed, we need to find out what version of keys 
 		// are on the token
@@ -1512,9 +1518,11 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
         int defKeyVer = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-			o_channel = SetupSecureChannel(a_session, 
+			o_channel = SetupSecureChannel(
+					a_session, 
 					defKeyVer,  /* default key version */
-					defKeyIndex  /* default key index */, tksid, CUID, OP_PREFIX, a_tokenType);
+					defKeyIndex  /* default key index */,
+					tksid, CUID, OP_PREFIX, a_tokenType, appInfo);
 
 			if (o_channel == NULL) {
                                 PR_snprintf(audit_msg, 512, "enrollment processing, failed to create secure channel"); 
@@ -1555,11 +1563,12 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 			connid = RA::GetConfigStore()->GetConfigAsString(configname);
 
 			rc = CreateKeySetData(
-			        CUID,
+					CUID,
 					o_channel->GetKeyDiversificationData(), 
 					curKeyInfo,
 					newVersion,
-					key_data_set, connid, OP_PREFIX, a_tokenType);
+					key_data_set, connid, OP_PREFIX, a_tokenType,
+					appInfo);
 			if (rc != 1) {
 				RA::Error(FN, "failed to create new key set");
 				o_status = STATUS_ERROR_CREATE_CARDMGR;
@@ -1692,8 +1701,10 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
 			}
 
 			// Make a new secure channel with the new symmetric keys
-			o_channel = SetupSecureChannel(a_session, requiredV,
-					defKeyIndex  /* default key index */, tksid, CUID, OP_PREFIX, a_tokenType);
+			o_channel = SetupSecureChannel(
+					a_session, requiredV,
+					defKeyIndex  /* default key index */,
+					tksid, CUID, OP_PREFIX, a_tokenType, appInfo);
 			if (o_channel == NULL) {
 				RA::Error(FN, "failed to establish secure channel after reselect");
 				o_status = STATUS_ERROR_CREATE_CARDMGR;
@@ -1722,9 +1733,10 @@ bool RA_Enroll_Processor::CheckAndUpgradeSymKeys(
         int defKeyVer = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-		o_channel = SetupSecureChannel(a_session, 
-				defKeyVer,
-				defKeyIndex  /* default key index */, tksid, CUID, OP_PREFIX, a_tokenType);
+		o_channel = SetupSecureChannel(
+				a_session, defKeyVer,
+				defKeyIndex  /* default key index */,
+				tksid, CUID, OP_PREFIX, a_tokenType, appInfo);
 		r = true;	  // Sucess!!
                 RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
                   a_userid, a_cuid, a_msn, "success", "enrollment", a_applet_version, 
@@ -1765,6 +1777,11 @@ loser:
         }
     }
 
+    if (appInfo != NULL) {
+        free((AppletInfo *) appInfo);
+        appInfo = NULL;
+    }
+	
     return r;
 }
 
@@ -1855,6 +1872,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     bool renewed = false;
     bool do_force_format = false;
     ExternalRegAttrs *regAttrs = NULL;
+    AppletInfo *appInfo = NULL;
 
     RA::Debug("RA_Enroll_Processor::Process", "Client %s", 
                       session->GetRemoteIP());
@@ -1874,6 +1892,8 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     if (!GetAppletInfo(session, NetKeyAID, 
         /*by ref*/ major_version, minor_version, 
         app_major_version, app_minor_version )) goto loser;
+
+    appInfo = RA::CreateAppletInfo(major_version, minor_version, msn, extensions);
 
     if (isExternalReg ) {
         /*
@@ -1912,11 +1932,9 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
             tokenType = "userKey";
         }
     } else {
-       if (!GetTokenType(OP_PREFIX, major_version, minor_version, 
-            cuid, msn, extensions,
-            status, tokenType)) { /* last two are 'out' params */
-        /* ADE figure out what to do here for this line*/
-        // RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "token type not found", "");
+       if (!GetTokenType(OP_PREFIX, appInfo, cuid, status, tokenType)) {
+           /* ADE figure out what to do here for this line*/
+           // RA::tdb_activity(session->GetRemoteIP(), cuid, "enrollment", "failure", "token type not found", "");
            goto loser;
        }
     }
@@ -2115,6 +2133,8 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
                 keyVersion,
 		CardManagerAID,
 		NetKeyAID,
+		major_version,
+		minor_version,
 		channel,
 		status)) 
 	{
@@ -2261,9 +2281,11 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
     PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
     connid = RA::GetConfigStore()->GetConfigAsString(configname);
+
     /* wrap challenge with KEK key */
     rc = EncryptData(token_cuid, kdd,
-      channel->GetKeyInfoData(), *plaintext_challenge, *wrapped_challenge, connid);
+        channel->GetKeyInfoData(), *plaintext_challenge, *wrapped_challenge, connid,
+	appInfo);
     if (rc == -1) {
 	RA::Error("RA_Enroll_Processor::Process",
 		  "encryt data failed");
@@ -3020,6 +3042,11 @@ loser:
     }
     if (pkcs11objx != NULL) {
       delete pkcs11objx;
+    }
+
+    if (appInfo != NULL) {
+        free((AppletInfo *) appInfo);
+        appInfo = NULL;
     }
 
 #ifdef   MEM_PROFILING     

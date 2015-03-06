@@ -7942,13 +7942,19 @@ mod_tokendb_handler( request_rec *rq )
 
         getCN( filter, 512,  query );
 
-        if (m_processor.GetTokenType(OP_PREFIX, 0, 0, filter, (const char*) NULL, (NameValueSet*) NULL,
-                token_type_status, tokentype)) {
+	AppletInfo *appInfo = RA::CreateAppletInfo(0, 0, (const char*) NULL, (NameValueSet*) NULL);
+
+        if (m_processor.GetTokenType(OP_PREFIX, appInfo, filter, token_type_status, tokentype)) {
             PL_strcpy(tokenType, tokentype); 
         } else {
             PL_strcpy(tokenType, NO_TOKEN_TYPE);
         }
             
+        if (appInfo != NULL) {
+            free((AppletInfo *) appInfo);
+            appInfo = NULL;
+        }
+
         if( strcmp( filter, "" ) == 0 ) {
             error_out("No Token ID Found", "Failed to authorize request");
             do_free(buf);
@@ -8004,13 +8010,18 @@ mod_tokendb_handler( request_rec *rq )
 
         getCN( filter, 512,  query );
 
-        if (m_processor.GetTokenType(OP_PREFIX, 0, 0, filter, (const char*) NULL, (NameValueSet*) NULL,
-                token_type_status, tokentype)) {
+	AppletInfo *appInfo = RA::CreateAppletInfo(0, 0, (const char*) NULL, (NameValueSet*) NULL);
+
+        if (m_processor.GetTokenType(OP_PREFIX, appInfo, filter, token_type_status, tokentype)) {
             PL_strcpy(tokenType, tokentype);
         } else {
             PL_strcpy(tokenType, NO_TOKEN_TYPE);
         }
 
+        if (appInfo != NULL) {
+            free((AppletInfo *) appInfo);
+            appInfo = NULL;
+        }
 
         PR_snprintf((char *)msg, 256,
             "'%s' has deleted token", userid);

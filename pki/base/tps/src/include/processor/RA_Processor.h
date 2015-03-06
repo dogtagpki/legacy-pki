@@ -132,9 +132,25 @@ class RA_Processor
 		 * Added const char *opPrefix
 		 * Added const char *tokenType
 		 */
-		Secure_Channel *SetupSecureChannel(RA_Session *session, BYTE key_version, BYTE key_index, const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType);
-		Secure_Channel *SetupSecureChannel(RA_Session *session,
-				BYTE key_version, BYTE key_index, SecurityLevel security_level, const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType);
+		Secure_Channel *SetupSecureChannel(
+			RA_Session *session,
+			BYTE key_version,
+			BYTE key_index,
+			const char *connId,
+			Buffer &CUID,
+			const char *opPrefix,
+			const char *tokenType,
+			AppletInfo *info);
+
+		Secure_Channel *SetupSecureChannel(
+			RA_Session *session,
+			BYTE key_version,
+			BYTE key_index,
+			SecurityLevel security_level,
+			const char *connId, Buffer &CUID,
+			const char *opPrefix,
+			const char *tokenType,
+			AppletInfo *info);
 
 		SecureId *RequestSecureId(RA_Session *session);
 
@@ -146,7 +162,14 @@ class RA_Processor
 		 * PAS Modification
 		 * Added KDD buffer parameter
 		 */
-		int EncryptData(Buffer &cuid, Buffer &kdd, Buffer &versionID, Buffer &in, Buffer &out, const char *connid);
+		int EncryptData(
+			Buffer &cuid,
+			Buffer &kdd,
+			Buffer &versionID,
+			Buffer &in,
+			Buffer &out,
+			const char *connid,
+			AppletInfo *appInfo);
                 
 		int ComputeRandomData(Buffer &data_out, int dataSize,  const char *connid);
 
@@ -156,15 +179,31 @@ class RA_Processor
 			Buffer &versionID, 
 			Buffer &NewMasterVer, 
 			Buffer &out, 
-			const char *connid, const char *opPrefix, const char *tokenType);
+			const char *connid,
+			const char *opPrefix,
+			const char *tokenType,
+			AppletInfo *appInfo);
+
+		bool ProcessMappingFilter(
+			const char *prefix,
+			AppletInfo *appInfo,
+			const char *cuid, 
+			bool getKeySet,
+			RA_Status &o_status,
+			const char *&o_selection);
 
 		bool GetTokenType(
-			const char *prefix, 
-			int major_version, int minor_version, 
-			const char *cuid, const char *msn, 
-			NameValueSet *extensions,
+			const char *prefix,
+			AppletInfo *appInfo,
+			const char *cuid,
 			RA_Status &o_status,
 			const char *&o_tokenType);
+
+		char * GetKeySet(
+			AppletInfo *appInfo, 
+			const char *cuid,
+			const char *connid,
+			RA_Status &o_status);
 
 		Buffer *ListObjects(RA_Session *session, BYTE seq);
 
@@ -180,8 +219,8 @@ class RA_Processor
          */
 		int UpgradeApplet(
 				RA_Session *session, 
-                char *prefix,
-                char *tokenType,
+				char *prefix,
+				char *tokenType,
 				BYTE major_version, BYTE minor_version, 
 				const char *new_version, 
 				const char *applet_dir, 
@@ -190,7 +229,8 @@ class RA_Processor
 				NameValueSet *extensions,
 				int start_progress, int end_progress,
                                 char **key_version,
-                                Buffer &CUID);
+                                Buffer &CUID,
+				const char *msn);
 
 		int UpgradeKey(RA_Session *session, BYTE major_version, BYTE minor_version, int new_version);
 
@@ -207,14 +247,6 @@ class RA_Processor
 				unsigned short keyCreationPermissions,
 				unsigned short pinCreationPermissions);
 
-		/**
-		 * PAS Modification
-		 *
-		 * Added Buffer card_cuid
-		 * Added const char *opPrefix
-		 * Added const char *tokenType
-		 */
-
 		Secure_Channel *GenerateSecureChannel(
 				RA_Session *session, const char *connid,
 				Buffer &card_cuid,
@@ -224,7 +256,9 @@ class RA_Processor
 				Buffer &card_cryptogram,
 				Buffer &host_challenge,
 				const char *opPrefix,
-				const char *tokenType);
+				const char *tokenType,
+				AppletInfo *appInfo);
+
                 AuthenticationEntry *GetAuthenticationEntry(
                                 const char * a_prefix,
                                 const char * a_configname,

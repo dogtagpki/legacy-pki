@@ -121,6 +121,7 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
     char audit_msg[512] = "";
     char *profile_state = NULL;
     int key_change_over_success = 0;
+    AppletInfo *appInfo = NULL;
 
     char *FN = ( char * ) "RA_Pin_Reset_Processor::Process";
 
@@ -192,7 +193,9 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
         goto loser;
     }
 
-if (isExternalReg) {
+    appInfo = RA::CreateAppletInfo(major_version, minor_version, msn, extensions);
+
+    if (isExternalReg) {
         /*
           need to reach out to the Registration DB (authid)
           Entire user entry should be retrieved and parsed, if needed
@@ -207,29 +210,26 @@ if (isExternalReg) {
         /*
           configname and tokenType are NULL for isExternalReg 
          */
-    if (!RequestUserId(OP_PREFIX, session, extensions, NULL /*configname*/, NULL /*tokenType*/, cuid, login, userid, status)){
-                PR_snprintf(audit_msg, 512, "RequestUserId error");
-        goto loser;
-    }
-    if (!AuthenticateUser(OP_PREFIX, session, NULL /*configname*/, cuid, extensions,
+        if (!RequestUserId(OP_PREFIX, session, extensions, NULL /*configname*/, NULL /*tokenType*/, cuid, login, userid, status)){
+            PR_snprintf(audit_msg, 512, "RequestUserId error");
+            goto loser;
+        }
+        if (!AuthenticateUser(OP_PREFIX, session, NULL /*configname*/, cuid, extensions,
                 NULL /*tokenType*/, login, userid, status)){
-                PR_snprintf(audit_msg, 512, "AuthenticateUser error");
-        goto loser;
-    }
+            PR_snprintf(audit_msg, 512, "AuthenticateUser error");
+            goto loser;
+        }
 
         RA::Debug(LL_PER_PDU, FN, "isExternalReg: get tokenType, etc."); 
         tokenType = "userKey"; //hardcode for now until ldap part code written
+    } else {
+        // retrieve CUID
 
-} else {
-    // retrieve CUID
-
-    if (!GetTokenType(OP_PREFIX, major_version,
-                    minor_version, cuid, msn,
-                    extensions, status, tokenType)) {
-                PR_snprintf(audit_msg, 512, "Failed to get token type");
-		goto loser;
+        if (!GetTokenType(OP_PREFIX, appInfo, cuid, status, tokenType)) {
+            PR_snprintf(audit_msg, 512, "Failed to get token type");
+            goto loser;
+        }
     }
-}
 
     // check if profile is enabled 
     PR_snprintf((char *)configname, 256, "config.Profiles.%s.state", tokenType);
@@ -240,7 +240,8 @@ if (isExternalReg) {
         PR_snprintf(audit_msg, 512, "profile %s disabled", tokenType);
         goto loser;
     }
-/*isExternalReg: still allow token disabled?*/
+
+    /*isExternalReg: still allow token disabled?*/
     if (RA::ra_is_tus_db_entry_disabled(cuid)) {
         RA::Error("RA_Pin_Reset_Processor::Process",
                         "CUID %s Disabled", cuid);
@@ -354,7 +355,7 @@ if (isExternalReg) {
             PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
             connid = RA::GetConfigStore()->GetConfigAsString(configname);
             int upgrade_rc = UpgradeApplet(session, OP_PREFIX, (char*)tokenType, major_version, minor_version, 
-                expected_version, applet_dir, security_level, connid, extensions, 30, 70, &keyVersion, token_cuid);
+                expected_version, applet_dir, security_level, connid, extensions, 30, 70, &keyVersion, token_cuid, msn);
 	    if (upgrade_rc != 1) {
                RA::Error("RA_Pin_Reset_Processor::Process", 
 			"upgrade failure");
@@ -400,6 +401,7 @@ if (isExternalReg) {
      * Checks if the netkey has the required key version.
      */
     PR_snprintf((char *)configname, 256, "%s.%s.update.symmetricKeys.enable", OP_PREFIX, tokenType);
+
     if (RA::GetConfigStore()->GetConfigAsBool(configname, 0)) {
       PR_snprintf((char *)configname, 256, "%s.%s.update.symmetricKeys.requiredVersion", OP_PREFIX, tokenType);
       int requiredVersion = RA::GetConfigStore()->GetConfigAsInt(configname, 0x00);
@@ -409,15 +411,20 @@ if (isExternalReg) {
           delete channel;
           channel = NULL;
       }
-      channel = SetupSecureChannel(session, requiredVersion, 
-                  0x00  /* default key index */, connId, token_cuid, OP_PREFIX, tokenType);
+
+      channel = SetupSecureChannel(
+                   session, requiredVersion, 
+                   0x00  /* default key index */,
+                   connId, token_cuid, OP_PREFIX, tokenType, appInfo);
       if (channel == NULL) {
 
         /* if version 0x02 key not found, create them */
         SelectApplet(session, 0x04, 0x00, CardManagerAID);
-        channel = SetupSecureChannel(session,
-                  0x00,  /* default key version */
-                  0x00  /* default key index */, connId, token_cuid, OP_PREFIX, tokenType);
+        channel = SetupSecureChannel(
+                      session,
+                      0x00,  /* default key version */
+                      0x00  /* default key index */,
+                      connId, token_cuid, OP_PREFIX, tokenType, appInfo);
 
         if (channel == NULL) {
             RA::Error("RA_Pin_Reset_Processor::Process", 
@@ -448,7 +455,7 @@ if (isExternalReg) {
              channel->GetKeyDiversificationData(),
              curKeyInfo,
              newVersion,
-             key_data_set, connid, OP_PREFIX, tokenType);
+             key_data_set, connid, OP_PREFIX, tokenType, appInfo);
         if (rc != 1) {
             RA::Error("RA_Pin_Reset_Processor::Process",
                         "failed to create new key set");
@@ -556,9 +563,11 @@ if (isExternalReg) {
 
         PR_snprintf((char *)configname, 256, "%s.%s.tks.conn", OP_PREFIX, tokenType);
         connId = RA::GetConfigStore()->GetConfigAsString(configname);
-         channel = SetupSecureChannel(session, 
-                  RA::GetConfigStore()->GetConfigAsInt(configname, 0x00),
-                  0x00  /* default key index */, connId, token_cuid, OP_PREFIX, tokenType);
+         channel = SetupSecureChannel(
+                      session, 
+                      RA::GetConfigStore()->GetConfigAsInt(configname, 0x00),
+                      0x00  /* default key index */,
+                      connId, token_cuid, OP_PREFIX, tokenType, appInfo);
          if (channel == NULL) {
             RA::Error("RA_Pin_Reset_Processor::Process", 
 			"setup secure channel failure");
@@ -580,9 +589,11 @@ if (isExternalReg) {
           delete channel;
           channel = NULL;
       }
-      channel = SetupSecureChannel(session,
+      channel = SetupSecureChannel(
+                  session,
                   0x00,
-                  0x00  /* default key index */, connId, token_cuid, OP_PREFIX, tokenType);
+                  0x00  /* default key index */,
+                  connId, token_cuid, OP_PREFIX, tokenType, appInfo);
     }
 
     /* we should have a good channel here */
@@ -955,6 +966,11 @@ loser:
     if (ldapResult != NULL) {
         ldap_msgfree(ldapResult);
         ldapResult = NULL;
+    }
+
+    if (appInfo != NULL) {
+        free((AppletInfo *) appInfo);
+        appInfo = NULL;
     }
 
 #ifdef   MEM_PROFILING     
