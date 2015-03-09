@@ -1349,7 +1349,7 @@ bool shouldRevoke(LDAPMessage* entry, const char* endState,
     if (holdRevocation){
         if (!isLastActiveSharedCert(certSerial, certIssuer, cuid)) {
             PR_snprintf((char *)msg, 512,
-                "revocation not permitted as cert %s is shared by anothr active token",
+                "revocation not permitted as cert %s is shared by another active token",
                 certSerial);
             RA::tdb_activity(rq->connection->remote_ip, (char *)cuid, "do_token", "success",
                 msg, cuidUserId, tokenType);
