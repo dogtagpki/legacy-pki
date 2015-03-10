@@ -523,6 +523,112 @@ TOKENDB_PUBLIC Buffer *CertEnroll::RetrieveCertificate(PRUint64 serialno, const 
     return certificate;
 }
 
+/*
+ * IsCertificateValid - queries the CA and determines if the certificate is valid.
+ * i.e. in validity range and not revoked.
+ * @param serialno serial number of the cert to check
+ * @param connid connection id of the ca
+ * @return
+ *      True if valid, False otherwise
+ */
+TOKENDB_PUBLIC bool CertEnroll::IsCertificateValid(PRUint64 serialno, const char *connid)
+{
+    const char *FN = "CertEnroll::IsCertificateValid";
+    char parameters[5000];
+    char configname[5000];
+
+    RA::Debug(FN, "begins.");
+    PR_snprintf((char *)parameters, 5000, "serialTo=%llu&serialFrom=%llu&op=listCerts&querySentinelUp=%llu"
+        "&querySentinelDown=%llu&skipRevoked=on&skipNonValid=on&maxCount=1", 
+        serialno, serialno, serialno, serialno);
+
+    RA::Debug(FN, "got parameters =%s", parameters);
+    //e.g. conn.ca1.servlet.listCerts=/ca/ee/ca/listCerts
+    PR_snprintf((char *)configname, 256, "conn.%s.servlet.listCerts", connid);
+    const char *servlet = RA::GetConfigStore()->GetConfigAsString(configname);
+    if (servlet == NULL) {
+        RA::Debug(FN,
+            "Missing the configuration parameter for %s, set to default /ca/ee/ca/listCerts", configname);
+        servlet = "/ca/ee/ca/listCerts";
+    }
+
+    PSHttpResponse *resp =  sendReqToCA(servlet, parameters, connid);
+    if (resp != NULL) {
+        RA::Debug(LL_PER_PDU, FN, "sendReqToCA done");
+
+        int count = getRecordIntParameter(resp, "totalRecordCount = ");
+
+        if (resp != NULL) { 
+           delete resp;
+           resp = NULL;
+        }
+
+        if (count > 0) {
+            RA::Debug(LL_PER_PDU, FN, "count is greater than 0");
+            return true;
+        }
+        
+        RA::Debug(LL_PER_PDU, FN, "count equals or less than 0");
+        return false;
+    } else {
+      RA::Error(FN, "sendReqToCA failure");
+      return false;
+    }
+}
+
+int CertEnroll::getRecordIntParameter(PSHttpResponse *resp, const char* filter) {
+    const char *FN = "CertEnroll::getRecordIntParameter";
+    char *response = NULL;
+    char *record_count = NULL;
+    char *record_count_end = NULL;
+
+    char count_string[50];
+    int count = 0;
+    int count_len = 0;
+
+    if (filter == NULL) {
+        RA::Error(LL_PER_PDU, FN, "filter is null");
+        goto loser;
+    }
+    
+    response = resp->getContent();
+    if (response == NULL) {
+        RA::Error(LL_PER_PDU, FN, "failed to get content");
+        goto loser;
+    }
+    record_count = strstr((char *)response, filter);
+    if (record_count == NULL) {
+        RA::Error(LL_PER_PDU, FN, "content does not include filter: %s", filter);
+        goto loser;
+    }
+
+    record_count_end = strstr(record_count, ";");
+    if (record_count_end == NULL) {
+        RA::Error(LL_PER_PDU, FN, "content does not contain end terminator");
+        goto loser;
+    }
+
+    count_len = record_count_end - record_count - strlen(filter);
+    if (count_len >= 50) {
+        RA::Error(LL_PER_PDU, FN, "content is too long");
+        goto loser;
+    }
+
+    memcpy(count_string, record_count + strlen(filter), count_len);
+
+    RA::Debug(LL_PER_PDU, FN, "count is '%s'", count_string);
+    count = atoi(count_string);
+
+loser:
+    if (response != NULL) {
+        resp->freeContent();
+        response = NULL;
+    }
+
+    return count;
+}
+
+
 TOKENDB_PUBLIC Buffer *CertEnroll::RenewCertificate(PRUint64 serialno, const char *connid, const char *profileId, char *error_msg)
 {
     char parameters[5000];

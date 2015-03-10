@@ -3222,6 +3222,13 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         if (erCertKeyInfo == NULL) {
             continue;
         }
+        if (! certEnroll->IsCertificateValid(serial, caConn)) {
+            RA::Debug(LL_PER_CONNECTION, FN,
+                "RetrieveCertificate() failed as cert is invalid or revoked");
+            o_status = STATUS_ERROR_RECOVERY_FAILED;
+            goto loser;
+        }
+
         cert = certEnroll->RetrieveCertificate(serial, caConn, error_msg);
 
         if (cert == NULL) {
