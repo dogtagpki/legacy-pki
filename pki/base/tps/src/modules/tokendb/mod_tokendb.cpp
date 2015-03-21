@@ -1315,7 +1315,7 @@ bool shouldRevoke(LDAPMessage* entry, const char* endState,
     PR_snprintf((char*) configname, 256,
                 "op.enroll.%s.keyGen.%s.recovery.%s.revokeExpiredCerts",
                 tokenType, keyType, endState);
-    bool revokeExpired = RA::GetConfigStore()->GetConfigAsBool(configname, true);
+    bool revokeExpired = RA::GetConfigStore()->GetConfigAsBool(configname, false);
 
     if (!revokeExpired) {
         char *notBefore = get_cert_attr_byname(entry, "tokennotbefore");
