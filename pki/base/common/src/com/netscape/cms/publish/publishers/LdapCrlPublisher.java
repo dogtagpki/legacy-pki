@@ -137,7 +137,8 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
      */
     public void publish(LDAPConnection conn, String dn, Object crlObj)
         throws ELdapException {
-        log(ILogger.LL_FAILURE, "CRLDEBUG - in LdapCrlPublisher.publish()");
+        String method = "publish:";
+        CMS.debug(method + "CRLDEBUG - in LdapCrlPublisher.publish()");
         if (conn == null) {
             log(ILogger.LL_INFO, "publish CRL: no LDAP connection");
             return;
@@ -170,7 +171,7 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
                version,
                sslSocket, mgr_dn, mgr_pwd);
             conn = altConn;
-            log(ILogger.LL_FAILURE, "CRLDEBUG - got LDAP connection");
+            CMS.debug(method + "CRLDEBUG - got LDAP connection");
           }
         } catch (LDAPException e) {
           CMS.debug("Failed to create alt connection " + e);
@@ -273,17 +274,17 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
 
             constraints = conn.getConstraints();
             if (constraints != null) {
-                log(ILogger.LL_FAILURE, "CRLDEBUG - setting publishing timelimit on conn to: " + String.valueOf(mLdapPublishTimelimit_ms));
+                CMS.debug(method + "CRLDEBUG - setting publishing timelimit on conn to: " + String.valueOf(mLdapPublishTimelimit_ms));
                 orig_timelimit = constraints.getTimeLimit();
                 constraints.setTimeLimit(mLdapPublishTimelimit_ms);
                 conn.setConstraints(constraints);
             } else {
-                log(ILogger.LL_FAILURE, "CRLDEBUG - constraints not set");
+                CMS.debug(method + "CRLDEBUG - constraints not set");
             }
 
-            log(ILogger.LL_FAILURE, "CRLDEBUG - about to modify CRL");
+            CMS.debug(method + "CRLDEBUG - about to modify CRL");
             conn.modify(dn, modSet);
-            log(ILogger.LL_FAILURE, "CRLDEBUG - finished modify CRL");
+            CMS.debug(method + "CRLDEBUG - finished modify CRL");
         } catch (CRLException e) {
             log(ILogger.LL_FAILURE, CMS.getLogMessage("PUBLISH_PUBLISH_ERROR", e.toString()));
             throw new ELdapException(CMS.getUserMessage("CMS_LDAP_PUBLISH_CRL_ERROR", e.toString()));
@@ -301,7 +302,7 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
         } finally {
           // Reset original timelimit
           if (constraints != null) {
-              log(ILogger.LL_FAILURE, "CRLDEBUG - resetting original timelimit on conn to: " + String.valueOf(orig_timelimit));
+              CMS.debug(method + "CRLDEBUG - resetting original timelimit on conn to: " + String.valueOf(orig_timelimit));
               constraints.setTimeLimit(orig_timelimit);
               conn.setConstraints(constraints);
           }
@@ -314,7 +315,7 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
           }
         }
 
-        log(ILogger.LL_FAILURE, "CRLDEBUG - returning from LdapCrlPublisher.publish()");
+        CMS.debug(method + "CRLDEBUG - returning from LdapCrlPublisher.publish()");
     }
 
     /**
