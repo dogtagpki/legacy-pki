@@ -524,108 +524,59 @@ TOKENDB_PUBLIC Buffer *CertEnroll::RetrieveCertificate(PRUint64 serialno, const 
 }
 
 /*
- * IsCertificateValid - queries the CA and determines if the certificate is valid.
- * i.e. in validity range and not revoked.
+ * IsCertificateRevoked - queries the CA and determines if the certificate is Revoked.
  * @param serialno serial number of the cert to check
  * @param connid connection id of the ca
  * @return
- *      True if valid, False otherwise
+ *      True if revoked, False otherwise
  */
-TOKENDB_PUBLIC bool CertEnroll::IsCertificateValid(PRUint64 serialno, const char *connid)
+TOKENDB_PUBLIC bool CertEnroll::IsCertificateRevoked(PRUint64 serialno, const char *connid)
 {
-    const char *FN = "CertEnroll::IsCertificateValid";
+    const char *FN = "CertEnroll::IsCertificateRevoked";
     char parameters[5000];
     char configname[5000];
+    bool status = false;
 
     RA::Debug(FN, "begins.");
-    PR_snprintf((char *)parameters, 5000, "serialTo=%llu&serialFrom=%llu&op=listCerts&querySentinelUp=%llu"
-        "&querySentinelDown=%llu&skipRevoked=on&skipNonValid=on&maxCount=1", 
-        serialno, serialno, serialno, serialno);
+    // on CA, GetBySerial expects parameter "serialNumber"
+    // "b64CertOnly" will give you a slim version of the result
+    PR_snprintf((char *)parameters, 5000, "b64CertOnly=true&serialNumber=%llu", serialno);
 
     RA::Debug(FN, "got parameters =%s", parameters);
-    //e.g. conn.ca1.servlet.listCerts=/ca/ee/ca/listCerts
-    PR_snprintf((char *)configname, 256, "conn.%s.servlet.listCerts", connid);
+    //e.g. conn.ca1.servlet.getBySerial=/ca/ee/ca/displayBySerial
+    PR_snprintf((char *)configname, 256, "conn.%s.servlet.getBySerial", connid);
     const char *servlet = RA::GetConfigStore()->GetConfigAsString(configname);
-    if (servlet == NULL) {
-        RA::Debug(FN,
-            "Missing the configuration parameter for %s, set to default /ca/ee/ca/listCerts", configname);
-        servlet = "/ca/ee/ca/listCerts";
-    }
 
     PSHttpResponse *resp =  sendReqToCA(servlet, parameters, connid);
     if (resp != NULL) {
         RA::Debug(LL_PER_PDU, FN, "sendReqToCA done");
 
-        int count = getRecordIntParameter(resp, "totalRecordCount = ");
+        // if parseResponse returns null, then the cert is not revoked; otherwise it is
+        Buffer *ret = parseResponse(resp, "revocationReason", false/*not cert*/);
+      if (ret == NULL) { // not found
+            RA::Debug(FN, "no revocationReason found; cert not revoked");
+            status = false;
+        } else {
+            RA::Debug(FN,
+                "parseResponse done, revocationReason found; cert revoked; reason=%s", ret->string());
+            status = true;
+        }
+
+        if( ret != NULL ) {
+            delete ret;
+            ret = NULL;
+        }
 
         if (resp != NULL) { 
            delete resp;
            resp = NULL;
         }
 
-        if (count > 0) {
-            RA::Debug(LL_PER_PDU, FN, "count is greater than 0");
-            return true;
-        }
-        
-        RA::Debug(LL_PER_PDU, FN, "count equals or less than 0");
-        return false;
     } else {
       RA::Error(FN, "sendReqToCA failure");
-      return false;
-    }
-}
-
-int CertEnroll::getRecordIntParameter(PSHttpResponse *resp, const char* filter) {
-    const char *FN = "CertEnroll::getRecordIntParameter";
-    char *response = NULL;
-    char *record_count = NULL;
-    char *record_count_end = NULL;
-
-    char count_string[50];
-    int count = 0;
-    int count_len = 0;
-
-    if (filter == NULL) {
-        RA::Error(LL_PER_PDU, FN, "filter is null");
-        goto loser;
-    }
-    
-    response = resp->getContent();
-    if (response == NULL) {
-        RA::Error(LL_PER_PDU, FN, "failed to get content");
-        goto loser;
-    }
-    record_count = strstr((char *)response, filter);
-    if (record_count == NULL) {
-        RA::Error(LL_PER_PDU, FN, "content does not include filter: %s", filter);
-        goto loser;
     }
 
-    record_count_end = strstr(record_count, ";");
-    if (record_count_end == NULL) {
-        RA::Error(LL_PER_PDU, FN, "content does not contain end terminator");
-        goto loser;
-    }
-
-    count_len = record_count_end - record_count - strlen(filter);
-    if (count_len >= 50) {
-        RA::Error(LL_PER_PDU, FN, "content is too long");
-        goto loser;
-    }
-
-    memcpy(count_string, record_count + strlen(filter), count_len);
-
-    RA::Debug(LL_PER_PDU, FN, "count is '%s'", count_string);
-    count = atoi(count_string);
-
-loser:
-    if (response != NULL) {
-        resp->freeContent();
-        response = NULL;
-    }
-
-    return count;
+    return status;
 }
 
 
@@ -1156,6 +1107,15 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
  */
 Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
 {
+    return parseResponse(resp, certB64Param, true);
+}
+
+/*
+ * if getCert is false, then just retrieves and returns the param value
+ */
+Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param,
+        bool getCert) 
+{
     unsigned int i;
     const int PARAM_CERT_MAX_SIZE = 8192;
     char pattern [32] = {0};
@@ -1216,7 +1176,7 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
         goto endParseResp;
     }
 
-    if (strlen(certB64) < (strlen(certB64Param)+3)) { //safety check
+    if (getCert && (strlen(certB64) < (strlen(certB64Param)+3))) { //safety check
         RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
             "certB64 too short");
         goto endParseResp;
@@ -1237,6 +1197,13 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
 
     for (i=0; i<certB64Len-1 ; i++) {
         if (certB64[i] == '\\') { certB64[i] = ' '; certB64[i+1] = ' '; }
+    }
+
+    if (!getCert) { // this is just trying to retrieve an output header value
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+            "returning output header value:");
+        memcpy((char*)blob, (const char*)(certB64), certB64Len);
+        return new Buffer((BYTE *) blob, blob_len);
     }
 
     // b64 decode and put back in blob

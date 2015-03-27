@@ -3147,7 +3147,44 @@ bool RA_Enroll_Processor::GenerateCertificates(AuthParams *login, RA_Session *se
     return noFailedCerts;
 }
 
+bool isInvalidCertRecoveryAllowed() {
+    char configname[256];
 
+    // by default we allow it to happen
+    PR_snprintf((char *)configname, 256, "externalReg.isInvalidCertRecoveryAllowed.enable");
+    return RA::GetConfigStore()->GetConfigAsBool(configname, true);
+}
+
+/*
+ * check  if a cert is expired or not
+ */
+bool RA_Enroll_Processor::isCertificateExpired(CERTCertificate *cert)
+{
+    PRTime timeBefore, timeAfter, now;
+
+    RA::Debug("RA_Enroll_Processor::isCertificateExpired", "begins");
+    if (cert == NULL) {
+        RA::Debug("RA_Enroll_Processor::isCertificateExpired","cert null; returning false!");
+    }
+
+    DER_DecodeTimeChoice(&timeBefore, &cert->validity.notBefore);
+    DER_DecodeTimeChoice(&timeAfter, &cert->validity.notAfter);
+
+    PrintPRTime(timeBefore,"timeBefore");
+    PrintPRTime(timeAfter,"timeAfter");
+
+    now = PR_Now();
+
+    if(LL_CMP(now,>=, timeBefore) && LL_CMP(now,<=,timeAfter)) {
+        RA::Debug("RA_Enroll_Processor::isCertificateExpired","returning false!");
+        return false;
+    }
+
+    RA::Debug("RA_Enroll_Processor::isCertificateExpired","returning true!");
+
+    return true;
+}
+ 
 /* (for isExternalReg)
  * RA_Enroll_Processor::ExternalRegRecover
  *    reach out to DRM for key recovery.
@@ -3222,11 +3259,19 @@ bool RA_Enroll_Processor::ExternalRegRecover(
         if (erCertKeyInfo == NULL) {
             continue;
         }
-        if (! certEnroll->IsCertificateValid(serial, caConn)) {
-            RA::Debug(LL_PER_CONNECTION, FN,
-                "RetrieveCertificate() failed as cert is invalid or revoked");
-            o_status = STATUS_ERROR_RECOVERY_FAILED;
-            goto loser;
+        erCertKeyInfo->setCertStatus(ACTIVE);
+        // check revocation status
+        if (certEnroll->IsCertificateRevoked(serial, caConn)) {
+            if (isInvalidCertRecoveryAllowed()) {
+                RA::Debug(LL_PER_CONNECTION, FN,
+                    "RetrieveCertificate() cert is revoked; recovery allowed");
+                erCertKeyInfo->setCertStatus(REVOKED);
+            } else {
+                RA::Debug(LL_PER_CONNECTION, FN,
+                    "RetrieveCertificate() cert is revoked; recovery disallowed");
+                o_status = STATUS_ERROR_RECOVERY_FAILED;
+                goto loser;
+            }
         }
 
         cert = certEnroll->RetrieveCertificate(serial, caConn, error_msg);
@@ -3259,6 +3304,23 @@ bool RA_Enroll_Processor::ExternalRegRecover(
                 goto loser;
             }
         }
+        // check validity 
+        if (isCertificateExpired(o_cert)) {
+            if (isInvalidCertRecoveryAllowed()) {
+                RA::Debug(LL_PER_CONNECTION, FN,
+                    "RetrieveCertificate() cert is expired; recovery allowed");
+                // if it was marked revoked, then don't override it
+                // which means, REVOKED could mean REVOKED-and-EXPIRED
+                if (erCertKeyInfo->getCertStatus() == ACTIVE)
+                    erCertKeyInfo->setCertStatus(EXPIRED);
+            } else {
+                RA::Debug(LL_PER_CONNECTION, FN,
+                    "RetrieveCertificate() cert is expired; recovery disallowed");
+                o_status = STATUS_ERROR_RECOVERY_FAILED;
+                goto loser;
+            }
+        }
+
 
         /*
          * in case when drm id not supplied, the certToAdd

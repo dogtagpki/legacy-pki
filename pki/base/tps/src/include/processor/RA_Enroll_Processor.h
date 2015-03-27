@@ -91,6 +91,8 @@ class RA_Enroll_Processor : public RA_Processor
                 CERTCertificate **o_cert, 
                 char *error_msg, int *error_code);
 
+        bool isCertificateExpired(CERTCertificate *cert);
+
         bool ExternalRegRecover(
                 RA_Session *session,
                 const char *userid,

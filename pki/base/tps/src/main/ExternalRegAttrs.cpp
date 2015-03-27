@@ -43,6 +43,7 @@ ExternalRegCertKeyInfo::ExternalRegCertKeyInfo() {
     public_key = NULL;
     wrappedPrivKey = NULL;
     certificate = NULL;
+    certStatus = UNINITIALIZED;
 }
 
 ExternalRegCertKeyInfo::~ExternalRegCertKeyInfo() {
@@ -63,14 +64,12 @@ ExternalRegCertKeyInfo::~ExternalRegCertKeyInfo() {
     }
 }
 
-
-
 TPS_PUBLIC void ExternalRegCertKeyInfo::setCert(CERTCertificate *cert) {
     certificate = cert;
 }
 
 
- TPS_PUBLIC CERTCertificate *ExternalRegCertKeyInfo::getCert() {
+TPS_PUBLIC CERTCertificate *ExternalRegCertKeyInfo::getCert() {
     return certificate;
 }
 
@@ -261,7 +260,6 @@ void ExternalRegAttrs::setTokenMSN(const char *theMsn) {
 const char *ExternalRegAttrs::getTokenMSN() {
     return tokenMSN;
 }
-
 
 
 void ExternalRegAttrs::addCertToRecover(ExternalRegCertToRecover *ctr) {

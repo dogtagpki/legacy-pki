@@ -75,7 +75,6 @@ typedef struct
     char *data;
 } secuPWData;
 
-
 static ConfigStore *m_cfg = NULL;
 static LogFile* m_debug_log = (LogFile *)NULL; 
 static LogFile* m_error_log = (LogFile *)NULL; 
@@ -3258,6 +3257,24 @@ int RA::tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs) {
             RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates",
                 "find_tus_certificate_entries_by_order_no_vlv returned %d", r);
             bool found = false;
+
+            // actual cert status to be recorded in cert enry
+            char certST[32] = {0};
+            switch (erCertKeyInfo->getCertStatus()) {
+            case ACTIVE:
+                PL_strcpy(certST , "active");
+                break;
+            case REVOKED:
+                PL_strcpy(certST , "revoked");
+                break;
+            case EXPIRED:
+                PL_strcpy(certST , "expired");
+                break;
+            default:
+                PL_strcpy(certST , "uninitialized");
+                break;
+            }
+
             if (r == LDAP_SUCCESS) {
                 for (e = get_first_entry(result); e != NULL; e = get_next_entry(e)) {
                     char **values = get_attribute_values(e, "tokenID");
@@ -3268,11 +3285,12 @@ int RA::tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs) {
 
                     if (PL_strcmp(cuid, values[0])== 0)  found = true;
                     if (cn != NULL ) {
-                        RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Updating cert status of %s to active in tokendb", cn);
-                        r = update_cert_status(cn, "active");
+                        //r = update_cert_status(cn, "active");
+                        RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Updating cert status of %s to %s in tokendb", cn, certST);
+                        r = update_cert_status(cn, certST);
                         if (r != LDAP_SUCCESS) {
                             RA::Debug("RA::tdb_update_certificates",
-                                      "Unable to modify cert status to active in tokendb: %s", cn);
+                                      "Unable to modify cert status to %s in tokendb: %s", certST, cn);
                         }
                         PL_strfree(cn);
                         cn = NULL;
@@ -3286,7 +3304,7 @@ int RA::tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs) {
             }
             if (!found && !erCertToRecover->getIgnoreForUpdateCerts()) {
                 add_certificate(cuid,cuid , tokenType, userid, cert,
-                    "encryption", "active");
+                    "encryption", certST);
             }
 
      } 

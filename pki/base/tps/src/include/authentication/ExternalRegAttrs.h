@@ -50,6 +50,16 @@
 #define MAX_EXTERNAL_REG_CERTS 20
 #define MaxExternalRegBuf 64
 /*
+ * cert status in tokendb:
+ */
+typedef enum {
+    UNINITIALIZED = 0,
+    ACTIVE = 1,
+    REVOKED = 2,
+    EXPIRED = 3
+} CertStatus;
+
+/*
  * ExternalRegCertKeyInfo - cert/key info for the token
  */
 class ExternalRegCertKeyInfo
@@ -60,6 +70,7 @@ class ExternalRegCertKeyInfo
         ExternalRegCertKeyInfo();
         ~ExternalRegCertKeyInfo();
     public:
+
         TPS_PUBLIC void setCert(CERTCertificate *cert);
         TPS_PUBLIC CERTCertificate *getCert();
 /*ToDo: other functions to handle private data
@@ -75,6 +86,8 @@ public data for now...
         void setPublicKeyNumber(int keyNum) { publicKeyNumber = keyNum; }
         int getPublicKeyNumber() { return publicKeyNumber;}
 
+        void setCertStatus(CertStatus status) { certStatus = status; }
+        CertStatus getCertStatus() { return certStatus; }
 
         void setPrivateKeyAttrId(char *attrId) { strncpy(privateKeyAttrId, attrId, MaxExternalRegBuf); }
         char *getPrivateKeyAttrId() { return privateKeyAttrId;}
@@ -116,6 +129,7 @@ public data for now...
         CERTCertificate *certificate;
         char *public_key;
         char *wrappedPrivKey;
+        CertStatus certStatus;
 };
 
 /*
