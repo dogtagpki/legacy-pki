@@ -4981,13 +4981,13 @@ mod_tokendb_handler( request_rec *rq )
 
                     PR_snprintf( ( char * ) configname, 256,
                                  "op.enroll.%s.keyGen.%s.recovery."
-                                 ".onHold.revokeCert.reason",
+                                 "onHold.revokeCert.reason",
                                  attr_tokenType, attr_keyType );
 
                     char *revokeReason = ( char * )
                                          ( RA::GetConfigStore()->
                                            GetConfigAsString( configname,
-                                                              "0" ) );
+                                                              "6" ) );
                     if( revokeCert ) {
                         char *attr_cn = get_cert_cn( e );
 
