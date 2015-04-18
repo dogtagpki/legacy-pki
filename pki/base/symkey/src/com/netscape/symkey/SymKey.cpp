@@ -1115,11 +1115,16 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_netscape_symkey_SessionKey_Dive
 
     masterKey = ReturnSymKey(newSlot,fullNewMasterKeyName);
 
+
+    PR_fprintf(PR_STDOUT,"DiversifyKey: returned masterKey %p \n",masterKey);
+
     if(newMasterKeyNameChars) {
         (env)->ReleaseStringUTFChars(newMasterKeyName, (const char *)newMasterKeyNameChars);
     }
 
-
+    if(masterKey == NULL) {
+        goto done;
+    }
 
     // AC: BUGFIX for key versions higher than 09:  Since "jstring keyInfo" is now passed in as "jbyteArray newKeyInfo", we no longer need this code.
     //
