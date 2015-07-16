@@ -17,10 +17,11 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.request;
 
-import java.math.BigInteger;
+import java.math.*;
+import java.util.Enumeration;
+import com.netscape.certsrv.dbs.repository.IRepository;
 
 import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.dbs.repository.IRepository;
 
 
 /**

@@ -17,8 +17,8 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cmsutil.ocsp;
 
-import org.mozilla.jss.asn1.ASN1Value;
-import org.mozilla.jss.asn1.OCTET_STRING;
+import java.io.*;
+import org.mozilla.jss.asn1.*;
 
 /**
  * RFC 2560:

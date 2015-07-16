@@ -1,17 +1,18 @@
 <!-- --- BEGIN COPYRIGHT BLOCK ---
-     This program is free software; you can redistribute it and/or modify
-     it under the terms of the GNU General Public License as published by
-     the Free Software Foundation; version 2 of the License.
-
-     This program is distributed in the hope that it will be useful,
+     This library is free software; you can redistribute it and/or
+     modify it under the terms of the GNU Lesser General Public
+     License as published by the Free Software Foundation.
+     
+     This library is distributed in the hope that it will be useful,
      but WITHOUT ANY WARRANTY; without even the implied warranty of
-     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-     GNU General Public License for more details.
-
-     You should have received a copy of the GNU General Public License along
-     with this program; if not, write to the Free Software Foundation, Inc.,
-     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+     Lesser General Public License for more details.
+     
+     You should have received a copy of the GNU Lesser General Public
+     License along with this library; if not, write to the Free Software
+     Foundation, Inc., 51 Franklin Street, Fifth Floor,
+     Boston, MA  02110-1301  USA 
+     
      Copyright (C) 2007 Red Hat, Inc.
      All rights reserved.
      --- END COPYRIGHT BLOCK --- -->
@@ -47,14 +48,12 @@ If, however, the end user's identity fails to be verified, TPS will not establis
         <th>Host:</th>
         <td><input type="text" length="128" size="40" name="host" value="$hostname" /></td>
       </tr>
-
+            
       <tr>
         <th>Port:</th>
-
-        <td><input type="text" length="64" size="40" name="port" value="$portStr" />
-          <input type="CHECKBOX" NAME="secureConn" value="true">SSL </td>
-      </tr>
-            
+                                
+        <td><input type="text" length="64" size="40" name="port" value="$portStr" /></td>
+      </tr>       
       <tr>
         <th>Base DN:</th>
         <td><input type="text" length="128" size="40" name="basedn" value="$basedn" /></td>

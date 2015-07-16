@@ -44,7 +44,8 @@
 #endif /* !XP_WIN32 */
 
 #include "ldap.h"
-#include "lber.h"
+#include "ldap_ssl.h"
+#include "ldappr.h"
 #include "pk11func.h"
 #include "cryptohi.h"
 #include "keyhi.h"
@@ -182,7 +183,7 @@ TPS_PUBLIC int update_tus_db_entry (const char *agentid,
 TPS_PUBLIC int update_tus_db_entry_with_mods (const char *agentid, const char *cn, LDAPMod **mods);
 TPS_PUBLIC int check_and_modify_tus_db_entry (char *userid, char *cn, char *check, LDAPMod **mods);
 TPS_PUBLIC int modify_tus_db_entry (char *userid, char *cn, LDAPMod **mods);
-TPS_PUBLIC int add_activity (const char *ip, const char *id, const char *op, const char *result, const char *msg, const char *userid, const char *token_type);
+TPS_PUBLIC int add_activity (char *ip, char *id, const char *op, const char *result, const char *msg, const char *userid, const char *token_type);
 TPS_PUBLIC int find_tus_certificate_entries_by_order_no_vlv (char *filter,
   LDAPMessage **result, int order);
 TPS_PUBLIC int find_tus_certificate_entries_by_order (char *filter, int max,
@@ -201,13 +202,14 @@ TPS_PUBLIC LDAPMessage *get_next_entry (LDAPMessage *entry);
 TPS_PUBLIC CERTCertificate **get_certificates(LDAPMessage *entry);
 
 TPS_PUBLIC char **get_token_states();
+TPS_PUBLIC char *get_token_attr_byname(LDAPMessage *entry, char *name);
 TPS_PUBLIC char **get_token_attributes();
 TPS_PUBLIC char **get_activity_attributes();
 TPS_PUBLIC char **get_user_attributes();
 TPS_PUBLIC char **get_view_user_attributes();
-TPS_PUBLIC struct berval **get_attribute_values(LDAPMessage *entry, const char *attribute);
-TPS_PUBLIC void free_values(struct berval **values, int ldapValues);
-TPS_PUBLIC struct berval **get_token_users(LDAPMessage *entry);
+TPS_PUBLIC char **get_attribute_values(LDAPMessage *entry, const char *attribute);
+TPS_PUBLIC void free_values(char **values, int ldapValues);
+TPS_PUBLIC char **get_token_users(LDAPMessage *entry);
 TPS_PUBLIC char *get_token_id(LDAPMessage *entry);
 TPS_PUBLIC char *get_cert_tokenType(LDAPMessage *entry);
 TPS_PUBLIC char *get_token_status(LDAPMessage *entry);
@@ -216,7 +218,7 @@ TPS_PUBLIC char *get_cert_status(LDAPMessage *entry);
 TPS_PUBLIC char *get_cert_type(LDAPMessage *entry);
 TPS_PUBLIC char *get_cert_serial(LDAPMessage *entry);
 TPS_PUBLIC char *get_cert_issuer(LDAPMessage *entry);
-TPS_PUBLIC char *get_cert_attr_byname(LDAPMessage *entry, const char *name);
+TPS_PUBLIC char *get_cert_attr_byname(LDAPMessage *entry, char *name);
 TPS_PUBLIC char *get_applet_id(LDAPMessage *entry);
 TPS_PUBLIC char *get_key_info(LDAPMessage *entry);
 TPS_PUBLIC char *get_creation_date(LDAPMessage *entry);

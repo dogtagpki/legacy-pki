@@ -17,7 +17,7 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.certsrv.profile;
 
-import com.netscape.certsrv.base.EBaseException;
+import com.netscape.certsrv.base.*;
 
 /**
  * This represents a generic profile exception.

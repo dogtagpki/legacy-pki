@@ -18,12 +18,23 @@
 // All rights reserved.
 // --- END COPYRIGHT BLOCK ---
 
+#include "cert.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include "plstr.h"
+
+#include "secder.h"
+#include "pk11func.h"
+#include "cryptohi.h"
+#include "keyhi.h"
+#include "base64.h"
+#include "nssb64.h"
+
+
 #include "engine/RA.h"
+#include "authentication/LDAP_Authentication.h"
 #include "main/Buffer.h"
 #include "main/Base.h"
 #include "main/Util.h"
@@ -73,6 +84,7 @@
 #include "apdu/APDU_Response.h"
 #include "channel/Secure_Channel.h"
 #include "main/Memory.h"
+#include "main/PKCS11Obj.h"
 
 #if 0
 #ifdef __cplusplus
@@ -84,6 +96,9 @@ extern "C"
 }
 #endif
 #endif
+
+#define MAX_OP_PREFIX_LENGTH 50
+#define MAX_TOKEN_TYPE_LENGTH 50
 
 /**
  * Constructs a base processor.
@@ -110,7 +125,7 @@ AuthenticationEntry *RA_Processor::GetAuthenticationEntry(
     if (!RA::GetConfigStore()->GetConfigAsBool(a_configname, false))
             return NULL;
                                                                                 
-        RA::Debug("RA_Enroll_Processor::AuthenticateUser",
+        RA::Debug("RA_Processor::GetAuthenticationEntry",
                 "Authentication enabled");
     char configname[256];
     PR_snprintf((char *)configname, 256, "%s.%s.auth.id", prefix, a_tokenType);
@@ -290,7 +305,8 @@ int RA_Processor::UpgradeApplet(RA_Session *session, char *prefix, char *tokenTy
 		NameValueSet *extensions,
 		int start_progress,
 		int end_progress, 
-                char **key_version)
+                char **key_version, Buffer &CUID,
+		const char *msn)
 {
         Buffer *NetKeyAID = RA::GetConfigStore()->GetConfigAsBuffer(
 			RA::CFG_APPLET_NETKEY_INSTANCE_AID,
@@ -333,6 +349,7 @@ int RA_Processor::UpgradeApplet(RA_Session *session, char *prefix, char *tokenTy
 	int defKeyVer;
 	int defKeyIndex;
 	char *ext;
+	AppletInfo *appInfo = NULL;
 
 	if (applet_dir == NULL) {
                 RA::Error(LL_PER_PDU, "RA_Processor::UpgradeApplet", 
@@ -378,7 +395,13 @@ int RA_Processor::UpgradeApplet(RA_Session *session, char *prefix, char *tokenTy
     defKeyVer = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
     PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
     defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-	channel = SetupSecureChannel(session, defKeyVer, defKeyIndex, security_level, connid);
+
+    appInfo = RA::CreateAppletInfo(major_version, minor_version, msn, extensions);
+ 
+	channel = SetupSecureChannel(
+            session, defKeyVer, defKeyIndex,
+            security_level, connid, CUID, prefix, tokenType, appInfo);
+
 	if (channel == NULL) {
              RA::Error(LL_PER_PDU, "RA_Processor::UpgradeApplet", 
 		  "channel creation failure");
@@ -536,7 +559,12 @@ loser:
         dataf = NULL;
     }
 
-	return rc;
+    if (appInfo != NULL) {
+	free((AppletInfo *) appInfo);
+        appInfo = NULL;
+    }
+
+    return rc;
 }
 
 char *RA_Processor::MapPattern(NameValueSet *nv, char *pattern)
@@ -654,12 +682,14 @@ loser:
 }
 
 /**
- * Determine the Token Type. The user can set up mapping rules in the 
- * config file which allow different operations depending on the
- * CUID, applet version, ATR, etc.
+ * Process the mapping rules to determine either the keySet or the token type,
+ * depending on if external registration is enabled or not.
+ * 
+ * The user can set up mapping rules in the config file which allow different
+ * operations depending on the CUID, applet version, ATR, etc.
  */
-bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor_version, const char *cuid, const char *msn, NameValueSet *extensions, 
-	RA_Status &o_status /* out */, const char *&o_tokenType /* out */)
+bool RA_Processor::ProcessMappingFilter(const char *prefix, AppletInfo *appInfo, const char *cuid,
+	bool getKeySet, RA_Status &o_status /* out */, const char *&o_selection /* out */)
 {
 	const char *e_tokenATR = NULL;
 	const char *tokenATR = NULL;
@@ -667,7 +697,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 	const char *tokenType = NULL;
 	const char *tokenCUIDStart = NULL;
 	const char *tokenCUIDEnd = NULL;
-	const char *targetTokenType = NULL;
+	const char *targetSelection = NULL;
 	const char *majorVersion = NULL;
 	const char *minorVersion = NULL;
 	const char *order = NULL;
@@ -677,29 +707,34 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 	int start_pos = 0, done = 0;
 	unsigned int end_pos = 0;
 	const char *cuid_x = NULL;
-        int rc=0;
 
+        const char *e_keySet = NULL;
+        const char *keySet = NULL;
+        const char *FN="RA_Processor::ProcessMappingFilter";
+
+	BYTE major_version = appInfo->major_version;
+	BYTE minor_version = appInfo->minor_version;
+	const char *msn = appInfo->msn;
+	NameValueSet *extensions = appInfo->extensions;
+        
 	cuid_x = cuid;
 
-	sprintf(configname, "%s.mapping.order", prefix);
+	snprintf(configname, 256, "%s.mapping.order", prefix);
 	order = RA::GetConfigStore()->GetConfigAsString(configname);
 	if (order == NULL) {
-		RA::Error("RA_Processor::GetTokenType", "Token type is not found");
-    	o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_NOT_FOUND;
-		RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType", 
-				"cannot find config ", configname);
+		RA::Error(FN, "Token type is not found");
+		o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_NOT_FOUND;
+		RA::Debug(LL_PER_PDU, FN, "cannot find config ", configname);
 		return false; /* no mapping found */
 	}
 
-	RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
-			"Starting:");
+	RA::Debug(LL_PER_PDU, FN, "Starting:");
 	order_x = PL_strdup(order);
 
 	start_pos = 0;
 	end_pos = 0;
 	done = 0;
-	while (1) 
-	{
+	while (1) {
 		if (done) {
 			break;
 		}
@@ -714,39 +749,64 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 			done = 1;
 		}
 		mappingId = &order_x[start_pos];
-		RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType", 
-				"mappingId='%s'", mappingId);
+		RA::Debug(LL_PER_PDU, FN, "mappingId='%s'", mappingId);
 
 		start_pos = end_pos + 1;
 
-		sprintf(configname, "%s.mapping.%s.target.tokenType", prefix, 
+		if (!getKeySet) {
+			snprintf(configname, 256, "%s.mapping.%s.target.tokenType", prefix,
+               			mappingId);
+		} else {
+			snprintf(configname, 256, "%s.mapping.%s.target.keySet", prefix,
 				mappingId);
-		targetTokenType = RA::GetConfigStore()->GetConfigAsString(configname);
+		}
+		targetSelection = RA::GetConfigStore()->GetConfigAsString(configname);
 
-
-		if (targetTokenType == NULL) {
+		if (targetSelection == NULL) {
 			break;
 		}
-		sprintf(configname, "%s.mapping.%s.filter.tokenType", prefix, 
+
+		if (!getKeySet) {
+			snprintf(configname, 256, "%s.mapping.%s.filter.tokenType", prefix,
 				mappingId);
-		tokenType = RA::GetConfigStore()->GetConfigAsString(configname);
+			tokenType = RA::GetConfigStore()->GetConfigAsString(configname);
 
-		RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
-				"tokenType: %s",tokenType);
+			RA::Debug(LL_PER_PDU, FN, "tokenType: %s",tokenType);
 
-		if (tokenType != NULL && strlen(tokenType) > 0) {
-			if (extensions == NULL) {
-				continue; /* mapping not matched, next mapping */
+			if (tokenType != NULL && strlen(tokenType) > 0) {
+				if (extensions == NULL) {
+					continue; /* mapping not matched, next mapping */
+				}
+				e_tokenType = extensions->GetValue("tokenType");
+				if (e_tokenType == NULL) {
+					continue; /* mapping not matched, next mapping */
+				}
+				if (strcmp(tokenType, e_tokenType) != 0) {
+					continue; /* mapping not matched, next mapping */
+				}
 			}
-			e_tokenType = extensions->GetValue("tokenType");
-			if (e_tokenType == NULL) {
-				continue; /* mapping not matched, next mapping */
-			}
-			if (strcmp(tokenType, e_tokenType) != 0) {
-				continue; /* mapping not matched, next mapping */
+		} else {
+			snprintf(configname, 256, "%s.mapping.%s.filter.keySet", prefix,
+				mappingId);
+			keySet = RA::GetConfigStore()->GetConfigAsString(configname);
+
+			RA::Debug(LL_PER_PDU, FN, "keySet: %s",keySet);
+
+			if (keySet != NULL && strlen(keySet) > 0) {
+				if (extensions == NULL) {
+					continue; /* mapping not matched, next mapping */
+				}
+				e_keySet = extensions->GetValue("keySet");
+				if (e_keySet == NULL) {
+					continue; /* mapping not matched, next mapping */
+				}
+				if (strcmp(keySet, e_keySet) != 0) {
+					continue; /* mapping not matched, next mapping */
+				}
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.tokenATR", prefix, 
+
+		snprintf(configname, 256, "%s.mapping.%s.filter.tokenATR", prefix, 
 				mappingId);
 		tokenATR = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (tokenATR != NULL && strlen(tokenATR) > 0) {
@@ -761,30 +821,30 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 				continue; /* mapping not matched, next mapping */
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.tokenCUID.start", prefix, 
+		snprintf(configname, 256, "%s.mapping.%s.filter.tokenCUID.start", prefix, 
 				mappingId);
 		tokenCUIDStart = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (tokenCUIDStart != NULL && strlen(tokenCUIDStart) > 0) {
 			if (cuid_x == NULL) {
 				continue; /* mapping not matched, next mapping */
 			}
-			RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType", 
+			RA::Debug(LL_PER_PDU, FN, 
 					"cuid_x=%s tokenCUIDStart=%s %d", cuid_x, tokenCUIDStart, 
 					PL_strcasecmp(cuid_x, tokenCUIDStart));
 
 			if(strlen(tokenCUIDStart) != 20)
 			{
-				RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
+				RA::Debug(LL_PER_PDU, FN,
 						"Invalid tokenCUIDStart: %s",tokenCUIDStart);
 				continue;
 			}
 
 			char *pend = NULL;
-			rc = strtol((const char *) tokenCUIDStart, &pend, 16);
+			strtol((const char *) tokenCUIDStart, &pend, 16);
 
 			if(*pend != '\0')
 			{
-				RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
+				RA::Debug(LL_PER_PDU, FN,
 						"Invalid tokenCUIDStart: %s",tokenCUIDStart);
 
 				continue;
@@ -794,31 +854,31 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 				continue; /* mapping not matched, next mapping */
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.tokenCUID.end", prefix, 
+		snprintf(configname, 256, "%s.mapping.%s.filter.tokenCUID.end", prefix, 
 				mappingId);
 		tokenCUIDEnd = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (tokenCUIDEnd != NULL && strlen(tokenCUIDEnd) > 0) {
 			if (cuid_x == NULL) {
 				continue; /* mapping not matched, next mapping */
 			}
-			RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType", 
+			RA::Debug(LL_PER_PDU, FN, 
 					"cuid_x=%s tokenCUIDEnd=%s %d", cuid_x, tokenCUIDEnd, 
 					PL_strcasecmp(cuid_x, tokenCUIDEnd));
 
 			if(strlen(tokenCUIDEnd) != 20)
 			{
-				RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
+				RA::Debug(LL_PER_PDU, FN,
 						"Invalid tokenCUIDEnd: %s",tokenCUIDEnd);
 				continue;
 			}
 
 			char *pend = NULL;
-			rc = strtol((const char *) tokenCUIDEnd, &pend, 16);
+			strtol((const char *) tokenCUIDEnd, &pend, 16);
 
 			if(*pend != '\0')
 			{
 
-				RA::Debug(LL_PER_PDU, "RA_Processor::GetTokenType",
+				RA::Debug(LL_PER_PDU, FN,
 						"Invalid tokenCUIDEnd: %s",tokenCUIDEnd);
 
 				continue;
@@ -828,7 +888,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 				continue; /* mapping not matched, next mapping */
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.appletMajorVersion", 
+		snprintf(configname, 256, "%s.mapping.%s.filter.appletMajorVersion", 
 				prefix, mappingId);
 		majorVersion = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (majorVersion != NULL && strlen(majorVersion) > 0) {
@@ -836,7 +896,7 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 				continue; /* mapping not matched, next mapping */
 			}
 		}
-		sprintf(configname, "%s.mapping.%s.filter.appletMinorVersion", 
+		snprintf(configname, 256, "%s.mapping.%s.filter.appletMinorVersion", 
 				prefix, mappingId);
 		minorVersion = RA::GetConfigStore()->GetConfigAsString(configname);
 		if (minorVersion != NULL && strlen(minorVersion) > 0) {
@@ -849,9 +909,8 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 			PL_strfree( order_x );
 			order_x = NULL;
 		}
-	    RA::Debug("RA_Processor::GetTokenType",
-                        "Selected Token type is '%s'", targetTokenType);
-		o_tokenType = targetTokenType;
+		RA::Debug(FN, "Selection is '%s'", targetSelection);
+		o_selection = targetSelection;
 		return true;
 	}
 
@@ -860,10 +919,46 @@ bool RA_Processor::GetTokenType(const char *prefix, int major_version, int minor
 		PL_strfree( order_x );
 		order_x = NULL;
 	}
-	RA::Error("RA_Processor::GetTokenType", "Token type is not found");
-    o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_NOT_FOUND;
+	RA::Error(FN, "Token type or key set is not found");
+	o_status = STATUS_ERROR_DEFAULT_TOKENTYPE_NOT_FOUND;
 	
 	return false;
+}
+
+bool RA_Processor::GetTokenType(const char *prefix, AppletInfo *appInfo, const char *cuid,
+	RA_Status &o_status /* out */, const char *&o_tokenType /* out */)
+{
+	return ProcessMappingFilter(prefix, appInfo, cuid, false, o_status, o_tokenType);
+}
+
+char* RA_Processor::GetKeySet(AppletInfo *appInfo, const char *cuid, const char *connid, RA_Status &o_status /* out */)
+{
+	char configname[256];
+	char *keySet = NULL;
+	const char *o_keySet = NULL;
+
+        PR_snprintf((char *)configname, 256, "externalReg.enable");
+        bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, false);
+
+        PR_snprintf((char *)configname, 256, "externalReg.keySet.mapping.enable");
+        bool isExternalRegMapping = RA::GetConfigStore()->GetConfigAsBool(configname, false);
+
+	if (!isExternalReg || !isExternalRegMapping) {
+        	PR_snprintf((char *)configname, 256, "conn.%s.keySet", connid);
+        	keySet = PL_strdup(RA::GetConfigStore()->GetConfigAsString(configname));
+		return keySet;
+	}
+
+	if (!ProcessMappingFilter("externalReg", appInfo, cuid, true, o_status, o_keySet)) {
+		PR_snprintf((char *)configname, 256, "externalReg.keySet.mapping.default");
+		const char *keySetDefault = RA::GetConfigStore()->GetConfigAsString(configname);
+		if ((keySetDefault != NULL) && (strlen(keySetDefault) != 0))
+			keySet =  PL_strdup(keySetDefault);
+	} else {
+        	keySet = PL_strdup(o_keySet);
+	}
+
+	return keySet;
 }
 
 int RA_Processor::SelectCardManager(RA_Session *session, char *prefix, char *tokenType)
@@ -1352,10 +1447,11 @@ Buffer *RA_Processor::GetAppletVersion(RA_Session *session)
     /* Sample: 3FBAB4BF9000 */
     if (data.size() != 6) {
 	   RA::Error(LL_PER_PDU, "Secure_Channel::GetAppletVersion", 
-		"Invalid Applet Version");
-            RA::DebugBuffer(LL_PER_PDU, "RA_Processor::GetAppletVersion",
-                 "Bad Applet Version: ",
-            &data);
+		"Invalid Applet Version data.size %d",data.size());
+           RA::DebugBuffer(LL_PER_PDU, "RA_Processor::GetAppletVersion",
+                "Bad Applet Version: ",
+           &data);
+
 	    goto loser;
     }
 
@@ -1383,11 +1479,23 @@ loser:
 /*
  * this one sets the security level
  */
+
+/**
+ * PAS Modification
+ *
+ * Added Buffer CUID
+ * Added const char *opPrefix
+ * Added const char *tokenType
+ */
 Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session, 
      BYTE key_version, BYTE key_index, SecurityLevel security_level,
-     const char *connId)
+     const char *connId, Buffer &CUID, const char *opPrefix, const char *tokenType,
+     AppletInfo *appInfo)
 {
-    Secure_Channel *channel = SetupSecureChannel(session, key_version, key_index, connId);
+    Secure_Channel *channel = SetupSecureChannel(
+        session, key_version, key_index, connId,
+        CUID, opPrefix, tokenType, appInfo);
+
     RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel","Resetting security level ...");
 
     /* Bugscape Bug #55774: Prevent NetKey RA from crashing . . . */
@@ -1522,8 +1630,17 @@ loser:
 /**
  * Setup secure channel between RA and the token.
  */
+
+/**
+ * PAS Modification
+ *
+ * Added Buffer CUID
+ * Added const char *opPrefix
+ * Added const char *tokenType
+ */
 Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session, 
-     BYTE key_version, BYTE key_index, const char *connId)
+     BYTE key_version, BYTE key_index, const char *connId, Buffer &CUID, const char *opPrefix,
+     const char *tokenType, AppletInfo *appInfo)
 {
     Secure_Channel *channel = NULL;
     APDU_Response *initialize_update_response = NULL;
@@ -1636,11 +1753,13 @@ Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session,
 
     channel = GenerateSecureChannel(
         session, connId,
+        CUID,
         key_diversification_data,
         key_info_data,
         card_challenge,
         card_cryptogram,
-        host_challenge);
+        host_challenge, opPrefix, tokenType,
+	appInfo);
 
 loser:
     if( initialize_update_request_msg != NULL ) {
@@ -1841,11 +1960,15 @@ loser:
  */
 Secure_Channel *RA_Processor::GenerateSecureChannel(
     RA_Session *session, const char *connId,
-    Buffer &key_diversification_data, /* CUID */
+    Buffer &CUID, /* CUID */
+    Buffer &key_diversification_data, /* KDD */
     Buffer &key_info_data,
     Buffer &card_challenge,
     Buffer &card_cryptogram,
-    Buffer &host_challenge)
+    Buffer &host_challenge,
+    const char *opPrefix,
+    const char *tokenType,
+    AppletInfo *appInfo)
 {
     PK11SymKey *session_key = NULL;
     Buffer *host_cryptogram = NULL;
@@ -1862,12 +1985,56 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
     char *kek_desKey_s = NULL;
     char *keycheck_s = NULL;
 
-    session_key = RA::ComputeSessionKey(session, key_diversification_data, 
+    /**
+     * PAS modification
+     * New configuration value to enable verification that the CUID matches the KDD, default disabled
+     * Return with NULL if CUID does not match KDD
+     */
+
+
+      PR_snprintf(configname, 256, "%s.%s.cuidMustMatchKDD", opPrefix, tokenType);
+      if(RA::GetConfigStore()->GetConfigAsBool(configname, 0)){
+          if(checkCUIDMatchesKDD(CUID, key_diversification_data, opPrefix) < 0){
+              return NULL;
+          }
+      }
+
+      /**
+       * PAS modification
+       * New configuration values to enforce a bound/range for GP key version for put key operation.
+       * Return with NULL if the cards current key version is not inside the GPKeyVersion range
+       */
+
+      PR_snprintf(configname, 256, "%s.%s.enableBoundedGPKeyVersion", opPrefix, tokenType);
+      if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
+          if(checkCardGPKeyVersionIsInRange(CUID, key_diversification_data, key_info_data, opPrefix, tokenType) < 0){
+              return NULL;
+          }
+      }
+
+      /**
+       * PAS modification
+       * New configuration value to validate the KeyInfo value obtained from INITIALIZE UPDATE RESPONSE matches what is in the Token DB for a known token, default enabled
+       * Return with NULL if the KeyInfo value does not match what is in the Token DB
+       *
+       */
+
+
+      PR_snprintf(configname, 256, "%s.%s.validateCardKeyInfoAgainstTokenDB", opPrefix, tokenType);
+
+      if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
+          if(checkCardGPKeyVersionMatchesTokenDB(CUID, key_diversification_data, key_info_data, opPrefix, tokenType) < 0){
+              return NULL;
+          }
+      }
+
+    session_key = RA::ComputeSessionKey(session, CUID, key_diversification_data,
                                         key_info_data, card_challenge,
                                         host_challenge, &host_cryptogram, 
 		                                card_cryptogram, &enc_session_key,
                                         &drm_desKey_s, &kek_desKey_s,
-                                        &keycheck_s, connId);
+                                        &keycheck_s, connId,
+					appInfo);
     if (session_key == NULL) {
       RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 	  "RA_Processor::GenerateSecureChannel - did not get session_key");
@@ -1879,7 +2046,7 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
     bool serverKeygen = RA::GetConfigStore()->GetConfigAsBool(configname, false);
 
     if (serverKeygen) {
-      if ((drm_desKey_s == NULL) || (strcmp(drm_desKey_s, "")==0)) {
+      if ((drm_desKey_s == "") || (drm_desKey_s == NULL)) {
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - did not get drm_desKey_s");
 	return NULL;
@@ -1887,7 +2054,7 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - drm_desKey_s = %s", drm_desKey_s);
       }
-      if ((kek_desKey_s == NULL) || (strcmp(kek_desKey_s,"")==0))  {
+      if ((kek_desKey_s == "") || (kek_desKey_s == NULL)) {
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - did not get kek_desKey_s");
 	return NULL;
@@ -1895,7 +2062,7 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - kek_desKey_s = %s", kek_desKey_s);
       }
-      if ((keycheck_s == NULL) || (strcmp(keycheck_s,"")==0)) {
+      if ((keycheck_s == "") || (keycheck_s == NULL)) {
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - did not get keycheck_s");
 	return NULL;
@@ -1952,11 +2119,37 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
     return channel;
 } /* GenerateSecureChannel */
 
-int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version, 
-  Buffer &NewMasterVer, Buffer &out, const char *connid)
+/**
+ *
+ * CreateKeySetData
+ * Try to create a new GP key set for the token
+ * This function can check that the CUID from GET DATA and KDD from INITIALIZE UPDATE RESPONSE are the same, by default this is disabled
+ * This function can check that the KeyInfo from INITIALIZE UPDATE RESPONSE matches the KeyInfo stored in the Token DB for a known token, by default this is enabled
+ * On successful key set creation, this function will update the Token DB with the new KeyInfo information for the token.
+ * If an entry in the database does not exist, the Token DB update function adds a new record.
+ * Only KeyInfo information is added or updated in this function
+ * Returns < 0 on failure for keyset creation or token DB update
+ *
+ */
+
+/**
+ * PAS modifications
+ * Added arguments opPrefix and tokenType to support per operation and per card configuration settings.
+ * Added argument KDD to fix communication semantics with TKS.  previously TKS received a CUID HTTP parameter which was actually the KDD.  This function now sends both CUID and KDD to TKS.
+ * New configuration value [opPrefix].[tokenType].cuidMustMatchKDD, default to false
+ * New configuration value [opPrefix].[tokenType].validateCardKeyInfoAgainstTokenDB, default to true
+ * New configuration value [opPrefix].[tokenType].enableBoundedGPKeyVersion, default to true
+ */
+
+int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &KDD, Buffer &version,
+    Buffer &NewMasterVer, Buffer &out, const char *connid, const char *opPrefix,
+    const char *tokenType, AppletInfo * appInfo)
 {
     char body[5000];
     char configname[256];
+    char* keySet = NULL;
+    RA_Status status = STATUS_NO_ERROR;
+
     HttpConnection *tksConn = NULL;
     tksConn = RA::GetTKSConn(connid);
     if (tksConn == NULL) {
@@ -1964,18 +2157,72 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
         RA::Error(LL_PER_PDU, "RA_Processor::CreateKeySetData", "Failed to get TKSConnection %s", connid);
         return -1;
     } else {
+
+        /**
+         * PAS modification
+         * New configuration value to enable verification that the CUID matches the KDD, default disabled
+         * Return with -1 if CUID does not match KDD
+         */
+
+
+        PR_snprintf(configname, 256, "%s.%s.cuidMustMatchKDD", opPrefix, tokenType);
+        if(RA::GetConfigStore()->GetConfigAsBool(configname, 0)){
+            if(checkCUIDMatchesKDD(CUID, KDD, opPrefix) < 0){
+                return -1;
+            }
+        }
+
+        /**
+         * PAS modification
+         * New configuration values to enforce a bound/range for GP key version for put key operation.
+         * Return with -1 if the cards current key version is not inside the GPKeyVersion range
+         */
+
+        PR_snprintf(configname, 256, "%s.%s.enableBoundedGPKeyVersion", opPrefix, tokenType);
+        if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
+
+            if(checkCardGPKeyVersionIsInRange(CUID, KDD, version, opPrefix, tokenType) < 0){
+                return -1;
+            }
+
+
+        }
+
+        /**
+         * PAS modification
+         * New configuration value to validate the KeyInfo value obtained from INITIALIZE UPDATE RESPONSE matches what is in the Token DB for a known token, default enabled
+         * Return with -1 if the KeyInfo value from KDD does not match what is in the Token DB
+         *
+         */
+
+
+        PR_snprintf(configname, 256, "%s.%s.validateCardKeyInfoAgainstTokenDB", opPrefix, tokenType);
+
+        if(RA::GetConfigStore()->GetConfigAsBool(configname, 1)){
+
+            if(checkCardGPKeyVersionMatchesTokenDB(CUID, KDD, version, opPrefix, tokenType) < 0){
+                return -1;
+            }
+        }
+
+
         // PRLock *tks_lock = RA::GetTKSLock();
         int tks_curr = RA::GetCurrentIndex(tksConn);
         int currRetries = 0;
         char *cuid = Util::SpecialURLEncode(CUID);
+	char *cuid_x = Util::Buffer2String(CUID);
+        char *kdd = Util::SpecialURLEncode(KDD);
         char *versionID = Util::SpecialURLEncode(version);
         char *masterV = Util::SpecialURLEncode(NewMasterVer);
 
-        PR_snprintf((char *)configname, 256, "conn.%s.keySet", connid);
-        const char *keySet = RA::GetConfigStore()->GetConfigAsString(configname);
+	keySet = GetKeySet(appInfo, cuid_x, connid, status);
+	if (keySet == NULL) {
+		RA::Error(LL_PER_PDU, "RA_Processor::CreateKeySetData", "Failed to get keySet");
+		return -1;
+	}
 
         PR_snprintf((char *)body, 5000,
-           "newKeyInfo=%s&CUID=%s&KeyInfo=%s&keySet=%s", masterV, cuid, versionID,keySet);
+           "newKeyInfo=%s&CUID=%s&KDD=%s&KeyInfo=%s&keySet=%s", masterV, cuid, kdd, versionID, keySet);
 
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.createKeySetData", connid);
         const char *servletID = RA::GetConfigStore()->GetConfigAsString(configname);
@@ -1984,6 +2231,16 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
             PR_Free( cuid );
             cuid = NULL;
         }
+
+        if( cuid_x != NULL ) {
+            PR_Free( cuid_x );
+            cuid_x = NULL;
+        }
+
+        if( kdd != NULL ){
+            PR_Free( kdd );
+            kdd = NULL;
+        }
         if( versionID != NULL ) {
             PR_Free( versionID );
             versionID = NULL;
@@ -1991,6 +2248,11 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
         if( masterV != NULL ) {
             PR_Free( masterV );
             masterV = NULL;
+        }
+
+        if (keySet != NULL) {
+            PL_strfree(keySet);
+            keySet = NULL;
         }
 
         tks_curr = RA::GetCurrentIndex(tksConn);
@@ -2095,8 +2357,60 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
 	if (tksConn != NULL) {
             RA::ReturnTKSConn(tksConn);
 	}
+
+
+    /**
+     * PAS modification
+     * If creating a new keyset is successful. Prior to returning, update the Token DB with the new KeyInfo data.
+     * The thought here is to record that TPS/TKS has generated cryptographic keys for a token and record this fact prior to sending the keys over the wire to the token
+     *
+     */
+
+
+    int rc = 0;
+
+    char *pcharCUID = Util::Buffer2String(CUID);
+
+    char *pcharNewMasterVersion = Util::Buffer2String(NewMasterVer);
+
+    rc = RA::tdb_update(NULL, pcharCUID, NULL, pcharNewMasterVersion, NULL, NULL, NULL);
+
+    RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", pcharCUID, "", pcharNewMasterVersion, "", "", "", "successfully updated tokenDB to new key version");
+
+    if (rc < 0) {
+        RA::Debug(LL_PER_PDU, "RA_Processor::CreateKeySetData","Failed to update the token database with new key version");
+
+        RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", pcharCUID, "", pcharNewMasterVersion, "", "", "", "failed to update tokenDB to new key version");
+
+        if( pcharNewMasterVersion != NULL){
+            PR_Free(pcharNewMasterVersion);
+            pcharNewMasterVersion = NULL;
+        }
+
+        if ( pcharCUID != NULL){
+            PR_Free(pcharCUID);
+            pcharCUID = NULL;
+        }
+
+        return -1;
+    }
+
+    if( pcharNewMasterVersion != NULL){
+        PR_Free(pcharNewMasterVersion);
+        pcharNewMasterVersion = NULL;
+    }
+
+    if ( pcharCUID != NULL){
+        PR_Free(pcharCUID);
+        pcharCUID = NULL;
+    }
+
+
+
         return 1;
     }
+
+    /**
         BYTE kek_key[] = {
                 0x40, 0x41, 0x42, 0x43,
                 0x44, 0x45, 0x46, 0x47,
@@ -2126,17 +2440,582 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &version,
 	if (tksConn != NULL) {
 		RA::ReturnTKSConn(tksConn);
 	}
+
+
+
+
    return 1;
+
+   */
+}
+
+
+/**
+ * PAS modification
+ * New function to enable verification that the CUID matches the KDD, default disabled
+ * Return with -1 if CUID does not match KDD, pcharOpPrefix is NULL, or pcharOpPrefix is character count is greater than 50
+ */
+int RA_Processor::checkCUIDMatchesKDD(Buffer &bufCUID, Buffer &bufKDD, const char* pcharOpPrefix){
+
+    char *pcharCUID = NULL;
+    char *pcharKDD = NULL;
+    char charArrayAuditMsg[500];
+
+
+    if(pcharOpPrefix == NULL){
+
+    	RA::Debug("RA_Processor::checkCUIDMatchesKDD", "Argument pcharOpPrefix is NULL.");
+
+    	return -1;
+
+    }
+
+
+    if(PL_strlen(pcharOpPrefix) > MAX_OP_PREFIX_LENGTH){
+
+ 	   RA::Debug("RA_Processor::checkCUIDMatchesKDD", "opPrefix is longer than 50 characters.");
+
+ 	   return -1;
+
+    }
+
+
+    if(bufCUID != bufKDD){
+
+        pcharCUID = Util::Buffer2String(bufCUID);
+        pcharKDD = Util::Buffer2String(bufKDD);
+
+        PR_snprintf(charArrayAuditMsg, 500, "CUID: %s does not equal KDD: %s", pcharCUID, pcharKDD);
+        RA::Debug("RA_Processor::checkCUIDMatchesKDD", charArrayAuditMsg);
+        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, pcharKDD, "failure", pcharOpPrefix, "", "", "", charArrayAuditMsg);
+        RA::tdb_activity("", pcharCUID, pcharOpPrefix, "failure", charArrayAuditMsg, "", "");
+
+        if (pcharCUID != NULL){
+            PR_Free(pcharCUID);
+            pcharCUID = NULL;
+        }
+
+        if (pcharKDD != NULL){
+            PR_Free(pcharKDD);
+            pcharKDD = NULL;
+        }
+
+        return -1;
+
+    }
+
+    return 0;
+
+}
+
+/**
+ * PAS modification
+ * New function to validate the KeyInfo value obtained from INITIALIZE UPDATE RESPONSE matches what is in the Token DB for a known token
+ * Return with -1 if the KeyInfo value from KDD does not match what is in the Token DB
+ */
+int RA_Processor::checkCardGPKeyVersionMatchesTokenDB(Buffer &bufCUID, Buffer &bufKDD, Buffer &bufCardSuppliedKeyInfo, const char *pcharOpPrefix, const char *pcharTokenType){
+
+    char *pcharCardSuppliedKeyInfo = NULL;
+    char *pcharCUID = NULL;
+    char *pcharKDD = NULL;
+    char *pcharNewMasterVersion = NULL;
+    char *pcharCardDatabaseKeyInfo = NULL;
+    char charArrayAuditMsg[500];
+    Buffer *pbufCardDatabaseKeyInfo = NULL;
+
+
+    if(pcharOpPrefix == NULL){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Argument pcharOpPrefix is NULL.");
+
+    	return -1;
+
+    }
+
+
+    if(PL_strlen(pcharOpPrefix) > MAX_OP_PREFIX_LENGTH){
+
+ 	   RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "opPrefix is longer than 50 characters.");
+
+ 	   return -1;
+
+    }
+
+
+    if(pcharTokenType == NULL){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Argument pcharTokenType is NULL.");
+
+    	return -1;
+
+    }
+
+   if(PL_strlen(pcharTokenType) > MAX_TOKEN_TYPE_LENGTH){
+
+	   RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "TokenType is longer than 50 characters.  Check configuration file for token type %s", pcharTokenType);
+
+	   return -1;
+
+   }
+
+
+
+                pcharCUID = Util::Buffer2String(bufCUID);
+
+                if(RA::ra_is_token_present(pcharCUID)){ //is token present?
+
+                    if((pcharCardDatabaseKeyInfo = RA::ra_get_key_info(pcharCUID)) == NULL){ //get key info from database as char *
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "RA::ra_get_key_info returned NULL for %s but %s is present in database", pcharCUID);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "failure", pcharOpPrefix, "", "", "", "RA::ra_get_key_info returned NULL but token CUID is present in database");
+
+
+                        if(pcharCUID != NULL)
+                            PR_Free(pcharCUID);
+                        pcharCUID = NULL;
+
+                        return -1;
+
+                    }
+
+
+                    if((pcharCardSuppliedKeyInfo = Util::Buffer2String(bufCardSuppliedKeyInfo)) == NULL){ //convert what was supplied from the card to a char * for printing to various log messages
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Converting cardSuppliedKeyInfo to char * failed");
+
+
+                        if(pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+                        }
+
+                        if(pcharCardDatabaseKeyInfo != NULL){
+                            PL_strfree(pcharCardDatabaseKeyInfo);
+                            pcharCardDatabaseKeyInfo = NULL;
+                        }
+
+                        return -1;
+
+                    }
+
+                    RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Card %s claims keyinfo of: %s, tokenDB has %s", pcharCUID, pcharCardSuppliedKeyInfo, pcharCardDatabaseKeyInfo);
+
+
+                    if((pbufCardDatabaseKeyInfo = Util::Str2Buf(pcharCardDatabaseKeyInfo)) == NULL){ //this uses hex2bin to convert a char * of hex values to a buffer
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Converting pcharCardDatabaseKeyInfo to buffer failed");
+
+                        if(pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+                        }
+
+                        if(pcharCardSuppliedKeyInfo != NULL){
+                            PR_Free(pcharCardSuppliedKeyInfo);
+                            pcharCardSuppliedKeyInfo = NULL;
+                        }
+
+                        if(pcharCardDatabaseKeyInfo != NULL){
+                            PL_strfree(pcharCardDatabaseKeyInfo);
+                            pcharCardDatabaseKeyInfo = NULL;
+                        }
+
+                        return -1;
+                    }
+
+
+
+
+
+                    if((*pbufCardDatabaseKeyInfo) != bufCardSuppliedKeyInfo){
+
+                        PR_snprintf(charArrayAuditMsg, 500, "Card claimed key info: %s does not match Card DB key info: %s", pcharCardSuppliedKeyInfo, pcharCardDatabaseKeyInfo);
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", charArrayAuditMsg);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "failure", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", pcharCardDatabaseKeyInfo, charArrayAuditMsg);
+                        RA::tdb_activity("", pcharCUID, pcharOpPrefix, "failure", charArrayAuditMsg, "", pcharTokenType);
+
+
+                        if(pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+                        }
+
+                        if(pcharCardSuppliedKeyInfo != NULL){
+                            PR_Free(pcharCardSuppliedKeyInfo);
+                            pcharCardSuppliedKeyInfo = NULL;
+                        }
+
+                        if(pcharCardDatabaseKeyInfo != NULL){
+                            PL_strfree(pcharCardDatabaseKeyInfo);
+                            pcharCardDatabaseKeyInfo = NULL;
+                        }
+
+                        if(pbufCardDatabaseKeyInfo != NULL){
+                            delete pbufCardDatabaseKeyInfo;
+                            pbufCardDatabaseKeyInfo = NULL;
+                        }
+
+                        return -1;
+
+                    }else{
+
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionMatchesTokenDB", "Card %s claimed key info: %s matches tokenDB key info: %s", pcharCUID, pcharCardSuppliedKeyInfo, pcharCardDatabaseKeyInfo);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "success", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", pcharCardDatabaseKeyInfo, "Card GP key info matches TokenDB GP key info.");
+
+
+
+                    }
+
+                    if(pcharCUID != NULL){
+                        PR_Free(pcharCUID);
+                        pcharCUID = NULL;
+                    }
+
+                    if(pcharCardSuppliedKeyInfo != NULL){
+                        PR_Free(pcharCardSuppliedKeyInfo);
+                        pcharCardSuppliedKeyInfo = NULL;
+                    }
+
+                    if(pcharCardDatabaseKeyInfo != NULL){
+                        PL_strfree(pcharCardDatabaseKeyInfo);
+                        pcharCardDatabaseKeyInfo = NULL;
+                    }
+
+                    if(pbufCardDatabaseKeyInfo != NULL){
+                        delete pbufCardDatabaseKeyInfo;
+                        pbufCardDatabaseKeyInfo = NULL;
+                    }
+
+
+                }
+
+                return 0;
+
+}
+
+/**
+ * PAS modificationconfiguration values
+ * New function to enforce a bound/range for GP key version.
+ * Return with -1 if the cards current key version is not inside the GPKeyVersion range, or on error
+ */
+int RA_Processor::checkCardGPKeyVersionIsInRange(Buffer &bufCUID, Buffer &bufKDD, Buffer &bufCardSuppliedKeyInfo, const char *pcharOpPrefix, const char *pcharTokenType){
+
+    char configname[256];
+    char charArrayAuditMsg[500];
+    char *pcharCardSuppliedKeyInfo = NULL;
+    char *pcharCUID = NULL;
+    char *pcharKDD = NULL;
+    char *pcharNewMasterVersion = NULL;
+    char *pcharCardDatabaseKeyInfo = NULL;
+    Buffer *pbufCfgMinGPKeyVersion = NULL;
+    Buffer *pbufCfgMaxGPKeyVersion = NULL;
+    Buffer *pbufCardDatabaseKeyInfo = NULL;
+    unsigned char charCfgMinGPKeyVersion;
+    unsigned char charCfgMaxGPKeyVersion;
+    unsigned char charCardGPKeyVersion;
+
+
+    if(pcharOpPrefix == NULL){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "Argument pcharOpPrefix is NULL.");
+
+    	return -1;
+
+    }
+
+
+    if(PL_strlen(pcharOpPrefix) > MAX_OP_PREFIX_LENGTH){
+
+ 	   RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "opPrefix is longer than 50 characters.");
+
+ 	   return -1;
+
+    }
+
+
+    if(pcharTokenType == NULL){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "Argument pcharTokenType is NULL.");
+
+    	return -1;
+
+    }
+
+    if(PL_strlen(pcharTokenType) > MAX_TOKEN_TYPE_LENGTH){
+
+    	RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "TokenType is longer than 50 characters.  Check configuration file for token type %s", pcharTokenType);
+
+    	return -1;
+
+    }
+
+
+
+                //read min/maxGPKeyVersion configuration value in as a buffer.  This supports defining key version values hex values to align with how key version is sent by cards.
+                PR_snprintf(configname, 256, "%s.%s.minimumGPKeyVersion", pcharOpPrefix, pcharTokenType);
+                pbufCfgMinGPKeyVersion = RA::GetConfigStore()->GetConfigAsBuffer(configname, "01");
+
+                PR_snprintf(configname, 256, "%s.%s.maximumGPKeyVersion", pcharOpPrefix, pcharTokenType);//a hack to support safenet's 0xFF initial key version
+                pbufCfgMaxGPKeyVersion = RA::GetConfigStore()->GetConfigAsBuffer(configname, "FF");
+
+                if(pbufCfgMinGPKeyVersion != NULL && pbufCfgMaxGPKeyVersion != NULL){
+
+                    if(pbufCfgMinGPKeyVersion->size() != 1){ //the buffer returned from the config file is larger than expected.  we expect [KeyVersion] only, so 1 byte
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "minimumGPKeyVersion defined in %s.%s.minimumGPKeyVersion appears to be %i bytes, should be only 1 byte (2 asciihex characters)", pcharOpPrefix, pcharTokenType, pbufCfgMinGPKeyVersion->size());
+
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+                        return -1;
+                    }
+
+                    if(pbufCfgMaxGPKeyVersion->size() != 1){ //the buffer returned from the config file is larger than expected.  we expect [KeyVersion] only, so 1 byte
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "maximumGPKeyVersion defined in %s.%s.maximumGPKeyVersion appears to be %i bytes, should be only 1 byte (2 asciihex characters)", pcharOpPrefix, pcharTokenType, pbufCfgMaxGPKeyVersion->size());
+
+
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+                        return -1;
+                    }
+
+                    //initial cuid for printing (yet again)
+                    pcharCUID = Util::Buffer2String(bufCUID);
+
+                    //min/max and card Key Version as a byte
+                    charCfgMinGPKeyVersion = ((BYTE *)(*pbufCfgMinGPKeyVersion))[0];
+                    charCfgMaxGPKeyVersion = ((BYTE *)(*pbufCfgMaxGPKeyVersion))[0];
+                    charCardGPKeyVersion = ((BYTE *)bufCardSuppliedKeyInfo)[0];
+
+                    if(charCardGPKeyVersion < charCfgMinGPKeyVersion){
+
+                        if((pcharCardSuppliedKeyInfo = Util::Buffer2String(bufCardSuppliedKeyInfo)) == NULL){
+                            if (pbufCfgMinGPKeyVersion != NULL){
+                                delete pbufCfgMinGPKeyVersion;
+                                pbufCfgMinGPKeyVersion = NULL;
+                            }
+
+                            if (pbufCfgMaxGPKeyVersion != NULL){
+                                delete pbufCfgMaxGPKeyVersion;
+                                pbufCfgMaxGPKeyVersion = NULL;
+                            }
+
+                            if (pcharCUID != NULL){
+                                PR_Free(pcharCUID);
+                                pcharCUID = NULL;
+
+                            }
+
+                            return -1;
+                        }
+
+                        PR_snprintf(charArrayAuditMsg, 500, "Token %s is less than minimum GP key version %x, token key version is %x", pcharCUID, charCfgMinGPKeyVersion, charCardGPKeyVersion);
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", charArrayAuditMsg);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "failure", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", "", charArrayAuditMsg);
+                        RA::tdb_activity("", pcharCUID, pcharOpPrefix, "failure", charArrayAuditMsg, "", pcharTokenType);
+
+                        if(pcharCardSuppliedKeyInfo != NULL){
+                            PR_Free(pcharCardSuppliedKeyInfo);
+                            pcharCardSuppliedKeyInfo = NULL;
+                        }
+
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+                        if (pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+
+                        }
+
+
+                        return -1;
+
+                    }else{
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "Token %s is greater than minimum key version %x, and is at key version %x ", pcharCUID, charCfgMinGPKeyVersion, charCardGPKeyVersion);
+
+
+                    }
+
+
+                    if(charCardGPKeyVersion > charCfgMaxGPKeyVersion){
+
+
+                        if((pcharCardSuppliedKeyInfo = Util::Buffer2String(bufCardSuppliedKeyInfo)) == NULL){
+                            if (pbufCfgMinGPKeyVersion != NULL){
+                                delete pbufCfgMinGPKeyVersion;
+                                pbufCfgMinGPKeyVersion = NULL;
+                            }
+
+                            if (pbufCfgMaxGPKeyVersion != NULL){
+                                delete pbufCfgMaxGPKeyVersion;
+                                pbufCfgMaxGPKeyVersion = NULL;
+                            }
+
+                            if (pcharCUID != NULL){
+                                PR_Free(pcharCUID);
+                                pcharCUID = NULL;
+
+                            }
+
+                            return -1;
+                        }
+
+                        PR_snprintf(charArrayAuditMsg, 500, "Token %s is greater than maximum key version %x, token key version is %x", pcharCUID, charCfgMaxGPKeyVersion, charCardGPKeyVersion);
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", charArrayAuditMsg);
+                        RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "failure", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", "", charArrayAuditMsg);
+                        RA::tdb_activity("", pcharCUID, pcharOpPrefix, "failure", charArrayAuditMsg, "", pcharTokenType);
+
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+
+                        if(pcharCardSuppliedKeyInfo != NULL){
+                            PR_Free(pcharCardSuppliedKeyInfo);
+                            pcharCardSuppliedKeyInfo = NULL;
+                        }
+
+                        if (pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+
+                        }
+
+                        return -1;
+
+                    }else{
+
+                        RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange", "Token %s is not greater than maximum key version %x, and is at key version %x ", pcharCUID, charCfgMaxGPKeyVersion, charCardGPKeyVersion);
+
+                    }
+
+                    if((pcharCardSuppliedKeyInfo = Util::Buffer2String(bufCardSuppliedKeyInfo)) == NULL){
+                        if (pbufCfgMinGPKeyVersion != NULL){
+                            delete pbufCfgMinGPKeyVersion;
+                            pbufCfgMinGPKeyVersion = NULL;
+                        }
+
+                        if (pbufCfgMaxGPKeyVersion != NULL){
+                            delete pbufCfgMaxGPKeyVersion;
+                            pbufCfgMaxGPKeyVersion = NULL;
+                        }
+
+                        if (pcharCUID != NULL){
+                            PR_Free(pcharCUID);
+                            pcharCUID = NULL;
+
+                        }
+
+                        return -1;
+                    }
+
+
+                    RA::Audit(EV_KEY_SANITY_CHECK, AUDIT_MSG_KEY_SANITY_CHECK, pcharCUID, "", "success", pcharOpPrefix, pcharCardSuppliedKeyInfo, "", "", "Token GP key version is within GP key version range.");
+
+
+                    if(pcharCardSuppliedKeyInfo != NULL){
+                        PR_Free(pcharCardSuppliedKeyInfo);
+                        pcharCardSuppliedKeyInfo = NULL;
+                    }
+
+                    if (pbufCfgMinGPKeyVersion != NULL){
+                        delete pbufCfgMinGPKeyVersion;
+                        pbufCfgMinGPKeyVersion = NULL;
+                    }
+
+                    if (pbufCfgMaxGPKeyVersion != NULL){
+                        delete pbufCfgMaxGPKeyVersion;
+                        pbufCfgMaxGPKeyVersion = NULL;
+                    }
+
+                    if (pcharCUID != NULL){
+                        PR_Free(pcharCUID);
+                        pcharCUID = NULL;
+
+                    }
+
+
+                }else{
+
+                    //either minKeyVerion or bufCfgMaxGPKeyVersion was not correctly retrieved from RA::ConfigStore
+
+                    RA::Debug("RA_Processor::checkCardGPKeyVersionIsInRange","pbufCfgMinGPKeyVersion is %s and pbufCfgMaxGPKeyVersion is %s", (pbufCfgMinGPKeyVersion == NULL)? "null":"not null", (pbufCfgMaxGPKeyVersion == NULL)?"null":"not null");
+
+                    if (pbufCfgMinGPKeyVersion != NULL){
+                        delete pbufCfgMinGPKeyVersion;
+                        pbufCfgMinGPKeyVersion = NULL;
+                    }
+
+                    if (pbufCfgMaxGPKeyVersion != NULL){
+                        delete pbufCfgMaxGPKeyVersion;
+                        pbufCfgMaxGPKeyVersion = NULL;
+                    }
+
+                    if (pcharCUID != NULL){
+                        PR_Free(pcharCUID);
+                        pcharCUID = NULL;
+
+                    }
+
+                    return -1;
+
+                }
+
+
+        return 0;
+
+
+
 }
 
 
 /**
  * Input data wrapped by KEK key in TKS.
  */
-int RA_Processor::EncryptData(Buffer &CUID, Buffer &version, Buffer &in, Buffer &out, const char *connid)
+
+/**
+ * PAS Modification
+ * Added KDD argument to allow TKS the ability to decide between CUID or KDD for KDF seed
+ * Added CUID and KDD http parameters to send to TKS
+ *
+ */
+int RA_Processor::EncryptData(Buffer &CUID, Buffer &KDD, Buffer &version, Buffer &in, Buffer &out, const char *connid,
+    AppletInfo *appInfo)
 {
     char body[5000];
     char configname[256];
+    char* keySet = NULL;
+    RA_Status ra_status;
 #define PLAINTEXT_CHALLENGE_SIZE 16
 	// khai, here we wrap the input with the KEK key
 	// in TKS
@@ -2169,13 +3048,18 @@ int RA_Processor::EncryptData(Buffer &CUID, Buffer &version, Buffer &in, Buffer 
         }
 
         char *cuid = Util::SpecialURLEncode(CUID);
+	char *cuid_x = Util::Buffer2String(CUID);
+        char *kdd = Util::SpecialURLEncode(KDD);
         char *versionID = Util::SpecialURLEncode(version);
 
-        PR_snprintf((char *)configname, 256, "conn.%s.keySet", connid);
-        const char *keySet = RA::GetConfigStore()->GetConfigAsString(configname);
+	keySet = GetKeySet(appInfo, cuid_x, connid, ra_status);
+	if (keySet == NULL) {
+		RA::Error(LL_PER_PDU, "RA_Processor::EncryptData", "Failed to get keySet");
+		return -1;
+	}
 
-        PR_snprintf((char *)body, 5000, "data=%s&CUID=%s&KeyInfo=%s&keySet=%s",
-          ((data != NULL)? data:""), cuid, versionID,keySet);
+        PR_snprintf((char *)body, 5000, "data=%s&CUID=%s&KDD=%s&KeyInfo=%s&keySet=%s",
+          ((data != NULL)? data:""), cuid, kdd, versionID, keySet);
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.encryptData", connid);
         const char *servletID = RA::GetConfigStore()->GetConfigAsString(configname);
 
@@ -2183,9 +3067,22 @@ int RA_Processor::EncryptData(Buffer &CUID, Buffer &version, Buffer &in, Buffer 
             PR_Free( cuid );
             cuid = NULL;
         }
+        if( cuid_x != NULL ) {
+            PR_Free( cuid_x );
+            cuid_x = NULL;
+        }
+        if( kdd != NULL ) {
+            PR_Free( kdd );
+            kdd = NULL;
+        }
         if( versionID != NULL ) {
             PR_Free( versionID );
             versionID = NULL;
+        }
+
+        if (keySet != NULL) {
+            PL_strfree(keySet);
+            keySet = NULL;
         }
 
         PSHttpResponse *response = tksConn->getResponse(tks_curr, servletID, body);
@@ -2261,7 +3158,7 @@ int RA_Processor::EncryptData(Buffer &CUID, Buffer &version, Buffer &in, Buffer 
         }
         if (encryptedData == NULL)
             RA::Debug(LL_PER_PDU, "RA_Processor:GetEncryptedData",
-              "Encrypted Data is NULL");
+                "Encrypted Data is NULL");
 
         RA::Debug(LL_PER_PDU, "EncryptedData ", "status=%d", status);
         RA::Debug(LL_PER_PDU, "finish EncryptedData", "");
@@ -2342,6 +3239,7 @@ int RA_Processor::ComputeRandomData(Buffer &data_out, int dataSize,  const char 
     } else {
         int tks_curr = RA::GetCurrentIndex(tksConn);
         int currRetries = 0;
+        char *data = NULL;
 
         PR_snprintf((char *)body, 5000, "dataNumBytes=%d"
           , dataSize );
@@ -2377,6 +3275,7 @@ int RA_Processor::ComputeRandomData(Buffer &data_out, int dataSize,  const char 
             response = tksConn->getResponse(tks_curr, servletID, body);
         }
 
+        Buffer *randomData = NULL;
         status = 0;
         if (response != NULL) {
             RA::Debug(LL_PER_PDU, "RA_Processor::ComputeRandomData Response is not ","NULL");
@@ -2451,7 +3350,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                                         char *userid,
                                         RA_Status &status )
 {
-        const char *OP_PREFIX = "op.format";
+        char *OP_PREFIX = "op.format";
         char *statusString = NULL;
         char configname[256];
         char filter[512];
@@ -2478,6 +3377,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                     rc = RA::ra_delete_certificate_entry(e);
                     continue;
                 }
+
                 char *attr_serial= RA::ra_get_cert_serial(e);
                 /////////////////////////////////////////////////
                 // Raidzilla Bug #57803:
@@ -2502,7 +3402,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                 }
 
                 PR_snprintf((char *)configname, 256, "%s.%s.revokeCert", OP_PREFIX, tokenType);
-                bool revokeCert = RA::GetConfigStore()->GetConfigAsBool(configname, true);
+                bool revokeCert = RA::GetConfigStore()->GetConfigAsBool(configname, false);
                 if (revokeCert) {
                     char *attr_cn = RA::ra_get_cert_cn(e);
                     PR_snprintf((char *)configname, 256, "%s.%s.ca.conn", OP_PREFIX,
@@ -2539,9 +3439,16 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
                         rc = RA::ra_delete_certificate_entry(e);
                         continue;
                     }
-                    statusNum = certEnroll->RevokeCertificate("1", serial, connid, statusString);
-                    RA::Debug("RA_Processor::RevokeCertificates", "Revoke cert %s status %d",serial,statusNum);
 
+                    CERTCertificate **attr_certificate= RA::ra_get_certificates(e);
+                    statusNum = certEnroll->RevokeCertificate(
+                        true,
+                        attr_certificate[0],
+                        "1", serial, connid, statusString);
+                    if (attr_certificate[0] != NULL)
+                        CERT_DestroyCertificate(attr_certificate[0]);
+
+                    RA::Debug("RA_Processor::RevokeCertificates", "Revoke cert %s status %d",serial,statusNum);
                     if (statusNum == 0) {
                         RA::Audit(EV_FORMAT, AUDIT_MSG_CERT_STATUS_CHANGE, userid,
                                       "Success", "revoke", serial, connid, "");
@@ -2589,6 +3496,7 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
 
         rc = 0;
         if (keyVersion != NULL) {
+            //Do this in format case only, could be called from a RE_ENROLL operation
             rc = RA::tdb_update("", cuid, (char *)final_applet_version, keyVersion, "uninitialized", "", tokenType);
         }
 
@@ -2603,6 +3511,426 @@ bool RA_Processor::RevokeCertificates(RA_Session *session, char *cuid,char *audi
 loser:
 
     return !revocation_failed;
+}
+
+
+/**
+ * Request Login info and user id from user, if necessary
+ * This call will allocate a new Login structure,
+ * and a char* for the user id. The caller is responsible
+ * for freeing this memory
+ * @return true of success, false if failure
+ */
+bool RA_Processor::RequestUserId(
+    const char *a_prefix,
+    RA_Session * a_session,
+    NameValueSet *a_extensions,
+    const char * a_configname, 
+    const char * a_tokenType, 
+    char *a_cuid,
+    AuthParams *& o_login, const char *&o_userid, RA_Status &o_status) 
+{
+
+    const char *FN = "RA_Processor::RequestUserId";
+    //isExternalReg
+    bool isExternalReg = false;
+    const char *authid = NULL;
+    const char *op = NULL;
+    char configname[512] = "";
+    if (strcmp(a_prefix, "op.enroll") == 0) {
+        op = "enrollment";
+    } else if (strcmp(a_prefix, "op.format") == 0) {
+        op = "format";
+    } else if (strcmp(a_prefix, "op.pinReset") == 0) {
+        op = "pinReset";
+    } else {
+        op = "unknown";
+    }
+
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+
+    /*
+     * if a_configname is null, bypass the loginRequest.enable check
+     *   and always do loginRequest.
+     * otherwise it checks for the config set in a_configname
+     *   e.g."externalReg.format.loginRequest.enable"
+     */
+    if (a_configname != NULL) {
+        /* loginRequest.enable is false */
+        RA::Debug(FN, "checking %s", a_configname);
+        if (!RA::GetConfigStore()->GetConfigAsBool(a_configname, 1)) {
+            RA::Debug(FN, "no Login required");
+            return true;
+        }
+    }
+    RA::Debug(FN, "Login required");
+
+    if (a_extensions != NULL && 
+        a_extensions->GetValue("extendedLoginRequest") != NULL) {
+        // XXX - extendedLoginRequest
+        RA::Debug(FN, "Extended Login Request detected");
+        //isExternalReg get it from global auth id
+        AuthenticationEntry *entry = NULL;
+        if (!isExternalReg){
+            entry = GetAuthenticationEntry(
+            a_prefix, a_configname, a_tokenType);
+        } else {
+            PR_snprintf((char *)configname, 256, "externalReg.authId");
+            authid = (char *) RA::GetConfigStore()->GetConfigAsString(configname);
+            entry = RA::GetAuth(authid);
+            /* a "fake" tokenType that will be reassigned once we reach ldap */
+            a_tokenType = "externalRegNoTokenTypeYet";
+        }
+        char **params = NULL;
+        char pb[1024];
+        char *locale = NULL;
+        if (a_extensions != NULL && 
+            a_extensions->GetValue("locale") != NULL) {
+            locale = a_extensions->GetValue("locale");
+        } else {
+            locale = ( char * ) "en"; /* default to english */
+        }
+        int n = entry->GetAuthentication()->GetNumOfParamNames();
+        if (n > 0) {
+            RA::Debug(FN, "Extended Login Request detected n=%d", n);
+            params = (char **) PR_Calloc(n, sizeof(char *));
+            for (int i = 0; i < n; i++) {
+                sprintf(pb,"id=%s&name=%s&desc=%s&type=%s&option=%s",
+                    entry->GetAuthentication()->GetParamID(i),
+                    entry->GetAuthentication()->GetParamName(i, locale),
+                    entry->GetAuthentication()->GetParamDescription(i, locale),
+                    entry->GetAuthentication()->GetParamType(i),
+                    entry->GetAuthentication()->GetParamOption(i)
+                    );
+                params[i] = PL_strdup(pb);
+                RA::Debug(FN, "params[i]=%s", params[i]);
+            }
+        }
+        RA::Debug(FN,
+            "Extended Login Request detected calling RequestExtendedLogin() locale=%s", locale);
+
+        char *title = PL_strdup(entry->GetAuthentication()->GetTitle(locale));
+        RA::Debug(FN, "title=%s", title);
+        char *description = PL_strdup(entry->GetAuthentication()->GetDescription(locale));
+        RA::Debug(FN, "description=%s", description);
+        o_login = RequestExtendedLogin(a_session, 0 /* invalid_pw */, 0 /* blocked */, params, n, title, description);
+
+        if (params != NULL) {
+            for (int nn=0; nn < n; nn++) {
+                if (params[nn] != NULL) {
+                    PL_strfree(params[nn]);
+                    params[nn] = NULL;
+                }
+            }
+            free(params);
+            params = NULL;
+        }
+
+        if (title != NULL) {
+            PL_strfree(title);
+            title = NULL;
+        }
+
+        if (description != NULL) {
+            PL_strfree(description);
+            description = NULL;
+        }
+
+        if (o_login == NULL) {
+            RA::Error(FN, "login not provided");
+            o_status = STATUS_ERROR_LOGIN;
+            RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, 
+                op, "failure", "login not found", "", a_tokenType);
+            return false;
+        }
+
+        RA::Debug(FN,
+            "Extended Login Request detected calling RequestExtendedLogin() login=%x", o_login);
+        o_userid = PL_strdup( o_login->GetUID() );
+        RA::Debug(FN, "userid = '%s'", o_userid);
+        } else {
+            o_login = RequestLogin(a_session, 0 /* invalid_pw */, 0 /* blocked */);
+        }
+
+        if (o_login == NULL) {
+            RA::Error(FN, "login not provided");
+            o_status = STATUS_ERROR_LOGIN;
+            RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, 
+                op, "failure", "login not found", o_userid, a_tokenType);
+              return false;
+        }
+        o_userid = PL_strdup( o_login->GetUID() );
+        RA::Debug(FN, "userid = '%s'", o_userid);
+        return true;
+}
+
+
+/**
+ * Authenticate user with LDAP plugin
+ * @return true if authentication was successful
+ */
+bool RA_Processor::AuthenticateUserLDAP(
+        const char *op,
+        RA_Session *a_session,
+        NameValueSet *a_extensions,
+        char *a_cuid,
+        AuthenticationEntry *a_auth,
+        AuthParams *&login,
+        RA_Status &o_status,
+        const char *a_token_type)
+{
+    const char *FN = "RA_Processor::AuthenticateUserLDAP";
+    int retry_limit = a_auth->GetAuthentication()->GetNumOfRetries();
+    int retries = 0;
+    int rc;
+    bool r=false;
+    char configname[256]; 
+    ExternalRegAttrs *regAttrs = NULL;
+
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
+    const char *tokenType = NULL;
+
+    RA::Debug(LL_PER_PDU, FN, "LDAP_Authentication is invoked.");
+    LDAP_Authentication *ldapAuth = (LDAP_Authentication *)a_auth->GetAuthentication();
+    if (isExternalReg ) {
+        PR_snprintf((char *)configname, 256, 
+            "externalReg.default.tokenType");
+        tokenType = (char *) RA::GetConfigStore()->GetConfigAsString(configname);
+
+        rc = ldapAuth->Authenticate(login, a_session);
+        /*ToDo: compare token cuid from reg user record with a_cuid
+          if reg user record has it. If not, assume it's ok*/
+
+        regAttrs = a_session->getExternalRegAttrs();
+
+        if (regAttrs == NULL) {
+             RA::Debug(LL_PER_PDU,FN, "Misconfigured External Registration!");
+             RA::Error(FN, "Misconfigured External Registration!");
+             r = false;
+             return r;
+        }
+
+
+        if (rc == 0 ) {
+            regAttrs->setTokenCUID(a_cuid);
+            regAttrs->setUserId(login->GetUID());
+        }
+        const char *tt = a_session->getExternalRegAttrs()->getTokenType();
+        if (tt != NULL)
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
+        else {
+
+            if (tokenType == NULL) {
+                RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, unable to obtain value for tokenType, leaving");
+                RA::Error(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, unable to obtain value for tokenType, leaving");
+                r = false;
+                return r;
+            }
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: using tokenType value from CS.cfg: %s ", tokenType);
+            a_session->getExternalRegAttrs()->setTokenType(tokenType);
+        }
+
+        /*
+         * If cuid is provided on the user registration record, then
+         * we have to compare that with the current token cuid;
+         *
+         * If, the cuid is not provided on the user registration record,
+         * then any token can be used.
+         */
+        const char *userreg_cuid = a_session->getExternalRegAttrs()->getTokenCUID();
+        if (userreg_cuid != NULL) {
+            if (PL_strcasecmp((const char*)a_cuid, userreg_cuid) != 0) {
+                RA::Debug(LL_PER_PDU, FN, "isExternalReg: ERROR: token cuid not matched");
+                RA::Debug(LL_PER_PDU, FN, "current cuid=%s, userreg_cuid=%s",
+                    a_cuid, userreg_cuid);
+                o_status = STATUS_ERROR_NOT_TOKEN_OWNER;
+                r = false;
+                return r;
+            } else {
+                RA::Debug(LL_PER_PDU, FN, "isExternalReg: token cuid matched");
+            }
+        } else {
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: cuid not provided on user registration record... cuid not checked");
+        }
+    } else
+        rc = ldapAuth->Authenticate(login);
+
+    RA::Debug(FN, "Authenticate returned: %d", rc);
+
+    // rc: (0:login correct) (-1:LDAP error)  (-2:User not found) (-3:Password error)
+
+    // XXX replace with proper enums
+    // XXX evaluate rc==0 as specific case - this is success, it shouldn't be the default
+
+    while ((rc == TPS_AUTH_ERROR_USERNOTFOUND || 
+            rc == TPS_AUTH_ERROR_PASSWORDINCORRECT ) 
+            && (retries < retry_limit)) {
+        login = RequestLogin(a_session, 0 /* invalid_pw */, 0 /* blocked */);
+        retries++;
+        if (login != NULL) {
+            if (isExternalReg && regAttrs) {
+                rc = ldapAuth->Authenticate(login, a_session);
+                a_session->getExternalRegAttrs()->setTokenCUID(a_cuid);
+                a_session->getExternalRegAttrs()->setUserId(login->GetUID());
+                const char *tt = a_session->getExternalRegAttrs()->getTokenType();
+                if (tt != NULL)
+                    RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tt);
+                else {
+                    RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to default");
+                    a_session->getExternalRegAttrs()->setTokenType(tokenType);
+                    RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, done setting to default %s", tokenType);
+                }
+            } else
+                rc = ldapAuth->Authenticate(login);
+        }
+    }
+
+    switch (rc) {
+    case TPS_AUTH_OK:
+        RA::Debug(LL_PER_PDU, FN, "Authentication successful.");
+        r=true;
+        break;
+    case TPS_AUTH_ERROR_LDAP:
+        RA::Error(FN, "Authentication failed. LDAP Error");
+        o_status = STATUS_ERROR_LDAP_CONN;
+        RA::Debug(LL_PER_PDU, FN, "Authentication status=%d rc=%d", o_status,rc);
+        RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, op, "failure", "authentication error", "", a_token_type);
+        r = false;
+        break;
+    case TPS_AUTH_ERROR_USERNOTFOUND:
+        RA::Error(FN, "Authentication failed. User not found");
+        o_status = STATUS_ERROR_LOGIN;
+        RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, op, "failure", "authentication error",  "", a_token_type);
+        r = false;
+        break;
+    case TPS_AUTH_ERROR_PASSWORDINCORRECT:
+        RA::Error(FN, "Authentication failed. Password Incorrect");
+        o_status = STATUS_ERROR_LOGIN;
+        RA::Debug(LL_PER_PDU, FN, "Authentication status=%d rc=%d", o_status,rc);
+        RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, op, "failure", "authentication error", "", a_token_type);
+        r = false;
+        break;
+    default:
+        RA::Error(FN, "Undefined LDAP Auth Error.");
+        r = false;
+        break;
+    }
+
+    return r;
+}
+
+
+/**
+ *  Authenticate the user with the configured authentication plugin
+ * @return true if authentication successful
+ */
+
+bool RA_Processor::AuthenticateUser(
+        const char * a_prefix,
+        RA_Session * a_session,
+        const char * a_configname, 
+        char *a_cuid,
+        NameValueSet *a_extensions,
+        const char *a_tokenType,
+        AuthParams *& a_login, const char *&o_userid, RA_Status &o_status
+        )
+{
+
+    char *FN = ( char * ) "RA_Processor::AuthenticateUser";
+    bool r=false;
+    char *type = NULL;
+    const char *authid = NULL;
+    AuthenticationEntry *auth = NULL;
+    //isExternalReg
+    bool isExternalReg = false;
+
+    const char *op = NULL;
+    if (strcmp(a_prefix, "op.enroll") == 0) {
+        op = "enrollment";
+    } else if (strcmp(a_prefix, "op.format") == 0) {
+        op = "format";
+    } else if (strcmp(a_prefix, "op.pinReset") == 0) {
+        op = "pinReset";
+    } else {
+        op = "unknown";
+    }
+    RA::Debug(FN, "started");
+
+    if (a_configname != NULL) {
+        RA::Debug(FN, "checking config: %s", a_configname);
+        if (!RA::GetConfigStore()->GetConfigAsBool(a_configname, 1)){
+            r = true;
+            RA::Debug(FN, "Authentication has been disabled.");
+            goto loser;
+        }
+        RA::Debug(FN, "isExternalReg false");
+    } else {
+        RA::Debug(FN, "isExternalReg true");
+        isExternalReg = true;
+    }
+    if (a_login == NULL) {
+        RA::Error(FN, "Login Request Disabled. Authentication failed.");
+        o_status = STATUS_ERROR_LOGIN;
+        goto loser;
+    }
+
+    RA::Debug(FN, "Authentication enabled");
+    char configname[256];
+
+    if (!isExternalReg) {
+        PR_snprintf((char *)configname, 256, "%s.%s.auth.id", a_prefix, a_tokenType);
+    } else {
+    //isExternalReg
+        PR_snprintf((char *)configname, 256, "externalReg.authId");
+        a_tokenType = "externalRegNoTokenTypeYet";
+    }
+    authid = RA::GetConfigStore()->GetConfigAsString(configname);
+    if (authid == NULL) {
+        o_status = STATUS_ERROR_LOGIN;
+        RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, op, "failure", "login not found", "", a_tokenType);
+        goto loser;
+    }
+    auth = RA::GetAuth(authid);
+
+    if (auth == NULL) {
+        o_status = STATUS_ERROR_LOGIN;
+        RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, op, "failure", "authentication error", "", a_tokenType);
+        goto loser;
+    }
+
+    StatusUpdate(a_session, a_extensions, 2, "PROGRESS_START_AUTHENTICATION");
+
+    type = auth->GetType();
+    if (type == NULL) {
+        o_status = STATUS_ERROR_LOGIN;
+        RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, op, "failure", "authentication is missing param type", "", a_tokenType);
+        r = false;
+        goto loser;
+    }
+
+    if (strcmp(type, "LDAP_Authentication") == 0) {
+        RA::Debug(FN, "LDAP started");
+        r = AuthenticateUserLDAP(op, a_session, a_extensions, a_cuid, auth, a_login, o_status, a_tokenType);
+        if ((isExternalReg) && (r == true)) {
+            RA::Debug(FN, "AuthenticateUserLDAP() returned; session set with ExternalRegAttrs.");
+        }
+
+        if(r == false)
+            o_status = STATUS_ERROR_LOGIN;
+
+        goto loser;
+    } else {
+        RA::Error(FN, "No Authentication type was found.");
+        o_status = STATUS_ERROR_LOGIN;
+        RA::tdb_activity(a_session->GetRemoteIP(), a_cuid, op, "failure", "authentication error", "", a_tokenType);
+        r = false;
+        goto loser;
+    }
+
+loser:
+    return r;
 }
 
 RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bool skipAuth)
@@ -2646,7 +3974,10 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     LDAPMessage *ldapResult = NULL;
     LDAPMessage *e = NULL;
     LDAPMessage  *result = NULL;
+    char serial[100];
+    char *statusString = NULL;
     char filter[512];
+    int statusNum;
     Buffer curKeyInfo;
     BYTE curVersion;
     char *curKeyInfoStr = NULL;
@@ -2657,6 +3988,9 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     char *xuserid = NULL;
     char audit_msg[512] = "";
     char *profile_state = NULL;
+    ExternalRegAttrs *regAttrs = NULL;
+    AppletInfo *appInfo = NULL;
+
 
     Buffer *CardManagerAID = RA::GetConfigStore()->GetConfigAsBuffer(
 		   RA::CFG_APPLET_CARDMGR_INSTANCE_AID, 
@@ -2679,8 +4013,11 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
 
     start = PR_IntervalNow();
 
-    RA::Debug("RA__Processor::Format", "Client %s",                       session->GetRemoteIP());
+    RA::Debug("RA_Processor::Format", "Client %s",
+                       session->GetRemoteIP());
 
+    PR_snprintf((char *)configname, 256, "externalReg.enable");
+    bool isExternalReg = RA::GetConfigStore()->GetConfigAsBool(configname, 0);
 
     SelectApplet(session, 0x04, 0x00, CardManagerAID);
     cplc_data = GetData(session);
@@ -2735,11 +4072,65 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
     RA::Debug(LL_PER_PDU, "RA_Processor::Format",
 	      "Applet Major=%d Applet Minor=%d", app_major_version, app_minor_version);
 
-    if (!GetTokenType(OP_PREFIX, major_version,
-                    minor_version, cuid, msn,
-                    extensions, status, tokenType)) {
-        PR_snprintf(audit_msg, 512, "Failed to get token type");
-        goto loser;
+    appInfo = RA::CreateAppletInfo(major_version, minor_version, msn, extensions);
+
+    if (isExternalReg) {
+        /*
+          need to reach out to the Registration DB (authid)
+          Entire user entry should be retrieved and parsed, if needed
+          The following are retrieved:
+              externalReg.tokenTypeAttributeName=tokenType
+              externalReg.certs.recoverAttributeName=certsToRecover
+              externalReg.certs.deleteAttributeName=certsToDelete 
+         */
+        /*
+         * - tokenType id NULL at this point for isExternalReg 
+         * - loginRequest cannot be per profile(tokenType) for isExternalReg
+         *   because of the above; now it is per instance:
+         *     "externalReg.format.loginRequest.enable"
+         *     "externalReg.default.tokenType"
+         *   it is not enabled by default.
+         */
+        PR_snprintf((char *)configname, 256, 
+            "externalReg.format.loginRequest.enable");
+//        PR_snprintf((char *)configname, 256, "%s.%s.loginRequest.enable", OP_PREFIX, tokenType);
+        RA::Debug("RA_Processor::Format", "checking %s", configname);
+        if (!RA::GetConfigStore()->GetConfigAsBool(configname, 0)) {
+            RA::Debug("RA_Processor::Format", "no Login required");
+            // get the default externalReg tokenType
+            PR_snprintf((char *)configname, 256, 
+                "externalReg.default.tokenType");
+            tokenType = (char *) RA::GetConfigStore()->GetConfigAsString(configname, "externalRegAddToToken");
+            RA::Debug("RA_Processor::Format", "setting tokenType to: %s", tokenType);
+        } else {
+            /* get user login and password - set in "login" */
+            RA::Debug(LL_PER_PDU, "RA_Processor::Format", "isExternalReg: calling RequestUserId");
+            if (!RequestUserId(OP_PREFIX, session, extensions, configname, NULL /*tokenType*/, cuid, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "RequestUserId error");
+            goto loser;
+            }
+            if (!AuthenticateUser("op.format", session, NULL /*configname*/, cuid, extensions,
+                NULL /*tokenType*/, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "AuthenticateUser error");
+                goto loser;
+            }
+
+            regAttrs = session->getExternalRegAttrs();
+
+            if (regAttrs == NULL) {
+                PR_snprintf(audit_msg,512, "External Registration Misconfiguration!");
+                goto loser;
+            }
+
+            RA::Debug(LL_PER_PDU, "RA_Processor::Format", "isExternalReg: get tokenType, etc.");
+            tokenType = regAttrs->getTokenType();
+        }
+
+    } else {
+        if (!GetTokenType(OP_PREFIX, appInfo, cuid, status, tokenType)) {
+            PR_snprintf(audit_msg, 512, "Failed to get token type");
+            goto loser;
+        }
     }
 
     // check if profile is enabled 
@@ -2752,31 +4143,36 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
         goto loser;
     }
 
+
     if (RA::ra_is_token_present(cuid)) {
-       RA::Debug("RA_Processor::Format",
-	      "Found token %s", cuid);
 
-      if (RA::ra_is_tus_db_entry_disabled(cuid)) {
-        RA::Error("RA_Format_Processor::Process",
-                        "CUID %s Disabled", cuid);
-        status = STATUS_ERROR_DISABLED_TOKEN;
-        PR_snprintf(audit_msg, 512, "CUID %s Disabled, status=STATUS_ERROR_DISABLED_TOKEN", cuid);
-        goto loser;
-      }
+        int token_status = RA::ra_get_token_status(cuid);
+
+        RA::Debug("RA_Processor::Format",
+           "Found token %s status %d", cuid, token_status);
+
+        // Check for transition to 0/UNINITIALIZED status.
+
+        if (token_status == -1 || !RA::transition_allowed(token_status, 0)) {
+            RA::Error("RA_Format_Processor::Process",
+                    "Operation for CUID %s Disabled", cuid);
+            status = STATUS_ERROR_DISABLED_TOKEN;
+            PR_snprintf(audit_msg, 512, "Operation for CUID %s Disabled, illegal transition attempted %d:%d.", cuid, token_status, 0);
+            goto loser;
+        }
     } else {
-       RA::Debug("RA_Processor::Format",
-	      "Not Found token %s", cuid);
-      // This is a new token. We need to check our policy to see
-      // if we should allow enrollment. raidzilla #57414
-      PR_snprintf((char *)configname, 256, "%s.allowUnknownToken",
+        RA::Debug("RA_Processor::Format",
+           "Not Found token %s", cuid);
+        // This is a new token. We need to check our policy to see
+        // if we should allow enrollment. raidzilla #57414
+        PR_snprintf((char *)configname, 256, "%s.allowUnknownToken",
             OP_PREFIX);
-      if (!RA::GetConfigStore()->GetConfigAsBool(configname, 1)) {
-        RA::Error("Process", "CUID %s Format Unknown Token", cuid);
-        status = STATUS_ERROR_DISABLED_TOKEN;
-        PR_snprintf(audit_msg, 512, "Unknown token disallowed,  status=STATUS_ERROR_DISABLED_TOKEN");
-        goto loser;
-      }
-
+        if (!RA::GetConfigStore()->GetConfigAsBool(configname, 1)) {
+            RA::Error("Process", "CUID %s Format Unknown Token", cuid);
+            status = STATUS_ERROR_DISABLED_TOKEN;
+            PR_snprintf(audit_msg, 512, "Unknown token disallowed,  status=STATUS_ERROR_DISABLED_TOKEN");
+            goto loser;
+        }
     }
 
     // we know cuid and msn here 
@@ -2857,203 +4253,52 @@ RA_Status RA_Processor::Format(RA_Session *session, NameValueSet *extensions, bo
         goto loser;
     }
 
-    PR_snprintf((char *)configname, 256, "%s.%s.loginRequest.enable", OP_PREFIX, tokenType);
-    if (RA::GetConfigStore()->GetConfigAsBool(configname, 1) && !skipAuth) {
-        if (extensions != NULL &&
-               extensions->GetValue("extendedLoginRequest") != NULL)
-        {
-                   RA::Debug("RA_rocessor::Format",
-                "Extended Login Request detected");
-                   AuthenticationEntry *entry = GetAuthenticationEntry(
-            OP_PREFIX, configname, tokenType);
-                   char **params = NULL;
-                   char pb[1024];
-                   char *locale = NULL;
-           if (extensions != NULL &&
-               extensions->GetValue("locale") != NULL)
-                   {
-                           locale = extensions->GetValue("locale");
-                   } else {
-                           locale = ( char * ) "en"; /* default to english */
-                   }
-                   int n = entry->GetAuthentication()->GetNumOfParamNames();
-                   if (n > 0) {
-                       RA::Debug("RA_Processor::Format",
-                "Extended Login Request detected n=%d", n);
-                       params = (char **) PR_Malloc(n);
-                       for (int i = 0; i < n; i++) {
-                         sprintf(pb,"id=%s&name=%s&desc=%s&type=%s&option=%s",
-                             entry->GetAuthentication()->GetParamID(i),
-                             entry->GetAuthentication()->GetParamName(i, locale),
-                             entry->GetAuthentication()->GetParamDescription(i,
-locale),
-                             entry->GetAuthentication()->GetParamType(i),
-                             entry->GetAuthentication()->GetParamOption(i)
-                             );
-                         params[i] = PL_strdup(pb);
-                   RA::Debug("RA_Processor::Format",
-                "params[i]=%s", params[i]);
-                       }
-                   }
-                   RA::Debug("RA_rocessor::Format", "Extended Login Request detected calling RequestExtendedLogin() locale=%s", locale);
-                                                                                
-                   char *title = PL_strdup(entry->GetAuthentication()->GetTitle(locale));
-                   RA::Debug("RA_Processor::Format", "title=%s", title);
-                   char *description = PL_strdup(entry->GetAuthentication()->GetDescription(locale));
-                   RA::Debug("RA_Processor::Format", "description=%s", description);
-           login = RequestExtendedLogin(session, 0 /* invalid_pw */, 0 /* blocked */, params, n, title, description);
-
-                   if (params != NULL) {
-                       for (int nn=0; nn < n; nn++) {
-                           if (params[nn] != NULL) {
-                               PL_strfree(params[nn]);
-                               params[nn] = NULL;
-                           }
-                       }
-                       free(params);
-                       params = NULL;
-                   }
-
-                   if (title != NULL) {
-                       PL_strfree(title);
-                       title = NULL;
-                   }
-          
-                   if (description != NULL) {
-                       PL_strfree(description);
-                       description = NULL;
-                   }
-
-
-                   RA::Debug("RA_Processor::Format",
-    "Extended Login Request detected calling RequestExtendedLogin() login=%x", login);
-        } else {
-          login = RequestLogin(session, 0 /* invalid_pw */, 0 /* blocked */);
-        }
-        if (login == NULL) {
-            RA::Error("RA_Format_Processor::Process",
-              "login not provided");
-            status = STATUS_ERROR_LOGIN;
-            PR_snprintf(audit_msg, 512, "login not provided, status = STATUS_ERROR_LOGIN");
+// ToDo: isExternalReg : user already authenticated earlier... need to handle audit earlier
+    if (!isExternalReg) {
+        PR_snprintf((char *)configname, 256, "%s.%s.loginRequest.enable", OP_PREFIX, tokenType);
+        if (!RequestUserId(OP_PREFIX, session, extensions, configname, tokenType, cuid, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "RequestUserId error");
             goto loser;
         }
-        if( userid != NULL ) {
-          PR_Free( (char *) userid );
-          userid = NULL;
+    
+        PR_snprintf((char *)configname, 256, "%s.%s.auth.enable", OP_PREFIX, tokenType);
+
+        if (!AuthenticateUser("op.format", session, configname, cuid, extensions,
+                tokenType, login, userid, status)){
+                PR_snprintf(audit_msg, 512, "AuthenticateUser error");
+            goto loser; 
         }
-        if (login->GetUID() == NULL) {
-          userid = NULL;
-        } else {
-          userid = PL_strdup( login->GetUID() );
-        } 
+
+        RA::Audit(EV_FORMAT, AUDIT_MSG_PROC,
+            userid != NULL ? userid : "",
+            cuid != NULL ? cuid : "",
+            msn != NULL ? msn : "",
+            "success",
+            "format",
+            final_applet_version != NULL ? final_applet_version : "",
+            keyVersion != NULL ? keyVersion : "",
+            "token login successful");
+
+            // get authid for audit log
+            PR_snprintf((char *)configname, 256, "%s.%s.auth.id", OP_PREFIX, tokenType);
+            authid = RA::GetConfigStore()->GetConfigAsString(configname);
     }
 
-    // send status update to the client
-    if (extensions != NULL && 
-	             extensions->GetValue("statusUpdate") != NULL) {
-	               StatusUpdate(session, 2 /* progress */, 
-	                          "PROGRESS_START_AUTHENTICATION");
-    }
-
-    PR_snprintf((char *)configname, 256, "%s.%s.auth.enable", OP_PREFIX, tokenType);
-    if (RA::GetConfigStore()->GetConfigAsBool(configname, false) && !skipAuth) {
-        if (login == NULL) {
-            RA::Error("RA_Format_Processor::Process", "Login Request Disabled. Authentication failed.");
-            status = STATUS_ERROR_LOGIN;
-            PR_snprintf(audit_msg, 512, "login request disabled, status = STATUS_ERROR_LOGIN");
-            goto loser;
-        }
-
-        PR_snprintf((char *)configname, 256, "%s.%s.auth.id", OP_PREFIX, tokenType);
-        authid = RA::GetConfigStore()->GetConfigAsString(configname);
-        if (authid == NULL) {
-            status = STATUS_ERROR_LOGIN;		 
-            PR_snprintf(audit_msg, 512, "login not found, status = STATUS_ERROR_LOGIN");
-            goto loser;
-	}
-        AuthenticationEntry *auth = RA::GetAuth(authid);
-
-        if(auth == NULL)
-        {
-            RA::Error("RA_Format_Processor::Process", "Authentication manager is NULL . Authentication failed.");
-            status = STATUS_ERROR_LOGIN;
-            PR_snprintf(audit_msg, 512, "authentication manager is NULL, status = STATUS_ERROR_LOGIN");
-            goto loser;
-        }
-
-        char *type = auth->GetType();
-        if (type == NULL) {
-            status = STATUS_ERROR_LOGIN;
-            PR_snprintf(audit_msg, 512, "authentication is missing param type, status = STATUS_ERROR_LOGIN");
-            goto loser;
-        }
-        if (strcmp(type, "LDAP_Authentication") == 0) {
-            RA::Debug(LL_PER_PDU, "RA_Format_Processor::Process",
-                    "LDAP_Authentication is invoked.");
-            int passwd_retries = auth->GetAuthentication()->GetNumOfRetries();
-            int retries = 0;
-            authParams = new AuthParams();
-            authParams->SetUID(login->GetUID());
-            authParams->SetPassword(login->GetPassword());
-            rc = auth->GetAuthentication()->Authenticate(authParams);
-
-            RA::Debug("RA_Format_Processor::Process",
-              "Authenticate returns: %d", rc);
-
-            while ((rc == -2 || rc == -3) && (retries < passwd_retries)) {
-                login = RequestLogin(session, 0 /* invalid_pw */, 0 /* blocked */);
-                retries++;
-                if (login == NULL || login->GetUID() == NULL) {
-                  RA::Error("RA_Format_Processor::Process", "Authentication failed.");
-                  status = STATUS_ERROR_LOGIN;
-                  PR_snprintf(audit_msg, 512, "authentication failed, status = STATUS_ERROR_LOGIN");
-                  goto loser;
-                }
-                authParams->SetUID(login->GetUID());
-                authParams->SetPassword(login->GetPassword());
-                rc = auth->GetAuthentication()->Authenticate(authParams);
-            }
-
-            if (rc == -1) {
-                RA::Error("RA_Format_Processor::Process", "Authentication failed.");
-                status = STATUS_ERROR_LDAP_CONN;
-                RA::Debug(LL_PER_PDU, "RA_Processor::Format", "Authentication status = %d", status);
-                PR_snprintf(audit_msg, 512, "Authentication failed, status = STATUS_ERROR_LDAP_CONN"); 
-                goto loser;
-            }
-
-            if (rc == -2 || rc == -3) {
-                RA::Error("RA_Format_Processor::Process", "Authentication failed.");
-                status = STATUS_ERROR_LOGIN;
-                RA::Debug(LL_PER_PDU, "RA_Processor::Format", "Authentication status = %d", status);
-                PR_snprintf(audit_msg, 512, "Authentication failed, rc=-2 or -3, status = STATUS_ERROR_LOGIN"); 
-                goto loser;
-            }
-
-            RA::Debug(LL_PER_PDU, "RA_Processor::Format", "Authentication successful.");
-        } else {
-            RA::Error("RA_Format_Processor::Process", "No Authentication type was found.");
-            status = STATUS_ERROR_LOGIN;
-            PR_snprintf(audit_msg, 512, "No Authentication type found, status = STATUS_ERROR_LOGIN"); 
-            goto loser;
-        }
-    } else {
-        RA::Debug(LL_PER_PDU, "RA_Processor::Format",
-          "Authentication has been disabled.");
-    }
-
+/*isExternalReg should check in a different way*/
     // check if it is the token owner
-   xuserid = RA::ra_get_token_userid(cuid);
-   if (xuserid != NULL && strcmp(xuserid, "") != 0) {
-     if (login != NULL) {
-       if (strcmp(login->GetUID(), xuserid) != 0) {
-          RA::Debug(LL_PER_PDU, "RA_Processor::Format",
-            "Token owner mismatched");
-          status = STATUS_ERROR_NOT_TOKEN_OWNER;
-          PR_snprintf(audit_msg, 512, "Token owner mismatched, status = STATUS_ERROR_NOT_TOKEN_OWNER");
-          goto loser;
+   if (!isExternalReg) {
+       xuserid = RA::ra_get_token_userid(cuid);
+       if (xuserid != NULL && strcmp(xuserid, "") != 0) {
+         if (login != NULL) {
+           if (strcmp(login->GetUID(), xuserid) != 0) {
+              RA::Debug(LL_PER_PDU, "RA_Processor::Format",
+                "Token owner mismatched");
+              status = STATUS_ERROR_NOT_TOKEN_OWNER;
+              PR_snprintf(audit_msg, 512, "Token owner mismatched, status = STATUS_ERROR_NOT_TOKEN_OWNER");
+              goto loser;
+           }
+         }
        }
-     }
    }
 
     // we know cuid, msn and userid  here 
@@ -3081,7 +4326,7 @@ locale),
     connid = RA::GetConfigStore()->GetConfigAsString(configname);
     upgrade_rc = UpgradeApplet(session,(char *) OP_PREFIX, (char*)tokenType, major_version, 
       minor_version, expected_version, applet_dir, security_level, connid,
-			       extensions, 10, 90, &keyVersion);
+			       extensions, 10, 90, &keyVersion, token_cuid, msn);
     if (upgrade_rc != 1) {
         RA::Debug("RA_Processor::Format", 
           "applet upgrade failed");
@@ -3092,7 +4337,7 @@ locale),
         SelectApplet(session, 0x04, 0x00, NetKeyAID);
         RA::tdb_activity(session->GetRemoteIP(), cuid, "format", "failure", "applet upgrade error", "", tokenType);
         // rc = -1 denotes Secure Channel Failure
-        
+
         if (rc == -1) {
              RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
                userid, cuid, msn, "Failure", "format",
@@ -3103,7 +4348,7 @@ locale),
                userid, cuid, msn, "Success", "format",
                keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "setup secure channel");
         }
-    
+
         RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE, 
           userid, cuid, msn, "Failure", "format", 
           keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "applet upgrade");
@@ -3114,6 +4359,7 @@ locale),
     RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE,
             userid, cuid, msn, "Success", "format",
             keyVersion != NULL? keyVersion : "", appletVersion, expected_version, "setup secure channel");
+
 
     RA::Audit(EV_APPLET_UPGRADE, AUDIT_MSG_APPLET_UPGRADE, 
       userid, cuid, msn, "Success", "format", 
@@ -3135,14 +4381,19 @@ locale),
     // add issuer info to the token
     PR_snprintf((char *)configname, 256, "%s.%s.issuerinfo.enable", 
           OP_PREFIX, tokenType);
+
     if (RA::GetConfigStore()->GetConfigAsBool(configname, 0)) {
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-        channel = SetupSecureChannel(session, 0x00,
-                  defKeyIndex  /* default key index */, connid);
-        rc = channel->ExternalAuthenticate();
+        channel = SetupSecureChannel(
+            session, 0x00, defKeyIndex  /* default key index */,
+            connid, token_cuid, OP_PREFIX, tokenType, appInfo);
+
         if (channel != NULL) {
             char issuer[224];
+
+            rc = channel->ExternalAuthenticate();
+
             for (int i = 0; i < 224; i++) {
               issuer[i] = 0;
             }
@@ -3174,8 +4425,11 @@ locale),
         tksid = RA::GetConfigStore()->GetConfigAsString(configname);
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-        channel = SetupSecureChannel(session, requiredV,
-                   defKeyIndex  /* default key index */, tksid);
+        channel = SetupSecureChannel(
+            session, requiredV,
+            defKeyIndex  /* default key index */,
+            tksid, token_cuid, OP_PREFIX, tokenType, appInfo);
+
         if (channel == NULL) {
             /**
              * Select Card Manager for Put Key operation.
@@ -3194,9 +4448,11 @@ locale),
         int defKeyVer = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
         PR_snprintf((char *)configname, 256,"channel.defKeyIndex");
         int defKeyIndex = RA::GetConfigStore()->GetConfigAsInt(configname, 0x0);
-            channel = SetupSecureChannel(session, 
+            channel = SetupSecureChannel(
+                  session, 
                   defKeyVer,  /* default key version */
-                  defKeyIndex  /* default key index */, tksid);
+                  defKeyIndex  /* default key index */,
+                  tksid, token_cuid, OP_PREFIX, tokenType, appInfo);
  
             if (channel == NULL) {
                 RA::Error("RA_Upgrade_Processor::Process", 
@@ -3223,10 +4479,13 @@ locale),
             PR_snprintf((char *)configname,  256,"%s.%s.tks.conn", OP_PREFIX, tokenType);
             connid = RA::GetConfigStore()->GetConfigAsString(configname);
             rc = CreateKeySetData(
-              channel->GetKeyDiversificationData(), 
-              curKeyInfo,
-              newVersion,
-              key_data_set, connid);
+                    token_cuid,
+                    channel->GetKeyDiversificationData(), 
+                    curKeyInfo,
+                    newVersion,
+                    key_data_set, connid, OP_PREFIX, tokenType,
+		    appInfo 
+		);
             if (rc != 1) {
                 RA::Error("RA_Format_Processor::Process", 
                   "failed to create new key set");
@@ -3257,10 +4516,66 @@ locale),
 
             curKeyInfoStr = Util::Buffer2String(curKeyInfo);
             newVersionStr = Util::Buffer2String(newVersion);
+    
+            /**
+             * PAS Modification
+             * Previously the return code from put keys was not evaluated or recorded on failure
+             * Prior comment block identified the necessity of evaluation and audit logging on failure
+             */
+
+            if(rc < 0){
+                RA::Debug("RA_Processor::Format", "Failed to Put Keys for token %s", cuid);
+                status = STATUS_ERROR_KEY_CHANGE_OVER;
+
+                RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "failure", "format",
+                                            final_applet_version != NULL ? final_applet_version : "", curKeyInfoStr, newVersionStr,
+                                                    "failed to put new GP key set to token");
+
+                // update activity database with entry about put key event
+                RA::tdb_activity(session->GetRemoteIP(), cuid, OP_PREFIX, "failure", "Failed to send new GP Key Set to token", (userid == NULL) ? "" : userid, tokenType);
+
+                /**
+                 * PAS Modification
+                 * New configuration value to permit rollback of KeyInfo in Token DB, default disabled
+                 *
+                 */
+                snprintf((char *)configname, 256, "%s.%s.rollbackKeyVersionOnPutKeyFailure", OP_PREFIX, tokenType);
+                if(RA::GetConfigStore()->GetConfigAsBool(configname, 0)){
+                    rc = RA::tdb_update(NULL, cuid, NULL, curKeyInfoStr, NULL, NULL, NULL);
+                    if (rc < 0) {
+                        RA::Debug(LL_PER_PDU, "RA_Processor::Format","Failed to update the token database with current key version");
+                        status = STATUS_ERROR_UPDATE_TOKENDB_FAILED;  //clobbers the previous failure message :-(
+
+                        RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", cuid, "", curKeyInfoStr, "", "", "", "failed to update tokenDB to current key version");
+
+                        goto loser;
+                    }else{
+
+                        RA::Debug(LL_PER_PDU, "RA_Processor::Format","Successfully updated the token database with current key version");
+                        RA::Audit(EV_TOKENDB_UPDATE, AUDIT_MSG_TOKENDB_UPDATE, "", cuid, "", curKeyInfoStr, "", "", "", "successfully updated tokenDB to current key version");
+
+                    }
+                }
+                goto loser;
+            }else {
+
+
+                RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
+                                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "success", "format",
+                                            final_applet_version != NULL ? final_applet_version : "", curKeyInfoStr, newVersionStr,
+                                                    "put new GP key set to token");
+
+                RA::tdb_activity(session->GetRemoteIP(), cuid, OP_PREFIX, "success", "Sent new GP Key Set to token", (userid == NULL) ? "" : userid, tokenType);
+
+            }
+
+
+
 
             char curVer[10];
             char newVer[10];
-
+            
             if(curKeyInfoStr != NULL && strlen(curKeyInfoStr) >= 2) {
                 curVer[0] = curKeyInfoStr[0]; curVer[1] = curKeyInfoStr[1]; curVer[2] = 0;
             }
@@ -3272,16 +4587,16 @@ locale),
                 newVer[0] = newVersionStr[0] ; newVer[1] = newVersionStr[1] ; newVer[2] = 0;
             }
             else {
-                newVer[0] = 0;
+                newVer[0] = 0; 
             }
 
             if (rc != 0) {
                 RA::Audit(EV_KEY_CHANGEOVER, AUDIT_MSG_KEY_CHANGEOVER,
-                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "Failure", "format",
-                    final_applet_version != NULL ? final_applet_version : "", curVer, newVer,
+                    userid != NULL ? userid : "", cuid != NULL ? cuid : "", msn != NULL ? msn : "", "Failure", "format", 
+                    final_applet_version != NULL ? final_applet_version : "", curVer, newVer, 
                     "key changeover failed");
                 // do we goto loser here?
-            }
+            } 
 
              finalKeyVersion = ((int) ((BYTE *)newVersion)[0]);
             /**
@@ -3304,8 +4619,11 @@ locale),
 	    }
 
 
-            channel = SetupSecureChannel(session, requiredV,
-              defKeyIndex  /* default key index */, tksid);
+            channel = SetupSecureChannel(
+                session, requiredV,
+                defKeyIndex  /* default key index */,
+                tksid, token_cuid, OP_PREFIX, tokenType, appInfo);
+
             if (channel == NULL) {
                 RA::Error("RA_Format_Processor::Process", 
 			      "failed to establish secure channel after reselect");
@@ -3487,12 +4805,512 @@ loser:
         login = NULL;
     }
 
+    if (appInfo != NULL) {
+	free((AppletInfo *) appInfo);
+        appInfo = NULL;
+    }
+
 #ifdef   MEM_PROFILING     
             MEM_dump_unfree();
 #endif
 
     RA::Debug("RA_Processor::Format"," returning status %d", status);
     return status;
+}
+
+RA_Status RA_Processor::UpdateTokenRecoveredCerts( RA_Session *session, PKCS11Obj *pkcs11objx, Secure_Channel *channel, 
+    char *applet_version, char *keyVersion)
+{
+    static const char *OP_PREFIX = "op.enroll";
+    char audit_msg[512] = "";
+    char activity_msg[512] = "";
+    char keyTypePrefix[200] = "";
+    char configname[200] = "";
+    RA_Status status = STATUS_NO_ERROR;
+    int count = 0;
+    PRUint64 certSerial = 0;
+
+    const char *userid = NULL;
+    const char *cuid = NULL;
+    const char *msn = NULL;
+
+    SECItem si_mod;
+    Buffer *modulus=NULL;
+    CERTSubjectPublicKeyInfo*  spkix = NULL;
+    SECItem *si_kid = NULL;
+    Buffer *keyid=NULL;
+    SECItem si_exp;
+    Buffer *exponent=NULL;
+    int keysize = 0;
+    int keyUser = 0;
+    int keyUsage = 0;
+    const char *tokenType = NULL;
+
+    BYTE objid[4];
+
+    SECStatus rv;
+    SECItem der;
+    CERTSubjectPublicKeyInfo*  spki = NULL;
+    SECKEYPublicKey *pk_p = NULL;
+    CERTCertificate *cert = NULL;
+
+    char * o_pub = NULL;
+    char * o_priv = NULL;
+    char *ivParam = NULL;
+    char *label = NULL;
+    char finalLabel[200] = "";
+
+    const char *pattern = NULL;
+    NameValueSet nv;
+
+    objid[0] = 0xFF;
+    objid[1] = 0x00;
+    objid[2] = 0xFF;
+    objid[3] = 0xF3;
+
+    ExternalRegAttrs *erAttrs = NULL;
+    ExternalRegCertToRecover **erCertsToRecover = NULL;
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo * erCertKeyInfo = NULL;
+
+    erAttrs = session->getExternalRegAttrs();
+
+    if (erAttrs == NULL) {
+        PR_snprintf(audit_msg, 512, "Key Recovery failed. Possible misconfiguration.");
+        status = STATUS_ERROR_RECOVERY_FAILED;
+        goto loser;
+    }
+
+    erCertsToRecover = erAttrs->getCertsToRecover();
+
+    if (erCertsToRecover == NULL) {
+        status = STATUS_ERROR_RECOVERY_FAILED;
+        PR_snprintf(audit_msg, 512, "Key Recovery failed. Possible misconfiguration.");
+        goto loser;
+    }
+
+    count = erAttrs->getCertsToRecoverCount();
+
+    if (count == 0) {
+        PR_snprintf(audit_msg, 512, "Key Recovery no certs to recover, returning.");
+        goto loser;
+    }
+
+    tokenType = erAttrs->getTokenType();
+
+    // Purge the object list of certs that have not been explicilty saved from deletion
+
+    CleanObjectListBeforeExternalRecovery(pkcs11objx, erAttrs, applet_version, keyVersion);
+
+
+    snprintf(keyTypePrefix, 200,"op.enroll.%s.keyGen.encryption",tokenType);
+    userid = erAttrs->getUserId();
+    cuid = erAttrs->getTokenCUID();
+    msn = erAttrs->getTokenMSN();
+
+    // set allowable $$ config patterns
+    //pretty_cuid = GetPrettyPrintCUID(cuid);
+
+    //nv.Add("pretty_cuid", pretty_cuid);
+
+    if (cuid)
+        nv.Add("cuid", cuid);
+
+    if (msn)
+        nv.Add("msn", msn);
+
+    if(userid)
+        nv.Add("userid", userid);
+
+    PR_snprintf((char *)configname, 256, "%s.%s.keyGen.%s.label",
+                            OP_PREFIX, tokenType, "encryption");
+    pattern =  RA::GetConfigStore()->GetConfigAsString(configname, "encryption key for $userid$");
+
+    if (pattern) {
+        label = MapPattern(&nv, (char *) pattern);
+    }
+
+    if (!label) {
+        status = STATUS_ERROR_RECOVERY_FAILED;
+        PR_snprintf(audit_msg, 512, "Key Recovery failed. Possible misconfiguration.");
+        goto loser;
+    }
+
+    RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "Actually write %d recovered certs to token object. \n", count);
+
+    for (int i = 0; i< count; i++) {
+
+        erCertToRecover = erCertsToRecover[i];
+
+        certSerial = erCertToRecover->getSerial();
+
+        if (!erCertToRecover)
+            continue;
+       
+        erCertKeyInfo = erCertToRecover->getCertKeyInfo(); 
+
+        if (!erCertKeyInfo)
+            continue;
+
+        o_pub =  erCertKeyInfo->getPublicKey();
+        o_priv = erCertKeyInfo->getWrappedPrivKey();
+        ivParam = erCertKeyInfo->getIVParam();
+        cert = erCertKeyInfo->getCert();
+
+        bool isCertPresent = false;
+
+        if (o_pub == NULL || o_priv == NULL || ivParam == NULL) {
+            isCertPresent = isCertInObjectList(pkcs11objx, cert);
+
+            RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "Certifcate may be signing, retain only (not recover) cert, skipping... isCertPresent %d \n", isCertPresent);
+            // This condition, even though is an errror, should not result in abandoning the whole process.
+            // The profile enrollment has already taken place and the new private keys have been written to the token.
+            // Thus we want to be able to at least write the profile certs to the token.
+            // Let's audit the condition and move on.
+            if(isCertPresent == false) {
+                 RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "We may be attempting to retain a cert that was replaced by regular profile enrollment...\n");
+                 RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+                     userid != NULL ? userid : "",
+                     cuid != NULL ? cuid : "",
+                     msn != NULL ? msn : "",
+                     "failure",
+                     "external registration recovery",
+                     "",
+                     "",
+                     "Retention of a Cert failed. A cert to be retained has been overwritten by token profile. Possible misconfiguration.");
+
+
+                // This will signal the externalReg token db certificate update procedure to NOT add this cert to the token's db entry
+                erCertToRecover->setIgnoreForUpdateCerts(true);
+            }
+            continue;
+        }
+
+        int pubKeyNumber = 0;
+        int priKeyNumber = 0;
+        cert = erCertKeyInfo->getCert();
+
+        int newCertId = 0;
+        
+        char certId[3];
+        char certAttrId[3];
+        char privateKeyAttrId[3];
+        char publicKeyAttrId[3];
+
+        isCertPresent = isCertInObjectList(pkcs11objx, cert);
+
+        if (isCertPresent) { /* Just skip this one, it is here already */
+
+            RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "Certifcate already on token, no need to recover further. \n", count);
+            continue;
+
+        }
+   
+        newCertId = GetNextFreeCertIdNumber(pkcs11objx);
+
+        certId[0] = 'C';
+        certId[1] = '0' + newCertId;
+        certId[2] = 0;
+
+        certAttrId[0] = 'c';
+        certAttrId[1] = '0' + newCertId;
+        certAttrId[2] = 0;
+
+        pubKeyNumber = 2 * newCertId + 1;
+        priKeyNumber = 2 * newCertId;
+
+        privateKeyAttrId[0] = 'k';
+        privateKeyAttrId[1] = '0' + priKeyNumber;
+        privateKeyAttrId[2] = 0;
+
+        publicKeyAttrId[0] = 'k';
+        publicKeyAttrId[1] = '0' + pubKeyNumber;
+        publicKeyAttrId[2] = 0;
+ 
+        der.type = (SECItemType) 0; /* initialize it, since convertAsciiToItem does not set it */
+        rv = ATOB_ConvertAsciiToItem (&der, o_pub);
+
+        if (rv != SECSuccess){
+            RA::Debug("RA_Processor::UpdateTokenRecoveredCert", "after converting public key, rv is failure");
+            SECITEM_FreeItem(&der, PR_FALSE);
+            status = STATUS_ERROR_RECOVERY_FAILED;
+            PR_snprintf(audit_msg, 512, "Key Recovery failed. after converting public key, rv is failure");
+            goto loser;
+	}else {
+            RA::Debug(LL_PER_PDU, "RA_Processor::UpdateTokenRecoveredCert", "item len=%d, item type=%d",der.len, der.type);
+
+            spki = SECKEY_DecodeDERSubjectPublicKeyInfo(&der);
+            SECITEM_FreeItem(&der, PR_FALSE);
+
+            if (spki != NULL) {
+                RA::Debug("RA__Processor::UpdateTokenRecoveredCert", "after converting public key spki is not NULL");
+                pk_p = SECKEY_ExtractPublicKey(spki);
+                if (pk_p != NULL)
+                    RA::Debug("RA_Processor::UpdateTokenRecoveredCert", "after converting public key pk_p is not NULL");
+                else
+                    RA::Debug("RA_Processor::UpdateTokenRecoveredCert", "after converting public key, pk_p is NULL");
+            } else
+                          RA::Debug("RA_Processor::UpdateTokenRecoveredCert", "after converting public key, spki is NULL");
+        }
+
+        SECKEY_DestroySubjectPublicKeyInfo(spki);
+
+        if( pk_p == NULL ) {
+            RA::Debug("RA_Processor::UpdateTokenRecoveredCert",
+                         "pk_p is NULL; unable to continue");
+                          status = STATUS_ERROR_RECOVERY_FAILED;
+                          PR_snprintf(audit_msg, 512, "Key Recovery failed. pk_p is NULL; unable to continue");
+            status = STATUS_ERROR_RECOVERY_FAILED;
+            goto loser;
+        }
+
+        si_mod = pk_p->u.rsa.modulus;
+        modulus = new Buffer((BYTE*) si_mod.data, si_mod.len);
+
+        keysize = si_mod.len * 8;
+        spkix = SECKEY_CreateSubjectPublicKeyInfo(pk_p);
+
+        /* 
+	 * RFC 3279
+	 * The keyIdentifier is composed of the 160-bit SHA-1 hash of the
+         * value of the BIT STRING subjectPublicKey (excluding the tag,
+         * length, and number of unused bits).
+          */
+        spkix->subjectPublicKey.len >>= 3;
+        si_kid = PK11_MakeIDFromPubKey(&spkix->subjectPublicKey);
+        spkix->subjectPublicKey.len <<= 3;
+        SECKEY_DestroySubjectPublicKeyInfo(spkix);
+
+        keyid = new Buffer((BYTE*) si_kid->data, si_kid->len);
+        si_exp = pk_p->u.rsa.publicExponent;
+        exponent =  new Buffer((BYTE*) si_exp.data, si_exp.len);
+
+        RA::Debug(LL_PER_PDU, "RA_Processor::UpdateRecoveredTokenCerts",
+				  " keyid, modulus and exponent are retrieved");
+
+        // Create KeyBlob for private key, but first b64 decode it
+        /* url decode o_priv */
+        {
+            Buffer priv_keyblob;
+            Buffer *decodeKey = Util::URLDecode(o_priv);
+	    //RA::DebugBuffer("cfu debug"," private key =",decodeKey);
+            priv_keyblob =
+            Buffer(1, 0x01) + // encryption
+			    Buffer(1, 0x09)+ // keytype is RSAPKCS8Pair
+			    Buffer(1,(BYTE)(keysize/256)) + // keysize is two bytes
+			    Buffer(1,(BYTE)(keysize%256)) +
+			    Buffer((BYTE*) *decodeKey, decodeKey->size());
+            delete decodeKey;
+
+            //inject PKCS#8 private key
+            BYTE perms[6];
+            perms[0] = 0x40;
+            perms[1] = 0x00;
+            perms[2] = 0x40;
+            perms[3] = 0x00;
+            perms[4] = 0x40;
+            perms[5] = 0x00;
+
+            if (channel->CreateObject(objid, perms, priv_keyblob.size()) != 1) {
+                PR_snprintf(audit_msg, 512, "Failed to write key to token. CreateObject failed.");
+                status = STATUS_ERROR_RECOVERY_FAILED;
+                goto loser;
+            }
+
+            if (channel->WriteObject(objid, (BYTE*)priv_keyblob, priv_keyblob.size()) != 1) {
+                 PR_snprintf(audit_msg, 512, "Failed to write key to token. WriteObject failed.");
+                 status = STATUS_ERROR_RECOVERY_FAILED;
+                 goto loser;
+            }
+        }
+
+        /* url decode the wrapped kek session key and keycheck*/
+        {
+            Buffer data;
+            Buffer *decodeKey = Util::URLDecode(channel->getKekWrappedDESKey());
+
+            char *keycheck = channel->getKeycheck();
+            Buffer *decodeKeyCheck = Util::URLDecode(keycheck);
+            if (keycheck)
+                PL_strfree(keycheck);
+
+            BYTE alg = 0x80;
+            if(decodeKey && decodeKey->size()) {
+                alg = 0x81;
+            }
+
+            //Get iv data returned by DRM
+
+            Buffer *iv_decoded = Util::URLDecode(ivParam);
+
+            if(iv_decoded == NULL) {
+                 PR_snprintf(audit_msg, 512, "ProcessRecovery: store keys in token failed, iv data not found");
+                 delete decodeKey;
+                 delete decodeKeyCheck;
+                 status = STATUS_ERROR_RECOVERY_FAILED;
+                 goto loser;
+            }
+
+            data =
+                Buffer((BYTE*)objid, 4)+ // object id
+                Buffer(1,alg) +
+                //Buffer(1, 0x08) + // key type is DES3: 8
+                Buffer(1, (BYTE) decodeKey->size()) + // 1 byte length
+                Buffer((BYTE *) *decodeKey, decodeKey->size())+ // key -encrypted to 3des block
+                // check size
+                // key check
+                Buffer(1, (BYTE) decodeKeyCheck->size()) + //keycheck size
+                Buffer((BYTE *) *decodeKeyCheck , decodeKeyCheck->size())+ // keycheck
+                Buffer(1, iv_decoded->size())+ // IV_Length
+                Buffer((BYTE*)*iv_decoded, iv_decoded->size());
+
+            //RA::DebugBuffer("cfu debug", "ImportKeyEnc data buffer =", &data);
+
+            RA::Debug("RA_Processor::UpdateTokenRecoveredCert", " priKeyNumber %d pubKeyNumber %d \n", priKeyNumber, pubKeyNumber);
+
+            delete decodeKey;
+            delete decodeKeyCheck;
+            delete iv_decoded;
+
+            if (channel->ImportKeyEnc((keyUser << 4)+priKeyNumber,
+                (keyUsage << 4)+pubKeyNumber, &data) != 1) {
+                PR_snprintf(audit_msg, 512, "Failed to write key to token. ImportKeyEnc failed.");
+                status = STATUS_ERROR_RECOVERY_FAILED;
+                goto loser;
+            }
+        }
+
+        {
+            Buffer *certbuf = new Buffer(cert->derCert.data, cert->derCert.len);
+            ObjectSpec *objSpec = 
+                ObjectSpec::ParseFromTokenData(
+                (certId[0] << 24) +
+                (certId[1] << 16),
+                certbuf);
+            pkcs11objx->AddObjectSpec(objSpec);
+        }
+
+        snprintf(finalLabel,200,"%s %s",label, certAttrId);
+
+        {
+            Buffer b = channel->CreatePKCS11CertAttrsBuffer(
+                KEY_TYPE_ENCRYPTION , certAttrId, finalLabel, keyid);
+                ObjectSpec *objSpec = 
+                    ObjectSpec::ParseFromTokenData(
+                    (certAttrId[0] << 24) +
+                    (certAttrId[1] << 16),
+                    &b);
+                pkcs11objx->AddObjectSpec(objSpec);
+        }
+
+        {
+            Buffer b = channel->CreatePKCS11PriKeyAttrsBuffer(KEY_TYPE_ENCRYPTION, 
+                privateKeyAttrId, finalLabel, keyid, modulus, OP_PREFIX, 
+                tokenType, keyTypePrefix);
+            ObjectSpec *objSpec = 
+                ObjectSpec::ParseFromTokenData(
+                (privateKeyAttrId[0] << 24) +
+                (privateKeyAttrId[1] << 16),
+                &b);
+            pkcs11objx->AddObjectSpec(objSpec);
+        }
+
+        {
+            Buffer b = channel->CreatePKCS11PubKeyAttrsBuffer(KEY_TYPE_ENCRYPTION, 
+                publicKeyAttrId,finalLabel, keyid, 
+                exponent, modulus, OP_PREFIX, tokenType, keyTypePrefix);
+                ObjectSpec *objSpec = 
+                ObjectSpec::ParseFromTokenData(
+                    (publicKeyAttrId[0] << 24) +
+                    (publicKeyAttrId[1] << 16),
+                    &b);
+            pkcs11objx->AddObjectSpec(objSpec);
+        }
+
+        PR_snprintf(activity_msg, 4096, "external registration recovery, certificate %lld stored on token", certSerial);
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+        userid != NULL ? userid : "",
+        cuid != NULL ? cuid : "",
+        msn != NULL ? msn : "",
+        "success",
+        "external registration recovery",
+         applet_version != NULL ? applet_version :"",
+         keyVersion != NULL ? keyVersion : "",
+        activity_msg);
+
+        RA::tdb_activity(session->GetRemoteIP(),(char *) cuid, "external registration recovery", "success", activity_msg, userid, tokenType);
+    }
+loser:
+
+    if (strlen(audit_msg) > 0) { 
+
+        RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+          userid != NULL ? userid : "",
+          cuid != NULL ? cuid : "",
+          msn != NULL ? msn : "",
+          "failure",
+          "external registration recovery",
+          "",
+          "",
+          audit_msg);
+    }
+
+    
+    
+    if( modulus != NULL ) {
+        delete modulus;
+        modulus = NULL;
+    }
+
+    if( keyid != NULL ) {
+        delete keyid;
+        keyid = NULL;
+    }
+    if( exponent != NULL ) {
+        delete exponent;
+        exponent = NULL;
+    }
+
+    if( label != NULL ) {
+        free(label);
+        label = NULL;
+    }
+
+    return status;
+}
+
+/*
+ * RA_Processor::CertCmp
+ *   - given two certs, compare and return ture if same, false if not
+ */
+bool RA_Processor::CertCmp(CERTCertificate *cert1, CERTCertificate *cert2) {
+    char *FN = "RA_Processor::CertCmp";
+    bool matchAuthKeyID = false;
+    bool matchSubjKeyID = false;
+    bool matchSerial = false;
+
+    if ((cert1 == NULL) || (cert2 == NULL))
+        return false;
+
+    // check separately so we know exactly which attribute fails to match
+    matchAuthKeyID = SECITEM_ItemsAreEqual(
+        &(cert1->authKeyID->keyID), &(cert2->authKeyID->keyID));
+    if (matchAuthKeyID != true)
+        RA::Debug(FN, "authority key identifiers do not match");
+
+    matchSubjKeyID = SECITEM_ItemsAreEqual(
+        &(cert1->subjectKeyID), &(cert2->subjectKeyID));
+    if (matchSubjKeyID != true)
+        RA::Debug(FN, "subject key identifiers do not match");
+
+    matchSerial = SECITEM_ItemsAreEqual(
+        &(cert1->serialNumber), &(cert2->serialNumber));
+    if (matchSerial != true)
+        RA::Debug(FN, "serial numbersdo not match");
+
+    return ((matchAuthKeyID == true) &&
+        (matchSubjKeyID == true) &&
+        (matchSerial == true));
 }
 
 /**
@@ -3504,3 +5322,358 @@ RA_Status RA_Processor::Process(RA_Session *session, NameValueSet *extensions)
     return STATUS_NO_ERROR;
 } /* Process */
 
+int RA_Processor::GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx)
+{
+    if(!pkcs11objx)
+        return 0;
+
+    //Look through the objects actually currently on the token
+    //to determine an appropriate free certificate id
+
+     int num_objs = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
+    char objid[2];
+
+    int highest_cert_id = 0;
+    for (int i = 0; i< num_objs; i++) {
+        ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
+        unsigned long oid = os->GetObjectID();
+        objid[0] = (char)((oid >> 24) & 0xff);
+        objid[1] = (char)((oid >> 16) & 0xff);
+
+        if(objid[0] == 'C') { //found a certificate
+
+            int id_int = objid[1] - '0';
+
+            if(id_int > highest_cert_id) {
+                highest_cert_id = id_int;
+            }
+          }
+    }
+
+    RA::Debug(LL_PER_CONNECTION,
+                                  "RA_Enroll_Processor::GetNextFreeCertIdNumber",
+                                   "returning id number: %d", highest_cert_id + 1);
+    return highest_cert_id + 1;
+}
+
+bool RA_Processor::isCertInObjectList(PKCS11Obj *pkcs11objx, CERTCertificate *certToFind)
+{
+     if ( !pkcs11objx || !certToFind)
+         return false;
+
+     SECItem certItem; 
+     int num_objs = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
+     char b[3];
+     bool foundObj = false;
+
+     for (int i = 0; i< num_objs; i++) {
+         ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
+         unsigned long oid = os->GetObjectID();
+         b[0] = (char)((oid >> 24) & 0xff);
+         b[1] = (char)((oid >> 16) & 0xff);
+         b[2] = '\0';
+
+        if ( b[0] == 'C' )   {
+            for (int j = 0 ; j <  os->GetAttributeSpecCount() ; j++ ) {
+                AttributeSpec *as = os->GetAttributeSpec(j);
+                if (as->GetAttributeID() == CKA_VALUE) {
+                    if (as->GetType() == (BYTE) 0) {
+                        Buffer cert = as->GetValue();
+                        certItem.type = (SECItemType) 0; 
+                        certItem.data =  (unsigned char *) cert;
+                        certItem.len  = cert.size();
+
+                        SECComparison equal =  SECITEM_CompareItem(&certItem, &certToFind->derCert);
+
+                        if(equal == 0){
+                            RA::Debug(LL_PER_PDU, "RA_Processor::isCertObjectList:"," Match found, cert already in object spec list!");
+                            return true;
+                        }
+                    }
+                    break;
+                 }
+            }
+        }
+     }
+
+    return foundObj;
+}
+
+/* Clean the read in ObjectSpec Object List of Certificates that are not mentioned in the CertsToRecoverList
+*/
+
+void RA_Processor::CleanObjectListBeforeExternalRecovery(PKCS11Obj *pkcs11objx, ExternalRegAttrs *erAttrs, 
+    char *applet_version, char *keyVersion ) {
+
+    const int MAX_CERTS = 30;
+    char configname[256] = "";
+    char keyTypePrefix[256] = "";
+
+    CERTCertificate *cert = NULL;
+    int count = 0;
+    const char *tokenType = NULL;
+    char audit_msg[500];
+
+    /* Arrays that hold simple indexes of certsToDelete and certsToSave
+       certsToDelete is a list of certs NOT in the recovery list.
+       certsToSave is a list of certs to spare from deletion because they were 
+        enrolled by the regular token profile.
+    */
+
+    int certsToDelete[MAX_CERTS] = { 0 };
+    int numCertsToDelete = 0;
+    int numCertsToSave = 0;
+    int certsToSave[MAX_CERTS] = { 0 };
+
+
+    if (!pkcs11objx || ! erAttrs)
+        return;
+
+    ExternalRegCertToRecover **erCertsToRecover = NULL;
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo *erCertKeyInfo = NULL;
+
+    erCertsToRecover = erAttrs->getCertsToRecover();
+
+    if (erCertsToRecover == NULL) {
+        return;
+    }
+ 
+    count = erAttrs->getCertsToRecoverCount();
+
+    if(count == 0)
+        return;
+
+    tokenType =  erAttrs->getTokenType();
+
+    if (!tokenType)
+        return; 
+
+    const char *userid = erAttrs->getUserId();
+    const char *cuid = erAttrs->getTokenCUID();
+    const char *msn   = erAttrs->getTokenMSN();
+
+    //Now let's try to save the just freshly enrolled certificates based on regular profile from deletion.
+
+    PR_snprintf((char *)configname, 256, "%s.%s.keyGen.keyType.num", "op.enroll", tokenType);
+
+    int keyTypeNum = RA::GetConfigStore()->GetConfigAsInt(configname);
+
+    if (keyTypeNum > 0) {
+        int index = -1;
+        for (int i=0; i<keyTypeNum; i++) {
+            PR_snprintf((char *)configname, 256, "%s.%s.keyGen.keyType.value.%d", "op.enroll", tokenType, i);
+            const char *keyTypeValue = RA::GetConfigStore()->GetConfigAsString(configname, "");
+
+            RA::Debug("RA_Processor::CleanObjectListBeforeExternalRecovery","configname %s  keyTypeValue %s ",configname, keyTypeValue);
+
+            PR_snprintf((char *)keyTypePrefix, 256, "%s.%s.keyGen.%s", "op.enroll", tokenType, keyTypeValue);
+            RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery","keyTypePrefix is %s",keyTypePrefix);
+
+            PR_snprintf((char *)configname, 256,"%s.certId", keyTypePrefix);
+            const char *certId = RA::GetConfigStore()->GetConfigAsString(configname, "");
+
+            RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery","certId is %s",certId);
+
+            if(certId != NULL && strlen(certId) > 1) {
+                index = certId[1] - '0';
+            }
+
+            if (index >= 0) {
+                if(numCertsToSave < MAX_CERTS) {   /* Set an entry in the list in order to save from subsequent deletion. */
+                    certsToSave[numCertsToSave++] = index;
+                }
+            } 
+        }
+    }
+
+    int num_objs = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
+    char b[3];
+    bool foundObj = false;
+
+    //Go through the object spec list and remove stuff we have marked for deletion.
+    // Remove Cert and all associated objects of that cert.
+
+    for (int i = 0; i< num_objs; i++) {
+        ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
+        unsigned long oid = os->GetObjectID();
+        b[0] = (char)((oid >> 24) & 0xff);
+        b[1] = (char)((oid >> 16) & 0xff);
+        b[2] = '\0';
+
+       if ( b[0] == 'C' )   {    /* Is this a cert object ? */
+           for (int j = 0 ; j <  os->GetAttributeSpecCount() ; j++ ) {
+               AttributeSpec *as = os->GetAttributeSpec(j);
+               if (as->GetAttributeID() == CKA_VALUE) {
+                   if (as->GetType() == (BYTE) 0) {
+                       Buffer cert = as->GetValue();
+                       SECItem certItem;
+                       certItem.type = (SECItemType) 0;
+                       certItem.data =  (unsigned char *) cert;
+                       certItem.len  = cert.size();
+                       bool present =  isInCertsToRecoverList(&certItem, erAttrs);
+
+                       if( present == false) {
+                           int certId = (int) b[1] - '0';
+                           RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery"," cert not found in recovery list, possible deletion... id:  %d", certId);
+                           /* Now check the certsToSave list to see if this cert is protected */
+
+                           bool protect = false;
+                           for(int p = 0 ; p < numCertsToSave; p++) {
+                               if( certsToSave[p] == certId)  {
+                                  protect = true;
+                                  break;
+                               }
+                           }
+
+                           RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery"," protect cert %d: %d", certId, protect);
+                           /* Delete this cert if it is NOT protected by the certs generated by the profile enrollment. */
+                           if((numCertsToDelete < MAX_CERTS) && (protect == false )) {
+
+                                /* Save the info of this cert that is going away, so we can later remove it from the token's list of certs in the db. */
+                               ExternalRegCertToDelete *erCertToDelete =
+                                   new ExternalRegCertToDelete();
+
+                               PRUint64 serial = 0;
+                               if (erCertToDelete) {
+                                   char sNum[50];
+                                   CERTCertificate  *c = CERT_DecodeCertFromPackage((char *)certItem.data, certItem.len);
+
+                                   RA::Debug(LL_PER_PDU, "RA_Processor::CleanObjectListBeforeExternalRecovery"," cert to delete serial %s:", (char *) sNum);
+                                   if ( c != NULL) {
+                                      RA::ra_tus_print_integer(sNum, &c->serialNumber);
+                                      serial =  strtoull(sNum,NULL,16);
+                                      erCertToDelete->setSerial(serial);
+                                      erAttrs->addCertToDelete(erCertToDelete); 
+                                      CERT_DestroyCertificate(c); 
+
+                                      PR_snprintf(audit_msg, 512, "External Registration Recovery: certificate %s slated for deletion form the token", sNum);
+                                      RA::Audit(EV_ENROLLMENT, AUDIT_MSG_PROC,
+                                          userid != NULL ? userid : "",
+                                          cuid != NULL ? cuid : "",
+                                          msn != NULL ? msn : "",
+                                          "success",
+                                          "external registration recovery",
+                                          applet_version != NULL ? applet_version : "",
+                                          keyVersion != NULL ? keyVersion : "",
+                                          audit_msg);
+
+                                   }
+                               }
+                               certsToDelete[numCertsToDelete++] = certId;
+                           }
+                       }
+                   }
+                   break;
+                }
+           }
+       }
+    }
+
+    // Now rifle through the certsToDeleteList and remove those that need to be deleted
+
+    for(int k = 0 ; k <  numCertsToDelete ; k ++ ) {
+        RA::Debug("RA_Processor::CleanObjectListBeforeExternalRecovery", "cert to delete %d", certsToDelete[k]);
+        RemoveCertFromObjectList(certsToDelete[k], pkcs11objx);
+    }
+}
+
+/* Remove a certificate from the Object Spec List based on Cert index , C(1), C(2), etc */
+
+void RA_Processor::RemoveCertFromObjectList(int cIndex, PKCS11Obj *pkcs11objx) {
+
+    char b[3];
+
+    if ( !pkcs11objx)
+        return;
+
+    RA::Debug("RA_Processor::RemoveCertFromObjectList", "index of cert to delete is: %d", cIndex);
+
+    int objectCount = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
+
+    if ( cIndex < 0 || cIndex >= objectCount)
+        return;
+
+    int C = cIndex;
+    int c = cIndex;
+    int k1 = 2 *cIndex;
+    int k2 = 2 * cIndex + 1;
+
+    int index = 0;
+    for (int i = 0; i< pkcs11objx->PKCS11Obj::GetObjectSpecCount() ;  i++) {
+        ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
+        unsigned long oid = os->GetObjectID();
+        b[0] = (char)((oid >> 24) & 0xff);
+        b[1] = (char)((oid >> 16) & 0xff);
+        b[2] = '\0';
+
+       index = b[1] - '0';
+
+       if ( b[0] == 'C' || b[0] == 'c' )   {
+           if (  index == C || index == c ) {
+               RA::Debug(LL_PER_PDU, "RA_Processor::RemoveCertFromObjectList",
+                   "Removing Object %s", b);
+
+               pkcs11objx->RemoveObjectSpec(i);
+               i--;
+           }
+       }
+
+       if ( b[0] == 'k' ) {
+
+           if (index == k1 || index == k2) {
+               RA::Debug(LL_PER_PDU, "RA_Processor::RemoveCertFromObjectList",
+                   "Removing Object %s", b);
+
+               pkcs11objx->RemoveObjectSpec(i);
+               i--;
+           }
+       }
+    } 
+}
+
+/* Does given cert exist in the ExternalRegAttrs CertsToRecoverList 
+   We need to know if this cert is to be retained for an ExternalReg Recovery operation.
+   If cert is in the list, it will be retained and not erased, otherwise it will go away.
+*/
+
+bool RA_Processor::isInCertsToRecoverList(SECItem *secCert, ExternalRegAttrs *erAttrs) {
+
+    bool foundObj = false;
+    if (!secCert || !erAttrs)
+        return foundObj;
+
+    CERTCertificate *cert = NULL;
+    ExternalRegCertToRecover **erCertsToRecover = NULL;
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo *erCertKeyInfo = NULL;
+
+    erCertsToRecover = erAttrs->getCertsToRecover();
+
+    if (erCertsToRecover == NULL) {
+        return foundObj;
+    }
+
+    int count = erAttrs->getCertsToRecoverCount();
+
+    if(count == 0)
+        return foundObj;
+
+    for (int i = 0; i< count; i++) {
+        erCertToRecover = erCertsToRecover[i];
+        if (!erCertToRecover)
+            continue;
+        erCertKeyInfo = erCertToRecover->getCertKeyInfo();
+        if (!erCertKeyInfo)
+            continue;
+        cert = erCertKeyInfo->getCert();
+        if (cert) {
+            SECComparison equal =  SECITEM_CompareItem(secCert, &cert->derCert);
+            if (equal == 0) {
+                foundObj = true;
+                break;
+            }
+        }
+    }
+    return foundObj;
+}

@@ -26,21 +26,15 @@ package com.netscape.cms.selftests.tks;
 // import statements //
 ///////////////////////
 
-import java.util.Arrays;
-import java.util.Locale;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.ISubsystem;
-import com.netscape.certsrv.logging.ILogEventListener;
-import com.netscape.certsrv.selftests.EDuplicateSelfTestException;
-import com.netscape.certsrv.selftests.EInvalidSelfTestException;
-import com.netscape.certsrv.selftests.EMissingSelfTestException;
-import com.netscape.certsrv.selftests.ESelfTestException;
-import com.netscape.certsrv.selftests.ISelfTestSubsystem;
-import com.netscape.cms.selftests.ASelfTest;
-import com.netscape.symkey.SessionKey;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.tks.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.selftests.*;
+import com.netscape.cms.selftests.*;
+import java.util.*;
+import com.netscape.symkey.*;
+import org.mozilla.jss.crypto.*;
 
 
 
@@ -72,7 +66,9 @@ extends ASelfTest
     private byte[] mCUID          = null;
     private byte[] mMacKey        = null;
     private byte[] mSessionKey    = null;
-
+    private byte   mNistSP800_108KdfOnKeyVersion = 0;       // AC: KDF SPEC CHANGE
+    private boolean mNistSP800_108KdfUseCuidAsKdd = false;  // AC: KDF SPEC CHANGE
+    private byte[] mKDD           = null;                   // AC: KDF SPEC CHANGE
 
     /**
      * Initializes this subsystem with the configuration store
@@ -109,6 +105,46 @@ extends ASelfTest
         mMacKey = getConfigByteArray("macKey", 16);
         mUseSoftToken = getConfigString("useSoftToken");
 
+        // AC: KDF SPEC CHANGE 
+        // read CUID for the KDD field
+        mKDD = getConfigByteArray("CUID", 10);
+        //
+        //
+        // read self-test configuration item for nistSP800-108KdfOnKeyVersion
+        //
+        // read setting as string
+        String nistSP800_108KdfOnKeyVersion_str = getConfigString("nistSP800-108KdfOnKeyVersion");
+        short nistSP800_108KdfOnKeyVersion_short;
+        // convert setting value (in ASCII-hex) to short
+        try{
+                nistSP800_108KdfOnKeyVersion_short = Short.parseShort(nistSP800_108KdfOnKeyVersion_str,16);
+                if ((nistSP800_108KdfOnKeyVersion_short < 0) || (nistSP800_108KdfOnKeyVersion_short > (short)0x00FF)){
+                        throw new Exception("Out of range.");
+                }
+        }catch(Throwable t){
+                mSelfTestSubsystem.log (mSelfTestSubsystem.getSelfTestLogger(),
+                    CMS.getLogMessage("SELFTESTS_MISSING_VALUES",
+                    getSelfTestName(), mPrefix + ".nistSP800-108KdfOnKeyVersion"));
+                throw new EMissingSelfTestException("nistSP800-108KdfOnKeyVersion");
+        }
+        // convert to byte (anything higher than 0x7F is represented as negative)
+        mNistSP800_108KdfOnKeyVersion = (byte)nistSP800_108KdfOnKeyVersion_short;
+        //
+        //
+        // read self-test configuration item for nistSP800-108KdfUseCuidAsKdd
+        //
+        // read setting as string
+        String nistSP800_108KdfUseCuidAsKdd_str = getConfigString("nistSP800-108KdfUseCuidAsKdd");
+        // convert setting value to boolean
+        try{
+                mNistSP800_108KdfUseCuidAsKdd = Boolean.parseBoolean(nistSP800_108KdfUseCuidAsKdd_str);
+        }catch(Throwable t){
+                mSelfTestSubsystem.log (mSelfTestSubsystem.getSelfTestLogger(),
+                    CMS.getLogMessage("SELFTESTS_MISSING_VALUES",
+                    getSelfTestName(), mPrefix + ".nistSP800-108KdfUseCuidAsKdd"));
+                throw new EMissingSelfTestException("nistSP800-108KdfUseCuidAsKdd");
+        }
+        
         String defKeySetMacKey = null;
         tks = (ISubsystem) CMS.getSubsystem(mTksSubId);
         if (tks != null) {
@@ -140,7 +176,12 @@ extends ASelfTest
             if (mSessionKey == null) {
                 mSessionKey = SessionKey.ComputeSessionKey (mToken, mKeyName,
                                                             mCardChallenge, mHostChallenge,
-                                                            mKeyInfo, mCUID, mMacKey, mUseSoftToken, null, null);
+                                                            mKeyInfo, 
+                                                            mNistSP800_108KdfOnKeyVersion,   // AC: KDF SPEC CHANGE - pass in configuration self-test value
+                                                            mNistSP800_108KdfUseCuidAsKdd,   // AC: KDF SPEC CHANGE - pass in configuration self-test value
+                                                            mCUID,
+                                                            mKDD,                            // AC: KDF SPEC CHANGE - pass in KDD
+                                                            mMacKey, mUseSoftToken, null, null);
                 if (mSessionKey == null || mSessionKey.length != 16) {
                     mSelfTestSubsystem.log (mSelfTestSubsystem.getSelfTestLogger(),
                                             CMS.getLogMessage("SELFTESTS_MISSING_VALUES",
@@ -303,11 +344,18 @@ extends ASelfTest
     throws ESelfTestException
     {
         String logMessage = null;
+        SymmetricKey unwrapped = null;
+        SymmetricKey transportKey = null;
         String keySet = "defKeySet";
 
         byte[] sessionKey = SessionKey.ComputeSessionKey (mToken, mKeyName,
                                                           mCardChallenge, mHostChallenge,
-                                                          mKeyInfo, mCUID, mMacKey, mUseSoftToken, keySet, null);
+                                                          mKeyInfo, 
+                                                          mNistSP800_108KdfOnKeyVersion,   // AC: KDF SPEC CHANGE - pass in configuration self-test value
+                                                          mNistSP800_108KdfUseCuidAsKdd,   // AC: KDF SPEC CHANGE - pass in configuration self-test value
+                                                          mCUID,
+                                                          mKDD,                            // AC: KDF SPEC CHANGE - pass in KDD
+                                                          mMacKey, mUseSoftToken, keySet, null);
 
         // Now we just see if we can successfully generate a session key.
         // For FIPS compliance, the routine now returns a wrapped key, which can't be extracted and compared.

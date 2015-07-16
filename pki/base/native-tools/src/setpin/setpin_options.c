@@ -28,10 +28,8 @@
 
 extern int OPT_getValue(char *option, char **output);
 extern void exitError(char *errstring);
-extern int errcode;
 
 #define PW_DEFAULT_LENGTH 6
-#define ERR_BUF_LENGTH 512
 
 char *valid_args[] = {
   "host",     "LDAP host                                [required]",
@@ -67,7 +65,6 @@ char *valid_args[] = {
   NULL
 };
 
-int valid_args_len = sizeof(valid_args)/sizeof(char *);
 
 int i_length, i_minlength, i_maxlength;
 
@@ -183,10 +180,12 @@ int equals(char *s, char *t) {
 }
 
 void validateOptions() {
-  char errbuf[ERR_BUF_LENGTH];
+  char *errbuf;
+
+  errbuf = (char *)malloc(2048);
 
   if (o_nickname  && equals(o_ssl,"no")) {
-    snprintf(errbuf, ERR_BUF_LENGTH, "specifying nickname doesn't make sense with no SSL");
+    sprintf(errbuf,"specifying nickname doesn't make sense with no SSL");
     goto loser;
   }
 
@@ -237,9 +236,7 @@ void validateOptions() {
     }
   }
 
-  if (o_testpingen) {
-	return;
-  }
+  if (o_testpingen) return;
   
   if (!o_host || equals(o_host,"")) {
     strcpy(errbuf,"host missing");
@@ -274,7 +271,7 @@ void validateOptions() {
        equals(o_hash,"md5") ||
        equals(o_hash,"none"))
       ) {
-    snprintf(errbuf, ERR_BUF_LENGTH, "invalid hash: %s",o_hash);
+    sprintf(errbuf,"invalid hash: %s",o_hash);
     goto loser;
   }
   if (equals(o_hash,"none")) o_hash = NULL;
@@ -282,7 +279,6 @@ void validateOptions() {
   return ;
   
  loser:
-  errcode=13;
   exitError(errbuf);
 
 }

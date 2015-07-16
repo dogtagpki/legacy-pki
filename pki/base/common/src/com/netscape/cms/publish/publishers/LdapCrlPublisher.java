@@ -18,29 +18,16 @@
 package com.netscape.cms.publish.publishers;
 
 
-import java.security.cert.CRLException;
-import java.security.cert.X509CRL;
-import java.util.Locale;
-import java.util.Vector;
+import java.io.*;
+import java.util.*;
+import java.security.cert.*;
+import netscape.ldap.*;
+import com.netscape.certsrv.logging.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
 
-import netscape.ldap.LDAPAttribute;
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPEntry;
-import netscape.ldap.LDAPException;
-import netscape.ldap.LDAPModification;
-import netscape.ldap.LDAPModificationSet;
-import netscape.ldap.LDAPSSLSocketFactoryExt;
-import netscape.ldap.LDAPSearchResults;
-import netscape.ldap.LDAPv2;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.base.IExtendedPluginInfo;
-import com.netscape.certsrv.ldap.ELdapException;
-import com.netscape.certsrv.ldap.ELdapServerDownException;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.publish.ILdapPublisher;
+import com.netscape.certsrv.ldap.*;
+import com.netscape.certsrv.publish.*;
 
 
 /**
@@ -63,6 +50,7 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
     protected String mCrlObjectClass = LDAP_CRL_OBJECTCLASS;
     protected String mObjAdded = "";
     protected String mObjDeleted = "";
+    protected int mLdapPublishTimelimit_ms = 0; // in millisecond
 
     /**
      * constructs ldap crl publisher with default values
@@ -125,6 +113,8 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
             LDAP_CRL_OBJECTCLASS);
         mObjAdded = mConfig.getString("crlObjectClassAdded", "");
         mObjDeleted = mConfig.getString("crlObjectClassDeleted", "");
+        Integer limit = mConfig.getInteger("ldapPublishTimeLimit", 0);
+        mLdapPublishTimelimit_ms = limit.intValue();
 
         mInited = true;
     }
@@ -147,6 +137,8 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
      */
     public void publish(LDAPConnection conn, String dn, Object crlObj)
         throws ELdapException {
+        String method = "publish:";
+        CMS.debug(method + "CRLDEBUG - in LdapCrlPublisher.publish()");
         if (conn == null) {
             log(ILogger.LL_INFO, "publish CRL: no LDAP connection");
             return;
@@ -179,6 +171,7 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
                version,
                sslSocket, mgr_dn, mgr_pwd);
             conn = altConn;
+            CMS.debug(method + "CRLDEBUG - got LDAP connection");
           }
         } catch (LDAPException e) {
           CMS.debug("Failed to create alt connection " + e);
@@ -186,6 +179,8 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
           CMS.debug("Failed to create alt connection " + e);
         }
 
+        int orig_timelimit = 0;
+        LDAPConstraints constraints = null;
         try {
             byte[] crlEnc = ((X509CRL) crlObj).getEncoded();
             log(ILogger.LL_INFO, "publish CRL: " + dn);
@@ -277,7 +272,19 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
                 }
             }  
 
+            constraints = conn.getConstraints();
+            if (constraints != null) {
+                CMS.debug(method + "CRLDEBUG - setting publishing timelimit on conn to: " + String.valueOf(mLdapPublishTimelimit_ms));
+                orig_timelimit = constraints.getTimeLimit();
+                constraints.setTimeLimit(mLdapPublishTimelimit_ms);
+                conn.setConstraints(constraints);
+            } else {
+                CMS.debug(method + "CRLDEBUG - constraints not set");
+            }
+
+            CMS.debug(method + "CRLDEBUG - about to modify CRL");
             conn.modify(dn, modSet);
+            CMS.debug(method + "CRLDEBUG - finished modify CRL");
         } catch (CRLException e) {
             log(ILogger.LL_FAILURE, CMS.getLogMessage("PUBLISH_PUBLISH_ERROR", e.toString()));
             throw new ELdapException(CMS.getUserMessage("CMS_LDAP_PUBLISH_CRL_ERROR", e.toString()));
@@ -293,6 +300,12 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
                 throw new ELdapException(CMS.getUserMessage("CMS_LDAP_PUBLISH_CRL_ERROR", e.toString()));
             }
         } finally {
+          // Reset original timelimit
+          if (constraints != null) {
+              CMS.debug(method + "CRLDEBUG - resetting original timelimit on conn to: " + String.valueOf(orig_timelimit));
+              constraints.setTimeLimit(orig_timelimit);
+              conn.setConstraints(constraints);
+          }
           if (altConn != null) {
              try {
                 altConn.disconnect();
@@ -302,6 +315,7 @@ public class LdapCrlPublisher implements ILdapPublisher, IExtendedPluginInfo {
           }
         }
 
+        CMS.debug(method + "CRLDEBUG - returning from LdapCrlPublisher.publish()");
     }
 
     /**

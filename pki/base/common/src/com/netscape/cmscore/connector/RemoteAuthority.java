@@ -18,9 +18,8 @@
 package com.netscape.cmscore.connector;
 
 
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IConfigStore;
-import com.netscape.certsrv.connector.IRemoteAuthority;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.connector.*;
 
 
 public class RemoteAuthority implements IRemoteAuthority {

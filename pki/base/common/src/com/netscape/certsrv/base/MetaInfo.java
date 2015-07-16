@@ -20,6 +20,9 @@ package com.netscape.certsrv.base;
 
 import java.util.Enumeration;
 import java.util.Hashtable;
+import com.netscape.certsrv.base.IAttrSet;
+import com.netscape.certsrv.base.AttributeNameHelper;
+import com.netscape.certsrv.base.EBaseException;
 
 
 /**

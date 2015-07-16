@@ -40,7 +40,9 @@
 #include "main/Login.h"
 #include "main/SecureId.h"
 #include "main/RA_Session.h"
+#include "main/PKCS11Obj.h"
 #include "authentication/AuthParams.h"
+#include "authentication/ExternalRegAttrs.h"
 #include "apdu/APDU.h"
 #include "apdu/APDU_Response.h"
 #include "channel/Secure_Channel.h"
@@ -110,6 +112,8 @@ class RA_Processor
 				Buffer &card_cryptogram,
 				Buffer &host_challenge, const char *connId);
 
+        bool CertCmp(CERTCertificate *cert1, CERTCertificate *cert2);
+
 		int CreatePin(RA_Session *session, BYTE pin_number, BYTE max_retries, char *pin);
 
 		int IsPinPresent(RA_Session *session,BYTE pin_number);
@@ -122,9 +126,31 @@ class RA_Processor
 
 		Buffer *GetAppletVersion(RA_Session *session);
 
-		Secure_Channel *SetupSecureChannel(RA_Session *session, BYTE key_version, BYTE key_index, const char *connId);
-		Secure_Channel *SetupSecureChannel(RA_Session *session,
-				BYTE key_version, BYTE key_index, SecurityLevel security_level, const char *connId);
+		/**
+		 * PAS Modification
+		 * Added Buffer CUID parameter
+		 * Added const char *opPrefix
+		 * Added const char *tokenType
+		 */
+		Secure_Channel *SetupSecureChannel(
+			RA_Session *session,
+			BYTE key_version,
+			BYTE key_index,
+			const char *connId,
+			Buffer &CUID,
+			const char *opPrefix,
+			const char *tokenType,
+			AppletInfo *info);
+
+		Secure_Channel *SetupSecureChannel(
+			RA_Session *session,
+			BYTE key_version,
+			BYTE key_index,
+			SecurityLevel security_level,
+			const char *connId, Buffer &CUID,
+			const char *opPrefix,
+			const char *tokenType,
+			AppletInfo *info);
 
 		SecureId *RequestSecureId(RA_Session *session);
 
@@ -132,24 +158,52 @@ class RA_Processor
 
 		char *RequestASQ(RA_Session *session, char *question);
 
-		int EncryptData(Buffer &cuid, Buffer &versionID, Buffer &in, Buffer &out, const char *connid);
+		/**
+		 * PAS Modification
+		 * Added KDD buffer parameter
+		 */
+		int EncryptData(
+			Buffer &cuid,
+			Buffer &kdd,
+			Buffer &versionID,
+			Buffer &in,
+			Buffer &out,
+			const char *connid,
+			AppletInfo *appInfo);
                 
 		int ComputeRandomData(Buffer &data_out, int dataSize,  const char *connid);
 
 		int CreateKeySetData(
-			Buffer &cuid, 
+			Buffer &CUID,
+			Buffer &KDD,
 			Buffer &versionID, 
 			Buffer &NewMasterVer, 
 			Buffer &out, 
-			const char *connid);
+			const char *connid,
+			const char *opPrefix,
+			const char *tokenType,
+			AppletInfo *appInfo);
+
+		bool ProcessMappingFilter(
+			const char *prefix,
+			AppletInfo *appInfo,
+			const char *cuid, 
+			bool getKeySet,
+			RA_Status &o_status,
+			const char *&o_selection);
 
 		bool GetTokenType(
-			const char *prefix, 
-			int major_version, int minor_version, 
-			const char *cuid, const char *msn, 
-			NameValueSet *extensions,
+			const char *prefix,
+			AppletInfo *appInfo,
+			const char *cuid,
 			RA_Status &o_status,
 			const char *&o_tokenType);
+
+		char * GetKeySet(
+			AppletInfo *appInfo, 
+			const char *cuid,
+			const char *connid,
+			RA_Status &o_status);
 
 		Buffer *ListObjects(RA_Session *session, BYTE seq);
 
@@ -159,10 +213,14 @@ class RA_Processor
 
 		int SelectApplet(RA_Session *session, BYTE p1, BYTE p2, Buffer *aid);
 
+		/**
+         * PAS Modification
+         * Added Buffer CUID parameter
+         */
 		int UpgradeApplet(
 				RA_Session *session, 
-                char *prefix,
-                char *tokenType,
+				char *prefix,
+				char *tokenType,
 				BYTE major_version, BYTE minor_version, 
 				const char *new_version, 
 				const char *applet_dir, 
@@ -170,7 +228,9 @@ class RA_Processor
 				const char *connid, 
 				NameValueSet *extensions,
 				int start_progress, int end_progress,
-                                char **key_version);
+                                char **key_version,
+                                Buffer &CUID,
+				const char *msn);
 
 		int UpgradeKey(RA_Session *session, BYTE major_version, BYTE minor_version, int new_version);
 
@@ -189,23 +249,84 @@ class RA_Processor
 
 		Secure_Channel *GenerateSecureChannel(
 				RA_Session *session, const char *connid,
+				Buffer &card_cuid,
 				Buffer &card_diversification_data,
 				Buffer &card_key_data,
 				Buffer &card_challenge,
 				Buffer &card_cryptogram,
-				Buffer &host_challenge);
+				Buffer &host_challenge,
+				const char *opPrefix,
+				const char *tokenType,
+				AppletInfo *appInfo);
+
                 AuthenticationEntry *GetAuthenticationEntry(
                                 const char * a_prefix,
                                 const char * a_configname,
                                 const char * a_tokenType);
 
+        bool RequestUserId(
+                const char * a_prefix,
+                RA_Session * a_session,
+                NameValueSet *extensions,
+                const char * a_configname,
+                const char * a_tokenType,
+                char *a_cuid,
+                AuthParams *& o_login,  // out 
+                const char *&o_userid,   // out 
+                RA_Status &o_status //out 
+                );
+
+        bool AuthenticateUser(
+                const char * a_prefix,
+                RA_Session * a_session,
+                const char * a_configname,
+                char *a_cuid,
+                NameValueSet *a_extensions,
+                const char *a_tokenType,
+                AuthParams *& a_login, 
+                const char *&o_userid,
+                RA_Status &o_status
+                );
+
+        bool AuthenticateUserLDAP(
+                const char * op,
+                RA_Session *a_session,
+                NameValueSet *extensions,
+                char *a_cuid,
+                AuthenticationEntry *a_auth,
+                AuthParams *& o_login,
+                RA_Status &o_status,
+                                const char *token_type);
+
 	protected:
+                int GetNextFreeCertIdNumber(PKCS11Obj *pkcs11objx);
+                bool isCertInObjectList(PKCS11Obj *pkcs11objx, CERTCertificate *certToFind);
+                bool isInCertsToRecoverList(SECItem *secCert, ExternalRegAttrs *erAttrs);
+                void RemoveCertFromObjectList(int cIndex, PKCS11Obj *pkcs11objx);
+                void CleanObjectListBeforeExternalRecovery(PKCS11Obj *pkcs11objx, ExternalRegAttrs *erAttrs, char *applet_version, char *keyVersion ); 
+                RA_Status UpdateTokenRecoveredCerts(RA_Session *session, PKCS11Obj *pkcs11objx, Secure_Channel *channel, char *applet_version, char *keyVersion);
                 RA_Status Format(RA_Session *session, NameValueSet *extensions, bool skipAuth);
                 bool RevokeCertificates(RA_Session *session, char *cuid, char *audit_msg,
                 		char *final_applet_version,
 				char *keyVersion,
                                 char *tokenType, char *userid, RA_Status &status );
 		int IsTokenDisabledByTus(Secure_Channel *channel);
+
+		/**
+		 * PAS Modification
+		 *
+		 * New functions to enforce GP sanity checks
+		 */
+		int checkCUIDMatchesKDD(Buffer &bufCUID, Buffer &bufKDD,
+		                        const char *pcharOpPrefix);
+
+		int checkCardGPKeyVersionIsInRange(Buffer &bufCUID, Buffer &bufKDD,
+		                                   Buffer &bufCardSuppliedKeyInfo,
+		                                   const char *pcharOpPrefix, const char *pcharTokenType);
+
+		int checkCardGPKeyVersionMatchesTokenDB(Buffer &bufCUID, Buffer &bufKDD,
+		                                        Buffer &bufCardSuppliedKeyInfo, const char *pcharOpPrefix,
+		                                        const char *pcharTokenType);
 
                 int totalAvailableMemory;
                 int totalFreeMemory;

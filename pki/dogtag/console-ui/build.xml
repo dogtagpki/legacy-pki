@@ -59,8 +59,8 @@
             description="--> generate jar files">
         <echo message="${begin.build.jars.log.message}"/>
         <mkdir dir="${build.jars}"/>
-        <jar jarfile="${build.jars}/pki-console-theme-${version}.jar">
-            <fileset dir="${src.dir}">
+        <jar jarfile="${build.jars}/cms-theme-${version}_en.jar">
+            <fileset dir=".">
                 <include name="CMSAdminRS.properties"/>
             </fileset>
             <fileset dir="${build.classes}">
@@ -159,7 +159,7 @@
                 <include name="**"/>
             </zipfileset>
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="usr/share/doc/${product.name}-${version}">
                 <include name="LICENSE"/>
             </zipfileset>
@@ -175,7 +175,7 @@
                 <include name="**"/>
             </tarfileset>
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${dist.name}/usr/share/doc/${product.name}-${version}">
                 <include name="LICENSE"/>
             </tarfileset>
@@ -217,15 +217,15 @@
         <echo message="${begin.source.zip.log.message}"/>
         <zip destfile="${dist.base.source}/${src.dist.name}.zip">
             <zipfileset dir="."
-                        filemode="644"
+                        filemode="755"
                         prefix="${src.dist.name}">
                 <include name="${product.name}.spec"/>
                 <include name="LICENSE"/>
                 <include name="build.xml"/>
+                <include name="CMSAdminRS.properties"/>
                 <include name="config/product*.xml"/>
                 <include name="config/release*.xml"/>
                 <include name="release"/>
-                <include name="src/CMSAdminRS.properties"/>
                 <include name="src/**"/>
             </zipfileset>
         </zip>
@@ -235,15 +235,15 @@
         <tar longfile="gnu"
              destfile="${dist.base.source}/${src.dist.name}.tar">
             <tarfileset dir="."
-                        mode="644"
+                        mode="755"
                         prefix="${src.dist.name}">
                 <include name="${product.name}.spec"/>
                 <include name="LICENSE"/>
                 <include name="build.xml"/>
+                <include name="CMSAdminRS.properties"/>
                 <include name="config/product*.xml"/>
                 <include name="config/release*.xml"/>
                 <include name="release"/>
-                <include name="src/CMSAdminRS.properties"/>
                 <include name="src/**"/>
             </tarfileset>
         </tar>

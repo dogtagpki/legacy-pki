@@ -18,10 +18,8 @@
 package com.netscape.cmscore.ldapconn;
 
 
-import netscape.ldap.LDAPConnection;
-import netscape.ldap.LDAPException;
-import netscape.ldap.LDAPSocketFactory;
-import netscape.ldap.LDAPv2;
+import netscape.ldap.*;
+import com.netscape.certsrv.ldap.*;
 
 
 /**
@@ -45,8 +43,14 @@ public class LdapAnonConnection extends LDAPConnection {
 
         setOption(LDAPv2.REFERRALS, new Boolean(followReferrals));
 
-        super.connect(connInfo.getVersion(), 
-            connInfo.getHost(), connInfo.getPort(), null, null);
+        if (connInfo.getVersion() == LDAPv2.PROTOCOL_VERSION) {
+            super.connect(connInfo.getVersion(), 
+                connInfo.getHost(), connInfo.getPort(), null, null);
+        } else {
+            // use the following connect() call because it connects but does
+            // not authenticate with an anonymous bind.  This requires LDAPv3.
+            super.connect(connInfo.getHost(), connInfo.getPort());
+        }
     }
 
     /**
@@ -56,7 +60,13 @@ public class LdapAnonConnection extends LDAPConnection {
         LDAPSocketFactory fac)
         throws LDAPException {
         super(fac);
-        super.connect(version, host, port, null, null);
+        if (version == LDAPv2.PROTOCOL_VERSION) {
+            super.connect(version, host, port, null, null);
+        } else {
+            // use the following connect() call because it connects but does
+            // not authenticate with an anonymous bind.  This requires LDAPv3.
+            super.connect(host, port);
+        }
     }
 
     /**
@@ -65,16 +75,13 @@ public class LdapAnonConnection extends LDAPConnection {
     public LdapAnonConnection(String host, int port, int version)
         throws LDAPException {
         super();
-        super.connect(version, host, port, null, null);
-    }
-
-    /**
-     * overrides superclass connect. 
-     * does not allow reconnect.
-     */
-    public void connect(String host, int port) throws LDAPException {
-        throw new RuntimeException(
-                "this LdapAnonConnection already connected: connect(h,p)");
+        if (version == LDAPv2.PROTOCOL_VERSION) {
+            super.connect(version, host, port, null, null);
+        } else {
+            // use the following connect() call because it connects but does
+            // not authenticate with an anonymous bind.  This requires LDAPv3.
+            super.connect(host, port);
+        }
     }
 
     /**

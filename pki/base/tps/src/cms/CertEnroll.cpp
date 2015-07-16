@@ -32,6 +32,7 @@
 #include "pk11func.h"
 #include "cryptohi.h"
 #include "keyhi.h"
+#include "cert.h"
 #include "base64.h"
 #include "nssb64.h"
 #include "prlock.h"
@@ -79,7 +80,7 @@ TOKENDB_PUBLIC int CertEnroll::RevokeCertificate(const char *reason, const char 
 {
     char parameters[5000];
     char configname[5000];
-    int num;
+    int num=0;
 
     PR_snprintf((char *)parameters, 5000, "op=revoke&revocationReason=%s&revokeAll=(certRecordId%%3D%s)&totalRecordCount=1", reason, serialno);
 
@@ -113,12 +114,13 @@ TOKENDB_PUBLIC int CertEnroll::RevokeCertificate(const char *reason, const char 
     return num;
 }
 
+
 TOKENDB_PUBLIC int CertEnroll::UnrevokeCertificate(const char *serialno, const char *connid,
   char *&o_status)
 {
     char parameters[5000];
     char configname[5000];
-    int num;
+    int num=0;
 
     PR_snprintf((char *)parameters, 5000, "serialNumber=%s",serialno);
 
@@ -155,6 +157,429 @@ TOKENDB_PUBLIC int CertEnroll::UnrevokeCertificate(const char *serialno, const c
     return num;
 }
 
+
+/*
+ * searches through all defined ca entries to find the cert's
+ * signing ca for revocation
+ *   revoke: true to revoke; false to unrevoke  
+ *   cert: cert to (un)revoke
+ *   serialno: parameter for the (Un)RevokeCertificate() functions
+ *   o_status: parameter for the (Un)RevokeCertificate() functions
+ *   reason: parameter for the RevocakeCertificate() function
+ */
+TPS_PUBLIC int CertEnroll::revokeFromOtherCA(
+        bool revoke,
+        CERTCertificate *cert,
+        const char*serialno, char *&o_status,
+        const char *reason) {
+
+    int ret = 1;
+    const char *caList = NULL;
+    const char *nick = NULL;
+    char configname[256] = {0};
+    char configname_nick[256] = {0};
+    char configname_caSKI[256] = {0};
+    const char *caSKI_s = NULL;
+    char *caSKI_x = NULL;
+    char *caSKI_y = NULL;
+    ConfigStore *store = RA::GetConfigStore();
+    CERTCertDBHandle *certdb = CERT_GetDefaultCertDB();
+    CERTCertificate *caCert = NULL;
+    SECItem ca_ski;
+    SECStatus rv = SECFailure;
+
+    if (store == NULL)
+        return 1;
+
+    PR_ASSERT(certdb != NULL);
+    RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA: %s",
+        revoke? "revoking":"unrevoking");
+    PR_snprintf((char *)configname, 256, "conn.ca.list");
+    caList = store->GetConfigAsString(configname, NULL);
+    if (caList == NULL) {
+        RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA",
+            "conn.ca.list not found");
+        return 1;
+    }
+
+    char *caList_x = PL_strdup(caList);
+    PR_ASSERT(caList_x != NULL);
+    RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA",
+        "found ca list:%s", caList_x);
+    char *sresult = NULL;
+    char *lasts = NULL;
+
+    sresult = PL_strtok_r(caList_x, ",", &lasts);
+
+    while (sresult != NULL) {
+        ret = 1;
+        /* first, see if ca Subject Key Identifier (SKI) is in store */
+        bool foundCaSKI = false;
+        PRBool match = PR_FALSE;
+        PR_snprintf((char *)configname_caSKI, 256, "conn.%s.caSKI",
+            sresult);
+        caSKI_s = store->GetConfigAsString(configname_caSKI, NULL);
+        if ((caSKI_s == NULL) || *caSKI_s==0) {
+            RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA",
+                "CA cert SKI not found in config for ca: %s", sresult);
+        } else {
+            caSKI_x = PL_strdup(caSKI_s);
+            PR_ASSERT(caSKI_x != NULL);
+            RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA",
+                "CA cert SKI found in config for: %s", sresult);
+            foundCaSKI = true;
+            /* convert from ASCII to SECItem */
+            rv = ATOB_ConvertAsciiToItem(&ca_ski, caSKI_x);
+            if (rv != SECSuccess) {
+                RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA",
+                    "CA cert SKI failed ATOB_ConvertAsciiToItem() call");
+                /* this will correct the ca SKI if caNickname is in store */
+                foundCaSKI = false;
+            }
+        }
+
+        if (!foundCaSKI) { /* get from cert db */
+            PR_snprintf((char *)configname_nick, 256, "conn.%s.caNickname",
+                sresult);
+            nick = store->GetConfigAsString(configname_nick, NULL);
+            if ((nick == NULL) || *nick==0) {
+                RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA",
+                    "CA cert nickname not found for ca: %s", sresult);
+                goto cleanup;
+            }
+
+            RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA",
+                "CA cert check for nickname: %s", nick);
+            caCert = CERT_FindCertByNickname(certdb, nick);
+            if (caCert == NULL) {
+                RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA",
+                    "CA cert for nickname %s not found in trust database", nick);
+                /* out of luck with this ca... next */
+                goto cleanup;
+            }
+            ca_ski = caCert->subjectKeyID;
+
+            /* store it in config */
+            caSKI_y = BTOA_ConvertItemToAscii(&ca_ski);
+            if (caSKI_y == NULL) {
+                goto cleanup;
+            }
+            store->Add(configname_caSKI, caSKI_y);
+            RA::Debug(LL_PER_SERVER, "CertEnroll::revokeFromOtherCA",
+                "Commiting ca AKI Add for %s", sresult);
+            char error_msg[512] = {0};
+            int status = 0;
+            status = store->Commit(true, error_msg, 512);
+            if (status != 0) {
+                /* commit error.. log it and keep going */
+                RA::Debug(LL_PER_SERVER, "CertEnroll::RevokeCertificate",
+                "Commit error for ca AKI Add : %s", error_msg);
+            }
+        }
+
+        match = SECITEM_ItemsAreEqual(
+            &cert->authKeyID->keyID, &ca_ski);
+        if (!match) {
+            RA::Debug("CertEnroll::revokeFromOtherCA", "cert AKI and caCert SKI do not match");
+            goto cleanup;
+        } else {
+            RA::Debug("CertEnroll::revokeFromOtherCA", "cert AKI and caCert SKI matched");
+            if (revoke) {
+                ret = RevokeCertificate(
+                    reason, serialno, sresult /*connid*/, o_status);
+            } else { /*unrevoke*/
+                ret = UnrevokeCertificate(
+                    serialno, sresult /*connid*/, o_status);
+            }
+        }
+
+cleanup:
+        if (caSKI_x != NULL) {
+            PL_strfree(caSKI_x);
+            caSKI_x = NULL;
+        }
+        if (caSKI_y != NULL) {
+            PORT_Free(caSKI_y);
+            caSKI_y = NULL;
+        }
+        if (caCert != NULL) {
+            CERT_DestroyCertificate(caCert);
+            caCert = NULL;
+        }
+        if (ret == 0) /* success, break out */
+            break;
+
+        sresult = PL_strtok_r(NULL, ",", &lasts);
+    } /* while */
+
+    if (caList_x != NULL) {
+        PL_strfree(caList_x);
+    }
+    return ret;
+}
+
+
+/*
+ * revoke/unrevoke a certificate
+ *    revoke: true to revoke; false to unrevoke  
+ *    cert: the certificate to revoke or unrevoke
+ *    reason: only applies if revoke is true; reason for revocation
+ *    serialno: the serial number of cert to revoke or unrevoke
+ *    connid: the enrollment CA connection. In (un)revocation it is first tested
+ *        to see if it matches the cert's issuing CA signing cert; if not
+ *        other ca's are searched, if available
+ *    o_status: the return status
+ */
+TOKENDB_PUBLIC int CertEnroll::RevokeCertificate(bool revoke, CERTCertificate *cert, const char *reason, const char *serialno, const char *connid, char *&o_status)
+{
+    int ret = 1;
+    char configname[5000] = {0};
+    CERTCertDBHandle *certdb = CERT_GetDefaultCertDB();
+    CERTCertificate *caCert = NULL;
+    const char *caNickname = NULL;
+    char configname_caSKI[256] = {0};
+    const char *caSKI_s = NULL;
+    char *caSKI_x = NULL;
+    char *caSKI_y = NULL;
+    SECItem ca_ski;
+    SECStatus rv;
+    ConfigStore *store = RA::GetConfigStore();
+
+    if (store == NULL)
+        return 1;
+    PR_ASSERT(certdb != NULL);
+    if ((cert == NULL) || (reason == NULL) ||
+        (serialno == NULL) || (connid == NULL)) {
+        RA::Debug("CertEnroll::RevokeCertificate", "missing info in call");
+        return 1;
+    }
+    if (revoke) {
+        RA::Debug("CertEnroll::RevokeCertificate", "revoke begins");
+        if (reason == NULL) {
+            RA::Debug("CertEnroll::RevokeCertificate", "missing reason in call to revoke");
+            return 1;
+            
+        }
+    } else {
+        RA::Debug("CertEnroll::RevokeCertificate", "unrevoke begins");
+    }
+
+    /* first, see if ca Subject Key Identifier (SKI) is in store*/
+    bool foundCaSKI = false;
+    PR_snprintf((char *)configname_caSKI, 256, "conn.%s.caSKI",
+        connid);
+    caSKI_s = store->GetConfigAsString(configname_caSKI, NULL);
+    if ((caSKI_s == NULL) || *caSKI_s==0) {
+        RA::Debug(LL_PER_SERVER, "CertEnroll::RevokeCertificate",
+            "CA cert SKI not found in config for ca: %s", connid);
+    } else {
+        caSKI_x = PL_strdup(caSKI_s);
+        PR_ASSERT(caSKI_x != NULL);
+        RA::Debug(LL_PER_SERVER, "CertEnroll::RevokeCertificate",
+            "CA cert SKI found in config for: %s", connid);
+        /* convert from ASCII to SECItem */
+        rv = ATOB_ConvertAsciiToItem(&ca_ski, caSKI_x);
+        if (rv != SECSuccess) {
+            RA::Debug(LL_PER_SERVER, "CertEnroll::RevokeCertificate",
+                "CA cert SKI found in config faiiled ascii to SECItem conversion for ca:%s", connid);
+            /* allows ca SKI to be retrieved again later if ca nickname is in store*/
+            foundCaSKI = false;
+        } else {
+            foundCaSKI = true;
+        }
+    }
+
+    PRBool match = PR_TRUE;
+    PRBool skipMatch = PR_FALSE;
+    if (!foundCaSKI) { /* get from cert db */
+        PR_snprintf((char *)configname, 256, "conn.%s.caNickname", connid);
+        caNickname = store->GetConfigAsString(configname);
+        if ((caNickname != NULL) && *caNickname !=0) {
+            caCert = CERT_FindCertByNickname(certdb, caNickname);
+            if (caCert != NULL) {
+                ca_ski = caCert->subjectKeyID;
+
+                /* store it in config */
+                caSKI_y = BTOA_ConvertItemToAscii(&ca_ski);
+                store->Add(configname_caSKI, caSKI_y);
+                RA::Debug(LL_PER_SERVER, "CertEnroll::RevokeCertificate",
+                    "Commiting ca AKI Add for %s", connid);
+                char error_msg[512] = {0};
+                int status = 0;
+                status = store->Commit(true, error_msg, 512);
+                if (status != 0) {
+                    /* commit error.. log it and keep going */
+                    RA::Debug(LL_PER_SERVER, "CertEnroll::RevokeCertificate",
+                    "Commit error for ca AKI Add : %s", error_msg);
+                }
+            } else {
+                /* ca cert not found; no match needed */
+                skipMatch = PR_TRUE;
+            }
+        } else {
+            /*
+             *  if it gets here, that means config is missing both:
+             *  1. conn.ca<n>.caSKI
+             *  2. conn.ca<n>.caNickname
+             *  now assume default of just using the issuing ca and
+             *  no search performed
+             */
+            skipMatch = PR_TRUE;
+        }
+    }
+
+    if (!skipMatch) {
+        /* now compare cert's AKI to the ca's SKI 
+         *   if matched, continue,
+         *   if not, search in the ca list
+         */
+        match = SECITEM_ItemsAreEqual(
+            &cert->authKeyID->keyID, &ca_ski);
+        if (!match) {
+            RA::Debug("CertEnroll::RevokeCertificate", "cert AKI and caCert SKI of the designated issuing ca do not match... searching for another ca.");
+            ret = CertEnroll::revokeFromOtherCA(
+                revoke /*revoke or unrevoke*/, cert,
+                serialno, o_status, reason);
+            goto cleanup;
+        } else {
+            RA::Debug("CertEnroll::RevokeCertificate", "cert AKI and caCert SKI matched");
+        } 
+    }
+
+    if (revoke)
+        ret = RevokeCertificate(reason, serialno, connid, o_status);
+    else
+        ret = UnrevokeCertificate(serialno, connid, o_status);
+
+cleanup:
+    if (caSKI_x != NULL) {
+        PORT_Free(caSKI_x);
+    }
+    if (caSKI_y != NULL) {
+        PORT_Free(caSKI_y);
+    }
+    if (caCert != NULL) {
+        CERT_DestroyCertificate(caCert);
+    }
+    return ret;
+}
+
+/*
+ * RetrieveCertificate - retrieves certificate from CA by serial number
+ * @param serialno serial number of the cert to retrieve
+ * @param connid connection id of the ca
+ * @param error_msg error message for return
+ * @return
+ *      The certificate in Buffer if success
+ *      NULL if failure
+ */
+TOKENDB_PUBLIC Buffer *CertEnroll::RetrieveCertificate(PRUint64 serialno, const char *connid, char *error_msg)
+{
+    const char *FN = "CertEnroll::RetrieveCertificate";
+    char parameters[5000];
+    char configname[5000];
+
+    RA::Debug(FN, "begins.");
+    // on CA, GetBySerial expects parameter "serialNumber"
+    // "b64CertOnly" will give you a slim version of the result
+    PR_snprintf((char *)parameters, 5000, "b64CertOnly=true&serialNumber=%llu", serialno);
+
+    RA::Debug(FN, "got parameters =%s", parameters);
+    //e.g. conn.ca1.servlet.getBySerial=/ca/ee/ca/displayBySerial
+    PR_snprintf((char *)configname, 256, "conn.%s.servlet.getBySerial", connid);
+    const char *servlet = RA::GetConfigStore()->GetConfigAsString(configname);
+/*
+    const char *servlet = RA::GetConfigStore()->GetConfigAsString(configname,
+        "/ca/ee/ca/displayBySerial");
+*/
+    if (servlet == NULL) {
+        RA::Debug(FN,
+            "Missing the configuration parameter for %s, set to default /ca/ee/ca/displayBySerial", configname);
+        servlet = "/ca/ee/ca/displayBySerial";
+    }
+
+    PSHttpResponse *resp =  sendReqToCA(servlet, parameters, connid);
+    // XXX - need to parse response
+    Buffer * certificate = NULL;
+    if (resp != NULL) {
+      RA::Debug(LL_PER_PDU, FN,
+          "sendReqToCA done");
+
+      certificate = parseResponse(resp, "certChainBase64");
+      RA::Debug(LL_PER_PDU, FN,
+          "parseResponse done");
+
+      if( resp != NULL ) { 
+          delete resp;
+          resp = NULL;
+      }
+    } else {
+      RA::Error(FN,
+        "sendReqToCA failure");
+      PR_snprintf(error_msg, 512, "sendReqToCA failure");
+      return NULL;
+    }
+
+    return certificate;
+}
+
+/*
+ * IsCertificateRevoked - queries the CA and determines if the certificate is Revoked.
+ * @param serialno serial number of the cert to check
+ * @param connid connection id of the ca
+ * @return
+ *      True if revoked, False otherwise
+ */
+TOKENDB_PUBLIC bool CertEnroll::IsCertificateRevoked(PRUint64 serialno, const char *connid)
+{
+    const char *FN = "CertEnroll::IsCertificateRevoked";
+    char parameters[5000];
+    char configname[5000];
+    bool status = false;
+
+    RA::Debug(FN, "begins.");
+    // on CA, GetBySerial expects parameter "serialNumber"
+    // "b64CertOnly" will give you a slim version of the result
+    PR_snprintf((char *)parameters, 5000, "b64CertOnly=true&serialNumber=%llu", serialno);
+
+    RA::Debug(FN, "got parameters =%s", parameters);
+    //e.g. conn.ca1.servlet.getBySerial=/ca/ee/ca/displayBySerial
+    PR_snprintf((char *)configname, 256, "conn.%s.servlet.getBySerial", connid);
+    const char *servlet = RA::GetConfigStore()->GetConfigAsString(configname);
+
+    PSHttpResponse *resp =  sendReqToCA(servlet, parameters, connid);
+    if (resp != NULL) {
+        RA::Debug(LL_PER_PDU, FN, "sendReqToCA done");
+
+        // if parseResponse returns null, then the cert is not revoked; otherwise it is
+        Buffer *ret = parseResponse(resp, "revocationReason", false/*not cert*/);
+      if (ret == NULL) { // not found
+            RA::Debug(FN, "no revocationReason found; cert not revoked");
+            status = false;
+        } else {
+            RA::Debug(FN,
+                "parseResponse done, revocationReason found; cert revoked; reason=%s", ret->string());
+            status = true;
+        }
+
+        if( ret != NULL ) {
+            delete ret;
+            ret = NULL;
+        }
+
+        if (resp != NULL) { 
+           delete resp;
+           resp = NULL;
+        }
+
+    } else {
+      RA::Error(FN, "sendReqToCA failure");
+    }
+
+    return status;
+}
+
+
 TOKENDB_PUBLIC Buffer *CertEnroll::RenewCertificate(PRUint64 serialno, const char *connid, const char *profileId, char *error_msg)
 {
     char parameters[5000];
@@ -163,8 +588,8 @@ TOKENDB_PUBLIC Buffer *CertEnroll::RenewCertificate(PRUint64 serialno, const cha
     RA::Debug("CertEnroll::RenewCertificate", "begins. profileId=%s",profileId);
     // on CA, renewal expects parameter "serial_num" if renew by serial number
     // ahh.  need to allow larger serialno...later
-    PR_snprintf((char *)parameters, 5000, "serial_num=%u&profileId=%s&renewal=true",
-               (int)serialno, profileId);
+    PR_snprintf((char *)parameters, 5000, "serial_num=%llu&profileId=%s&renewal=true",
+               serialno, profileId);
     RA::Debug("CertEnroll::RenewCertificate", "got parameters =%s", parameters);
     //e.g. conn.ca1.servlet.renewal=/ca/ee/ca/profileSubmitSSLClient
     PR_snprintf((char *)configname, 256, "conn.%s.servlet.renewal", connid);
@@ -207,15 +632,33 @@ TOKENDB_PUBLIC Buffer *CertEnroll::RenewCertificate(PRUint64 serialno, const cha
  * Sends certificate request to CA for enrollment.
  */
 Buffer * CertEnroll::EnrollCertificate( 
-					SECKEYPublicKey *pk_parsed,
-					const char *profileId,
-					const char *uid,
-					const char *cuid /*token id*/,
-					const char *connid, 
-                                        char *error_msg,
-                                        SECItem** encodedPublicKeyInfo)
+    SECKEYPublicKey *pk_parsed,
+    const char *profileId,
+    const char *uid,
+    const char *cuid /*token id*/,
+    const char *connid, 
+    char *error_msg,
+    SECItem** encodedPublicKeyInfo)
+{
+    return EnrollCertificate(pk_parsed, profileId, uid,
+         NULL /*subjectdn*/, 0, NULL /*url_SAN_ext*/,
+         cuid, connid, error_msg, encodedPublicKeyInfo);
+}
+
+Buffer * CertEnroll::EnrollCertificate( 
+    SECKEYPublicKey *pk_parsed,
+    const char *profileId,
+    const char *uid,
+    const char *subjectdn,
+    int san_num,
+    const char *url_SAN_ext,
+    const char *cuid /*token id*/,
+    const char *connid, 
+    char *error_msg,
+    SECItem** encodedPublicKeyInfo)
 {
     char parameters[5000];
+    Buffer * certificate = NULL;
  
     SECItem* si = SECKEY_EncodeDERSubjectPublicKeyInfo(pk_parsed);
     if (si == NULL) {
@@ -256,16 +699,32 @@ Buffer * CertEnroll::EnrollCertificate(
     char *url_pk = Util::URLEncode(pk_b64);
     char *url_uid = Util::URLEncode(uid);
     char *url_cuid = Util::URLEncode(cuid);
+    char *url_subjectdn = NULL;
     const char *servlet;
     char configname[256];
 
     PR_snprintf((char *)configname, 256, "conn.%s.servlet.enrollment", connid);
     servlet = RA::GetConfigStore()->GetConfigAsString(configname);
 
-    PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s", profileId, url_cuid, url_uid, url_pk);
+    if ((subjectdn == NULL) && (san_num == 0)) {
+        PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s", profileId, url_cuid, url_uid, url_pk);
+    } else {
+        RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",
+            "before sendReqToCA() with subjectdn and/or url_SAN_ext");
+        if ((subjectdn != NULL) && (san_num == 0)) {
+            url_subjectdn= Util::URLEncode(subjectdn);
+            PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s&subject=%s", profileId, url_cuid, url_uid, url_pk, url_subjectdn);
+        } else if ((subjectdn == NULL) && (san_num != 0)) {
+            PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s&%s&req_san_entries=%d", profileId, url_cuid, url_uid, url_pk, url_SAN_ext, san_num);
+        } else if ((subjectdn != NULL) && (san_num != 0)) {
+            url_subjectdn= Util::URLEncode(subjectdn);
+            PR_snprintf((char *)parameters, 5000, "profileId=%s&tokencuid=%s&screenname=%s&publickey=%s&subject=%s&%s&req_san_entries=%d", profileId, url_cuid, url_uid, url_pk, url_subjectdn, url_SAN_ext, san_num);
+        }
+    }
 
+    RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",
+        "parameters = %s", parameters);
     PSHttpResponse *resp =  sendReqToCA(servlet, parameters, connid);
-    Buffer * certificate = NULL;
     if (resp != NULL) {
       RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",
           "sendReqToCA done");
@@ -282,9 +741,10 @@ Buffer * CertEnroll::EnrollCertificate(
       RA::Error("CertEnroll::EnrollCertificate",
         "sendReqToCA failure");
       PR_snprintf(error_msg, 512, "sendReqToCA failure");
-      return NULL;
+      goto loser;
     }
 
+loser:
     if( pk_b64 != NULL ) {
         PR_Free( pk_b64 );
         pk_b64 = NULL;
@@ -301,6 +761,8 @@ Buffer * CertEnroll::EnrollCertificate(
         PR_Free( url_cuid );
         url_cuid = NULL;
     }
+    if (url_subjectdn != NULL)
+        PR_Free( url_subjectdn );
 
     return certificate;
 }
@@ -630,24 +1092,42 @@ PSHttpResponse * CertEnroll::sendReqToCA(const char *servlet, const char *parame
     return response;
 }
 
+Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
+{
+    return parseResponse(resp, "outputVal");
+}
+
 /**
  * parse the http response and retrieve the certificate.
  * @param resp the response returned from http request
+ * @param certB64Param the string pattern that represents the param name of the cert in response
  * @return
  *      The certificate in Buffer if success
  *      NULL if failure
  */
-Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
+Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param)
+{
+    return parseResponse(resp, certB64Param, true);
+}
+
+/*
+ * if getCert is false, then just retrieves and returns the param value
+ */
+Buffer * CertEnroll::parseResponse(PSHttpResponse * resp, char *certB64Param,
+        bool getCert) 
 {
     unsigned int i;
-    unsigned char blob[8192]; /* cert returned */
-    int blob_len; /* cert length */
+    const int PARAM_CERT_MAX_SIZE = 8192;
+    char pattern [32] = {0};
+    unsigned char blob[PARAM_CERT_MAX_SIZE]={0}; /* cert returned */
+    int blob_len = 0; /* cert length */
     char *certB64 = NULL;
     char *certB64End = NULL;
     unsigned int certB64Len = 0;
     Buffer *cert = NULL;
     char * response = NULL;
     SECItem * outItemOpt = NULL;
+    char *err = NULL;
     
     if (resp == NULL) {
         RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
@@ -659,29 +1139,56 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
         RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
           "no content found");
 	    return NULL;
+    } else {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+          "response not NULL");
+    }
+
+    if (certB64Param == NULL) {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+            "cert param name in response is needed to parse...now missing");
+        goto endParseResp;
+    } else {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+            "cert param name in response :%s", certB64Param);
     }
 
     // process result
     // first look for errorCode="" to look for success clue
     // and errorReason="..." to extract error reason
-    char pattern[20] = "errorCode=\"0\"";
-    char * err = strstr((char *)response, (char *)pattern);
-
-    RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
-          "begin parsing err: %s", err);
+    PL_strcpy(pattern, "errorCode=\"0\"");
+    err = strstr((char *)response, (char *)pattern);
 
     if (err == NULL) {
-      RA::Error("CertEnroll::parseResponse",
-		"can't find pattern for cert request response");
-      goto endParseResp;
+      RA::Debug("CertEnroll::parseResponse",
+		"can't find errorCode.");
+    } else {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+          "begin parsing but with err: %s", err);
     }
 
-    // if success, look for "outputList.outputVal=" to extract
+    // if success, look for "<certB64Param>=" to extract
     // the cert
-    certB64 = strstr((char *)response, "outputVal=");
-    certB64 = &certB64[11]; // point pass open "
+    certB64 = strstr((char *)response, certB64Param);
+    if (certB64 == NULL) {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+          "parameter %s not found in response", certB64Param);
+        goto endParseResp;
+    }
+
+    if (getCert && (strlen(certB64) < (strlen(certB64Param)+3))) { //safety check
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+            "certB64 too short");
+        goto endParseResp;
+    }
+    certB64 = &certB64[strlen(certB64Param)+2]; // point pass open "
 
     certB64End = strstr(certB64, "\";");
+    if (certB64End == NULL) {
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+          "certB64 can't find end of param in response");
+        goto endParseResp;
+    }
     *certB64End = '\0';
 
     certB64Len = strlen(certB64);
@@ -692,6 +1199,13 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
         if (certB64[i] == '\\') { certB64[i] = ' '; certB64[i+1] = ' '; }
     }
 
+    if (!getCert) { // this is just trying to retrieve an output header value
+        RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+            "returning output header value:");
+        memcpy((char*)blob, (const char*)(certB64), certB64Len);
+        return new Buffer((BYTE *) blob, blob_len);
+    }
+
     // b64 decode and put back in blob
     RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
           "b64 decode received cert");
@@ -699,17 +1213,24 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
     outItemOpt = NSSBase64_DecodeBuffer(NULL, NULL, certB64, certB64Len);
     if (outItemOpt == NULL) {
         RA::Error("CertEnroll::parseResponse",
-          "b64 decode failed");
+          "b64 decode failed, error code=%d", PR_GetError());
 
-	goto endParseResp;
+        goto endParseResp;
     }
     RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
           "b64 decode len =%d",outItemOpt->len);
 
+    if (outItemOpt->len > PARAM_CERT_MAX_SIZE) {
+       RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
+           "cert too long");
+       goto endParseResp;
+    }
     memcpy((char*)blob, (const char*)(outItemOpt->data), outItemOpt->len);
     blob_len = outItemOpt->len;
 
     cert = new Buffer((BYTE *) blob, blob_len);
+
+ endParseResp:
     if( outItemOpt != NULL ) {
         SECITEM_FreeItem( outItemOpt, PR_TRUE );
         outItemOpt = NULL;
@@ -718,8 +1239,10 @@ Buffer * CertEnroll::parseResponse(PSHttpResponse * resp)
     RA::Debug(LL_PER_PDU, "CertEnroll::parseResponse",
           "finished");
 
- endParseResp:
-    resp->freeContent();
+    if (response != NULL) {
+        resp->freeContent();
+        response = NULL;
+    }
     return cert;
 }
 

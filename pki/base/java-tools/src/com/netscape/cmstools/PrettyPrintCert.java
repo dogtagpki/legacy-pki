@@ -18,23 +18,12 @@
 package com.netscape.cmstools;
 
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.security.cert.CertificateException;
-import java.util.Enumeration;
-import java.util.Locale;
-
-import netscape.security.util.CertPrettyPrint;
-import netscape.security.x509.CertificateSubjectName;
-import netscape.security.x509.RDN;
-import netscape.security.x509.X500Name;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
+import java.io.*;
+import java.util.*;
+import java.security.*;
+import java.security.cert.*;
+import netscape.security.x509.*;
+import netscape.security.util.*;
 
 
 /**
@@ -224,7 +213,7 @@ public class PrettyPrintCert {
         } else {
             try {
                 outputCert = new FileOutputStream(outputfile);
-            } catch (Exception e) {
+            } catch (IOException e) {
                 System.out.println("PrettyPrintCert:  unable to open file " +
                     argv[1] + " for writing:\n" + e);
                 return;
@@ -232,13 +221,6 @@ public class PrettyPrintCert {
 
             try {
                 outputCert.write(pp.getBytes());
-            } catch (IOException e) {
-                System.out.println("PrettyPrintCert:  Unexpected error " +
-                    "encountered while attempting to write() " +
-                    outputfile + ":\n" + e);
-            }
-
-            try {
                 outputCert.close();
             } catch (IOException e) {
                 System.out.println("PrettyPrintCert:  Unexpected error " +

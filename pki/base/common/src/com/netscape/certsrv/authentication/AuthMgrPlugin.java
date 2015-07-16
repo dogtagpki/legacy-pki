@@ -18,6 +18,10 @@
 package com.netscape.certsrv.authentication;
 
 
+import java.util.*;
+import java.lang.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.authentication.*;
 
 
 /**
