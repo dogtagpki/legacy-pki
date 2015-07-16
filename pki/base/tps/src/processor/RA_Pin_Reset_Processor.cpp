@@ -122,6 +122,7 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
     char *profile_state = NULL;
     int key_change_over_success = 0;
     AppletInfo *appInfo = NULL;
+    ExternalRegAttrs *regAttrs = NULL;
 
     char *FN = ( char * ) "RA_Pin_Reset_Processor::Process";
 
@@ -221,7 +222,21 @@ TPS_PUBLIC RA_Status RA_Pin_Reset_Processor::Process(RA_Session *session, NameVa
         }
 
         RA::Debug(LL_PER_PDU, FN, "isExternalReg: get tokenType, etc."); 
-        tokenType = "userKey"; //hardcode for now until ldap part code written
+
+        regAttrs = session->getExternalRegAttrs();
+
+        if (regAttrs == NULL) {
+            goto loser;
+        }
+
+        tokenType = regAttrs->getTokenType();
+        if (tokenType != NULL)
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: got tokenType:%s", tokenType);
+        else {
+            RA::Debug(LL_PER_PDU, FN, "isExternalReg: tokenType NULL, set to userKey");
+            tokenType = "userKey";
+        }
+ 
     } else {
         // retrieve CUID
 
