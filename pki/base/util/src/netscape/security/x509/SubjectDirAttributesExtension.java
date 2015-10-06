@@ -24,8 +24,7 @@ import java.lang.reflect.Array;
 import java.util.Enumeration;
 import java.util.Vector;
 
-import netscape.security.util.DerOutputStream;
-import netscape.security.util.DerValue;
+import netscape.security.util.*;
 
 /**
  * This class represents the Subject Directory Attributes Extension.

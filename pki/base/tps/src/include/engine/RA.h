@@ -39,7 +39,6 @@
 #include "pk11func.h"
 #include "engine/audit.h"
 #include "ldap.h"
-#include "lber.h"
 #include "main/Base.h"
 #include "main/ConfigStore.h"
 #include "main/Buffer.h"
@@ -80,6 +79,15 @@ enum RA_Log_Level {
 	LL_ALL_DATA_IN_PDU = 9
 };
 
+struct AppletInfo
+{
+    int major_version;
+    int minor_version;
+    const char *msn;
+    NameValueSet *extensions;
+};
+
+typedef struct AppletInfo AppletInfo;
 
 #ifdef XP_WIN32
 #define TPS_PUBLIC __declspec(dllexport)
@@ -115,6 +123,7 @@ class RA
 
  	  static PK11SymKey *ComputeSessionKey(RA_Session *session,
                                            Buffer &CUID,
+                                           Buffer &KDD,
                                            Buffer &keyinfo,
                                            Buffer &card_challenge,
                                            Buffer &host_challenge,
@@ -124,17 +133,32 @@ class RA
                                            char** drm_kekSessionKey_s,
                                            char** kek_kekSessionKey_s,
                                            char **keycheck_s,
-                                           const char *connId);
+                                           const char *connId,
+                                           AppletInfo *appInfo);
+
 	  static void ServerSideKeyGen(RA_Session *session, const char* cuid,
                                    const char *userid, char* kekSessionKey_s,
 		                           char **publickey_s,
                                    char **wrappedPrivateKey_s,
                                    char **ivParam_s, const char *connId,
                                    bool archive, int keysize);
-	  static void RecoverKey(RA_Session *session, const char* cuid,
-                             const char *userid, char* kekSessionKey_s,
-                             char *cert_s, char **publickey_s,
-                             char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s);
+
+      /* recover by keyid */
+      static void RecoverKey(RA_Session *session, const char* cuid,
+          const char *userid, char* kekSessionKey_s,
+          PRUint64 keyid, char **publickey_s,
+          char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s);
+
+      /* recover by cert */
+      static void RecoverKey(RA_Session *session, const char* cuid,
+          const char *userid, char* kekSessionKey_s,
+          char *cert_s, char **publickey_s,
+          char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s);
+
+      static void RecoverKey(RA_Session *session, const char* cuid,
+          const char *userid, char* kekSessionKey_s,
+          char *cert_s, PRUint64 keyid, char **publickey_s,
+          char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s);
 
 	  static Buffer *ComputeHostCryptogram(Buffer &card_challenge, Buffer &host_challenge);
 
@@ -157,7 +181,7 @@ class RA
 	  static void DebugBuffer(RA_Log_Level level, const char *func_name, const char *prefix, Buffer *buf);
           TPS_PUBLIC static void FlushAuditLogBuffer();
           TPS_PUBLIC static void SignAuditLog(NSSUTF8 *msg);
-          TPS_PUBLIC static char *GetAuditSigningMessage(const NSSUTF8 *msg);
+          TPS_PUBLIC static char *GetAuditSigningMessage(NSSUTF8 *msg);
           TPS_PUBLIC static void SetFlushInterval(int interval);
           TPS_PUBLIC static void SetBufferSize(int size);
           static void RunFlushThread(void *arg);
@@ -177,15 +201,15 @@ class RA
           TPS_PUBLIC static CERTCertificate **ra_get_certificates(LDAPMessage *e);
           TPS_PUBLIC static LDAPMessage *ra_get_first_entry(LDAPMessage *e);
           TPS_PUBLIC static LDAPMessage *ra_get_next_entry(LDAPMessage *e);
-          TPS_PUBLIC static struct berval **ra_get_attribute_values(LDAPMessage *e, const char *p);
-          TPS_PUBLIC static void ra_free_values(struct berval **values);
-          TPS_PUBLIC static char *ra_get_cert_attr_byname(LDAPMessage *e, const char *name);
+          TPS_PUBLIC static char **ra_get_attribute_values(LDAPMessage *e, const char *p);
+          TPS_PUBLIC static char *ra_get_cert_attr_byname(LDAPMessage *e, char *name);
           TPS_PUBLIC static char *ra_get_token_id(LDAPMessage *e);
       TPS_PUBLIC static char *ra_get_cert_tokenType(LDAPMessage *entry);
       TPS_PUBLIC static char *ra_get_token_status(LDAPMessage *entry);
       TPS_PUBLIC static char *ra_get_cert_cn(LDAPMessage *entry);
       TPS_PUBLIC static char *ra_get_cert_status(LDAPMessage *entry);
       TPS_PUBLIC static char *ra_get_cert_type(LDAPMessage *entry);
+      TPS_PUBLIC static char *ra_get_key_info(char * cuid);
       TPS_PUBLIC static char *ra_get_cert_serial(LDAPMessage *entry);
       TPS_PUBLIC static char *ra_get_cert_issuer(LDAPMessage *entry);
           TPS_PUBLIC static int ra_delete_certificate_entry(LDAPMessage *entry);
@@ -200,6 +224,7 @@ class RA
 	  TPS_PUBLIC static int ra_is_token_pin_resetable(char *cuid);
 	  TPS_PUBLIC static int ra_is_token_present(char *cuid);
 	  TPS_PUBLIC static int ra_allow_token_reenroll(char *cuid);
+          TPS_PUBLIC static int ra_get_token_status(char *cuid);
 	  TPS_PUBLIC static int ra_allow_token_renew(char *cuid);
           TPS_PUBLIC static int ra_force_token_format(char *cuid);
 	  TPS_PUBLIC static int ra_is_update_pin_resetable_policy(char *cuid);
@@ -217,10 +242,13 @@ class RA
           static int tdb_add_token_entry(char *userid, char* cuid, const char *status, const char *token_type);
 	  static int tdb_update(const char *userid, char *cuid, char *applet_version, char *key_info, const char *state, const char *reason, const char * token_type);
 	  static int tdb_update_certificates(char *cuid, char **tokentypes, char *userid, CERTCertificate **certificates, char **ktypes, char **origins, int numOfCerts);
-	  static int tdb_activity(const char *ip, const char *cuid, const char *op, const char *result, const char *msg, const char *userid, const char *token_type);
+          static int tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs);
+
+	  static int tdb_activity(char *ip, char *cuid, const char *op, const char *result, const char *msg, const char *userid, const char *token_type);
 	  static int testTokendb();
           static int InitializeAuthentication();
           static AuthenticationEntry *GetAuth(const char *id);
+          static AppletInfo *CreateAppletInfo(BYTE major_version, BYTE minor_version, const char *msn, NameValueSet *extensions);
   public:
           static HttpConnection *GetCAConn(const char *id);
           static void ReturnCAConn(HttpConnection *conn);
@@ -292,6 +320,8 @@ class RA
           static const char *CFG_ERROR_PREFIX;
           static const char *CFG_SELFTEST_PREFIX;
 
+      static const char *CFG_PRINTBUF_FULL;
+      static const char *CFG_RECV_BUF_SIZE;
 
       static const char *CFG_AUTHS_ENABLE;
       static const char *CFG_AUTHS_CURRENTIMPL;
@@ -300,6 +330,8 @@ class RA
 
       static const char *CFG_IPUBLISHER_LIB;
       static const char *CFG_IPUBLISHER_FACTORY;
+      static const char *CFG_TOKENDB_ALLOWED_TRANSITIONS;
+      static const char *CFG_OPERATIONS_ALLOWED_TRANSITIONS;
 
   public:
 	  static const char *TKS_RESPONSE_STATUS;
@@ -344,6 +376,8 @@ class RA
           static size_t m_bytes_unflushed;
           static size_t m_buffer_size;
           static int m_flush_interval;
+          static bool m_printBuf_full; // whether printbuf should print full buffer
+          static int m_recv_buf_size;
 
       static HttpConnection* m_caConnection[];
       static HttpConnection* m_tksConnection[];
@@ -368,6 +402,11 @@ class RA
       TPS_PUBLIC static SECCertificateUsage getCertificateUsage(const char *certusage);
       TPS_PUBLIC static bool verifySystemCertByNickname(const char *nickname, const char *certUsage);
       TPS_PUBLIC static bool verifySystemCerts();
+      static bool transition_allowed(int oldState, int newState);
+
+      static int get_token_state(char *state, char *reason);
+      static bool is_printBuf_full();
+      static int get_recv_buf_size();
    
 };
 

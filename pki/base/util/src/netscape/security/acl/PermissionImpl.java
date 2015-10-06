@@ -17,7 +17,8 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.security.acl;
 
-import java.security.acl.Permission;
+import java.security.Principal;
+import java.security.acl.*;
 
 /**
  * The PermissionImpl class implements the permission 

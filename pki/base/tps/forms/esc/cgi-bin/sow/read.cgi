@@ -25,7 +25,9 @@ use CGI;
 use Mozilla::LDAP::Conn;
 use PKI::TPS::Common;
 
-[REQUIRE_CFG_PL]
+no warnings qw(redefine);
+
+require "[SERVER_ROOT]/cgi-bin/sow/cfg.pl";
 
 sub authorize
 {
@@ -102,7 +104,7 @@ sub DoPage
     return;
   }
 
-  open(FILE, "< read.html");
+  open(FILE, "< [SERVER_ROOT]/cgi-bin/sow/read.html");
 
   print $q->header();
 

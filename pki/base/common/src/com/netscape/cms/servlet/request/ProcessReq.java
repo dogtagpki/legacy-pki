@@ -18,38 +18,31 @@
 package com.netscape.cms.servlet.request;
 
 
-import java.io.IOException;
-import java.util.Locale;
-import java.math.BigInteger;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.x509.AlgorithmId;
-import netscape.security.x509.X509CertImpl;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authority.ICertAuthority;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.authorization.EAuthzAccessDenied;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.base.SessionContext;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.ra.IRegistrationAuthority;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.certsrv.request.RequestId;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import java.net.*;
+import java.util.*;
+import java.text.*;
+import java.math.*;
+import java.security.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.ra.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.dbs.*;
+import com.netscape.cms.servlet.*;
+import com.netscape.certsrv.dbs.keydb.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.policy.*; 
+import com.netscape.certsrv.logging.*;
 
 
 /**
@@ -129,7 +122,7 @@ public class ProcessReq extends CMSServlet {
      * @param cmsReq the object holding the request and response information
      */
     public void process(CMSRequest cmsReq) throws EBaseException {
-        BigInteger seqNum = BigInteger.ONE.negate();
+        int seqNum = -1;
 
         HttpServletRequest req = cmsReq.getHttpReq();
         HttpServletResponse resp = cmsReq.getHttpResp();
@@ -157,11 +150,11 @@ public class ProcessReq extends CMSServlet {
 
         try {
             if (req.getParameter(SEQNUM) != null) {
-                seqNum = new BigInteger(req.getParameter(SEQNUM));
+                seqNum = Integer.parseInt(req.getParameter(SEQNUM));
             }
             doAssign = req.getParameter(DO_ASSIGN);
 
-            if (seqNum.compareTo(BigInteger.ONE.negate()) > 0) {
+            if (seqNum > -1) {
                 // start authorization
                 AuthzToken authzToken = null;
 
@@ -236,15 +229,15 @@ public class ProcessReq extends CMSServlet {
      * returns whether there was an error or not.
      */
     private void process(CMSTemplateParams argSet, IArgBlock header,
-        BigInteger seqNum, HttpServletRequest req,
+        int seqNum, HttpServletRequest req,
         HttpServletResponse resp, 
         String doAssign, Locale locale)
         throws EBaseException {
 
-        header.addBigIntegerValue("seqNum", seqNum, 10);
+        header.addIntegerValue("seqNum", seqNum);
 
         IRequest r = 
-            mQueue.findRequest(new RequestId(seqNum.toString()));
+            mQueue.findRequest(new RequestId(Integer.toString(seqNum)));
 
         if (r != null) {
             if (doAssign != null) {
@@ -323,9 +316,10 @@ public class ProcessReq extends CMSServlet {
 
             mParser.fillRequestIntoArg(locale, r, argSet, header);
         } else {
-            log(ILogger.LL_FAILURE, "Invalid sequence number " + seqNum.toString());
+            log(ILogger.LL_FAILURE, "Invalid sequence number " + seqNum);
             throw new ECMSGWException(
-                  CMS.getUserMessage("CMS_GW_INVALID_REQUEST_ID", seqNum.toString()));
+                  CMS.getUserMessage("CMS_GW_INVALID_REQUEST_ID",
+                    String.valueOf(seqNum)));
         }
 
         return;

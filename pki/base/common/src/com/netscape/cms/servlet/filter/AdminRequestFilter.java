@@ -17,23 +17,15 @@
 // --- END COPYRIGHT BLOCK ---
 package com.netscape.cms.servlet.filter;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import com.netscape.certsrv.apps.CMS;
+import javax.servlet.http.*;
+import javax.servlet.*;
+import com.netscape.certsrv.apps.*;
 
 public class AdminRequestFilter implements Filter
 {
     private static final String HTTPS_SCHEME = "https";
     private static final String HTTPS_PORT = "https_port";
     private static final String HTTPS_ROLE = "Admin";
-    private static final String PROXY_PORT = "proxy_port";
 
     private FilterConfig config;
     
@@ -59,7 +51,6 @@ public class AdminRequestFilter implements Filter
 
         String request_port = null;
         String param_https_port = null;
-        String param_proxy_port = null;
         String msg = null;
         String param_active = null;
 
@@ -93,39 +84,22 @@ public class AdminRequestFilter implements Filter
                 return;
             }
 
-            param_proxy_port = config.getInitParameter(PROXY_PORT);
-            boolean bad_port = false;
-
             // Compare the request and param "https" ports
             if( ! param_https_port.equals( request_port ) ) {
-                String uri = ((HttpServletRequest) request).getRequestURI();
-                if (param_proxy_port != null) {  
-                    if (!param_proxy_port.equals(request_port)) {
-                        msg = "Use HTTPS port '" + param_https_port
-                            + "' or proxy port '" + param_proxy_port
-                            + "' instead of '" + request_port
-                            + "' when performing " + HTTPS_ROLE + " tasks!";
-                        bad_port = true;
-                    }
+                String uri = ((HttpServletRequest) request).getRequestURI(); 
+                msg = "Use HTTPS port '" + param_https_port
+                    + "' instead of '" + request_port
+                    + "' when performing " + HTTPS_ROLE + " tasks!";
+                CMS.debug( filterName + ":  " + msg );
+                CMS.debug( filterName + ": uri is " + uri);
+                if ((param_active != null) &&(param_active.equals("false"))) {
+                    CMS.debug("Filter is disabled .. continuing");
                 } else {
-                    msg = "Use HTTPS port '" + param_https_port
-                        + "' instead of '" + request_port
-                        + "' when performing " + HTTPS_ROLE + " tasks!";
-                    bad_port = true;
-                }
-                if (bad_port) {
-                    CMS.debug( filterName + ":  " + msg );
-                    CMS.debug( filterName + ": uri is " + uri);
-                    if ((param_active != null) &&(param_active.equals("false"))) {
-                        CMS.debug("Filter is disabled .. continuing");
-                    } else {
-                        resp.sendError( HttpServletResponse.SC_NOT_FOUND, msg );
-                        return;
-                    }
+                    resp.sendError( HttpServletResponse.SC_NOT_FOUND, msg );
+                    return;
                 }
             }
         }
-
         // CMS.debug("Exiting the admin filter");
 
         chain.doFilter( request, response );

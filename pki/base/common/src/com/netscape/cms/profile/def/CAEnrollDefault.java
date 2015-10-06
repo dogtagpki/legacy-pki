@@ -18,21 +18,19 @@
 package com.netscape.cms.profile.def;
 
 
-import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
+import java.io.*;
+import java.security.*;
+import java.security.cert.*;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.apps.*;
 
-import netscape.security.x509.CertificateX509Key;
-import netscape.security.x509.KeyIdentifier;
-import netscape.security.x509.PKIXExtensions;
-import netscape.security.x509.SubjectKeyIdentifierExtension;
-import netscape.security.x509.X509CertImpl;
-import netscape.security.x509.X509CertInfo;
-import netscape.security.x509.X509Key;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.ca.ICertificateAuthority;
+import netscape.security.x509.*;
+import netscape.security.util.*;
 
 
 /**

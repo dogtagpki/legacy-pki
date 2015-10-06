@@ -18,59 +18,26 @@
 package com.netscape.cms.servlet.cert;
 
 
-import java.io.IOException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.Vector;
-import java.math.BigInteger;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import netscape.security.x509.CRLExtensions;
-import netscape.security.x509.CRLReasonExtension;
-import netscape.security.x509.InvalidityDateExtension;
-import netscape.security.x509.RevocationReason;
-import netscape.security.x509.RevokedCertImpl;
-import netscape.security.x509.X509CertImpl;
-
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.authentication.AuthToken;
-import com.netscape.certsrv.authentication.IAuthSubsystem;
-import com.netscape.certsrv.authentication.IAuthToken;
-import com.netscape.certsrv.authority.ICertAuthority;
-import com.netscape.certsrv.authorization.AuthzToken;
-import com.netscape.certsrv.authorization.EAuthzAccessDenied;
-import com.netscape.certsrv.base.EBaseException;
-import com.netscape.certsrv.base.IArgBlock;
-import com.netscape.certsrv.base.Nonces;
-import com.netscape.certsrv.ca.ICRLIssuingPoint;
-import com.netscape.certsrv.ca.ICertificateAuthority;
-import com.netscape.certsrv.dbs.certdb.ICertRecord;
-import com.netscape.certsrv.dbs.certdb.ICertificateRepository;
-import com.netscape.certsrv.logging.AuditFormat;
-import com.netscape.certsrv.logging.ILogger;
-import com.netscape.certsrv.publish.IPublisherProcessor;
-import com.netscape.certsrv.ra.IRegistrationAuthority;
-import com.netscape.certsrv.request.IRequest;
-import com.netscape.certsrv.request.IRequestQueue;
-import com.netscape.certsrv.request.RequestId;
-import com.netscape.certsrv.request.RequestStatus;
-import com.netscape.certsrv.usrgrp.Certificates;
-import com.netscape.certsrv.usrgrp.ICertUserLocator;
-import com.netscape.certsrv.usrgrp.IUGSubsystem;
-import com.netscape.certsrv.usrgrp.IUser;
-import com.netscape.cms.servlet.base.CMSServlet;
-import com.netscape.cms.servlet.common.CMSRequest;
-import com.netscape.cms.servlet.common.CMSTemplate;
-import com.netscape.cms.servlet.common.CMSTemplateParams;
-import com.netscape.cms.servlet.common.ECMSGWException;
+import com.netscape.cms.servlet.common.*;
+import com.netscape.cms.servlet.base.*;
+import java.io.*;
+import java.util.*;
+import java.security.cert.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import netscape.security.x509.*;
+import com.netscape.certsrv.authority.*;
+import com.netscape.certsrv.authentication.*;
+import com.netscape.certsrv.authorization.*;
+import com.netscape.certsrv.usrgrp.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.ra.*;
+import com.netscape.certsrv.publish.*;
+import com.netscape.certsrv.apps.*;
+import com.netscape.certsrv.dbs.certdb.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.logging.*;
 
 
 /**
@@ -1159,28 +1126,31 @@ public class DoRevoke extends CMSServlet {
 
             // find out if the value is hex or decimal
 
-            BigInteger value = BigInteger.ONE.negate();
+            int value = -1;
            
             //try int 
             try { 
-                value = new BigInteger(serialNumber, 10);
+                value = Integer.parseInt(serialNumber,10);
             } catch (NumberFormatException e) {
             }
  
             //try hex
-            if (value.compareTo(BigInteger.ONE.negate()) == 0) {
+            if( value == -1) {
                 try {
-                    value = new BigInteger(serialNumber, 16);
+                    value = Integer.parseInt(serialNumber,16);
+
                 } catch (NumberFormatException e) {
                 }
             }
             // give up if it isn't hex or dec
-            if (value.compareTo(BigInteger.ONE.negate()) == 0) {
+            if ( value == -1)   {
                 throw new NumberFormatException();
             }
 
             // convert it to hexadecimal
-            serialNumber = "0x" + value.toString(16);
+            serialNumber = "0x"
+                    + Integer.toHexString(
+                        value);
         } else {
             serialNumber = ILogger.SIGNED_AUDIT_EMPTY_VALUE;
         }

@@ -18,7 +18,9 @@
 package com.netscape.cms.servlet.common;
 
 
-import com.netscape.certsrv.base.EBaseException;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.logging.*;
 
 
 /**

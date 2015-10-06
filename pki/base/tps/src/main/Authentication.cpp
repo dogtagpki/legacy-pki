@@ -59,6 +59,11 @@ int Authentication::Authenticate(AuthParams *params)
     return -1;
 }
 
+int Authentication::Authenticate(AuthParams *params, RA_Session *session)
+{
+    return -1;
+}
+
 int Authentication::GetNumOfRetries() {
     return m_retries;
 }

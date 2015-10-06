@@ -44,7 +44,6 @@ extern "C"
 #include "secder.h"
 #include "nss.h"
 #include "nssb64.h"
-
 #ifdef __cplusplus
 }
 #endif
@@ -54,12 +53,15 @@ extern "C"
 #include "main/RA_Context.h"
 #include "channel/Secure_Channel.h"
 #include "engine/RA.h"
+#include "processor/RA_Enroll_Processor.h"
+#include "processor/RA_Processor.h"
 #include "main/Util.h"
 #include "cms/HttpConnection.h"
 #include "main/RA_pblock.h"
 #include "main/LogFile.h"
 #include "main/RollingLogFile.h"
 #include "selftests/SelfTest.h"
+//#include "authentication/ExternalRegAttrs.h"
 
 typedef struct
 {
@@ -72,7 +74,6 @@ typedef struct
     } source;
     char *data;
 } secuPWData;
-
 
 static ConfigStore *m_cfg = NULL;
 static LogFile* m_debug_log = (LogFile *)NULL; 
@@ -97,6 +98,7 @@ PRLock *RA::m_config_lock = NULL;
 PRMonitor *RA::m_audit_log_monitor = NULL;
 bool RA::m_audit_enabled = false;
 bool RA::m_audit_signed = false;
+static int m_sa_count = 0;
 SECKEYPrivateKey *RA::m_audit_signing_key = NULL;
 NSSUTF8 *RA::m_last_audit_signature = NULL;
 SECOidTag RA::m_audit_signAlgTag;
@@ -119,6 +121,8 @@ int RA::m_caConns_len = 0;
 int RA::m_tksConns_len = 0;
 int RA::m_drmConns_len = 0;
 int RA::m_auth_len = 0;
+bool RA::m_printBuf_full = false;
+int RA::m_recv_buf_size = 8192;
 
 #define MAX_BODY_LEN 4096
 
@@ -178,7 +182,11 @@ const char *RA::CFG_AUDIT_PREFIX = "logging.audit";
 const char *RA::CFG_ERROR_PREFIX = "logging.error";
 const char *RA::CFG_DEBUG_PREFIX = "logging.debug";
 const char *RA::CFG_SELFTEST_PREFIX = "selftests.container.logger";
+const char *RA::CFG_TOKENDB_ALLOWED_TRANSITIONS = "tokendb.allowedTransitions";
+const char *RA::CFG_OPERATIONS_ALLOWED_TRANSITIONS = "tps.operations.allowedTransitions";
 
+const char *RA::CFG_PRINTBUF_FULL = "tps.printBufFull";
+const char *RA::CFG_RECV_BUF_SIZE = "tps.recvBufSize";
 const char *RA::CFG_AUTHS_ENABLE="auth.enable";
 
 /* default values */
@@ -194,6 +202,23 @@ typedef Authentication* (*makeauthentication)();
 
 extern void BuildHostPortLists(char *host, char *port, char **hostList, 
   char **portList, int len);
+
+
+static char *transitionList                  = NULL;
+
+#define MAX_TOKEN_UI_STATE  6
+
+enum token_ui_states  {
+    TOKEN_UNINITIALIZED = 0,
+    TOKEN_DAMAGED =1,
+    TOKEN_PERM_LOST=2,
+    TOKEN_TEMP_LOST=3,
+    TOKEN_FOUND =4,
+    TOKEN_TEMP_LOST_PERM_LOST =5,
+    TOKEN_TERMINATED = 6
+};
+
+static RA_Enroll_Processor enroll_processor;
 
 #ifdef XP_WIN32
 #define TPS_PUBLIC __declspec(dllexport)
@@ -245,6 +270,18 @@ void RA::do_free(char *p)
         p = NULL;
     }
 }
+
+AppletInfo *RA::CreateAppletInfo(BYTE major_version, BYTE minor_version,
+    const char *msn, NameValueSet *extensions)
+{  
+    AppletInfo *info = (AppletInfo *) malloc(sizeof(AppletInfo));
+    info->major_version = major_version;
+    info->minor_version = minor_version;
+    info->msn = msn;
+    info->extensions = extensions;
+    return info;
+}
+
 
 int RA::InitializeSignedAudit()
 {
@@ -343,6 +380,7 @@ void RA::getLastSignature() {
     RA::Debug("RA:: getLastSignature", "starts");
     if ((m_audit_log != NULL) && (m_audit_log_monitor != NULL)) {
         PR_EnterMonitor(m_audit_log_monitor);
+        int count =0;
         int removed_return;
         while (1) {
           int n = m_audit_log->ReadLine(line, 1024, &removed_return);
@@ -488,6 +526,9 @@ TPS_PUBLIC int RA::Initialize(char *cfg_path, RA_Context *ctx)
 
     RA::SetGlobalSecurityLevel(security_level);
 
+	m_printBuf_full = m_cfg->GetConfigAsBool(RA::CFG_PRINTBUF_FULL, false); 
+	m_recv_buf_size = m_cfg->GetConfigAsInt(RA::CFG_RECV_BUF_SIZE, 8192); 
+
     // Initialize the CA connection pool to be empty
     for (i=0; i<MAX_CA_CONNECTIONS; i++) {
         m_caConnection[i] = NULL;
@@ -541,7 +582,7 @@ int RA::InitializeInChild(RA_Context *ctx, int nSignedAuditInitCount) {
     char configname[256];
 
     RA::Debug( LL_PER_SERVER, "RA::InitializeInChild", "begins: %d pid: %d ppid: %d",
-                nSignedAuditInitCount,getpid(),getppid());
+                 nSignedAuditInitCount,getpid(),getppid());
     if (!NSS_IsInitialized()) {
 
         RA::Debug( LL_PER_SERVER, "RA::InitializeInChild", "Initializing NSS");
@@ -1065,14 +1106,45 @@ SecurityLevel RA::GetGlobalSecurityLevel() {
 
 
 /*
+ * RecoverKey - by keyid
+ */
+void RA::RecoverKey(RA_Session *session, const char* cuid,
+                    const char *userid, char* desKey_s,
+                    PRUint64 keyid, char **publicKey_s,
+                    char **wrappedPrivateKey_s, const char *connId,
+                    char **ivParam_s)
+{
+    RA::RecoverKey(session, cuid,
+                    userid, desKey_s,
+                    NULL, keyid, publicKey_s,
+                    wrappedPrivateKey_s, connId, ivParam_s);
+}
+
+/*
+ * RecoverKey - by cert 
+ */
+void RA::RecoverKey(RA_Session *session, const char* cuid,
+                    const char *userid, char* desKey_s,
+                    char *b64cert, char **publicKey_s,
+                    char **wrappedPrivateKey_s, const char *connId,
+                    char **ivParam_s)
+{
+    RA::RecoverKey(session, cuid,
+                    userid, desKey_s,
+                    b64cert, 0, publicKey_s,
+                    wrappedPrivateKey_s, connId, ivParam_s);
+}
+
+/*
  * recovers user encryption key that was previously archived.
- * It expects DRM to search its archival db by cert.
+ * It expects DRM to search its archival db either by cert or by keyid.
  *
  * input:
  * @param cuid (cuid of the recovering key's token)
- * @param userid (uid of the recovering key owner
- * @param desKey_s (came from TKS - session key wrapped with DRM transport
+ * @param userid (uid of the recovering key owner)
+ * @param desKey_s (came from TKS - session key wrapped with DRM transport)
  * @param cert (base64 encoded cert of the recovering key)
+ * @param keyid (serail number of the cert to be recovered)
  * @param connId (drm connectoin id)
  *
  * output:
@@ -1082,7 +1154,7 @@ SecurityLevel RA::GetGlobalSecurityLevel() {
  */
 void RA::RecoverKey(RA_Session *session, const char* cuid,
                     const char *userid, char* desKey_s,
-                    char *b64cert, char **publicKey_s,
+                    char *b64cert, PRUint64 keyid, char **publicKey_s,
                     char **wrappedPrivateKey_s, const char *connId,  char **ivParam_s)
 {
     int status;
@@ -1090,7 +1162,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     HttpConnection *drmConn = NULL;
     char body[MAX_BODY_LEN];
     char configname[256];
-    char * cert_s;
+    char * cert_s = NULL;
     int drm_curr = 0;
     long s;
     char * content = NULL;
@@ -1112,8 +1184,8 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       RA::Debug(" RA:: RecoverKey", "in RecoverKey, userid NULL");
       goto loser;
     }
-    if (b64cert == NULL) {
-      RA::Debug(" RA:: RecoverKey", "in RecoverKey, b64cert NULL");
+    if ((b64cert == NULL) && (keyid == 0)) {
+      RA::Debug(" RA:: RecoverKey", "in RecoverKey, b64cert or keyid NULL");
       goto loser;
     }
     if (desKey_s == NULL) {
@@ -1126,7 +1198,9 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     }
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, desKey_s=%s, connId=%s",desKey_s,  connId);
 
-    cert_s = Util::URLEncode(b64cert);
+    if (b64cert != NULL) {
+        cert_s = Util::URLEncode(b64cert);
+    }
     drmConn = RA::GetDRMConn(connId);
     if (drmConn == NULL) {
         RA::Debug(" RA:: RecoverKey", "in RecoverKey, failed getting drmconn");
@@ -1141,8 +1215,15 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, wrappedDESKey_s=%s", wrappedDESKey_s);
 
-    PR_snprintf((char *)body, MAX_BODY_LEN, 
-		"CUID=%s&userid=%s&drm_trans_desKey=%s&cert=%s",cuid, userid, wrappedDESKey_s, cert_s);
+    if (cert_s != NULL) {
+        RA::Debug(" RA:: RecoverKey", "in RecoverKey, recover by cert");
+        PR_snprintf((char *)body, MAX_BODY_LEN, 
+	    	"CUID=%s&userid=%s&drm_trans_desKey=%s&cert=%s",cuid, userid, wrappedDESKey_s, cert_s);
+    } else {
+        RA::Debug(" RA:: RecoverKey", "in RecoverKey, recover by keyid number");
+        PR_snprintf((char *)body, MAX_BODY_LEN, 
+	    	"CUID=%s&userid=%s&drm_trans_desKey=%s&keyid=%d",cuid, userid, wrappedDESKey_s, (int) keyid);
+    }
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, body=%s", body);
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.TokenKeyRecovery", connId);
         servletID = GetConfigStore()->GetConfigAsString(configname);
@@ -1189,8 +1270,8 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     if ((content != NULL) && (s == 200)) {
       RA::Debug("RA::RecoverKey", "response from DRM status ok");
 
-      Buffer* status_b;
-      char* status_s;
+      Buffer* status_b = NULL;
+      char* status_s = NULL;
 
       ra_pb = ( RA_pblock * ) session->create_pblock(content);
       if (ra_pb == NULL)
@@ -1212,7 +1293,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 
       char * tmp = NULL;
       tmp = ra_pb->find_val_s("public_key");
-      if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+      if ((tmp == NULL) || (tmp == "")) {
 	RA::Error(LL_PER_PDU, "RecoverKey"," got no public key");
 	goto loser;
       } else {
@@ -1222,7 +1303,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 
       tmp = NULL;
       tmp = ra_pb->find_val_s("wrapped_priv_key");
-      if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+      if ((tmp == NULL) || (tmp == "")) {
 	RA::Error(LL_PER_PDU, "RecoverKey"," got no wrapped private key");
 	//XXX	      goto loser;
       } else {
@@ -1231,7 +1312,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       }
 
       tmp = ra_pb->find_val_s("iv_param");
-      if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+      if ((tmp == NULL) || (tmp == "")) {
           RA::Error(LL_PER_PDU, "RecoverKey",
               "did not get iv_param for recovered  key in DRM response");
       } else {
@@ -1250,7 +1331,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       PR_Free(desKey_s);
 
     if (decodeKey != NULL)
-      PR_Free(decodeKey);
+      delete decodeKey;
 
     if (wrappedDESKey_s != NULL)
       PR_Free(wrappedDESKey_s);
@@ -1262,6 +1343,10 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       if (content != NULL)
 	response->freeContent();
       delete response;
+    }
+
+    if (cert_s != NULL) {
+        PR_Free(cert_s);
     }
 
     if (ra_pb != NULL) {
@@ -1308,22 +1393,22 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
     int currRetries = 0;
     char *p = NULL;
 
-    if ((cuid == NULL) || (strcmp(cuid,"")==0)) {
+    if ((cuid == NULL) || (cuid == "")) {
       RA::Debug( LL_PER_CONNECTION, FN,
 			"error: passed invalid cuid");
       goto loser;
     }
-    if ((userid == NULL) || (strcmp(userid,"")==0)) {
+    if ((userid == NULL) || (userid =="")) {
       RA::Debug(LL_PER_CONNECTION, FN,
 			"error: passed invalid userid");
       goto loser;
     }
-    if ((desKey_s == NULL) || (strcmp(desKey_s,"")==0)) {
+    if ((desKey_s == NULL) || (desKey_s =="")) {
       RA::Debug(LL_PER_CONNECTION, FN, 
 			 "error: passed invalid desKey_s");
       goto loser;
     }
-    if ((connId == NULL) ||(strcmp(connId,"")==0)) {
+    if ((connId == NULL) ||(connId == "")) {
       RA::Debug(LL_PER_CONNECTION, FN,
 			 "error: passed invalid connId");
       goto loser;
@@ -1445,7 +1530,7 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 
 	  tmp = NULL;
 	  tmp = ra_pb->find_val_s("wrapped_priv_key");
-	  if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+	  if ((tmp == NULL) || (tmp == "")) {
 	    RA::Error(LL_PER_CONNECTION, FN,
 				"did not get wrapped private key in DRM response");
 	  } else {
@@ -1455,7 +1540,7 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 	  }
 
 	  tmp = ra_pb->find_val_s("iv_param");
-	  if ((tmp == NULL) || (strcmp(tmp,"")==0)) {
+	  if ((tmp == NULL) || (tmp == "")) {
 	    RA::Error(LL_PER_CONNECTION, FN,
 				"did not get iv_param for private key in DRM response");
 	  } else {
@@ -1502,6 +1587,7 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 
 PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
                                   Buffer &CUID,
+                                  Buffer &KDD,
                                   Buffer &keyInfo,
                                   Buffer &card_challenge,
                                   Buffer &host_challenge,
@@ -1511,7 +1597,8 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
                                   char** drm_desKey_s,
                                   char** kek_desKey_s,
                                   char** keycheck_s,
-                                  const char *connId)
+                                  const char *connId,
+                                  AppletInfo *appInfo)
 {
     PK11SymKey *symKey = NULL;
     PK11SymKey *symKey24 = NULL;
@@ -1524,12 +1611,16 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
     char * hostc = NULL;
     char * cardCrypto = NULL;
     char * cuid = NULL;
+    char * cuid_x = NULL;
+    char * kdd = NULL;
     char * keyinfo =  NULL;
+    char * keySet = NULL;
     PSHttpResponse *response = NULL;
     HttpConnection *tksConn = NULL;
     RA_pblock *ra_pb = NULL;
     SECItem *SecParam = PK11_ParamFromIV(CKM_DES3_ECB, NULL);
     char* transportKeyName = NULL;
+    RA_Status status = STATUS_NO_ERROR;
 
     RA::Debug(LL_PER_PDU, "Start ComputeSessionKey", "");
     tksConn = RA::GetTKSConn(connId);
@@ -1540,8 +1631,6 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
         int currRetries = 0;
         ConnectionInfo *connInfo = tksConn->GetFailoverList();
 
-	PR_snprintf((char *) configname, 256, "conn.%s.keySet", connId);
-	const char *keySet = RA::GetConfigStore()->GetConfigAsString(configname, "defKeySet");
 	// is serversideKeygen on?
 	PR_snprintf((char *) configname, 256, "conn.%s.serverKeygen", connId);
 	bool serverKeygen = RA::GetConfigStore()->GetConfigAsBool(configname, false);
@@ -1554,15 +1643,23 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
         hostc = Util::SpecialURLEncode(host_challenge);
         cardCrypto = Util::SpecialURLEncode(card_cryptogram);
         cuid = Util::SpecialURLEncode(CUID);
+	cuid_x = Util::Buffer2String(CUID);
+        kdd = Util::SpecialURLEncode(KDD);
         keyinfo = Util::SpecialURLEncode(keyInfo);
 
         if ((cardc == NULL) || (hostc == NULL) || (cardCrypto == NULL) ||
-          (cuid == NULL) || (keyinfo == NULL))
+          (cuid == NULL) || (keyinfo == NULL) || (cuid_x == NULL))
 	    goto loser;
 
+	keySet = enroll_processor.GetKeySet(appInfo, cuid_x, connId, status);
+        if (keySet == NULL) {
+	    RA::Error(LL_PER_PDU, "RA::ComputeSessionKey", "Failed to get keySet");
+            goto loser;
+        }
+
         PR_snprintf((char *)body, MAX_BODY_LEN, 
-          "serversideKeygen=%s&CUID=%s&card_challenge=%s&host_challenge=%s&KeyInfo=%s&card_cryptogram=%s&keySet=%s", serverKeygen? "true":"false", cuid, 
-          cardc, hostc, keyinfo, cardCrypto, keySet);
+          "serversideKeygen=%s&CUID=%s&KDD=%s&card_challenge=%s&host_challenge=%s&KeyInfo=%s&card_cryptogram=%s&keySet=%s", serverKeygen? "true":"false", cuid,
+          kdd, cardc, hostc, keyinfo, cardCrypto, keySet);
 
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.computeSessionKey", connId);
         const char *servletID = GetConfigStore()->GetConfigAsString(configname);
@@ -1786,6 +1883,14 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
         PR_Free( cuid );
         cuid = NULL;
     }
+    if( cuid_x != NULL ) {
+        PR_Free( cuid_x );
+        cuid_x = NULL;
+    }
+    if( kdd != NULL ){
+        PR_Free( kdd );
+        kdd = NULL;
+    }
     if( keyinfo != NULL ) {
         PR_Free( keyinfo );
         keyinfo = NULL;
@@ -1793,6 +1898,11 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
     if (cardCrypto != NULL) {
         PR_Free( cardCrypto );
         cardCrypto = NULL;
+    }
+
+    if (keySet != NULL) {
+        PL_strfree( keySet );
+        keySet = NULL;
     }
 
     if( response != NULL ) {
@@ -1978,10 +2088,13 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
         char datetime[1024]; 
         PRExplodedTime time;
 	PRThread *ct;
+        SECStatus rv;
         char *message_p1 = NULL;
         char *message_p2 = NULL;
         int nbytes;
         int status;
+        int pid;
+        int last_err;
 
         if (!m_audit_enabled) return;
  
@@ -2022,6 +2135,7 @@ void RA::AuditThis (RA_Log_Level level, const char *func_name, const char *fmt, 
         PR_Free(message_p1);
         PR_Free(message_p2);
 
+loser:
         if (audit_msg)
             PR_Free(audit_msg);
 
@@ -2085,14 +2199,10 @@ TPS_PUBLIC void RA::SignAuditLog(NSSUTF8 * audit_msg)
     PR_ExitMonitor(m_audit_log_monitor);
 }
 
-TPS_PUBLIC void RA::ra_free_values(struct berval **values) 
-{
-    free_values(values, 1);
-}
      
 /* sign audit_msg and last signature 
    returns char* - must be freed by caller */
-TPS_PUBLIC char * RA::GetAuditSigningMessage(const NSSUTF8 * audit_msg)
+TPS_PUBLIC char * RA::GetAuditSigningMessage(NSSUTF8 * audit_msg)
 {
         PRTime now;
         const char* time_fmt = "%Y-%m-%d %H:%M:%S";
@@ -2157,7 +2267,7 @@ TPS_PUBLIC char * RA::GetAuditSigningMessage(const NSSUTF8 * audit_msg)
                 goto loser;
             }
 
-            /* get rid of the carriage return line feed */
+            /* get rid of the carriage return line feed 
             int sig_len = PL_strlen(sig_b64);
             out_sig_b64 =  (char *) PORT_Alloc (sig_len);
             if (out_sig_b64 == NULL) {
@@ -2173,6 +2283,14 @@ TPS_PUBLIC char * RA::GetAuditSigningMessage(const NSSUTF8 * audit_msg)
                     i--;
                     continue;
                 }
+            }
+            */
+
+            /* get rid of the carriage return line feed*/
+            out_sig_b64 = (NSSUTF8 *) Util::StripCR(sig_b64);
+            if (out_sig_b64 == NULL) {
+                RA::Debug("RA:: SignAuditLog", "strip carriage return failed");
+                goto loser;
             }
 
             /*
@@ -2590,6 +2708,7 @@ int RA::InitializeHttpConnections(const char *id, int *len, HttpConnection **con
     char configname[256];
     char connID[100];
     CERTCertDBHandle *handle = 0;
+    CERTCertificate *cert = NULL;
     int rc = 0;
     int i=0;
 
@@ -2809,7 +2928,7 @@ TPS_PUBLIC LDAPMessage *RA::ra_get_next_entry(LDAPMessage *e) {
     return get_next_entry(e);
 }
 
-TPS_PUBLIC struct berval **RA::ra_get_attribute_values(LDAPMessage *e, const char *p) {
+TPS_PUBLIC char **RA::ra_get_attribute_values(LDAPMessage *e, const char *p) {
     return get_attribute_values(e, p);
 }
 
@@ -2821,6 +2940,47 @@ TPS_PUBLIC char *RA::ra_get_cert_tokenType(LDAPMessage *entry) {
     return get_cert_tokenType(entry);
 }
 
+TPS_PUBLIC int RA::ra_get_token_status(char *cuid) {
+    
+    int rc = -1;
+    LDAPMessage *entry;
+    char *status = NULL;
+    char *reason = NULL;
+
+    int status_int = -1;
+    //Let's say -1 is unknown;
+
+    if ((rc = find_tus_db_entry(cuid, 0, &entry)) != LDAP_SUCCESS) {
+        goto loser;
+    }
+
+    status = ra_get_token_status(entry);
+
+    if (status == NULL) {
+        goto loser;
+    }
+
+    reason = ra_get_token_reason(entry);
+
+    status_int = get_token_state(status, reason);
+
+
+loser:
+    if (entry != NULL) {
+        ldap_msgfree(entry);
+    }
+
+    if (status != NULL) {
+        free(status);
+    }
+
+    if (reason != NULL) {
+        free(reason);
+    }
+
+    return status_int;
+}
+
 TPS_PUBLIC char *RA::ra_get_token_status(LDAPMessage *entry) {
     return get_token_status(entry);
 }
@@ -2829,7 +2989,7 @@ TPS_PUBLIC char *RA::ra_get_cert_cn(LDAPMessage *entry) {
     return get_cert_cn(entry);
 }
 
-TPS_PUBLIC char *RA::ra_get_cert_attr_byname(LDAPMessage *entry, const char *name) {
+TPS_PUBLIC char *RA::ra_get_cert_attr_byname(LDAPMessage *entry, char *name) {
     return get_cert_attr_byname(entry, name);
 }
 
@@ -2848,6 +3008,53 @@ TPS_PUBLIC char *RA::ra_get_cert_serial(LDAPMessage *entry) {
 TPS_PUBLIC char *RA::ra_get_cert_issuer(LDAPMessage *entry) {
     return get_cert_issuer(entry);
 }
+
+/**
+ *
+ *  Returns a string representation of the key info value from TokenDB, if it exists, otherwise returns NULL
+ *  cuid is the token cuid for key info
+ *
+ */
+
+/**
+ *
+ * PAS Modification
+ * Introduced this function to wrap the get_key_info(LDAPMessage) function in tus_db.c
+ *
+ */
+
+
+TPS_PUBLIC char *RA::ra_get_key_info(char *cuid){
+
+    LDAPMessage *result = NULL;
+    LDAPMessage *e = NULL;
+//    char **v = NULL;
+    char *ret = NULL;
+    int rc = -1;
+
+    if (cuid != NULL && PL_strlen(cuid) > 0) {
+        if ((rc = find_tus_db_entry (cuid, 0, &result)) == LDAP_SUCCESS) {
+            e = get_first_entry (result);
+            if (e != NULL) {
+
+                ret = get_key_info(e);
+
+
+                if(ret == NULL){
+                    RA::Debug("RA::ra_get_key_info", "keyinfo for %s is NULL!", cuid);
+                }
+
+            }
+            if( result != NULL ) {
+                free_results( result );
+                result = NULL;
+            }
+        }
+    }
+    return ret;
+
+}
+
 
 TPS_PUBLIC int RA::ra_tus_has_active_tokens(char *userid) {
     return tus_has_active_tokens(userid);
@@ -2955,9 +3162,198 @@ TPS_PUBLIC int RA::ra_delete_certificate_entry(LDAPMessage* e)
    return rc;
 }
 
-int RA::tdb_activity(const char *ip, const char *cuid, const char *op, const char *result, const char *msg, const char *userid, const char *token_type)
+int RA::tdb_activity(char *ip, char *cuid, const char *op, const char *result, const char *msg, const char *userid, const char *token_type)
 {
   return add_activity(ip, cuid, op, result, msg, userid, token_type);
+}
+
+int RA::tdb_update_certificates(ExternalRegAttrs *recoveryRegAttrs) {
+
+    int rc = -1;
+    int count = 0;
+    int delete_count = 0;
+
+    LDAPMessage  *ldapResult = NULL;
+    int k = 0;
+    char serialnumber[512];
+    char filter[512];
+    LDAPMessage *result = NULL;
+    LDAPMessage *e = NULL;
+    int i = 0;
+    int r = LDAP_SUCCESS;
+    char * cuid = NULL;
+    char * serialStr = NULL;
+
+     RA::Debug("RA::tdb_update_certificates",
+                     " With ExternalRegAttrs, entering");
+
+
+    if ( recoveryRegAttrs == NULL) {
+        return rc;
+    }
+
+    ExternalRegCertToRecover **erCertsToRecover = NULL;
+    ExternalRegCertToRecover *erCertToRecover = NULL;
+    ExternalRegCertKeyInfo * erCertKeyInfo = NULL;
+
+    ExternalRegCertToDelete **erCertsToDelete = NULL;
+    ExternalRegCertToDelete   *erCertToDelete = NULL;
+
+    erCertsToDelete = recoveryRegAttrs->getCertsToDelete();
+    if (erCertsToDelete) {
+        delete_count = recoveryRegAttrs->getCertsToDeleteCount();
+    }
+    
+    erCertsToRecover = recoveryRegAttrs->getCertsToRecover();
+
+    if (erCertsToRecover == NULL) {
+        goto loser;
+    }
+
+    count = recoveryRegAttrs->getCertsToRecoverCount();
+
+    if (count == 0) {
+        goto loser;
+    }
+
+    cuid = (char *) recoveryRegAttrs->getTokenCUID();
+
+    if (cuid == NULL) {
+        goto loser;
+    }
+
+    if ((rc = find_tus_db_entry(cuid, 0, &ldapResult)) != LDAP_SUCCESS) {
+        goto loser;
+    }
+
+    for (int i = 0; i < count ; i++ ) {
+        erCertToRecover = erCertsToRecover[i];
+
+        if (!erCertToRecover)
+            continue;
+
+        erCertKeyInfo = erCertToRecover->getCertKeyInfo();
+
+        if (!erCertKeyInfo)
+            continue;
+
+        CERTCertificate *cert = NULL;
+        char *tokenType = NULL;
+        char *userid = NULL;
+         
+        cert = erCertKeyInfo->getCert();
+        tokenType =  (char *) recoveryRegAttrs->getTokenType();
+        userid = (char *) recoveryRegAttrs->getUserId();
+
+         RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates",
+                "adding cert=%x", cert);
+
+            tus_print_integer(serialnumber, &(cert->serialNumber));
+
+            PR_snprintf(filter, 512, "(tokenID=%s)");
+            PR_snprintf(filter, 512, "tokenSerial=%s", serialnumber);
+
+            r = find_tus_certificate_entries_by_order_no_vlv(filter, &result, 1);
+            RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates",
+                "find_tus_certificate_entries_by_order_no_vlv returned %d", r);
+            bool found = false;
+
+            // actual cert status to be recorded in cert enry
+            char certST[32] = {0};
+            switch (erCertKeyInfo->getCertStatus()) {
+            case ACTIVE:
+                PL_strcpy(certST , "active");
+                break;
+            case REVOKED:
+                PL_strcpy(certST , "revoked");
+                break;
+            case EXPIRED:
+                PL_strcpy(certST , "expired");
+                break;
+            default:
+                PL_strcpy(certST , "uninitialized");
+                break;
+            }
+
+            if (r == LDAP_SUCCESS) {
+                for (e = get_first_entry(result); e != NULL; e = get_next_entry(e)) {
+                    char **values = get_attribute_values(e, "tokenID");
+                    char *cn = get_cert_cn(e);
+                    serialStr = RA::ra_get_cert_serial(e);
+
+                    RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "With ExternalReg cn %s serialStr %s value %s", cn, serialStr, values[0]);
+
+                    if (PL_strcmp(cuid, values[0])== 0)  found = true;
+                    if (cn != NULL ) {
+                        //r = update_cert_status(cn, "active");
+                        RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Updating cert status of %s to %s in tokendb", cn, certST);
+                        r = update_cert_status(cn, certST);
+                        if (r != LDAP_SUCCESS) {
+                            RA::Debug("RA::tdb_update_certificates",
+                                      "Unable to modify cert status to %s in tokendb: %s", certST, cn);
+                        }
+                        PL_strfree(cn);
+                        cn = NULL;
+                    }
+
+                    ldap_value_free(values);
+                }
+
+                ldap_msgfree(result);
+                result = NULL;
+            }
+            if (!found && !erCertToRecover->getIgnoreForUpdateCerts()) {
+                add_certificate(cuid,cuid , tokenType, userid, cert,
+                    "encryption", certST);
+            }
+
+     } 
+     // Now let's delete certs that no longer exist on the token.
+
+     PR_snprintf(filter, 512, "(tokenID=%s)",cuid);
+
+     r = find_tus_certificate_entries_by_order_no_vlv(filter, &result, 1);
+
+     if (r == LDAP_SUCCESS) {
+         for (e = get_first_entry(result); e != NULL; e = get_next_entry(e)) {
+             PRUint64 curSerial = 0;
+             serialStr = RA::ra_get_cert_serial(e);
+             RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Cert for token in db currently: certSerial %s", serialStr);
+
+             if (serialStr != NULL && delete_count > 0 ) {
+                  curSerial = strtoull(serialStr, NULL, 16);
+                  for(int i = 0; i < delete_count ; i++) {
+              /* Rifle certs to delete to see if this one is slated to go */
+                      erCertToDelete = erCertsToDelete[i];
+                      if (!erCertToDelete)
+                          continue;
+
+                      PRUint64 certSerial = erCertToDelete->getSerial();
+
+                      if ( LL_EQ(certSerial, curSerial)) {
+                          RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Found cert to delete: certSerial %s", serialStr);
+                          ra_delete_certificate_entry(e);
+                          break;
+                      }
+
+                      RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Found cert certsToDeleteList: certSerial  %llu serialStr %s curSerial %llu", certSerial,serialStr, curSerial);
+                  }
+             }
+         }
+     }
+ 
+     if (result) {
+         ldap_msgfree(result);
+         result = NULL;
+     }
+
+loser:
+
+    if (ldapResult != NULL) {
+        ldap_msgfree(ldapResult);
+    }
+
+    return rc;
 }
 
 int RA::tdb_update_certificates(char* cuid, char **tokentypes, char *userid, CERTCertificate ** certificates, char **ktypes, char **origins, int numOfCerts)
@@ -3003,19 +3399,9 @@ int RA::tdb_update_certificates(char* cuid, char **tokentypes, char *userid, CER
             bool found = false;
             if (r == LDAP_SUCCESS) {
                 for (e = get_first_entry(result); e != NULL; e = get_next_entry(e)) {
-                    struct berval **values = get_attribute_values(e, "tokenID");
-                    if ((values == NULL) || (values[0] == NULL)) {
-                        RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates",
-                            "unable to get tokenid");
-                        if (values != NULL) { 
-                            ldap_value_free_len(values);
-                            values = NULL;
-                        }
-                        continue;
-                    }
-
+                    char **values = get_attribute_values(e, "tokenID");
                     char *cn = get_cert_cn(e);
-                    if (PL_strcmp(cuid, values[0]->bv_val)== 0)  found = true;
+                    if (PL_strcmp(cuid, values[0])== 0)  found = true;
                     if (cn != NULL) {
                         RA::Debug(LL_PER_PDU, "RA::tdb_update_certificates", "Updating cert status of %s to active in tokendb", cn);
                         r = update_cert_status(cn, "active");
@@ -3027,7 +3413,7 @@ int RA::tdb_update_certificates(char* cuid, char **tokentypes, char *userid, CER
                         cn = NULL;
                     }
  
-                    ldap_value_free_len(values);
+                    ldap_value_free(values);
                 }
 
                 ldap_msgfree(result);
@@ -3079,25 +3465,32 @@ int RA::tdb_add_token_entry(char *userid, char* cuid, const char *status, const 
 
         // try to see if the userid is there
         LDAPMessage *e = ra_get_first_entry(ldapResult);
-        struct berval **uid = ra_get_attribute_values(e, "tokenUserID");
+        char **uid = ra_get_attribute_values(e, "tokenUserID");
 
-        if ((uid != NULL) && (uid[0] != NULL)) {
-            if (uid[0]->bv_val != NULL) {
-                if (strlen(uid[0]->bv_val) > 0 && strcmp(uid[0]->bv_val, userid) != 0) {
-                    ldap_value_free_len(uid);
+        if (uid != NULL) {
+            if (uid[0] != NULL) {
+                if (strlen(uid[0]) > 0 && strcmp(uid[0], userid) != 0) {
+                    ldap_value_free(uid);
                     RA::Debug(LL_PER_PDU, "RA::tdb_add_token_entry",
                           "This token does not belong to this user: %s", userid);
-                    r = -1;
-		    goto loser;
+                    /*
+                     * returns special -2 in case externalReg allows it 
+                     * if tokenCUID match
+                     * and in which case, update the userid for token entry
+                     */
+                    RA::Debug(LL_PER_PDU, "RA::tdb_add_token_entry",
+                          "returning -2 to check for isExternalReg");
+                    r = -2;
+                    goto loser;
                 } else {
-                    if (strlen(uid[0]->bv_val) > 0 && strcmp(uid[0]->bv_val, userid) == 0) {
-                        ldap_value_free_len(uid);
+                    if (strlen(uid[0]) > 0 && strcmp(uid[0], userid) == 0) {
+                        ldap_value_free(uid);
                         r = 0;
 			goto loser;
                     }
                 }
             }
-            ldap_value_free_len(uid);
+            ldap_value_free(uid);
         }
 
         // this is the recycled token, update userid and dateOfCreate
@@ -3399,7 +3792,8 @@ TPS_PUBLIC bool RA::verifySystemCertByNickname(const char *nickname, const char 
  * tps.cert.audit_signing.certusage=ObjectSigner
  */
 TPS_PUBLIC bool RA::verifySystemCerts() {
-    bool rv = false;
+    bool verifyResult = false;
+    bool rv = true; /* final return value */
     char configname[256];
     char configname_nn[256];
     char configname_cu[256];
@@ -3434,6 +3828,7 @@ TPS_PUBLIC bool RA::verifySystemCerts() {
                     "cert nickname not found for cert tag:%s", sresult);
                 PR_snprintf(audit_msg, 512, "%s undefined in CS.cfg", configname_nn);
                 RA::Audit(EV_CIMC_CERT_VERIFICATION, AUDIT_MSG_FORMAT, "System", "Failure", audit_msg);
+                sresult = PL_strtok_r(NULL, ",", &lasts);
                 rv = false;
                 continue;
             }
@@ -3451,14 +3846,15 @@ TPS_PUBLIC bool RA::verifySystemCerts() {
                 "Verifying cert tag: %s, nickname:%s, certificate usage:%s"
                     , sresult, nn, (cu!=NULL)? cu: "");
 
-            rv = verifySystemCertByNickname(nn, cu);
-            if (rv == true) {
+            verifyResult = verifySystemCertByNickname(nn, cu);
+            if (verifyResult == true) {
                 RA::Debug(LL_PER_SERVER, "RA::verifySystemCerts", 
                     "cert verification passed on cert nickname:%s", nn);
                 PR_snprintf(audit_msg, 512, "Certificate verification succeeded:%s",
                     nn);
                 RA::Audit(EV_CIMC_CERT_VERIFICATION, AUDIT_MSG_FORMAT, "System", "Success", audit_msg);
             } else {
+                rv = false;
                 RA::Debug(LL_PER_SERVER, "RA::verifySystemCerts", 
                     "cert verification failed on cert nickname:%s", nn);
                 PR_snprintf(audit_msg, 512, "Certificate verification failed:%s",
@@ -3618,4 +4014,58 @@ loser:
     }
 
     return newKey;
+}
+
+bool RA::transition_allowed(int oldState, int newState) {
+
+    /* parse the allowed transitions string and look for old:new */
+
+    // See if we need to read in the thing.
+
+    transitionList = (char *) m_cfg->GetConfigAsString(RA::CFG_OPERATIONS_ALLOWED_TRANSITIONS, NULL);
+ 
+    if (transitionList == NULL) {
+        transitionList = (char *) m_cfg->GetConfigAsString(RA::CFG_TOKENDB_ALLOWED_TRANSITIONS, NULL); 
+    }
+
+    if (transitionList == NULL) return true;
+
+    char search[128];
+
+    PR_snprintf(search, 128, "%d:%d", oldState, newState);
+    return match_comma_list(search, transitionList);
+
+}
+
+int RA::get_token_state(char *state, char *reason)
+{
+    int ret = 0;
+    if (strcmp(state, STATE_UNINITIALIZED) == 0) {
+        ret = TOKEN_UNINITIALIZED;
+    } else if (strcasecmp(state, STATE_ACTIVE) == 0) {
+        ret = TOKEN_FOUND;
+    } else if (strcasecmp(state, STATE_LOST) == 0) {
+        if (strcasecmp(reason, "keyCompromise") == 0) {
+            /* perm lost or temp -> perm lost */
+            ret =  TOKEN_PERM_LOST;
+        } else if (strcasecmp(reason, "destroyed") == 0) {
+            ret = TOKEN_DAMAGED;
+        } else if (strcasecmp(reason, "onHold") == 0) {
+            ret = TOKEN_TEMP_LOST;
+        }
+    } else if (strcasecmp(state, "terminated") == 0) {
+        ret = TOKEN_TERMINATED;
+    } else {
+        /* state is disabled or otherwise : what to do here? */
+        ret = TOKEN_PERM_LOST;
+    }
+    return ret;
+}
+
+bool RA::is_printBuf_full() {
+    return m_printBuf_full;
+}
+
+int RA::get_recv_buf_size() {
+    return m_recv_buf_size;
 }

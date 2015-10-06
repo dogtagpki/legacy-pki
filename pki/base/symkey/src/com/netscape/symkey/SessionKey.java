@@ -19,7 +19,9 @@
 package com.netscape.symkey;
 
 
-import org.mozilla.jss.pkcs11.PK11SymKey;
+import java.io.*;
+import java.util.*;
+import org.mozilla.jss.pkcs11.*;
 
 
 /**
@@ -27,54 +29,15 @@ import org.mozilla.jss.pkcs11.PK11SymKey;
  */
 public class SessionKey
 {
-    static boolean tryLoad( String filename )
+    static
     {
         try {
-            System.load( filename );
-        } catch( Exception e ) {
-            return false;
-        } catch( UnsatisfiedLinkError e ) {
-            return false;
-        }
-
-        return true;
-    }
-
-    // Load native library
-    static {
-        boolean mNativeLibrariesLoaded = false;
-        String os = System.getProperty( "os.name" );
-        if( ( os.equals( "Linux" ) ) ) {
-            // Check for 64-bit library availability
-            // prior to 32-bit library availability.
-            mNativeLibrariesLoaded =
-                tryLoad( "/usr/lib64/symkey/libsymkey.so" );
-            if( mNativeLibrariesLoaded ) {
-                System.out.println( "64-bit symkey library loaded" );
-            } else {
-                // REMINDER:  May be trying to run a 32-bit app
-                //            on 64-bit platform.
-                mNativeLibrariesLoaded =
-                    tryLoad( "/usr/lib/symkey/libsymkey.so" );
-                if( mNativeLibrariesLoaded ) {
-                    System.out.println( "32-bit symkey library loaded");
-                } else {
-                    System.out.println( "FAILED loading symkey library!");
-                    System.exit( -1 );
-                }
-            }
-        } else {
-            try {
-                System.loadLibrary( "symkey" );
-                System.out.println( "symkey library loaded" );
-                mNativeLibrariesLoaded = true;
-            } catch( Throwable t ) {
-                // This is bad news, the program is doomed at this point
-                t.printStackTrace();
-            }
+            System.loadLibrary( "symkey" );
+        } catch( Throwable t ) {
+            // This is bad news, the program is doomed at this point
+            t.printStackTrace();
         }
     }
-
 
     // external calls from RA
     public static native byte[] ComputeKeyCheck(PK11SymKey desKey ); /* byte data[] ); */
@@ -84,7 +47,10 @@ public class SessionKey
                                                    byte[] card_challenge,
                                                    byte[] host_challenge,
                                                    byte[] keyInfo,
+                                                   byte nistSP800_108KdfOnKeyVersion,    // AC: KDF SPEC CHANGE
+                                                   boolean nistSP800_108KdfUseCuidAsKdd, // AC: KDF SPEC CHANGE
                                                    byte[] CUID,
+                                                   byte[] KDD,                           // AC: KDF SPEC CHANGE
                                                    byte[] macKeyArray,
                                                    String useSoftToken,
                                                    String keySet,
@@ -95,27 +61,34 @@ public class SessionKey
                                                       byte[] card_challenge,
                                                       byte[] host_challenge,
                                                       byte[] keyInfo,
+                                                      byte nistSP800_108KdfOnKeyVersion,    // AC: KDF SPEC CHANGE
+                                                      boolean nistSP800_108KdfUseCuidAsKdd, // AC: KDF SPEC CHANGE
                                                       byte[] CUID,
+                                                      byte[] KDD,                           // AC: KDF SPEC CHANGE
                                                       byte[] encKeyArray,
                                                       String useSoftToken,
                                                       String keySet );
-
-    public static native PK11SymKey ComputeKekSessionKey( String tokenName,
-                                                          String keyName,
-                                                          byte[] card_challenge,
-                                                          byte[] host_challenge,
-                                                          byte[] keyInfo,
-                                                          byte[] CUID,
-                                                          byte[] kekKeyArray,
-                                                          String useSoftToken,
-                                                          String keySet );
+    
+    // AC: KDF SPEC CHANGE; unused method with no JNI implementation
+    //public static native PK11SymKey ComputeKekSessionKey( String tokenName,
+    //                                                      String keyName,
+    //                                                      byte[] card_challenge,
+    //                                                      byte[] host_challenge,
+    //                                                      byte[] keyInfo,
+    //                                                      byte[] CUID,
+    //                                                      byte[] kekKeyArray,
+    //                                                      String useSoftToken,
+    //                                                      String keySet );
 
     public static native PK11SymKey ComputeKekKey( String tokenName,
                                                    String keyName,
                                                    byte[] card_challenge,
                                                    byte[] host_challenge,
                                                    byte[] keyInfo,
+                                                   byte nistSP800_108KdfOnKeyVersion,    // AC: KDF SPEC CHANGE
+                                                   boolean nistSP800_108KdfUseCuidAsKdd, // AC: KDF SPEC CHANGE
                                                    byte[] CUID,
+                                                   byte[] KDD,                           // AC: KDF SPEC CHANGE
                                                    byte[] kekKeyArray,
                                                    String useSoftToken, String keySet );
 
@@ -135,7 +108,10 @@ public class SessionKey
                                                    byte[] card_challenge,
                                                    byte[] host_challenge,
                                                    byte[] keyInfo,
+                                                   byte nistSP800_108KdfOnKeyVersion,    // AC: KDF SPEC CHANGE
+                                                   boolean nistSP800_108KdfUseCuidAsKdd, // AC: KDF SPEC CHANGE
                                                    byte[] CUID,
+                                                   byte[] KDD,                           // AC: KDF SPEC CHANGE
                                                    int type,
                                                    byte[] authKeyArray,
                                                    String useSoftToken, String keySet );
@@ -144,7 +120,10 @@ public class SessionKey
                                              String keyName,
                                              byte[] in,
                                              byte[] keyInfo,
+                                             byte nistSP800_108KdfOnKeyVersion,    // AC: KDF SPEC CHANGE
+                                             boolean nistSP800_108KdfUseCuidAsKdd, // AC: KDF SPEC CHANGE
                                              byte[] CUID,
+                                             byte[] KDD,                           // AC: KDF SPEC CHANGE
                                              byte[] kekKeyArray,
                                              String useSoftToken, String keySet );
 
@@ -152,8 +131,16 @@ public class SessionKey
                                               String newTokenName,
                                               String oldMasterKeyName,
                                               String newMasterKeyName,
-                                              String keyInfo,
+                                              byte[] oldKeyInfo,          // AC: KDF SPEC CHANGE
+                                              
+                                              // AC: BUGFIX for key versions higher than 09:  We need to specialDecode keyInfo parameters before sending them into symkey!  This means the parameters must be jbyteArray's
+                                              //     -- Changed parameter "jstring keyInfo" to "jbyteArray newKeyInfo"
+                                              byte[] newKeyInfo,          
+                                              
+                                              byte nistSP800_108KdfOnKeyVersion,    // AC: KDF SPEC CHANGE
+                                              boolean nistSP800_108KdfUseCuidAsKdd, // AC: KDF SPEC CHANGE
                                               byte[] CUIDValue,
+                                              byte[] KDD,                           // AC: KDF SPEC CHANGE
                                               byte[] kekKeyArray,
                                               String useSoftToken, String keySet );
 

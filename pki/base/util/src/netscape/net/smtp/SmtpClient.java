@@ -17,11 +17,9 @@
 // --- END COPYRIGHT BLOCK ---
 package netscape.net.smtp;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.net.InetAddress;
-
+import java.util.StringTokenizer;
+import java.io.*;
+import java.net.*;
 import netscape.net.TransferProtocolClient;
 
 /**

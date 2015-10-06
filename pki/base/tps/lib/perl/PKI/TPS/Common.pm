@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/pkiperl
 #
 # --- BEGIN COPYRIGHT BLOCK ---
 # This library is free software; you can redistribute it and/or
@@ -57,7 +57,7 @@ sub add_schema_update
 
     my $sentry = $conn->search($aentry->{dn}, "base", "(objectclass=*)", 0, ("*", "aci"));
     if (!$sentry) {
-        $$err_ref .= "Error: trying to update entry that does not exist: " . $aentry->{dn} . "\n"; 
+        $$err_ref .= "Error: trying to update entry that does not exist: " . $aentry->{dn} . "\n";
         return 0;
     }
 
@@ -65,9 +65,8 @@ sub add_schema_update
 
     foreach my $attr (@addtypes) {
         my @vals = $aentry->getValues($attr);
-        push @vals, $vals[0];          # HACK! for some reason, first value always fails with server unwilling to perform
-
-        foreach my $val (@vals) {
+        my @values = ("dummyAttr: dummy value", @vals); # this dummy entry consumes the error 53
+        foreach my $val (@values) {
             $sentry->addValue( $attr, $val );
             $conn->update($sentry);
             my $rc = $conn->getErrorCode();
@@ -144,5 +143,5 @@ sub make_connection
   }
   return new Mozilla::LDAP::Conn($arg_ref);
 }
-
+  
 1;

@@ -58,6 +58,19 @@
 // op is either "revoke" or "unrevoke"
 #define AUDIT_MSG_CERT_STATUS_CHANGE "[SubjectID=%s][Outcome=%s][op=%s][Serial=%s][CA_ID=%s] %s" 
 
+/**
+ * PAS Modification
+ * for EV_KEY_SANITY_CHECK; note: "op" is operation such as "format," "enrollment," "pinReset," "renewal"
+ */
+#define AUDIT_MSG_KEY_SANITY_CHECK "[CUID=%s][KDD=%s][Outcome=%s][op=%s][TokenKeyVersion=%s][NewKeyVersion=%s][TokenDBKeyVersion=%s] %s"
+
+/**
+ * PAS Modification
+ * for EV_TOKENDB_UPDATE
+ */
+#define AUDIT_MSG_TOKENDB_UPDATE "[USERID=%s] [CUID=%s] [AppletVersion=%s] [KeyVersion=%s] [State=%s] [Reason=%s] [TokenType=%s] %s"
+
+
 /*
  * Audit events definitions
  */
@@ -82,6 +95,14 @@
 #define EV_KEY_CHANGEOVER "KEY_CHANGEOVER"
 
 #define EV_RENEWAL "RENEWAL"
+
+/**
+ * PAS Modification
+ * Added new event macro for GP KEY SANITY CHECKS
+ * Added new event macro for TOKENDB_UPDATE
+ */
+#define EV_KEY_SANITY_CHECK "KEY_SANITY_CHECK"
+#define EV_TOKENDB_UPDATE "TOKENDB_UPDATE"
 
 // authentication for both user login for token ops and role user login (this is different from EV_AUTHZ which is for role authorization)
 #define EV_AUTH_SUCCESS "AUTH_SUCCESS"

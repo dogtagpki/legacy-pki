@@ -18,10 +18,18 @@
 package com.netscape.cms.profile.constraint;
 
 
-import netscape.security.x509.X509CertImpl;
+import java.io.*;
+import java.util.*;
+import com.netscape.certsrv.base.*;
+import com.netscape.certsrv.profile.*;
+import com.netscape.certsrv.request.*;
+import com.netscape.certsrv.property.*;
+import com.netscape.certsrv.ca.*;
+import com.netscape.certsrv.apps.*;
 
-import com.netscape.certsrv.apps.CMS;
-import com.netscape.certsrv.ca.ICertificateAuthority;
+import com.netscape.cms.profile.common.*;
+import com.netscape.cms.profile.def.*;
+import netscape.security.x509.*;
 
 
 /**
