@@ -284,6 +284,7 @@ public class NamePanel extends WizardPanelBase {
         CMS.debug("NamePanel: Ready to get SSL EE HTTPS urls");
         Vector v = getUrlListFromSecurityDomain(config, "CA", "SecurePort");
         v.addElement("External CA");
+        v.addElement("Existing CA");
         StringBuffer list = new StringBuffer();
         int size = v.size();
 
@@ -699,6 +700,11 @@ public class NamePanel extends WizardPanelBase {
            url = index;
         } else {
           try {
+            boolean exists = false;
+            exists = config.getBoolean(PCERT_PREFIX+"signing.exists", false);
+            if (exists) {
+                return "Existing CA";
+            }
             int x = Integer.parseInt(index);
             String list = config.getString("preop.ca.list", "");
             StringTokenizer tokenizer = new StringTokenizer(list, ",");
@@ -732,10 +738,13 @@ public class NamePanel extends WizardPanelBase {
         }
 
         IConfigStore config = CMS.getConfigStore();         
+        boolean exists = false;
 
         String hselect = "";
         ISubsystem subsystem = CMS.getSubsystem(ICertificateAuthority.ID);
         try {
+            exists = config.getBoolean(PCERT_PREFIX+"signing.exists", false);
+
             //if CA, at the hierarchy panel, was it root or subord?
             hselect = config.getString("preop.hierarchy.select", "");
             String cstype = config.getString("preop.subsystem.select", "");
@@ -744,7 +753,7 @@ public class NamePanel extends WizardPanelBase {
                 // still need to handle SSL certificate
                 configCertWithTag(request, response, context, "sslserver");
                 String url = getURL(request, config);
-                if (url != null && !url.equals("External CA")) {
+                if (url != null && !url.equals("External CA") && !url.equals("Existing CA") && !exists) {
                    // preop.ca.url and admin port are required for setting KRA connector
                    url = url.substring(url.indexOf("https"));
                    config.putString("preop.ca.url", url);
@@ -770,8 +779,14 @@ public class NamePanel extends WizardPanelBase {
 
         URL urlx = null;
 
-        if (url.equals("External CA")) {
-            CMS.debug("NamePanel: external CA selected");
+        if (url.equals("External CA") || url.equals("Existing CA") || exists) {
+            String ca_type =  null;
+            if (url.equals("External CA")) {
+                ca_type = "external";
+            } else { // Existing CA
+                ca_type = "existing";
+            }
+            CMS.debug("NamePanel: " + ca_type + " CA selected");
             select = "otherca";
             config.putString("preop.ca.type", "otherca");
             if (subsystem != null) {
@@ -781,7 +796,7 @@ public class NamePanel extends WizardPanelBase {
             config.putString("preop.ca.pkcs7", "");
             config.putInteger("preop.ca.certchain.size", 0);
             context.put("check_otherca", "checked");
-            CMS.debug("NamePanel: update: this is the external CA.");
+            CMS.debug("NamePanel: update: this is the " + ca_type + " CA.");
         } else {
             CMS.debug("NamePanel: local CA selected");
             select = "sdca";

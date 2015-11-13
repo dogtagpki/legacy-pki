@@ -130,9 +130,21 @@ public final class SigningUnit implements ISigningUnit {
         try {
             mManager = CryptoManager.getInstance();
 
-            mNickname = getNickName();
-
-            tokenname = config.getString(PROP_TOKEN_NAME);
+            IConfigStore pConfig = CMS.getConfigStore();
+            boolean existing = pConfig.getBoolean("preop.cert.signing.exists", false);
+            String unit = config.getName();
+            // determine CA ("ca.signing") vs. OCSP ("ca.ocsp_signing")
+            if (unit.equals("ca.signing") && existing) {
+                CMS.debug("SigningUnit init:  getting nickname from 'preop.cert.signing.nickname'");
+                mNickname = pConfig.getString("preop.cert.signing.nickname");
+                CMS.debug("SigningUnit init:  nickname = '" + mNickname + "'");
+                CMS.debug("SigningUnit init:  getting tokenname from 'preop.module.token'");
+                tokenname = pConfig.getString("preop.module.token");
+                CMS.debug("SigningUnit init:  tokenname = '" + tokenname + "'");
+            } else {
+                mNickname = getNickName();
+                tokenname = config.getString(PROP_TOKEN_NAME);
+            }
             if (tokenname.equalsIgnoreCase(Constants.PR_INTERNAL_TOKEN) ||
               tokenname.equalsIgnoreCase("Internal Key Storage Token")) {
                 mToken = mManager.getInternalKeyStorageToken();

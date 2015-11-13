@@ -26,6 +26,7 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 import java.util.*;
 import java.io.*;
+import java.lang.*;
 import java.security.*;
 import java.math.*;
 import com.netscape.certsrv.apps.*;
@@ -137,15 +138,63 @@ public class CertRequestPanel extends WizardPanelBase {
         }
     }
 
+    private static String stripEOL( String data ) {
+        StringBuffer buffer = new StringBuffer();
+        String revised_data = null;
+
+        for( int i = 0; i < data.length(); i++ ) {
+            if( ( data.charAt(i) != '\n' ) &&
+                ( data.charAt(i) != '\r' ) ) {
+                buffer.append( data.charAt( i ) );
+            }
+        }
+
+        revised_data = buffer.toString();
+
+        return revised_data;
+    }
+
+    private String getExistingCertificateByNickname(String tokenname, String nickname) {
+        CryptoManager cm = null;
+
+        try {
+            cm = CryptoManager.getInstance();
+        } catch (Exception e) {
+            System.out.println("getExistingCertificateByNickname: CryptoManager.getInstance() Exception=" + e.toString());
+            return null;
+        }
+ 
+        String fullnickname = nickname;
+
+        if (!tokenname.equals("internal") && !tokenname.equals("Internal Key Storage Token")) {
+            fullnickname = tokenname+":"+nickname;
+        }
+
+        try {
+            X509Certificate cert = cm.findCertByNickname(fullnickname);
+            if (cert == null) {
+                return null;
+            }
+
+            CMS.debug("CertRequestPanel getExistingCertificateByNickname(" + fullnickname + ")");
+            return (stripEOL(com.netscape.osutil.OSUtil.BtoA(cert.getEncoded())));
+        } catch (Exception e) {
+            System.out.println("getExistingCertificateByNickname: Exception=" + e.toString());
+            return null;
+        }
+    }
+
     public void cleanUp() throws IOException {
         IConfigStore cs = CMS.getConfigStore();
         String select = "";
         String list = "";
         String tokenname = "";
+        boolean exists = false;
         try {
             select = cs.getString("preop.subsystem.select", "");
             list = cs.getString("preop.cert.list", "");
             tokenname = cs.getString("preop.module.token", "");      
+            exists = cs.getBoolean(PCERT_PREFIX+"signing.exists", false);
         } catch (Exception e) {
         }
 
@@ -198,6 +247,9 @@ public class CertRequestPanel extends WizardPanelBase {
             }
 
             if (!enable)
+                continue;
+
+            if (t.equals("signing") && exists)
                 continue;
 
             if (t.equals("sslserver"))
@@ -496,8 +548,10 @@ public class CertRequestPanel extends WizardPanelBase {
             Enumeration c = mCerts.elements();
 
             String tokenname = "";
+            boolean exists = false;
             try {
                 tokenname = config.getString("preop.module.token", "");      
+                exists = config.getBoolean(PCERT_PREFIX+"signing.exists", false);
             } catch (Exception e) {
             }
 
@@ -575,6 +629,22 @@ public class CertRequestPanel extends WizardPanelBase {
                 } else if (cert.getType().equals("remote")) {
                     if (b64 != null && b64.length() > 0
                             && !b64.startsWith("...")) {
+                        // Check for Existing CA
+                        if (certTag.equals("signing") && subsystem.equals("ca") && exists) {
+                            CMS.debug("CertRequestPanel: in update() remote - retrieving Existing CA");
+                            String existing_cert = getExistingCertificateByNickname(tokenname, nickname);
+                            if (existing_cert != null ) {
+                                CMS.debug("CertRequestPanel: in update() remote - storing Existing CA b64 cert in CS.cfg");
+                  
+                                config.putString(subsystem + "." + certTag + ".cert",
+                                        existing_cert);
+                                CMS.reinit(ICertificateAuthority.ID);
+                            } else {
+                                CMS.debug("CertRequestPanel::update() - failed to get Existing Certificate from token = '" + tokenname + "' nickname = '" + nickname + "'"); 
+                                hasErr = true;
+                            }
+                            continue;
+                        }
                         String b64chain = HttpInput.getCertChain(request, certTag+"_cc");
                         CMS.debug(
                                 "CertRequestPanel: in update() process remote...import cert: b64chain " + b64chain);

@@ -389,18 +389,33 @@ public class CertUtil {
 
             processor.populate(req, info);
 
-            String caPriKeyID = config.getString(
-                    prefix + "signing" + ".privkey.id");
-            byte[] keyIDb = CryptoUtil.string2byte(caPriKeyID);
-            PrivateKey caPrik = CryptoUtil.findPrivateKeyFromID(
-                    keyIDb);
+            // get private key
+            boolean exists = config.getBoolean("preop.cert.signing.exists", false);
+            PrivateKey caPrik = null;
+            if (exists) {
+                String nickname = config.getString("preop.cert.signing.nickname");
+                String tokenname = config.getString("preop.module.token");
+                String fullnickname = nickname;
+
+                if (!tokenname.equals("internal") && !tokenname.equals("Internal Key Storage Token")) {
+                    fullnickname = tokenname + ":" + nickname;
+                }
+
+                CMS.debug("CertUtil::createLocalCert(): retrieving Existing CA private key using nickname = '" + fullnickname + "'");
+                caPrik = CryptoUtil.getPrivateKey(fullnickname);
+            } else {
+                CMS.debug("CertUtil::createLocalCert(): retrieving CA private key from 'preop.cert.signing.privkey.id' in CS.cfg");
+                String caPriKeyID = config.getString(prefix + "signing" + ".privkey.id");
+                byte[] keyIDb = CryptoUtil.string2byte(caPriKeyID);
+                caPrik = CryptoUtil.findPrivateKeyFromID(keyIDb);
+            }
 
             if( caPrik == null ) {
-                CMS.debug( "CertUtil::createSelfSignedCert() - "
+                CMS.debug( "CertUtil::createLocalCert() - "
                          + "CA private key is null!" );
                 throw new IOException( "CA private key is null" );
             } else {
-                CMS.debug("CertUtil createSelfSignedCert: got CA private key");
+                CMS.debug("CertUtil::createLocalCert(): got CA private key");
             }
 
             String keyAlgo = x509key.getAlgorithm();
@@ -428,7 +443,7 @@ public class CertUtil {
             }
 
             if (cert != null) {
-                CMS.debug("CertUtil createSelfSignedCert: got cert signed");
+                CMS.debug("CertUtil::createLocalCert(): got cert signed");
             }
         } catch (Exception e) {
             CMS.debug(e);

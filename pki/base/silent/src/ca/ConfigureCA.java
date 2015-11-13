@@ -182,6 +182,9 @@ public class ConfigureCA {
     public static String ext_csr_file = null;
     public static String signing_cc = null;
 
+    public static String existing_ca = null;
+    public static String existing_ca_nickname = null;
+
     public static boolean clone = false;
     public static String clone_uri = null;
     public static String clone_p12_passwd = null;
@@ -474,10 +477,14 @@ public class ConfigureCA {
             ParseXML px = new ParseXML();
 
             String query_string = "p=8" + "&op=next" + "&xml=true" ;
-            if (external_ca.equalsIgnoreCase("true")) 
+            if (external_ca.equalsIgnoreCase("true")) {
                 query_string += "&choice=join";
-            else
+            } else if (existing_ca.equalsIgnoreCase("true")) {
+                query_string += "&choice=existing";
+                query_string += "&signing_nick=" + URLEncoder.encode(existing_ca_nickname);
+            } else {
                 query_string += "&choice=root";  
+            }
 
             hr = hc.sslConnect(cs_hostname, cs_port, wizard_uri, query_string);
 
@@ -653,6 +660,9 @@ public class ConfigureCA {
                     + URLEncoder.encode(ca_server_cert_subject_name) + "&audit_signing=" 
                     + URLEncoder.encode(ca_audit_signing_cert_subject_name) + "&urls=0"
                     + "";
+                if (existing_ca.equalsIgnoreCase("true")) {
+                    query_string += "&signing_nick=" + URLEncoder.encode(existing_ca_nickname);
+                }
             } else {
                 query_string = "p=11" + "&op=next" + "&xml=true" + "&sslserver="
                     + URLEncoder.encode(ca_server_cert_subject_name) + "&urls=0"
@@ -789,6 +799,10 @@ public class ConfigureCA {
             ArrayList dn_list = null;
             ArrayList pp_list = null;
 
+            if (existing_ca.equalsIgnoreCase("true")) {
+                ca_cert_cert = "Existing CA";
+            }
+
             String query_string = "p=12" + "&op=next" + "&xml=true" + "&subsystem="
                 + URLEncoder.encode(ca_subsystem_cert_cert) + "&subsystem_cc="
                 + "&ocsp_signing=" + URLEncoder.encode(ocsp_cert_cert)
@@ -815,7 +829,7 @@ public class ConfigureCA {
 
     }
 
-    public boolean CertificatePanelExternal() {
+    public boolean CertificatePanelExternalOrExisting() {
         try {
             boolean st = false;
             HTTPResponse hr = null;
@@ -827,16 +841,31 @@ public class ConfigureCA {
             ArrayList pp_list = null;
             String genString = "...certificate be generated internally...";
 
-            String query_string = "p=12" + "&op=apply" + "&xml=true" + "&subsystem="
-                + URLEncoder.encode(genString) + "&subsystem_cc="
-                + "&ocsp_signing=" + URLEncoder.encode(genString)
-                + "&ocsp_signing_cc=" + "&signing="
-                + URLEncoder.encode(ca_cert_cert) + "&signing_cc=" 
-                + URLEncoder.encode(signing_cc)
-                + "&audit_signing=" + URLEncoder.encode(genString) 
-                + "&audit_signing_cc=" 
-                + "&sslserver=" + URLEncoder.encode(genString)
-                + "&sslserver_cc=" + ""; 
+            String query_string = null;
+            if (external_ca.equalsIgnoreCase("true")) {
+                query_string = "p=12" + "&op=apply" + "&xml=true" + "&subsystem="
+                    + URLEncoder.encode(genString) + "&subsystem_cc="
+                    + "&ocsp_signing=" + URLEncoder.encode(genString)
+                    + "&ocsp_signing_cc=" + "&signing="
+                    + URLEncoder.encode(ca_cert_cert) + "&signing_cc=" 
+                    + URLEncoder.encode(signing_cc)
+                    + "&audit_signing=" + URLEncoder.encode(genString) 
+                    + "&audit_signing_cc=" 
+                    + "&sslserver=" + URLEncoder.encode(genString)
+                    + "&sslserver_cc=" + ""; 
+            } else { // (existing_ca.equalsIgnoreCase("true"))
+                query_string = "p=12" + "&op=apply" + "&xml=true"
+                    + "&subsystem=" + URLEncoder.encode(genString)
+                    + "&subsystem_cc="
+                    + "&ocsp_signing=" + URLEncoder.encode(genString)
+                    + "&ocsp_signing_cc="
+                    + "&signing=" + URLEncoder.encode("Existing CA")
+                    + "&signing_cc=" 
+                    + "&audit_signing=" + URLEncoder.encode(genString) 
+                    + "&audit_signing_cc=" 
+                    + "&sslserver=" + URLEncoder.encode(genString)
+                    + "&sslserver_cc=" + ""; 
+            }
 
             hr = hc.sslConnect(cs_hostname, cs_port, wizard_uri, query_string);
 
@@ -902,7 +931,7 @@ public class ConfigureCA {
 
             return true;
         } catch (Exception e) {
-            System.out.println("Exception in CertificatePanelExternal(): " + e.toString());
+            System.out.println("Exception in CertificatePanelExternalOrExisting(): " + e.toString());
             e.printStackTrace();
             return false;
         }
@@ -1327,10 +1356,10 @@ public class ConfigureCA {
         if (external_ca.equalsIgnoreCase("true")) {
             if (ext_ca_cert_file != null) {
                 // second pass - cacert file defined
-                disp_cp = CertificatePanelExternal();
+                disp_cp = CertificatePanelExternalOrExisting();
 
                 if (!disp_cp) {
-                    System.out.println("ERROR: ConfigureCA: CertificatePanelExternal() failure");
+                    System.out.println("ERROR: ConfigureCA: External CertificatePanelExternalOrExisting() failure");
                     return false;
                 }
             }
@@ -1340,6 +1369,13 @@ public class ConfigureCA {
                System.out.println("Please submit this CSR to your external CA and obtain the CA Cert and CA Cert Chain");
                return true;
             }
+        } else if (existing_ca.equalsIgnoreCase("true")) {
+                disp_cp = CertificatePanelExternalOrExisting();
+
+                if (!disp_cp) {
+                    System.out.println("ERROR: ConfigureCA: Existing CertificatePanelExternalOrExisting() failure");
+                    return false;
+                }
         }
 
         disp_cp = CertificatePanel();
@@ -1521,6 +1557,10 @@ public class ConfigureCA {
         StringHolder x_ext_ca_cert_chain_file = new StringHolder();         
         StringHolder x_ext_csr_file = new StringHolder();         
 
+        // existing CA signing cert
+        StringHolder x_existing_ca = new StringHolder();
+        StringHolder x_existing_ca_nickname = new StringHolder();
+
         //clone parameters
         StringHolder x_clone = new StringHolder();
         StringHolder x_clone_uri = new StringHolder();
@@ -1639,6 +1679,12 @@ public class ConfigureCA {
         parser.addOption("-ext_csr_file %s #File to save the CSR for submission to an external CA (optional)",
                 x_ext_csr_file);
 
+        parser.addOption("-existing_ca %s #Existing CA Signing Certificate [true,false] (optional, default false)",
+                x_existing_ca); 
+        parser.addOption(
+                "-existing_ca_nickname %s #Existing CA Signing Certificate Nickname (optional)",
+                x_existing_ca_nickname); 
+
         parser.addOption("-clone %s #Clone of another CA [true, false] (optional, default false)", x_clone);
         parser.addOption("-clone_uri %s #URL of Master CA to clone. It must have the form https://<hostname>:<EE port> (optional, required if -clone=true)", x_clone_uri);
         parser.addOption("-clone_p12_file %s #File containing pk12 keys of Master CA (optional, required if -clone=true)", x_clone_p12_file);
@@ -1741,6 +1787,9 @@ public class ConfigureCA {
         ext_ca_cert_file = x_ext_ca_cert_file.value;
         ext_ca_cert_chain_file = x_ext_ca_cert_chain_file.value;
         ext_csr_file = set_default(x_ext_csr_file.value, "/tmp/ext_ca.csr");
+
+        existing_ca = set_default(x_existing_ca.value, "false");
+        existing_ca_nickname = x_existing_ca_nickname.value;
 
         if ((x_clone.value != null) && (x_clone.value.equalsIgnoreCase("true"))) {
             clone = true;

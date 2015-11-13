@@ -130,6 +130,8 @@ public class HierarchyPanel extends WizardPanelBase {
                     context.put("check_root", "checked");
                 } else if (s.equals("join")) {
                     context.put("check_join", "checked"); 
+                } else if (s.equals("existing")) {
+                    context.put("check_existing", "checked"); 
                 }
             } catch (Exception e) {
                 CMS.debug(e.toString());
@@ -137,6 +139,7 @@ public class HierarchyPanel extends WizardPanelBase {
         } else {
             context.put("check_root", "checked");
             context.put("check_join", "");
+            context.put("check_existing", "");
         }
 
         context.put("panel", "admin/console/config/hierarchypanel.vm");
@@ -172,6 +175,7 @@ public class HierarchyPanel extends WizardPanelBase {
         }
 
         if (select.equals("root")) {
+            config.putBoolean(PCERT_PREFIX + "signing.exists", false);
             config.putString("preop.hierarchy.select", "root"); 
             config.putString("hierarchy.select", "Root"); 
             config.putString("preop.ca.type", "sdca");
@@ -179,10 +183,25 @@ public class HierarchyPanel extends WizardPanelBase {
                 config.commit(false);
             } catch (EBaseException e) {}
         } else if (select.equals("join")) {
+            // External CA or Subordinate CA
+            config.putBoolean(PCERT_PREFIX + "signing.exists", false);
+            config.putString(PCERT_PREFIX + "signing.type", "remote");
+            config.putString("preop.hierarchy.select", "join");
+            config.putString("hierarchy.select", "Subordinate"); 
+        } else if (select.equals("existing")) {
+            config.putBoolean(PCERT_PREFIX + "signing.exists", true);
+            String nickname = HttpInput.getNickname(request, "signing_nick");
+            if (nickname == null) {
+                CMS.debug("HierarchyPanel: nickname not found for existing CA");
+                throw new IOException("nickname for existing CA not found");
+            }
+            config.putString(PCERT_PREFIX + "signing.nickname", nickname);
+            // Existing CA mimics External CA for remainder of items
             config.putString(PCERT_PREFIX + "signing.type", "remote");
             config.putString("preop.hierarchy.select", "join");
             config.putString("hierarchy.select", "Subordinate"); 
         } else {
+            config.putBoolean(PCERT_PREFIX + "signing.exists", false);
             config.putString(PCERT_PREFIX + "signing.type", "remote");
             CMS.debug("HierarchyPanel: invalid choice " + select);
             throw new IOException("invalid choice " + select);
