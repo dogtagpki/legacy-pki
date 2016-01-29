@@ -5591,7 +5591,10 @@ void RA_Processor::RemoveCertFromObjectList(int cIndex, PKCS11Obj *pkcs11objx) {
 
     int objectCount = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
 
-    if ( cIndex < 0 || cIndex >= objectCount)
+    RA::Debug("RA_Processor::RemoveCertFromObjectList", "*** objectCount: %d", objectCount);
+
+    // EK: commented out if ( cIndex < 0 || cIndex >= objectCount)
+    if ( cIndex < 0 )
         return;
 
     int C = cIndex;
