@@ -1213,7 +1213,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
     RA::Debug(" RA:: RecoverKey", "in RecoverKey,url decoded des");
     wrappedDESKey_s = Util::SpecialURLEncode(*decodeKey);
 
-    RA::Debug(" RA:: RecoverKey", "in RecoverKey, wrappedDESKey_s=%s", wrappedDESKey_s);
+    //RA::Debug(" RA:: RecoverKey", "in RecoverKey, wrappedDESKey_s=%s", wrappedDESKey_s);
 
     if (cert_s != NULL) {
         RA::Debug(" RA:: RecoverKey", "in RecoverKey, recover by cert");
@@ -1224,7 +1224,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
         PR_snprintf((char *)body, MAX_BODY_LEN, 
 	    	"CUID=%s&userid=%s&drm_trans_desKey=%s&keyid=%d",cuid, userid, wrappedDESKey_s, (int) keyid);
     }
-    RA::Debug(" RA:: RecoverKey", "in RecoverKey, body=%s", body);
+    //RA::Debug(" RA:: RecoverKey", "in RecoverKey, body=%s", body);
         PR_snprintf((char *)configname, 256, "conn.%s.servlet.TokenKeyRecovery", connId);
         servletID = GetConfigStore()->GetConfigAsString(configname);
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, configname=%s", configname);
@@ -1307,7 +1307,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 	RA::Error(LL_PER_PDU, "RecoverKey"," got no wrapped private key");
 	//XXX	      goto loser;
       } else {
-	RA::Debug(LL_PER_PDU, "RecoverKey", "got wrappedprivate key =%s", tmp);
+          RA::Debug(LL_PER_PDU, "RecoverKey", "got wrappedprivate key");
 	*wrappedPrivateKey_s  = PL_strdup(tmp);
       }
 
@@ -1316,7 +1316,7 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
           RA::Error(LL_PER_PDU, "RecoverKey",
               "did not get iv_param for recovered  key in DRM response");
       } else {
-          RA::Debug(LL_PER_PDU, "ServerSideKeyGen", "got iv_param for recovered key =%s", tmp);
+          RA::Debug(LL_PER_PDU, "ServerSideKeyGen", "got iv_param for recovered key");
           *ivParam_s  = PL_strdup(tmp);
       }
 
@@ -1438,13 +1438,13 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 		"successfully url-decoded key-transport-key");
     wrappedDESKey_s = Util::SpecialURLEncode(*decodeKey);
 
-    RA::Debug(LL_PER_CONNECTION, FN,
-		"wrappedDESKey_s=%s", wrappedDESKey_s);
+    //RA::Debug(LL_PER_CONNECTION, FN,
+	//	"wrappedDESKey_s=%s", wrappedDESKey_s);
 
     PR_snprintf((char *)body, MAX_BODY_LEN, 
 		"archive=%s&CUID=%s&userid=%s&keysize=%d&drm_trans_desKey=%s",archive?"true":"false",cuid, userid, keysize, wrappedDESKey_s);
-    RA::Debug(LL_PER_CONNECTION, FN, 
-		"sending to DRM: query=%s", body);
+    //RA::Debug(LL_PER_CONNECTION, FN, 
+	//	"sending to DRM: query=%s", body);
 
     PR_snprintf((char *)configname, 256, "conn.%s.servlet.GenerateKeyPair", connId);
     servletID = GetConfigStore()->GetConfigAsString(configname);
@@ -1534,8 +1534,8 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 	    RA::Error(LL_PER_CONNECTION, FN,
 				"did not get wrapped private key in DRM response");
 	  } else {
-	    RA::Debug(LL_PER_CONNECTION, FN,
-			"got wrappedprivate key =%s", tmp);
+          RA::Debug(LL_PER_CONNECTION, FN,
+              "got wrappedprivate key");
 	    *wrappedPrivateKey_s  = PL_strdup(tmp);
 	  }
 
@@ -1544,7 +1544,7 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 	    RA::Error(LL_PER_CONNECTION, FN,
 				"did not get iv_param for private key in DRM response");
 	  } else {
-	    RA::Debug(LL_PER_PDU, "ServerSideKeyGen", "got iv_param for private key =%s", tmp);
+          RA::Debug(LL_PER_PDU, "ServerSideKeyGen", "got iv_param for private key");
 	    *ivParam_s  = PL_strdup(tmp);
 	  }
 

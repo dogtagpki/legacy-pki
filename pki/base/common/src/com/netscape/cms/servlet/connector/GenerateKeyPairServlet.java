@@ -105,6 +105,7 @@ public class GenerateKeyPairServlet extends CMSServlet {
         IRequest thisreq = null;
 
         IConfigStore sconfig = CMS.getConfigStore();
+        boolean debugSleep = sconfig.getBoolean("kra.debugSleep", false);
         boolean missingParam = false;
         String status = "0";
 
@@ -183,7 +184,29 @@ public class GenerateKeyPairServlet extends CMSServlet {
         publicKeyString = thisreq.getExtDataInString("public_key");
         wrappedPrivKeyString = thisreq.getExtDataInString("wrappedUserPrivate");
 
-	String ivString = thisreq.getExtDataInString("iv_s");
+        String ivString = thisreq.getExtDataInString("iv_s");
+
+        /*
+         * clean up fields in request
+         */
+        thisreq.setExtData("wrappedUserPrivate", "");
+        thisreq.setExtData("public_key", "");
+        thisreq.setExtData("iv_s", "");
+        thisreq.setExtData(IRequest.NETKEY_ATTR_DRMTRANS_DES_KEY, "");
+
+        /* kra.debugSleep: sleep for one minute to check request on ldap*/
+        if (debugSleep == true) {
+            CMS.debug("debugSleep: about to sleep for one minute; expect NO record written to ldap yet");
+            try {
+                Thread.sleep(60000);
+            } catch (InterruptedException e) {
+                CMS.debug("debugSleep: sleep out:"+ e.toString());
+            }
+        }
+
+        // now that fields are cleared, we can really write to ldap
+        thisreq.setExtData("delayLDAPCommit", "false");
+        queue.updateRequest(thisreq);
 
         /*
           if (selectedToken == null)
@@ -203,11 +226,11 @@ public class GenerateKeyPairServlet extends CMSServlet {
             value = sb.toString();
 
         }
-        CMS.debug("processServerSideKeyGen:outputString.encode " +value);
+        //CMS.debug("processServerSideKeyGen:outputString.encode " +value);
 
         try{
             resp.setContentLength(value.length());
-            CMS.debug("GenerateKeyPairServlet:outputString.length " +value.length());
+            //CMS.debug("GenerateKeyPairServlet:outputString.length " +value.length());
             OutputStream ooss = resp.getOutputStream();
             ooss.write(value.getBytes());
             ooss.flush();

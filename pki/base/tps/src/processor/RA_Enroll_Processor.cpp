@@ -340,8 +340,10 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
         PR_snprintf(audit_msg, 512, "ServerSideKeyGen called, wrappedPrivKey is NULL");
 	goto loser;
       } else
-	RA::Debug(LL_PER_CONNECTION,FN,
-		"wrappedPrivKey = %s", wrappedPrivKey);
+
+	RA::Debug(LL_PER_CONNECTION,FN, "got wrappedPrivKey");
+//		"wrappedPrivKey = %s", wrappedPrivKey);
+
 
       if (ivParam == NULL) {
 	RA::Debug(LL_PER_CONNECTION,FN,
@@ -350,8 +352,10 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
         PR_snprintf(audit_msg, 512, "ServerSideKeyGen called, ivParam is NULL");
 	goto loser;
       } else
-	RA::Debug(LL_PER_CONNECTION,FN,
-		"ivParam = %s", ivParam);
+
+	RA::Debug(LL_PER_CONNECTION,FN, "got ivParam");
+//		"ivParam = %s", ivParam);
+
 
       /*
        * the following code converts b64-encoded public key info into SECKEYPublicKey
