@@ -1196,7 +1196,11 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
       RA::Debug(" RA:: RecoverKey", "in RecoverKey, connId NULL");
       goto loser;
     }
+#ifdef PKI_DEV_DEBUG
     RA::Debug(" RA:: RecoverKey", "in RecoverKey, desKey_s=%s, connId=%s",desKey_s,  connId);
+#else
+    RA::Debug(" RA:: RecoverKey", "in RecoverKey, connId=%s", connId);
+#endif
 
     if (b64cert != NULL) {
         cert_s = Util::URLEncode(b64cert);
@@ -1297,7 +1301,11 @@ void RA::RecoverKey(RA_Session *session, const char* cuid,
 	RA::Error(LL_PER_PDU, "RecoverKey"," got no public key");
 	goto loser;
       } else {
-	RA::Debug(LL_PER_PDU, "RecoverKey", "got public key =%s", tmp);
+#ifdef PKI_DEV_DEBUG
+        RA::Debug(LL_PER_PDU, "RecoverKey", "got public key =%s", tmp);
+#else
+        RA::Debug(LL_PER_PDU, "RecoverKey", "got public key");
+#endif
 	*publicKey_s  = PL_strdup(tmp);
       }
 
@@ -1414,7 +1422,7 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
       goto loser;
     }
     RA::Debug(LL_PER_CONNECTION, FN,
-			 "desKey_s=%s, connId=%s",desKey_s,  connId);
+			 "desKey_s=<do not print>, connId=%s",/*desKey_s,*/  connId);
     drmConn = RA::GetDRMConn(connId);
 
     if (drmConn == NULL) {
@@ -1524,7 +1532,11 @@ void RA::ServerSideKeyGen(RA_Session *session, const char* cuid,
 	    RA::Error(LL_PER_CONNECTION, FN,
 			"Did not get public key in DRM response");
 	  } else {
-	    RA::Debug(LL_PER_PDU, "ServerSideKeyGen", "got public key =%s", tmp);
+#ifdef PKI_DEV_DEBUG
+          RA::Debug(LL_PER_PDU, "ServerSideKeyGen", "got public key =%s", tmp);
+#else
+          RA::Debug(LL_PER_PDU, "ServerSideKeyGen", "got public key");
+#endif
 	    *publicKey_s  = PL_strdup(tmp);
 	  }
 
@@ -1704,7 +1716,9 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
       /* raidzilla 57722: strip the HTTP header and just pass
          name value pairs into the pblock parsing code.
        */
+#ifdef PKI_DEV_DEBUG
       RA::Debug("RA::Engine", "Pre-processing content '%s", content);
+#endif
       char *cx = content;
       while (cx[0] != '\0' && (!(cx[0] == '\r' && cx[1] == '\n' && 
                  cx[2] == '\r' && cx[3] == '\n')))
@@ -1714,7 +1728,11 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
       if (cx[0] != '\0') {
           cx+=4;
       }
+#ifdef PKI_DEV_DEBUG
       RA::Debug("RA::Engine", "Post-processing content '%s", cx);
+#else
+      RA::Debug("RA::Engine", "content processed");
+#endif
 	  ra_pb = ( RA_pblock * ) session->create_pblock(cx);
 	  if (ra_pb == NULL) {
 	    RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "fail no ra_pb");
@@ -1758,7 +1776,11 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
 	  goto loser;
 	}
 
-	RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "mac session key=%s", sessionKey_s);
+#ifdef PKI_DEV_DEBUG
+    RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "mac session key=%s", sessionKey_s);
+#else
+    RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "got mac session key");
+#endif
 	Buffer *decodeKey = Util::URLDecode(sessionKey_s);
 
 	RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "decodekey len=%d",decodeKey->size());
@@ -1790,7 +1812,11 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
 	  goto loser;
 	}
 
-	RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "encSessionKey=%s", encSessionKey_s);
+#ifdef PKI_DEV_DEBUG
+    RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "encSessionKey=%s", encSessionKey_s);
+#else
+    RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "got encSessionKey");
+#endif
 	Buffer *decodeEncKey = Util::URLDecode(encSessionKey_s);
 
 	RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey",
@@ -1832,7 +1858,11 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
 	  }
 	  // wrapped des key is to be sent to DRM "as is"
 	  // thus should not be touched
-	  RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "drm_desKey=%s", *drm_desKey_s );
+#ifdef PKI_DEV_DEBUG
+      RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "drm_desKey=%s", *drm_desKey_s );
+#else
+      RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "got drm_desKey");
+#endif
 
 	  tmp = ra_pb->find_val_s(TKS_RESPONSE_KEK_DesKey);
 	  if (tmp == NULL) {
@@ -1842,8 +1872,11 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
 	  } else {
 	    *kek_desKey_s = PL_strdup(tmp);
 	  }
-	  RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "kek_desKey=%s", *kek_desKey_s );
-
+#ifdef PKI_DEV_DEBUG
+      RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "kek_desKey=%s", *kek_desKey_s );
+#else
+      RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "got kek_desKey");
+#endif
 
 	  tmp = ra_pb->find_val_s("keycheck");
 	  if (tmp == NULL) {
@@ -1859,7 +1892,11 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
 	if (hostCryptogram_s == NULL)
 	  goto loser;
 
+#ifdef PKI_DEV_DEBUG
                         RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "hostC=%s", hostCryptogram_s);
+#else
+                        RA::Debug(LL_PER_PDU, "RA:ComputeSessionKey", "got hostC");
+#endif
                         *host_cryptogram = Util::URLDecode(hostCryptogram_s);
 	} // if content != NULL
 

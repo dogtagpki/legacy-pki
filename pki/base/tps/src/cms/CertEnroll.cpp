@@ -693,8 +693,13 @@ Buffer * CertEnroll::EnrollCertificate(
         PR_snprintf(error_msg, 512, "BTOA_ConvertItemToAscii returns error");
         return NULL;
     }
+#ifdef PKI_DEV_DEBUG
     RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",
           "after BTOA_ConvertItemToAscii pk_b64=%s",pk_b64);
+#else
+    RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",
+          "after BTOA_ConvertItemToAscii ");
+#endif
 
     char *url_pk = Util::URLEncode(pk_b64);
     char *url_uid = Util::URLEncode(uid);
@@ -722,8 +727,10 @@ Buffer * CertEnroll::EnrollCertificate(
         }
     }
 
+#ifdef PKI_DEV_DEBUG
     RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",
         "parameters = %s", parameters);
+#endif
     PSHttpResponse *resp =  sendReqToCA(servlet, parameters, connid);
     if (resp != NULL) {
       RA::Debug(LL_PER_PDU, "CertEnroll::EnrollCertificate",

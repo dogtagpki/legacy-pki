@@ -944,7 +944,7 @@ public class TokenServlet extends CMSServlet {
             }
 
         }
-        CMS.debug("TokenServlet:outputString.encode " +value);
+        //CMS.debug("TokenServlet:outputString.encode " +value);
 
         try{
             resp.setContentLength(value.length());
@@ -1248,7 +1248,8 @@ public class TokenServlet extends CMSServlet {
         if (KeySetData != null && KeySetData.length > 1) {
             value = "status=0&"+"keySetData=" + 
                      com.netscape.cmsutil.util.Utils.SpecialEncode(KeySetData);
-            CMS.debug("TokenServlet:process DiversifyKey.encode " +value);
+            //CMS.debug("TokenServlet:process DiversifyKey.encode " +value);
+            CMS.debug("TokenServlet:process DiversifyKey encoded");
         // AC: KDF SPEC CHANGE - check for settings file issue (flag)
         } else if (missingSetting_exception != null){
             status = "6";
@@ -1560,7 +1561,7 @@ public class TokenServlet extends CMSServlet {
             value = "status=" + status;
         }
 
-        CMS.debug("TokenServlet:process EncryptData.encode " +value);
+        //CMS.debug("TokenServlet:process EncryptData.encode " +value);
 
         try {
             resp.setContentLength(value.length());

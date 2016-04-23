@@ -267,7 +267,8 @@ public class TokenKeyRecoveryService implements IService {
         String rWrappedDesKeyString = request.getExtDataInString(IRequest.NETKEY_ATTR_DRMTRANS_DES_KEY);
 	auditSubjectID=rCUID+":"+rUserid;
 
-        CMS.debug("TokenKeyRecoveryService: received DRM-trans-wrapped des key ="+rWrappedDesKeyString);
+        //CMS.debug("TokenKeyRecoveryService: received DRM-trans-wrapped des key ="+rWrappedDesKeyString);
+        CMS.debug("TokenKeyRecoveryService: received DRM-trans-wrapped des key");
         wrapped_des_key = com.netscape.cmsutil.util.Utils.SpecialDecode(rWrappedDesKeyString);
         CMS.debug("TokenKeyRecoveryService: wrapped_des_key specialDecoded");
 
@@ -563,8 +564,7 @@ public class TokenKeyRecoveryService implements IService {
             audit(auditMessage);
 		    return false;
 		} else {
-		    CMS.debug("TokenKeyRecoveryService: got publicKeyData b64 = "+
-			      b64PKey);
+		    CMS.debug("TokenKeyRecoveryService: got publicKeyData");
 		}
 		request.setExtData("public_key", b64PKey);
         auditMessage = CMS.getLogMessage(

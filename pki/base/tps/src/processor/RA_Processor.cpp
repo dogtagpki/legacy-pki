@@ -1548,9 +1548,11 @@ int RA_Processor::InitializeUpdate(RA_Session *session,
 
     }
 
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::InitializeUpdate",
         "Generated Host Challenge",
         &host_challenge);
+#endif
 
     initialize_update_apdu =
         new Initialize_Update_APDU(key_version, key_index, host_challenge);
@@ -1584,8 +1586,10 @@ int RA_Processor::InitializeUpdate(RA_Session *session,
 	goto loser;
     }
 
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::InitializeUpdate",
         "Update Response Data", &update_response_data);
+#endif
 
     /**
      * Initialize Update response:
@@ -1606,11 +1610,15 @@ int RA_Processor::InitializeUpdate(RA_Session *session,
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::InitializeUpdate",
         "Key Info Data", &key_info_data);
     card_challenge = Buffer(update_response_data.substr(12, 8));
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::InitializeUpdate",
         "Card Challenge", &card_challenge);
+#endif
     card_cryptogram = Buffer(update_response_data.substr(20, 8));
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::InitializeUpdate",
         "Card Cryptogram", &card_cryptogram);
+#endif
 
     rc = 1;
 
@@ -1687,9 +1695,11 @@ Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session,
     }
 
 */
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
         "Generated Host Challenge",
         &host_challenge);
+#endif
 
     initialize_update_apdu =
         new Initialize_Update_APDU(key_version, key_index, host_challenge);
@@ -1723,8 +1733,10 @@ Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session,
 	goto loser;
     }
 
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
         "Update Response Data", &update_response_data);
+#endif
 
     /**
      * Initialize Update response:
@@ -1739,17 +1751,25 @@ Secure_Channel *RA_Processor::SetupSecureChannel(RA_Session *session,
 	goto loser;
     }
     key_diversification_data = Buffer(update_response_data.substr(0, 10));
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
         "Key Diversification Data", &key_diversification_data);
+#endif
     key_info_data = Buffer(update_response_data.substr(10, 2));
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
         "Key Info Data", &key_info_data);
+#endif
     card_challenge = Buffer(update_response_data.substr(12, 8));
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
         "Card Challenge", &card_challenge);
+#endif
     card_cryptogram = Buffer(update_response_data.substr(20, 8));
+#ifdef PKI_DEV_DEBUG
     RA::DebugBuffer(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
         "Card Cryptogram", &card_cryptogram);
+#endif
 
     channel = GenerateSecureChannel(
         session, connId,
@@ -2051,16 +2071,26 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
 		  "RA_Processor::GenerateSecureChannel - did not get drm_desKey_s");
 	return NULL;
       } else {
-	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
-		  "RA_Processor::GenerateSecureChannel - drm_desKey_s = %s", drm_desKey_s);
+#ifdef PKI_DEV_DEBUG
+          RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
+              "RA_Processor::GenerateSecureChannel - drm_desKey_s = %s", drm_desKey_s);
+#else
+          RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
+              "RA_Processor::GenerateSecureChannel - got drm_desKey_s");
+#endif
       }
       if ((kek_desKey_s == "") || (kek_desKey_s == NULL)) {
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 		  "RA_Processor::GenerateSecureChannel - did not get kek_desKey_s");
 	return NULL;
       } else {
-	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
-		  "RA_Processor::GenerateSecureChannel - kek_desKey_s = %s", kek_desKey_s);
+#ifdef PKI_DEV_DEBUG
+          RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
+            "RA_Processor::GenerateSecureChannel - kek_desKey_s = %s", kek_desKey_s);
+#else
+          RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
+            "RA_Processor::GenerateSecureChannel - kek_desKey_s" );
+#endif
       }
       if ((keycheck_s == "") || (keycheck_s == NULL)) {
 	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
@@ -2077,9 +2107,6 @@ Secure_Channel *RA_Processor::GenerateSecureChannel(
       RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
 	  "RA_Processor::GenerateSecureChannel - did not get host_cryptogram");
          return NULL;
-      } else {
-	RA::Debug(LL_PER_PDU, "RA_Processor::Setup_Secure_Channel",
-		  "RA_Processor::GenerateSecureChannel - keycheck_s = %s", keycheck_s);
       }
     }
 /*
@@ -2295,8 +2322,12 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &KDD, Buffer &version,
             if (content == NULL) {
                 RA::Debug(LL_PER_PDU,"TKSConnection::CreateKeySetData","Content Is NULL");
             } else {
+#ifdef PKI_DEV_DEBUG
                 RA::Debug(LL_PER_PDU,"TKSConnection::CreateKeySetData","Content Is '%s'",
                                         content);
+#else
+                RA::Debug(LL_PER_PDU,"TKSConnection::CreateKeySetData","Content Is not null");
+#endif
             }
             if (content != NULL) {
                 char *statusStr = strstr((char *)content, "status=0&");
@@ -3313,7 +3344,7 @@ int RA_Processor::ComputeRandomData(Buffer &data_out, int dataSize,  const char 
                       strncpy(dstr, p, dataSize * 3); 
                       dstr[dataSize*3] = '\0';
                       decodedRandomData = Util::URLDecode(dstr);
-                      RA::DebugBuffer("RA_Processor::ComputeRandomData", "decodedRandomData=", decodedRandomData);
+//                      RA::DebugBuffer("RA_Processor::ComputeRandomData", "decodedRandomData=", decodedRandomData);
 
                       if(dstr) {
                           data_out = *decodedRandomData;

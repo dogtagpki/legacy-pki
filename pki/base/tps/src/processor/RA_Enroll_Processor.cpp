@@ -329,9 +329,11 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
         PR_snprintf(audit_msg, 512, "ServerSideKeyGen called, failed to generate key on server");
 	goto loser;
       } else
+
+#ifdef PKI_DEV_DEBUG
 	RA::Debug(LL_PER_CONNECTION,FN,
 		"key value = %s", pKey);
-
+#endif
 
       if (wrappedPrivKey == NULL) {
 	RA::Debug(LL_PER_CONNECTION,FN,
@@ -452,18 +454,23 @@ RA_Status RA_Enroll_Processor::DoEnrollment(AuthParams *login, RA_Session *sessi
       }
       RA::Debug(LL_PER_CONNECTION,FN,
 	      "Successfully read public key buffer");
-      
+#ifdef PKI_DEV_DEBUG
       RA::DebugBuffer(LL_PER_CONNECTION,FN,
-		"public_key = ", public_key);
+          "public_key = ", public_key);
+#endif
 
       //got public key blob
       // parse public key blob and check POP
 
       RA::Debug(LL_PER_CONNECTION,FN,
 	      "challenge size=%d",plaintext_challenge->size());
+#ifdef PKI_DEV_DEBUG
       RA::DebugBuffer("RA_Enroll_Processor::process", "challenge = ", 
           plaintext_challenge);
-
+#else
+      RA::Debug(LL_PER_CONNECTION,FN,
+	      "got challenge");
+#endif
 
       // send status update to the client
 	StatusUpdate(session, extensions,
@@ -2706,7 +2713,9 @@ op.enroll.certificates.caCert.label=caCert Label
       	xb = pkcs11objx->GetData(); 
         RA::Debug("RA_Enroll_Processor::Process PKCSData", "Uncompressed Data");
       }
+#ifdef PKI_DEV_DEBUG
       RA::DebugBuffer("RA_Enroll_Processor::Process PKCSData", "PKCS Data=", &xb);
+#endif
 
 
       if(xb.size() == 0)  {
@@ -3375,9 +3384,17 @@ bool RA_Enroll_Processor::ExternalRegRecover(
                 o_status = STATUS_ERROR_RECOVERY_FAILED;
                 goto loser;
             } else {
+#ifdef PKI_DEV_DEBUG
                 RA::Debug(LL_PER_PDU, "DoEnrollment", "o_pub = %s", o_pub);
+#else
+                RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_pub is not NULL");
+#endif
                 if (pubk_b64 != NULL) {
+#ifdef PKI_DEV_DEBUG
                     RA::Debug(LL_PER_PDU, "DoEnrollment", "pubk_b64 = %s", pubk_b64);
+#else
+                    RA::Debug(LL_PER_PDU, "DoEnrollment", "pubk_b64 = <not null>");
+#endif
                     if (PL_strcmp(o_pub, pubk_b64) == 0) {
                         RA::Debug(LL_PER_CONNECTION, FN,
                             "recovered cert and keys match.");
@@ -3392,7 +3409,11 @@ bool RA_Enroll_Processor::ExternalRegRecover(
                 if (o_priv == NULL) {
                     RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::DoEnrollment()", "RecoverKey called, o_priv is NULL");
                 } else {
+#ifdef PKI_DEV_DEBUG
                     RA::Debug(LL_PER_PDU, "DoEnrollment", "o_priv = %s", o_priv);
+#else
+                    RA::Debug(LL_PER_PDU, "DoEnrollment", "got o_priv");
+#endif
 
                     if (ivParam == NULL) {
                         RA::Debug(LL_PER_CONNECTION,"RA_Enroll_Processor::ExternalRegRecover",
@@ -5162,7 +5183,11 @@ bool RA_Enroll_Processor::ProcessRecovery(AuthParams *login, char *reason, RA_Se
 			     goto rloser;
 			  */
 			} else
-			  RA::Debug(LL_PER_PDU, "DoEnrollment", "o_priv = %s", o_priv);
+#ifdef PKI_DEV_DEBUG
+                        RA::Debug(LL_PER_PDU, "DoEnrollment", "o_priv = %s", o_priv);
+#else
+                        RA::Debug(LL_PER_PDU, "DoEnrollment", "got o_priv");
+#endif
 
                         if (ivParam == NULL) {
                             RA::Debug(LL_PER_CONNECTION,"RA_Enroll_Processor::ProcessRecovery",

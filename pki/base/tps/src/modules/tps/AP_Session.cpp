@@ -99,6 +99,30 @@ static int contains_sensitive_keywords(char *msg)
     if (strstr(msg, "new_pin" ) != NULL ) {
       return 1;
     }
+
+#ifndef PKI_DEV_DEBUG
+    if (strstr(msg, "pdu_data" ) != NULL ) {
+      return 1;
+    }
+    if (strstr(msg, "drm_trans_wrapped_desKey" ) != NULL ) {
+      return 1;
+    }
+    if (strstr(msg, "kek_wrapped_desKey" ) != NULL ) {
+      return 1;
+    }
+    if (strstr(msg, "encSessionKey" ) != NULL ) {
+      return 1;
+    }
+    if (strstr(msg, "hostCryptogram" ) != NULL ) {
+      return 1;
+    }
+    if (strstr(msg, "sessionKey" ) != NULL ) {
+      return 1;
+    }
+    if (strstr(msg, "" ) != NULL ) {
+      return 1;
+    }
+#endif
     return 0;
 }
 
@@ -855,8 +879,15 @@ RA_Msg *AP_Session::ReadMsg()
                 goto loser;
             }
 
+#ifdef PKI_DEV_DEBUG
             RA::DebugBuffer( "AP_Session::ReadMsg",
                              "decoded pdu = ", decoded_pdu );
+#else
+            if (pdu_size <=2) {
+                RA::DebugBuffer( "AP_Session::ReadMsg",
+                             "decoded pdu = ", decoded_pdu );
+            }
+#endif
 
             APDU_Response *response = new APDU_Response( *decoded_pdu );
 
@@ -1146,7 +1177,16 @@ void AP_Session::WriteMsg( RA_Msg *msg )
                 pdu_encoded = NULL;
             }
 
+#ifdef PKI_DEV_DEBUG
             RA::Debug( "AP_Session::WriteMsg", "Sent '%s'", buf );
+#else
+            char debug_msgbuf[MAX_RA_MSG_SIZE];
+            sprintf( debug_msgbuf, "%s=%d&%s=%d&%s=<do not print>", 
+                     PARAM_MSG_TYPE, MSG_TOKEN_PDU_REQUEST,
+                     PARAM_PDU_SIZE, pdu_len,
+                     PARAM_PDU_DATA);
+            RA::Debug( "AP_Session::WriteMsg", "Sent '%s'", debug_msgbuf );
+#endif
 
             ( void ) ap_rwrite( ( const void * ) buf, strlen( buf ), m_rq );
 

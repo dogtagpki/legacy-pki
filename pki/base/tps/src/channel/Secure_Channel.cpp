@@ -2177,9 +2177,9 @@ Buffer Secure_Channel::CreatePKCS11CertAttrsBuffer(TokenKeyType key_type, const 
     Buffer b(256);       // allocate some space
     b.resize(7);         // this keeps the allocated space around
 
-  RA::Debug("Secure_Channel::CreatePKCS11CertAttrs", "id=%s", id);
-  RA::Debug("Secure_Channel::CreatePKCS11CertAttrs", "label=%s", label);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11CertAttrs", "keyid", keyid);
+    RA::Debug("Secure_Channel::CreatePKCS11CertAttrsBuffer", "id=%s", id);
+    RA::Debug("Secure_Channel::CreatePKCS11CertAttrsBuffer", "label=%s", label);
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11CertAttrsBuffer", "keyid", keyid);
     AppendAttribute(b, CKA_LABEL, strlen(label), (BYTE*)label);
     // hash of pubk
     AppendAttribute(b, CKA_ID,  keyid->size(), (BYTE*)*keyid);
@@ -2189,7 +2189,11 @@ Buffer Secure_Channel::CreatePKCS11CertAttrsBuffer(TokenKeyType key_type, const 
     AppendAttribute(b, CKA_TOKEN, 1, tokenflag);
     FinalizeBuffer(b, id);
 
- RA::DebugBuffer("Secure_Channel::CreatePKCS11CertAttrsBuffer", "buffer", &b);
+#ifdef PKI_DEV_DEBUG
+     RA::DebugBuffer("Secure_Channel::CreatePKCS11CertAttrsBuffer", "buffer", &b);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11CertAttrsBuffer", "<cert attrs buffer>");
+#endif
 
    return b;
 }
@@ -2215,7 +2219,11 @@ int Secure_Channel::CreatePKCS11CertAttrs(TokenKeyType key_type, const char *id,
     AppendAttribute(b, CKA_TOKEN, 1, tokenflag);
     FinalizeBuffer(b, id);
 
- RA::DebugBuffer("Secure_Channel::CreatePKCS11CertAttrs", "buffer", &b);
+#ifdef PKI_DEV_DEBUG
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11CertAttrs", "buffer", &b);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11CertAttrs", "cert attrs");
+#endif
 
 	BYTE perms[6];
 
@@ -2316,10 +2324,14 @@ Buffer Secure_Channel::CreatePKCS11PriKeyAttrsBuffer(TokenKeyType key_type, cons
     Buffer b(256);               // allocate some space
     b.resize(7);                 // this keeps the allocated space around
 
-  RA::Debug("Secure_Channel::CreatePKCS11PriAttrs", "label=%s", label);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PriAttrs", "keyid", keyid);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PriAttrs", "modulus", modulus);
-  RA::Debug("Secure_Channel::CreatePKCS11PriAttrs", "id=%s",id);
+    RA::Debug("Secure_Channel::CreatePKCS11PriKeyAttrs", "label=%s", label);
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PriKeyAttrs", "keyid", keyid);
+#ifdef PKI_DEV_DEBUG
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PriKeyAttrs", "modulus", modulus);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11PriKeyAttrs", "<modulus>");
+#endif
+    RA::Debug("Secure_Channel::CreatePKCS11PriKeyAttrs", "id=%s",id);
 
 //    AppendAttribute(b,CKA_LABEL, strlen(label), (BYTE*)label);
     AppendAttribute(b,CKA_MODULUS, modulus->size(), (BYTE*)*modulus);
@@ -2332,7 +2344,11 @@ Buffer Secure_Channel::CreatePKCS11PriKeyAttrsBuffer(TokenKeyType key_type, cons
 
     FinalizeBuffer(b, id);
 
- RA::DebugBuffer("Secure_Channel::CreatePKCS11PriAttrsBuffer", "buffer", &b);
+#ifdef PKI_DEV_DEBUG
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PriKeyAttrsBuffer", "buffer", &b);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11PriKeyAttrsBuffe", "<priv key attrs buffer>");
+#endif
 
     return b;
 
@@ -2353,9 +2369,13 @@ int Secure_Channel::CreatePKCS11PriKeyAttrs(TokenKeyType key_type, const char *i
     Buffer b(256);               // allocate some space
     b.resize(7);                 // this keeps the allocated space around
 
-  RA::Debug("Secure_Channel::CreatePKCS11PriAttrs", "label=%s", label);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PriAttrs", "keyid", keyid);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PriAttrs", "modulus", modulus);
+    RA::Debug("Secure_Channel::CreatePKCS11PriKeyAttrs", "label=%s", label);
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PriKeyAttrs", "keyid", keyid);
+#ifdef PKI_DEV_DEBUG
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PriKeyAttrs", "modulus", modulus);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11PriKeyAttrs", "<modulus>");
+#endif
 
 //    AppendAttribute(b,CKA_LABEL, strlen(label), (BYTE*)label);
     AppendAttribute(b,CKA_MODULUS, modulus->size(), (BYTE*)*modulus);
@@ -2368,7 +2388,11 @@ int Secure_Channel::CreatePKCS11PriKeyAttrs(TokenKeyType key_type, const char *i
 
     FinalizeBuffer(b, id);
 
- RA::DebugBuffer("Secure_Channel::CreatePKCS11PriAttrs", "buffer", &b);
+#ifdef PKI_DEV_DEBUG
+     RA::DebugBuffer("Secure_Channel::CreatePKCS11PriKeyAttrs", "buffer", &b);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11PriKeyAttrs", "<priv key attrs>");
+#endif
 
 	BYTE perms[6];
 
@@ -2439,10 +2463,15 @@ Buffer Secure_Channel::CreatePKCS11PubKeyAttrsBuffer(TokenKeyType key_type, cons
     Buffer b(256);        // allocate some space
     b.resize(7);          // this keeps the allocated space around
 
-  RA::Debug("Secure_Channel::CreatePKCS11PubAttrs", "label=%s", label);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PubAttrs", "keyid", keyid);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PubAttrs", "modulus", modulus);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PubAttrs", "exponent", exponent);
+    RA::Debug("Secure_Channel::CreatePKCS11PubKeyAttrs", "label=%s", label);
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PubKeyAttrs", "keyid", keyid);
+#ifdef PKI_DEV_DEBUG
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PubKeyAttrs", "modulus", modulus);
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PubKeyAttrs", "exponent", exponent);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11PubKeyAttrs", "<modulus>");
+    RA::Debug("Secure_Channel::CreatePKCS11PubKeyAttrs", "<exponent>");
+#endif
 
     AppendAttribute(b, CKA_PUBLIC_EXPONENT, exponent->size(),(BYTE*) *exponent);
     AppendAttribute(b,CKA_MODULUS, modulus->size(), (BYTE*)*modulus);
@@ -2456,7 +2485,11 @@ Buffer Secure_Channel::CreatePKCS11PubKeyAttrsBuffer(TokenKeyType key_type, cons
 
     FinalizeBuffer(b, id);
 
- RA::DebugBuffer("Secure_Channel::CreatePKCS11PubAttrsBuffer", "buffer", &b);
+#ifdef PKI_DEV_DEBUG
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PubKeyAttrsBuffer", "buffer", &b);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11PubKeyAttrsBuffer", "<pub attrs buffer>");
+#endif
 
     return b;
 } /* CreatePKCS11PubKeyAttrs */
@@ -2478,10 +2511,15 @@ int Secure_Channel::CreatePKCS11PubKeyAttrs(TokenKeyType key_type, const char *i
     Buffer b(256);        // allocate some space
     b.resize(7);          // this keeps the allocated space around
 
-  RA::Debug("Secure_Channel::CreatePKCS11PubAttrs", "label=%s", label);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PubAttrs", "keyid", keyid);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PubAttrs", "modulus", modulus);
-  RA::DebugBuffer("Secure_Channel::CreatePKCS11PubAttrs", "exponent", exponent);
+    RA::Debug("Secure_Channel::CreatePKCS11PubKeyAttrs", "label=%s", label);
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PubKeyAttrs", "keyid", keyid);
+#ifdef PKI_DEV_DEBUG
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PubKeyAttrs", "modulus", modulus);
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PubKeyAttrs", "exponent", exponent);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11PubKeyAttrs", "<modulus>");
+    RA::Debug("Secure_Channel::CreatePKCS11PubKeyAttrs", "<exponent>");
+#endif
 
     AppendAttribute(b, CKA_PUBLIC_EXPONENT, exponent->size(),(BYTE*) *exponent);
     AppendAttribute(b,CKA_MODULUS, modulus->size(), (BYTE*)*modulus);
@@ -2495,7 +2533,11 @@ int Secure_Channel::CreatePKCS11PubKeyAttrs(TokenKeyType key_type, const char *i
 
     FinalizeBuffer(b, id);
 
- RA::DebugBuffer("Secure_Channel::CreatePKCS11PubAttrs", "buffer", &b);
+#ifdef PKI_DEV_DEBUG
+    RA::DebugBuffer("Secure_Channel::CreatePKCS11PubKeyAttrs", "buffer", &b);
+#else
+    RA::Debug("Secure_Channel::CreatePKCS11PubKeyAttrs", "<pub attrs buffer>");
+#endif
 
 	BYTE perms[6];
 

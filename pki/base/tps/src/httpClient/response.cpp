@@ -174,7 +174,9 @@ PRBool RecvBuf::_getBytes(int size) {
 
     RA::Debug(LL_PER_PDU, "RecvBuf::_getBytes",
 	      "buffer received with size %d follows:", _contentSize);
+#ifdef PKI_DEV_DEBUG
     printBuf(_contentSize, _content);
+#endif
 
     return PR_TRUE;
 }
@@ -1024,10 +1026,12 @@ PRBool PSHttpResponse::processResponse() {
                "processed Buffer contentSize=%d",
                getContentSize() );
 	if (_content != NULL) {
+#ifdef PKI_DEV_DEBUG
     	RA::Debug( LL_PER_PDU,
                "PSHttpResponse::processResponse: ",
                "processed Buffer content=%s",
                _content );
+#endif
 	}
     // char * yo = getContent();
 
