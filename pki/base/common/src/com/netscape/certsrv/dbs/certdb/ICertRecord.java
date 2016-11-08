@@ -173,4 +173,10 @@ public interface ICertRecord extends IDBObj {
      * @return revocation info
      */
     public IRevocationInfo getRevocationInfo();
+
+   /**
+     * is this cert on hold?
+     * @return boolean is cert onHold
+     */
+    public boolean isCertOnHold();
 }    

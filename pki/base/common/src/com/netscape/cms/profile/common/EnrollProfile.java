@@ -1050,7 +1050,7 @@ public abstract class EnrollProfile extends BasicProfile
                         // keeping "aoluid" to be backward compatible
                         req.setExtData("aoluid", sn);
                         req.setExtData("uid", sn);
-                        CMS.debug("EnrollPrifile: fillNSNKEY(): uid="+sn);
+                        CMS.debug("EnrollProfile: fillNSNKEY(): uid="+sn);
 
                 } catch (Exception e) {
                         CMS.debug("EnrollProfile: fillNSNKEY(): "+e.toString());
@@ -1074,7 +1074,7 @@ public abstract class EnrollProfile extends BasicProfile
                         //                              X500Name("CN="+sn)));
                         req.setExtData("tokencuid", tcuid);
 
-                        CMS.debug("EnrollPrifile: fillNSNKEY(): tokencuid="+tcuid);
+                        CMS.debug("EnrollProfile: fillNSHKEY(): tokencuid="+tcuid);
 
                 } catch (Exception e) {
                         CMS.debug("EnrollProfile: fillNSHKEY(): "+e.toString());
