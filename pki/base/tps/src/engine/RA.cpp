@@ -1657,7 +1657,7 @@ PK11SymKey *RA::ComputeSessionKey(RA_Session *session,
         cuid = Util::SpecialURLEncode(CUID);
 	cuid_x = Util::Buffer2String(CUID);
         kdd = Util::SpecialURLEncode(KDD);
-        keyinfo = Util::SpecialURLEncode(keyInfo);
+        keyinfo = Util::SpecialURLEncode(keyInfo, true);
 
         if ((cardc == NULL) || (hostc == NULL) || (cardCrypto == NULL) ||
           (cuid == NULL) || (keyinfo == NULL) || (cuid_x == NULL))

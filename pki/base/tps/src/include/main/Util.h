@@ -65,6 +65,8 @@ class Util
       TPS_PUBLIC static NSSUTF8 *StripCR(NSSUTF8 *inString);
 	  TPS_PUBLIC static Buffer *URLDecode(const char *data);
 	  TPS_PUBLIC static char *SpecialURLEncode (Buffer &data);
+	  TPS_PUBLIC static char *SpecialURLEncode (Buffer &data,
+              bool skipAlphaNumeric);
 	  TPS_PUBLIC static Buffer *SpecialURLDecode(const char *data);
           TPS_PUBLIC static PRStatus GetRandomChallenge(Buffer &random);
           TPS_PUBLIC static PRStatus CreateKeySetData(

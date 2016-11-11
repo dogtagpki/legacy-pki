@@ -119,8 +119,11 @@ static BYTE hex2bin (BYTE ch)
       return (ch);
 }
 
-
 TPS_PUBLIC char *Util::SpecialURLEncode(Buffer &data) {
+    return SpecialURLEncode(data, false);
+}
+
+TPS_PUBLIC char *Util::SpecialURLEncode(Buffer &data, bool skipAlphaNumeric) {
         int i;
         BYTE *buf = (BYTE*)data;
         int len = (int)data.size();
@@ -130,7 +133,7 @@ TPS_PUBLIC char *Util::SpecialURLEncode(Buffer &data) {
         for (i = 0; i < len; i ++) {
                 if (buf[i] == ' ') {
                         sum+=1;
-                } else if (isAlphaNumeric(buf[i])) {
+                } else if (!skipAlphaNumeric && (isAlphaNumeric(buf[i]))) {
                         sum+=1;
                 } else {
                         sum+=3;
@@ -144,7 +147,7 @@ TPS_PUBLIC char *Util::SpecialURLEncode(Buffer &data) {
         for (i = 0; i < len; i ++) {
                 if (buf[i] == ' ') {
                         *cur++ = '+';
-                } else if (isAlphaNumeric(buf[i])) {
+                } else if (!skipAlphaNumeric && (isAlphaNumeric(buf[i]))) {
                         *cur++ = buf[i];
                 } else {
                         *cur++ = '#';
@@ -155,7 +158,6 @@ TPS_PUBLIC char *Util::SpecialURLEncode(Buffer &data) {
         *cur = '\0'; // null-terminated
         return ret;
 }
-
 TPS_PUBLIC char *Util::URLEncode (Buffer &data)
 {
 	int i;

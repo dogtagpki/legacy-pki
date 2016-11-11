@@ -2239,8 +2239,10 @@ int RA_Processor::CreateKeySetData(Buffer &CUID, Buffer &KDD, Buffer &version,
         char *cuid = Util::SpecialURLEncode(CUID);
 	char *cuid_x = Util::Buffer2String(CUID);
         char *kdd = Util::SpecialURLEncode(KDD);
-        char *versionID = Util::SpecialURLEncode(version);
-        char *masterV = Util::SpecialURLEncode(NewMasterVer);
+        char *versionID = Util::SpecialURLEncode(version,
+                true /*skipAlphaNumeric*/);
+        char *masterV = Util::SpecialURLEncode(NewMasterVer,
+                true /*skipAlphaNumeric*/);
 
 	keySet = GetKeySet(appInfo, cuid_x, connid, status);
 	if (keySet == NULL) {
