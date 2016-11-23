@@ -93,6 +93,8 @@ public class OIDMap {
     private static final String CRL_REASON  = ROOT + "." +
                                           CRLReasonExtension.NAME;
 
+    private static final String CRL_DISTRIBUTION_POINTS = ROOT + "." + CRLDistributionPointsExtension.NAME;
+
     private static final Hashtable oid2Name = new Hashtable();
     private static final Hashtable name2OID = new Hashtable();
     private static final Hashtable name2Class = new Hashtable();
@@ -120,6 +122,7 @@ public class OIDMap {
         props.put(AUTH_KEY_IDENTIFIER,"2.5.29.35");
         props.put(SUBJ_DIR_ATTR,"2.5.29.9");
         props.put(EXT_KEY_USAGE,"2.5.29.37");
+        props.put(CRL_DISTRIBUTION_POINTS, "2.5.29.31");
     }
 
     // Load the default name to class map (EXTENSIONS_CLASSES)
@@ -152,6 +155,7 @@ public class OIDMap {
                   "netscape.security.extensions.ExtendedKeyUsageExtension");
         props.put(CRL_NUMBER, "netscape.security.x509.CRLNumberExtension");
         props.put(CRL_REASON, "netscape.security.x509.CRLReasonExtension");
+        props.put(CRL_DISTRIBUTION_POINTS, "netscape.security.x509.CRLDistributionPointsExtension");
     }
 
     // Return the file along with location
