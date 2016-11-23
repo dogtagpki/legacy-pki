@@ -65,6 +65,7 @@
 #include "msg/RA_Token_PDU_Request_Msg.h"
 #include "msg/RA_Token_PDU_Response_Msg.h"
 #include "apdu/Lifecycle_APDU.h"
+#include "apdu/Get_Lifecycle_APDU.h"
 #include "apdu/Format_Muscle_Applet_APDU.h"
 #include "apdu/Initialize_Update_APDU.h"
 #include "apdu/Get_Version_APDU.h"
@@ -959,6 +960,86 @@ char* RA_Processor::GetKeySet(AppletInfo *appInfo, const char *cuid, const char 
 	}
 
 	return keySet;
+}
+
+char RA_Processor::GetLifecycle(RA_Session *session, Buffer *applet_aid){
+
+	char lifecycle;
+    Buffer data;
+    Buffer *status = NULL;
+    APDU_Response *get_lifecycle_response = NULL;
+    RA_Token_PDU_Request_Msg *get_lifecycle_request_msg = NULL;
+    RA_Token_PDU_Response_Msg *get_lifecycle_response_msg = NULL;
+    Get_Lifecycle_APDU *get_lifecycle_apdu = NULL;
+    Buffer get_status_data;
+
+    SelectApplet(session, 0x04, 0x00, applet_aid);
+
+    get_lifecycle_apdu = new Get_Lifecycle_APDU();
+
+    get_lifecycle_request_msg = new RA_Token_PDU_Request_Msg(get_lifecycle_apdu);
+
+    session->WriteMsg(get_lifecycle_request_msg);
+
+    RA::Debug(LL_PER_PDU, "RA_Processor::GetLifecycle", "Sent get_lifecycle_request_msg");
+
+    get_lifecycle_response_msg = (RA_Token_PDU_Response_Msg *)session->ReadMsg();
+
+    RA::Debug(LL_PER_PDU, "RA_Processor::GetLifecycle", "Received get_lifecycle_response_msg");
+
+    if(get_lifecycle_response_msg == NULL){
+    	RA::Error(LL_PER_PDU, "RA_Processor::GetLifecycle", "Did not receive a get_lifecycle_response_msg from client");
+    	lifecycle = 0xf0;
+    	goto loser;
+    }
+
+    if(get_lifecycle_response_msg->GetType() != MSG_TOKEN_PDU_RESPONSE){
+    	lifecycle = 0xf0;
+    	RA::Error(LL_PER_PDU, "RA_Processor::GetLifecycle", "Invalid Message Type");
+    	goto loser;
+
+    }
+
+    get_lifecycle_response = get_lifecycle_response_msg->GetResponse();
+
+    if(get_lifecycle_response == NULL){
+    	lifecycle = 0xf0;
+    	RA::Error(LL_PER_PDU, "RA_Processor::GetLifecycle", "get_lifecycle_response apdu is NULL");
+    	goto loser;
+    }
+
+    if(!((get_lifecycle_response->GetSW1() == 0x90) && (get_lifecycle_response->GetSW2() == 0x00))){
+    	lifecycle = 0xf0;
+    	RA::Error(LL_PER_PDU, "RA_Processor::GetLifecycle", "get_lifecycle_response sw is unsuccessful -> 0x%x 0x%x", get_lifecycle_response->GetSW1(), get_lifecycle_response->GetSW2());
+    	goto loser;
+    }
+
+    data = get_lifecycle_response->GetData();
+
+    if(data.size() != 3){
+    	lifecycle = 0xf0;
+    	RA::Error(LL_PER_PDU, "RA_Processor::GetLifecycle", "apdu response is the wrong size, the size is: %x", data.size());
+    	goto loser;
+    }
+
+    lifecycle = data[0];
+
+    RA::Debug(LL_PER_PDU, "RA_Processor::GetLifecycle", "Card Lifecycle: %x", lifecycle);
+
+loser:
+
+	if(get_lifecycle_request_msg != NULL){
+		delete get_lifecycle_request_msg;
+		get_lifecycle_request_msg = NULL;
+	}
+
+	if(get_lifecycle_response_msg != NULL){
+		delete get_lifecycle_response_msg;
+		get_lifecycle_response_msg = NULL;
+	}
+
+	return lifecycle;
+
 }
 
 int RA_Processor::SelectCardManager(RA_Session *session, char *prefix, char *tokenType)

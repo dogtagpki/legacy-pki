@@ -339,6 +339,7 @@ libtps_la_SOURCES =	src/main/Buffer.cpp                        \
 					src/apdu/Load_File_APDU.cpp                \
 					src/apdu/Install_Load_APDU.cpp             \
 					src/apdu/Lifecycle_APDU.cpp                \
+                                        src/apdu/Get_Lifecycle_APDU.cpp            \
 					src/apdu/List_Objects_APDU.cpp             \
 					src/apdu/Import_Key_APDU.cpp               \
 					src/apdu/Import_Key_Enc_APDU.cpp           \
@@ -456,6 +457,7 @@ tpsclient_SOURCES =	tools/raclient/RA_Client.cpp               \
 					src/apdu/Install_Applet_APDU.cpp           \
 					src/apdu/Install_Load_APDU.cpp             \
 					src/apdu/Lifecycle_APDU.cpp                \
+					src/apdu/Get_Lifecycle_APDU.cpp            \
 					src/apdu/List_Objects_APDU.cpp             \
 					src/apdu/Set_IssuerInfo_APDU.cpp           \
 					src/apdu/Get_IssuerInfo_APDU.cpp           \

@@ -182,6 +182,7 @@ am_libtps_la_OBJECTS = src/main/libtps_la-Buffer.lo \
 	src/apdu/libtps_la-Load_File_APDU.lo \
 	src/apdu/libtps_la-Install_Load_APDU.lo \
 	src/apdu/libtps_la-Lifecycle_APDU.lo \
+	src/apdu/libtps_la-Get_Lifecycle_APDU.lo \
 	src/apdu/libtps_la-List_Objects_APDU.lo \
 	src/apdu/libtps_la-Import_Key_APDU.lo \
 	src/apdu/libtps_la-Import_Key_Enc_APDU.lo \
@@ -261,6 +262,7 @@ am_tpsclient_OBJECTS = tools/raclient/tpsclient-RA_Client.$(OBJEXT) \
 	src/apdu/tpsclient-Install_Applet_APDU.$(OBJEXT) \
 	src/apdu/tpsclient-Install_Load_APDU.$(OBJEXT) \
 	src/apdu/tpsclient-Lifecycle_APDU.$(OBJEXT) \
+	src/apdu/tpsclient-Get_Lifecycle_APDU.$(OBJEXT) \
 	src/apdu/tpsclient-List_Objects_APDU.$(OBJEXT) \
 	src/apdu/tpsclient-Set_IssuerInfo_APDU.$(OBJEXT) \
 	src/apdu/tpsclient-Get_IssuerInfo_APDU.$(OBJEXT) \
@@ -809,6 +811,7 @@ libtps_la_SOURCES = src/main/Buffer.cpp                        \
 					src/apdu/Load_File_APDU.cpp                \
 					src/apdu/Install_Load_APDU.cpp             \
 					src/apdu/Lifecycle_APDU.cpp                \
+                                        src/apdu/Get_Lifecycle_APDU.cpp            \
 					src/apdu/List_Objects_APDU.cpp             \
 					src/apdu/Import_Key_APDU.cpp               \
 					src/apdu/Import_Key_Enc_APDU.cpp           \
@@ -928,6 +931,7 @@ tpsclient_SOURCES = tools/raclient/RA_Client.cpp               \
 					src/apdu/Install_Applet_APDU.cpp           \
 					src/apdu/Install_Load_APDU.cpp             \
 					src/apdu/Lifecycle_APDU.cpp                \
+					src/apdu/Get_Lifecycle_APDU.cpp            \
 					src/apdu/List_Objects_APDU.cpp             \
 					src/apdu/Set_IssuerInfo_APDU.cpp           \
 					src/apdu/Get_IssuerInfo_APDU.cpp           \
@@ -1244,6 +1248,8 @@ src/apdu/libtps_la-Install_Load_APDU.lo: src/apdu/$(am__dirstamp) \
 	src/apdu/$(DEPDIR)/$(am__dirstamp)
 src/apdu/libtps_la-Lifecycle_APDU.lo: src/apdu/$(am__dirstamp) \
 	src/apdu/$(DEPDIR)/$(am__dirstamp)
+src/apdu/libtps_la-Get_Lifecycle_APDU.lo: src/apdu/$(am__dirstamp) \
+	src/apdu/$(DEPDIR)/$(am__dirstamp)
 src/apdu/libtps_la-List_Objects_APDU.lo: src/apdu/$(am__dirstamp) \
 	src/apdu/$(DEPDIR)/$(am__dirstamp)
 src/apdu/libtps_la-Import_Key_APDU.lo: src/apdu/$(am__dirstamp) \
@@ -1458,6 +1464,8 @@ src/apdu/tpsclient-Install_Load_APDU.$(OBJEXT):  \
 	src/apdu/$(am__dirstamp) src/apdu/$(DEPDIR)/$(am__dirstamp)
 src/apdu/tpsclient-Lifecycle_APDU.$(OBJEXT): src/apdu/$(am__dirstamp) \
 	src/apdu/$(DEPDIR)/$(am__dirstamp)
+src/apdu/tpsclient-Get_Lifecycle_APDU.$(OBJEXT):  \
+	src/apdu/$(am__dirstamp) src/apdu/$(DEPDIR)/$(am__dirstamp)
 src/apdu/tpsclient-List_Objects_APDU.$(OBJEXT):  \
 	src/apdu/$(am__dirstamp) src/apdu/$(DEPDIR)/$(am__dirstamp)
 src/apdu/tpsclient-Set_IssuerInfo_APDU.$(OBJEXT):  \
@@ -1772,6 +1780,8 @@ mostlyclean-compile:
 	-rm -f src/apdu/libtps_la-Get_Data_APDU.lo
 	-rm -f src/apdu/libtps_la-Get_IssuerInfo_APDU.$(OBJEXT)
 	-rm -f src/apdu/libtps_la-Get_IssuerInfo_APDU.lo
+	-rm -f src/apdu/libtps_la-Get_Lifecycle_APDU.$(OBJEXT)
+	-rm -f src/apdu/libtps_la-Get_Lifecycle_APDU.lo
 	-rm -f src/apdu/libtps_la-Get_Status_APDU.$(OBJEXT)
 	-rm -f src/apdu/libtps_la-Get_Status_APDU.lo
 	-rm -f src/apdu/libtps_la-Get_Version_APDU.$(OBJEXT)
@@ -1820,6 +1830,7 @@ mostlyclean-compile:
 	-rm -f src/apdu/tpsclient-Generate_Key_APDU.$(OBJEXT)
 	-rm -f src/apdu/tpsclient-Get_Data_APDU.$(OBJEXT)
 	-rm -f src/apdu/tpsclient-Get_IssuerInfo_APDU.$(OBJEXT)
+	-rm -f src/apdu/tpsclient-Get_Lifecycle_APDU.$(OBJEXT)
 	-rm -f src/apdu/tpsclient-Get_Status_APDU.$(OBJEXT)
 	-rm -f src/apdu/tpsclient-Get_Version_APDU.$(OBJEXT)
 	-rm -f src/apdu/tpsclient-Import_Key_Enc_APDU.$(OBJEXT)
@@ -2006,6 +2017,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Generate_Key_APDU.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Get_Data_APDU.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Get_IssuerInfo_APDU.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Get_Lifecycle_APDU.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Get_Status_APDU.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Get_Version_APDU.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Import_Key_APDU.Plo@am__quote@
@@ -2035,6 +2047,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/tpsclient-Generate_Key_APDU.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/tpsclient-Get_Data_APDU.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/tpsclient-Get_IssuerInfo_APDU.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/tpsclient-Get_Lifecycle_APDU.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/tpsclient-Get_Status_APDU.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/tpsclient-Get_Version_APDU.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/tpsclient-Import_Key_Enc_APDU.Po@am__quote@
@@ -2589,6 +2602,13 @@ src/apdu/libtps_la-Lifecycle_APDU.lo: src/apdu/Lifecycle_APDU.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/apdu/Lifecycle_APDU.cpp' object='src/apdu/libtps_la-Lifecycle_APDU.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/apdu/libtps_la-Lifecycle_APDU.lo `test -f 'src/apdu/Lifecycle_APDU.cpp' || echo '$(srcdir)/'`src/apdu/Lifecycle_APDU.cpp
+
+src/apdu/libtps_la-Get_Lifecycle_APDU.lo: src/apdu/Get_Lifecycle_APDU.cpp
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/apdu/libtps_la-Get_Lifecycle_APDU.lo -MD -MP -MF "src/apdu/$(DEPDIR)/libtps_la-Get_Lifecycle_APDU.Tpo" -c -o src/apdu/libtps_la-Get_Lifecycle_APDU.lo `test -f 'src/apdu/Get_Lifecycle_APDU.cpp' || echo '$(srcdir)/'`src/apdu/Get_Lifecycle_APDU.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/apdu/$(DEPDIR)/libtps_la-Get_Lifecycle_APDU.Tpo" "src/apdu/$(DEPDIR)/libtps_la-Get_Lifecycle_APDU.Plo"; else rm -f "src/apdu/$(DEPDIR)/libtps_la-Get_Lifecycle_APDU.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/apdu/Get_Lifecycle_APDU.cpp' object='src/apdu/libtps_la-Get_Lifecycle_APDU.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/apdu/libtps_la-Get_Lifecycle_APDU.lo `test -f 'src/apdu/Get_Lifecycle_APDU.cpp' || echo '$(srcdir)/'`src/apdu/Get_Lifecycle_APDU.cpp
 
 src/apdu/libtps_la-List_Objects_APDU.lo: src/apdu/List_Objects_APDU.cpp
 @am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/apdu/libtps_la-List_Objects_APDU.lo -MD -MP -MF "src/apdu/$(DEPDIR)/libtps_la-List_Objects_APDU.Tpo" -c -o src/apdu/libtps_la-List_Objects_APDU.lo `test -f 'src/apdu/List_Objects_APDU.cpp' || echo '$(srcdir)/'`src/apdu/List_Objects_APDU.cpp; \
@@ -3156,6 +3176,20 @@ src/apdu/tpsclient-Lifecycle_APDU.obj: src/apdu/Lifecycle_APDU.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/apdu/Lifecycle_APDU.cpp' object='src/apdu/tpsclient-Lifecycle_APDU.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tpsclient_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/apdu/tpsclient-Lifecycle_APDU.obj `if test -f 'src/apdu/Lifecycle_APDU.cpp'; then $(CYGPATH_W) 'src/apdu/Lifecycle_APDU.cpp'; else $(CYGPATH_W) '$(srcdir)/src/apdu/Lifecycle_APDU.cpp'; fi`
+
+src/apdu/tpsclient-Get_Lifecycle_APDU.o: src/apdu/Get_Lifecycle_APDU.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tpsclient_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/apdu/tpsclient-Get_Lifecycle_APDU.o -MD -MP -MF "src/apdu/$(DEPDIR)/tpsclient-Get_Lifecycle_APDU.Tpo" -c -o src/apdu/tpsclient-Get_Lifecycle_APDU.o `test -f 'src/apdu/Get_Lifecycle_APDU.cpp' || echo '$(srcdir)/'`src/apdu/Get_Lifecycle_APDU.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/apdu/$(DEPDIR)/tpsclient-Get_Lifecycle_APDU.Tpo" "src/apdu/$(DEPDIR)/tpsclient-Get_Lifecycle_APDU.Po"; else rm -f "src/apdu/$(DEPDIR)/tpsclient-Get_Lifecycle_APDU.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/apdu/Get_Lifecycle_APDU.cpp' object='src/apdu/tpsclient-Get_Lifecycle_APDU.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tpsclient_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/apdu/tpsclient-Get_Lifecycle_APDU.o `test -f 'src/apdu/Get_Lifecycle_APDU.cpp' || echo '$(srcdir)/'`src/apdu/Get_Lifecycle_APDU.cpp
+
+src/apdu/tpsclient-Get_Lifecycle_APDU.obj: src/apdu/Get_Lifecycle_APDU.cpp
+@am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tpsclient_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/apdu/tpsclient-Get_Lifecycle_APDU.obj -MD -MP -MF "src/apdu/$(DEPDIR)/tpsclient-Get_Lifecycle_APDU.Tpo" -c -o src/apdu/tpsclient-Get_Lifecycle_APDU.obj `if test -f 'src/apdu/Get_Lifecycle_APDU.cpp'; then $(CYGPATH_W) 'src/apdu/Get_Lifecycle_APDU.cpp'; else $(CYGPATH_W) '$(srcdir)/src/apdu/Get_Lifecycle_APDU.cpp'; fi`; \
+@am__fastdepCXX_TRUE@	then mv -f "src/apdu/$(DEPDIR)/tpsclient-Get_Lifecycle_APDU.Tpo" "src/apdu/$(DEPDIR)/tpsclient-Get_Lifecycle_APDU.Po"; else rm -f "src/apdu/$(DEPDIR)/tpsclient-Get_Lifecycle_APDU.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/apdu/Get_Lifecycle_APDU.cpp' object='src/apdu/tpsclient-Get_Lifecycle_APDU.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tpsclient_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/apdu/tpsclient-Get_Lifecycle_APDU.obj `if test -f 'src/apdu/Get_Lifecycle_APDU.cpp'; then $(CYGPATH_W) 'src/apdu/Get_Lifecycle_APDU.cpp'; else $(CYGPATH_W) '$(srcdir)/src/apdu/Get_Lifecycle_APDU.cpp'; fi`
 
 src/apdu/tpsclient-List_Objects_APDU.o: src/apdu/List_Objects_APDU.cpp
 @am__fastdepCXX_TRUE@	if $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(tpsclient_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/apdu/tpsclient-List_Objects_APDU.o -MD -MP -MF "src/apdu/$(DEPDIR)/tpsclient-List_Objects_APDU.Tpo" -c -o src/apdu/tpsclient-List_Objects_APDU.o `test -f 'src/apdu/List_Objects_APDU.cpp' || echo '$(srcdir)/'`src/apdu/List_Objects_APDU.cpp; \
@@ -4052,7 +4086,7 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
-	-find $(distdir) -type d ! -perm -777 -exec chmod a+rwx {} \; -o \
+	-find $(distdir) -type d ! -perm -755 -exec chmod a+rwx,go+rx {} \; -o \
 	  ! -type d ! -perm -444 -links 1 -exec chmod a+r {} \; -o \
 	  ! -type d ! -perm -400 -exec chmod a+r {} \; -o \
 	  ! -type d ! -perm -444 -exec $(SHELL) $(install_sh) -c -m a+r {} {} \; \
@@ -4098,7 +4132,7 @@ distcheck: dist
 	*.zip*) \
 	  unzip $(distdir).zip ;;\
 	esac
-	chmod -R a-w $(distdir); chmod a+w $(distdir)
+	chmod -R a-w $(distdir); chmod u+w $(distdir)
 	mkdir $(distdir)/_build
 	mkdir $(distdir)/_inst
 	chmod a-w $(distdir)

@@ -1840,6 +1840,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     Buffer *token_status = NULL;
     char* appletVersion = NULL;
     char *final_applet_version = NULL;
+    char *before_upg_applet_version = NULL;
 
     char *keyVersion = PL_strdup( "" );
     const char *userid = PL_strdup( "" );
@@ -1884,6 +1885,8 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     bool do_force_format = false;
     ExternalRegAttrs *regAttrs = NULL;
     AppletInfo *appInfo = NULL;
+    
+    char card_lifecycle = 0xf0;
 
     RA::Debug("RA_Enroll_Processor::Process", "Client %s", 
                       session->GetRemoteIP());
@@ -1905,6 +1908,8 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
         app_major_version, app_minor_version )) goto loser;
 
     appInfo = RA::CreateAppletInfo(major_version, minor_version, msn, extensions);
+
+    card_lifecycle = GetLifecycle(session, NetKeyAID);
 
     if (isExternalReg ) {
         /*
@@ -2099,6 +2104,9 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
 
                 }
         }  else {
+            // Save the applet version before upgrade
+            before_upg_applet_version = PL_strdup(final_applet_version);
+            RA::Debug("RA_Enroll_Processor::Process","before_upg_applet_version = %s", before_upg_applet_version);
             if (! CheckAndUpgradeApplet(
 		    session,
 		    extensions,
@@ -2795,15 +2803,23 @@ op.enroll.certificates.caCert.label=caCert Label
             }
         }
     }
-    /* write lifecycle bit */
-    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "Set Lifecycle State");
-    rc = channel->SetLifecycleState(0x0f);
-    if (rc == -1) {
-        RA::Error("RA_Enroll_Processor::Process",
-		"Set life cycle state failed");
-        status = STATUS_ERROR_MAC_LIFESTYLE_PDU;
-        PR_snprintf(audit_msg, 512, "set life cycle state error");
-        goto loser;
+
+     RA::Debug("RA_Enroll_Processor", "before_upg_applet_version: %s final_applet_version: %s",before_upg_applet_version,final_applet_version);
+    /*check the lifecycle bit, if not 0x0f, then try to set */
+    /* Also check if applet has been upgraded.  If so, set the lifecycle bit to 0x0f */
+    if((card_lifecycle != 0x0f) || (PL_strcmp(final_applet_version, before_upg_applet_version) != 0)){
+        /* write lifecycle bit */
+        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "Set Lifecycle State");
+        rc = channel->SetLifecycleState(0x0f);
+        if (rc == -1) {
+            RA::Error("RA_Enroll_Processor::Process",
+	    	"Set life cycle state failed");
+            status = STATUS_ERROR_MAC_LIFESTYLE_PDU;
+            PR_snprintf(audit_msg, 512, "set life cycle state error");
+            goto loser;
+         }
+    } else {
+        RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "Set Lifecycle State already set, no need to reset it.");
     }
 
     rc = channel->Close();
@@ -3062,6 +3078,11 @@ loser:
         appInfo = NULL;
     }
 
+    if (before_upg_applet_version != NULL) {
+        PL_strfree(before_upg_applet_version);
+        before_upg_applet_version = NULL;
+    }
+     
 #ifdef   MEM_PROFILING     
             MEM_dump_unfree();
 #endif

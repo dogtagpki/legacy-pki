@@ -54,6 +54,7 @@
 #include "apdu/Select_APDU.h"
 #include "apdu/Get_Version_APDU.h"
 #include "apdu/Put_Key_APDU.h"
+#include "apdu/Get_Lifecycle_APDU.h"
 #include "msg/RA_Begin_Op_Msg.h"
 #include "msg/RA_End_Op_Msg.h"
 #include "msg/RA_Extended_Login_Request_Msg.h"
@@ -873,6 +874,13 @@ RA_Conn::CreateAPDU (RA_Token * tok, Buffer & in_apdu_data, Buffer & mac)
 	  data = NULL;
 	}
     }
+  else if (((BYTE *) apdu_data)[1] == 0xF2)
+     {
+     /* Get Lifecycle */
+
+        apdu = new  Get_Lifecycle_APDU()  ;     
+
+     }
   else
     {
       /* error */
@@ -995,7 +1003,13 @@ RA_Conn::ReadMsg (RA_Token * token)
 
       Buffer mac;
       APDU *apdu = CreateAPDU (token, *apdu_data, mac);
-      msg = new RA_Token_PDU_Request_Msg (apdu);
+
+      if(apdu == NULL) {
+         msg = NULL; 
+      } else {
+         msg = new RA_Token_PDU_Request_Msg (apdu);
+      }
+
       if (apdu_data != NULL)
 	{
 	  delete apdu_data;

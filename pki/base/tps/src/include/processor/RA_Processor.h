@@ -205,6 +205,8 @@ class RA_Processor
 			const char *connid,
 			RA_Status &o_status);
 
+                char GetLifecycle(RA_Session *session, Buffer *applet_aid);
+
 		Buffer *ListObjects(RA_Session *session, BYTE seq);
 
 		Buffer *GetStatus(RA_Session *session, BYTE p1, BYTE p2);
