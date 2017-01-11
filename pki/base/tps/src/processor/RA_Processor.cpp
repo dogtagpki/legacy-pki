@@ -5692,6 +5692,84 @@ void RA_Processor::CleanObjectListBeforeExternalRecovery(PKCS11Obj *pkcs11objx, 
     }
 }
 
+/* Get a byte buffer filled with the list of key object slots or indexes that are going on the token at the
+   end of an enrollment operation. The final result wil be something like:
+   [2][3][4][5]
+
+   This is the common 2 cert enrollment scenarion
+
+*/
+
+void RA_Processor::GetListOfAllKeyAttrIds(PKCS11Obj *pkcs11objx, Buffer &keyList) {
+    char b[3];
+
+    if ( !pkcs11objx) {
+        RA::Debug("RA_Processor::GetListOfAllKeyAttrIds", "invalid input data, leaving...");
+        return;
+    }
+
+    RA::Debug("RA_Processor::GetListOfAllKeyAttrIds", "entering");
+
+    int objectCount = pkcs11objx->PKCS11Obj::GetObjectSpecCount();
+
+    RA::Debug("RA_Processor::GetListOfAllKeyAttrIds", "*** objectCount: %d", objectCount);
+
+    int index = 0;
+    for (int i = 0; i< objectCount ;  i++) {
+        ObjectSpec* os = pkcs11objx->GetObjectSpec(i);
+        unsigned long oid = os->GetObjectID();
+        b[0] = (char)((oid >> 24) & 0xff);
+        b[1] = (char)((oid >> 16) & 0xff);
+        b[2] = '\0';
+
+        index = b[1] - '0';
+
+        if (b[0] == 'C') {
+           RA::Debug(LL_PER_PDU, "RA_Processor::GetListOfAllKeyAttrIds",
+               "Found cert Object %s", b);
+
+           int privId = 0;
+           int pubId = 0;
+           /* locate private object */
+           for (int y = 0; y < objectCount; y++) {
+                   ObjectSpec *y_spec = pkcs11objx->GetObjectSpec(y);
+                   unsigned long y_fixedAttrs =
+                           y_spec->GetFixedAttributes();
+                   unsigned int y_xclass = (y_fixedAttrs & 0x70) >> 4;
+                   unsigned int y_id = (y_fixedAttrs & 0x0f);
+                   if (y_xclass == CKO_PRIVATE_KEY && y_id == index) {
+                       unsigned long oid = y_spec->GetObjectID();
+                       b[0] = (char)((oid >> 24) & 0xff);
+                       b[1] = (char)((oid >> 16) & 0xff);
+                       b[2] = '\0';
+                       privId = b[1] - '0';
+                       RA::Debug("RA_Processor::GetListOfAllKeyAttrIds", "located Private Key's id  = %d", privId);
+                       keyList += (BYTE) privId;
+                    }
+            }
+
+
+           /* locate public object */
+            for (int x = 0; x < objectCount; x++) {
+                ObjectSpec *x_spec = pkcs11objx->GetObjectSpec(x);
+                unsigned long x_fixedAttrs =
+                        x_spec->GetFixedAttributes();
+                unsigned int x_xclass = (x_fixedAttrs & 0x70) >> 4;
+                unsigned int x_id = (x_fixedAttrs & 0x0f);
+                if (x_xclass == CKO_PUBLIC_KEY && x_id == index) {
+                         unsigned long oid = x_spec->GetObjectID();
+                         b[0] = (char)((oid >> 24) & 0xff);
+                         b[1] = (char)((oid >> 16) & 0xff);
+                         b[2] = '\0';
+                         pubId = b[1] - '0';
+                         keyList += (BYTE) pubId;
+                         RA::Debug("RA_Processor::GetListOfAllKeyAttrIds", "located Public Key's id  = %d", pubId);
+                }
+            }
+        } 
+    }
+}
+
 /* Remove a certificate from the Object Spec List based on Cert index , C(1), C(2), etc */
 
 void RA_Processor::RemoveCertFromObjectList(int cIndex, PKCS11Obj *pkcs11objx) {

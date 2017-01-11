@@ -1810,6 +1810,7 @@ TPS_PUBLIC RA_Status RA_Enroll_Processor::Process(RA_Session *session, NameValue
     int rc = -1;
     Secure_Channel *channel = NULL;
     Buffer kdd;
+    Buffer keyList;
     AuthParams *login = NULL;
     char *new_pin = NULL;
 #define PLAINTEXT_CHALLENGE_SIZE 16
@@ -2821,6 +2822,11 @@ op.enroll.certificates.caCert.label=caCert Label
     } else {
         RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "Set Lifecycle State already set, no need to reset it.");
     }
+
+    RA::Debug(LL_PER_PDU, "RA_Enroll_Processor::Process", "About to get list of key indexes written to token.");
+    GetListOfAllKeyAttrIds(pkcs11objx, keyList);
+
+    rc = channel->ClearAppletKeySlots(keyList);
 
     rc = channel->Close();
     if (rc == -1) {

@@ -76,7 +76,8 @@ enum APDU_Type {
 	    APDU_IMPORT_KEY_ENC = 25,
 	    APDU_SET_ISSUERINFO = 26,
 	    APDU_GET_ISSUERINFO = 27,
-            APDU_GET_LIFECYCLE = 28
+            APDU_GET_LIFECYCLE = 28,
+            APDU_CLEAR_KEY_SLOTS = 29
 };
 
 class APDU

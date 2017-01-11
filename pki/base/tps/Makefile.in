@@ -183,6 +183,7 @@ am_libtps_la_OBJECTS = src/main/libtps_la-Buffer.lo \
 	src/apdu/libtps_la-Install_Load_APDU.lo \
 	src/apdu/libtps_la-Lifecycle_APDU.lo \
 	src/apdu/libtps_la-Get_Lifecycle_APDU.lo \
+	src/apdu/libtps_la-Clear_Key_Slots_APDU.lo \
 	src/apdu/libtps_la-List_Objects_APDU.lo \
 	src/apdu/libtps_la-Import_Key_APDU.lo \
 	src/apdu/libtps_la-Import_Key_Enc_APDU.lo \
@@ -618,7 +619,8 @@ applets_DATA = $(srcdir)/applets/1.4.5265a65e.ijc \
 		$(srcdir)/applets/1.3.44724DDE.ijc \
 		$(srcdir)/applets/1.4.54de790f.ijc \
 		$(srcdir)/applets/1.4.54de746f.ijc \
-		$(srcdir)/applets/1.4.54de7a99.ijc
+		$(srcdir)/applets/1.4.54de7a99.ijc \
+		$(srcdir)/applets/1.4.58768072.ijc
 
 bin_SCRIPTS = wrappers/tpsclient
 cgibin_demo_DATA = 
@@ -812,6 +814,7 @@ libtps_la_SOURCES = src/main/Buffer.cpp                        \
 					src/apdu/Install_Load_APDU.cpp             \
 					src/apdu/Lifecycle_APDU.cpp                \
                                         src/apdu/Get_Lifecycle_APDU.cpp            \
+					src/apdu/Clear_Key_Slots_APDU.cpp          \
 					src/apdu/List_Objects_APDU.cpp             \
 					src/apdu/Import_Key_APDU.cpp               \
 					src/apdu/Import_Key_Enc_APDU.cpp           \
@@ -1249,6 +1252,8 @@ src/apdu/libtps_la-Install_Load_APDU.lo: src/apdu/$(am__dirstamp) \
 src/apdu/libtps_la-Lifecycle_APDU.lo: src/apdu/$(am__dirstamp) \
 	src/apdu/$(DEPDIR)/$(am__dirstamp)
 src/apdu/libtps_la-Get_Lifecycle_APDU.lo: src/apdu/$(am__dirstamp) \
+	src/apdu/$(DEPDIR)/$(am__dirstamp)
+src/apdu/libtps_la-Clear_Key_Slots_APDU.lo: src/apdu/$(am__dirstamp) \
 	src/apdu/$(DEPDIR)/$(am__dirstamp)
 src/apdu/libtps_la-List_Objects_APDU.lo: src/apdu/$(am__dirstamp) \
 	src/apdu/$(DEPDIR)/$(am__dirstamp)
@@ -1764,6 +1769,8 @@ mostlyclean-compile:
 	-rm -f src/apdu/libtps_la-APDU.lo
 	-rm -f src/apdu/libtps_la-APDU_Response.$(OBJEXT)
 	-rm -f src/apdu/libtps_la-APDU_Response.lo
+	-rm -f src/apdu/libtps_la-Clear_Key_Slots_APDU.$(OBJEXT)
+	-rm -f src/apdu/libtps_la-Clear_Key_Slots_APDU.lo
 	-rm -f src/apdu/libtps_la-Create_Object_APDU.$(OBJEXT)
 	-rm -f src/apdu/libtps_la-Create_Object_APDU.lo
 	-rm -f src/apdu/libtps_la-Create_Pin_APDU.$(OBJEXT)
@@ -2009,6 +2016,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-APDU.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-APDU_Response.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Clear_Key_Slots_APDU.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Create_Object_APDU.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Create_Pin_APDU.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@src/apdu/$(DEPDIR)/libtps_la-Delete_File_APDU.Plo@am__quote@
@@ -2609,6 +2617,13 @@ src/apdu/libtps_la-Get_Lifecycle_APDU.lo: src/apdu/Get_Lifecycle_APDU.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/apdu/Get_Lifecycle_APDU.cpp' object='src/apdu/libtps_la-Get_Lifecycle_APDU.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/apdu/libtps_la-Get_Lifecycle_APDU.lo `test -f 'src/apdu/Get_Lifecycle_APDU.cpp' || echo '$(srcdir)/'`src/apdu/Get_Lifecycle_APDU.cpp
+
+src/apdu/libtps_la-Clear_Key_Slots_APDU.lo: src/apdu/Clear_Key_Slots_APDU.cpp
+@am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/apdu/libtps_la-Clear_Key_Slots_APDU.lo -MD -MP -MF "src/apdu/$(DEPDIR)/libtps_la-Clear_Key_Slots_APDU.Tpo" -c -o src/apdu/libtps_la-Clear_Key_Slots_APDU.lo `test -f 'src/apdu/Clear_Key_Slots_APDU.cpp' || echo '$(srcdir)/'`src/apdu/Clear_Key_Slots_APDU.cpp; \
+@am__fastdepCXX_TRUE@	then mv -f "src/apdu/$(DEPDIR)/libtps_la-Clear_Key_Slots_APDU.Tpo" "src/apdu/$(DEPDIR)/libtps_la-Clear_Key_Slots_APDU.Plo"; else rm -f "src/apdu/$(DEPDIR)/libtps_la-Clear_Key_Slots_APDU.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='src/apdu/Clear_Key_Slots_APDU.cpp' object='src/apdu/libtps_la-Clear_Key_Slots_APDU.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o src/apdu/libtps_la-Clear_Key_Slots_APDU.lo `test -f 'src/apdu/Clear_Key_Slots_APDU.cpp' || echo '$(srcdir)/'`src/apdu/Clear_Key_Slots_APDU.cpp
 
 src/apdu/libtps_la-List_Objects_APDU.lo: src/apdu/List_Objects_APDU.cpp
 @am__fastdepCXX_TRUE@	if $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libtps_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT src/apdu/libtps_la-List_Objects_APDU.lo -MD -MP -MF "src/apdu/$(DEPDIR)/libtps_la-List_Objects_APDU.Tpo" -c -o src/apdu/libtps_la-List_Objects_APDU.lo `test -f 'src/apdu/List_Objects_APDU.cpp' || echo '$(srcdir)/'`src/apdu/List_Objects_APDU.cpp; \

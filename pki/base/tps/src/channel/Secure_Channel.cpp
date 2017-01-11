@@ -47,6 +47,7 @@
 #include "apdu/Create_Pin_APDU.h"
 #include "apdu/List_Pins_APDU.h"
 #include "apdu/APDU_Response.h"
+#include "apdu/Clear_Key_Slots_APDU.h"
 #include "main/Memory.h"
 
 /**
@@ -1315,6 +1316,92 @@ loser:
     return rc;
 } /* SetLifecycleState */
 
+int Secure_Channel::ClearAppletKeySlots(Buffer& keyList) {
+    int rc = -1;
+    Clear_Key_Slots_APDU *clear_keys_apdu = NULL;
+    APDU_Response *response = NULL;
+    RA_Token_PDU_Request_Msg *token_pdu_request_msg = NULL;
+    RA_Token_PDU_Response_Msg *token_pdu_response_msg = NULL;
+    Buffer *mac = NULL;
+	const char *FN = "Secure_Channel::Clear_Key_Slots_APDU";
+
+    RA::Debug(LL_PER_CONNECTION,FN,
+        "Begin");
+    clear_keys_apdu = new Clear_Key_Slots_APDU(keyList);
+    rc = ComputeAPDU(clear_keys_apdu);
+    if (rc == -1)
+      goto loser;
+
+    /*
+    mac = ComputeAPDUMac(lifecycle_apdu);
+    lifecycle_apdu->SetMAC(*mac);
+    */
+    token_pdu_request_msg = new RA_Token_PDU_Request_Msg(
+        clear_keys_apdu);
+    m_session->WriteMsg(token_pdu_request_msg);
+    RA::Debug(LL_PER_CONNECTION,FN,
+        "Sent token_pdu_request_msg");
+
+    token_pdu_response_msg = (RA_Token_PDU_Response_Msg *)
+        m_session->ReadMsg();
+    if (token_pdu_response_msg == NULL)
+    {
+        RA::Error(LL_PER_CONNECTION,FN,
+            "No Token PDU Response Msg Received");
+        rc = -1;
+        goto loser;
+    }
+    if (token_pdu_response_msg->GetType() != MSG_TOKEN_PDU_RESPONSE)
+    {
+        RA::Error(LL_PER_CONNECTION,FN,
+            "Invalid Msg Received");
+        rc = -1;
+        goto loser;
+    }
+    response = token_pdu_response_msg->GetResponse();
+    if (response == NULL) {
+        RA::Error(LL_PER_CONNECTION,FN,
+            "No Response From Token");
+	rc = -1;
+        goto loser;
+    }
+    if (response->GetData().size() < 2) {
+        RA::Error(LL_PER_CONNECTION,FN,
+            "Invalid Response From Token");
+	rc = -1;
+        goto loser;
+    }
+    if (!(response->GetSW1() == 0x90 && 
+	 	response->GetSW2() == 0x00)) {
+           RA::Error(LL_PER_CONNECTION,FN,
+                "Error Response from token: %2x%2x",
+				response->GetSW1(),
+				response->GetSW2());
+	   rc = -1;
+           goto loser;
+     }
+
+    rc = 0;
+
+loser:
+    if( mac != NULL ) {
+        delete mac;
+        mac = NULL;
+    }
+    if( token_pdu_request_msg != NULL ) {
+        delete token_pdu_request_msg;
+        token_pdu_request_msg = NULL;
+    }
+    if( token_pdu_response_msg != NULL ) {
+        delete token_pdu_response_msg;
+        token_pdu_response_msg = NULL;
+    }
+
+    return rc;
+
+
+
+}
 
 char * Secure_Channel::getDrmWrappedDESKey()
 {

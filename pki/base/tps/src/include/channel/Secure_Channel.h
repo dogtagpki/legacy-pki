@@ -117,6 +117,8 @@ class Secure_Channel : public Channel
 	                Buffer& packageAID, Buffer& sdAID, unsigned int fileLen);
 	  int DeleteFileX(RA_Session *session, Buffer *aid);
 	  int Close();
+
+          int ClearAppletKeySlots(Buffer& keyList);
   public:
           int CreateObject(BYTE *objid, BYTE *perms, Buffer *obj);
           int CreateCertificate(const char *id, Buffer *cert);

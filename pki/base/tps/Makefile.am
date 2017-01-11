@@ -124,7 +124,8 @@ applets_DATA =	$(srcdir)/applets/1.4.5265a65e.ijc \
 		$(srcdir)/applets/1.3.44724DDE.ijc \
 		$(srcdir)/applets/1.4.54de790f.ijc \
 		$(srcdir)/applets/1.4.54de746f.ijc \
-		$(srcdir)/applets/1.4.54de7a99.ijc
+		$(srcdir)/applets/1.4.54de7a99.ijc \
+		$(srcdir)/applets/1.4.58768072.ijc
 
 bin_SCRIPTS =	wrappers/tpsclient
 
@@ -340,6 +341,7 @@ libtps_la_SOURCES =	src/main/Buffer.cpp                        \
 					src/apdu/Install_Load_APDU.cpp             \
 					src/apdu/Lifecycle_APDU.cpp                \
                                         src/apdu/Get_Lifecycle_APDU.cpp            \
+					src/apdu/Clear_Key_Slots_APDU.cpp          \
 					src/apdu/List_Objects_APDU.cpp             \
 					src/apdu/Import_Key_APDU.cpp               \
 					src/apdu/Import_Key_Enc_APDU.cpp           \

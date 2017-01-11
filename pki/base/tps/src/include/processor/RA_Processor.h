@@ -330,6 +330,8 @@ class RA_Processor
 		                                        Buffer &bufCardSuppliedKeyInfo, const char *pcharOpPrefix,
 		                                        const char *pcharTokenType);
 
+                void GetListOfAllKeyAttrIds(PKCS11Obj *pkcs11objx, Buffer &keyList);
+
                 int totalAvailableMemory;
                 int totalFreeMemory;
 };
