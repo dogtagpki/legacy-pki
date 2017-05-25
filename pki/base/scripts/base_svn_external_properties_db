@@ -6,4 +6,5 @@
 #  that need to be saved MUST be applied to the top-level directory referred  #
 #  to by each external SVN property (i.e. - 'pki/base/config').               #
 ###############################################################################
-config http://svn.fedorahosted.org/svn/pki/branches/PKI_8_1_ADVANCED_ERRATA_BRANCH/pki/base/config
+## config http://svn.fedorahosted.org/svn/pki/branches/PKI_8_1_ADVANCED_ERRATA_BRANCH/pki/base/config
+config http://github.com/dogtagpki/legacy-pki.git/branches/PKI_8_1_ADVANCED_ERRATA_BRANCH/pki/base/config
