@@ -99,6 +99,8 @@ public class KeyGenInput extends EnrollInput implements IProfileInput {
         X509CertInfo info =
             request.getExtDataInCertInfo(EnrollProfile.REQUEST_CERTINFO);
 
+        CMS.debug("KeyGenInput.populate keygen_request_type " + keygen_request_type);
+
         if (keygen_request_type == null) {
             CMS.debug("KeyGenInput: populate - invalid cert request type " +
                 "");
@@ -107,6 +109,17 @@ public class KeyGenInput extends EnrollInput implements IProfileInput {
                         "CMS_PROFILE_UNKNOWN_CERT_REQ_TYPE",
                         ""));
         }
+
+        if (keygen_request == null || keygen_request.isEmpty()) {
+             CMS.debug("KeyGenInput: populate - missing cert request  " +
+                "");
+
+            throw new EProfileException(
+                    CMS.getUserMessage(getLocale(request),
+                        "CMS_PROFILE_NO_CERT_REQ",
+                        ""));
+        }
+
         if (keygen_request_type.startsWith(EnrollProfile.REQ_TYPE_PKCS10)) {
             PKCS10 pkcs10 = mEnrollProfile.parsePKCS10(getLocale(request), keygen_request);
 
