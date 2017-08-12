@@ -3164,7 +3164,7 @@ int RA_Processor::EncryptData(Buffer &CUID, Buffer &KDD, Buffer &version, Buffer
         char *cuid = Util::SpecialURLEncode(CUID);
 	char *cuid_x = Util::Buffer2String(CUID);
         char *kdd = Util::SpecialURLEncode(KDD);
-        char *versionID = Util::SpecialURLEncode(version);
+        char *versionID = Util::SpecialURLEncode(version, true /*skipAlphaNumeric*/);
 
 	keySet = GetKeySet(appInfo, cuid_x, connid, ra_status);
 	if (keySet == NULL) {
